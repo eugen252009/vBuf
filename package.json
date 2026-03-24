@@ -1,0 +1,13 @@
+{
+  "name": "jsonserialize",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "bumparena": "^0.10.2"
+  }
+}
