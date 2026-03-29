@@ -1,4 +1,9 @@
-import { VBuf } from "./vbuf.ts";
+import { vBuf } from "./vbuf.ts";
 
-const file = Bun.mmap("./data.json")
-const fb = new VBuf(file)
+const input = Bun.mmap("./data.json");
+
+const vb = new vBuf(input);
+const binaryOutput = vb.serialize();
+
+await Bun.write("./data.vbuf", binaryOutput);
+console.log("vBuf Datei erfolgreich erstellt!");
