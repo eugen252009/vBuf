@@ -52,7 +52,7 @@ export class vBuf {
 	private i = 0;
 	private len: number;
 	private cells: Uint8Array[] = [];
-	public debug = true;
+	public debug = false;
 
 	constructor(input: ArrayBufferLike | Uint8Array) {
 		this.view = input instanceof Uint8Array ? input : new Uint8Array(input);
@@ -324,7 +324,7 @@ export class vBuf {
 				if ((c >= 0x30 && c <= 0x39) || c === 0x2d) {
 					return this.readNumber();
 				}
-				throw new Error(`Unexpected character: ${String.fromCharCode(c)} at index ${this.i}`);
+				throw new Error(`Unexpected character: ${String.fromCharCode(c)} at index ${this.i} ${c}`);
 		}
 	}
 	private consumeKeyword(start: number, expected: string, type: TokenType): Token {
@@ -458,5 +458,75 @@ export class vBuf {
 			}
 			break;
 		}
+	}
+	private getKeyFromCell(cell: Uint8Array): string {
+		const keyLen = cell[1]!;
+		const keyBuf = cell.subarray(4, 4 + keyLen);
+		return new TextDecoder().decode(keyBuf);
+	}
+	private getValueFromCell(cell: Uint8Array): any {
+		const combinedType = cell[0]!;
+		const pType = combinedType & 0x0F; // Physikalischer Typ (untere 4 Bits)
+		const keyLen = cell[1]!;
+		const valLen = new DataView(cell.buffer, cell.byteOffset, cell.byteLength).getUint16(2, true);
+
+		// Start der Payload: Header (4) + Key (keyLen)
+		const valStart = 4 + keyLen;
+		const valBuf = cell.subarray(valStart, valStart + valLen);
+		const dv = new DataView(valBuf.buffer, valBuf.byteOffset, valBuf.byteLength);
+
+		switch (pType) {
+			case Phys.NUL:
+				return null;
+			case Phys.SMI: // Phys.SMI (i32)
+				return dv.getInt32(0, true);
+			case Phys.BIGI: // Phys.BIGI (i64)
+				return dv.getBigInt64(0, true);
+			case Phys.BLOB: // Phys.BLOB (String oder riesiger BigInt)
+				const str = new TextDecoder().decode(valBuf);
+				// Check, ob es ein BigInt-Fallback war (endet auf n bei der Serialisierung)
+				if ((combinedType >> 4) === 0 && valLen > 0 && !isNaN(Number(str)) && str.length > 15) {
+					try { return BigInt(str); } catch { return str; }
+				}
+				return str;
+			case Phys.UUID: // Phys.UUID
+				return valBuf.toHex().replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5");
+			case Phys.FLOT: // Phys.FLOT (f64)
+				return dv.getFloat64(0, true);
+			case Phys.FAL: // Phys.FAL (Inlined False)
+				return false;
+			case Phys.TRU: // Phys.TRU (Inlined True)
+				return true;
+			default:
+				return null;
+		}
+	}
+	public toObject(): any {
+		const root: any = {};
+
+		for (const cell of this.cells) {
+			const path = this.getKeyFromCell(cell);
+			const value = this.getValueFromCell(cell);
+
+			const parts = path.split(/\.|\[|\]/).filter(Boolean);
+			let current = root;
+
+			for (let i = 0; i < parts.length; i++) {
+				const part = parts[i]!;
+				const isLast = i === parts.length - 1;
+				const nextPart = parts[i + 1]!;
+				const nextIsArray = nextPart !== undefined && !isNaN(Number(nextPart));
+
+				if (isLast) {
+					current[part] = value;
+				} else {
+					if (!(part in current)) {
+						current[part] = nextIsArray ? [] : {};
+					}
+					current = current[part];
+				}
+			}
+		}
+		return root;
 	}
 }

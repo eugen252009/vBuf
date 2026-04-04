@@ -64,9 +64,9 @@ while (i < buffer.length) {
 	const pType = combinedType & 0x0F;
 
 	const hT = combinedType.toString(16).padStart(2, '0');
-	const hK = keyLen.toString(16).padStart(2, '0');
-	const hV = valLen.toString(16).padStart(4, '0');
-	const headerStr = `${colors.red}${hT}${colors.yellow}${hK}${hV}${colors.reset}`;
+	const hK = keyLen.toString(10).padStart(2, ' ');
+	const hV = valLen.toString(10).padStart(4, ' ');
+	const headerStr = `${colors.red}${hT}${colors.yellow} ${hK} ${hV} ${colors.reset}`;
 
 	const keyStart = i + 4;
 	const keyName = new TextDecoder().decode(buffer.subarray(keyStart, keyStart + keyLen));
