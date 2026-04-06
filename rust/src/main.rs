@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Write;
 use std::io::{BufRead, BufReader, BufWriter};
-use vbuf_core::{VBuf, Xxh3Strategy};
+use vbuf_core::{DynamicArena, VBuf, Xxh3Strategy};
 // optional: use zstd;
 
 fn main() -> std::io::Result<()> {
@@ -16,13 +16,14 @@ fn main() -> std::io::Result<()> {
     let mut writer = BufWriter::new(out_file);
 
     // 3. VBuf-Konfiguration (ohne dass es selbst Daten speichert)
-    let vbuf = VBuf::empty(Box::new(Xxh3Strategy));
+    let vbuf = VBuf::new(Box::new(Xxh3Strategy));
 
     println!("Starte Verarbeitung der 69GB Datei...");
 
+    let mut arena = DynamicArena::new(16384);
     for (i, line) in reader.lines().enumerate() {
         if let Ok(l) = line {
-            vbuf.stream_json(l.as_bytes(), &mut writer)?;
+            vbuf.stream_json(l.as_bytes(), &mut writer, &mut arena)?;
         }
 
         if i % 100_000 == 0 && i > 0 {

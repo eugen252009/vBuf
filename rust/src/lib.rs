@@ -1,11 +1,33 @@
 use std::io::Write;
 use xxhash_rust::xxh3::xxh3_64;
 
-// --- STRATEGY PATTERN FÜR CHECKSUMS ---
+// --- ARENA ---
+
+pub struct DynamicArena {
+    buffer: Vec<u8>,
+}
+
+impl DynamicArena {
+    pub fn new(initial_size: usize) -> Self {
+        Self {
+            buffer: vec![0u8; initial_size],
+        }
+    }
+
+    pub fn get_mut(&mut self, required_size: usize) -> &mut [u8] {
+        if required_size > self.buffer.len() {
+            let new_size = (required_size + 4095) & !4095;
+            self.buffer.resize(new_size, 0);
+            // eprintln!("[vBuf] Arena auf {} Bytes vergrößert", new_size);
+        }
+        &mut self.buffer[..required_size]
+    }
+}
+
+// --- STRATEGY PATTERN ---
 
 pub trait ChecksumStrategy {
     fn compute(&self, data: &[u8]) -> u32;
-    fn name(&self) -> &'static str;
 }
 
 pub struct Xxh3Strategy;
@@ -13,22 +35,9 @@ impl ChecksumStrategy for Xxh3Strategy {
     fn compute(&self, data: &[u8]) -> u32 {
         xxh3_64(data) as u32
     }
-    fn name(&self) -> &'static str {
-        "XXH3"
-    }
 }
 
-pub struct NoChecksumStrategy;
-impl ChecksumStrategy for NoChecksumStrategy {
-    fn compute(&self, _data: &[u8]) -> u32 {
-        0
-    }
-    fn name(&self) -> &'static str {
-        "None"
-    }
-}
-
-// --- TYPEN & ENUMS ---
+// --- TYPEN ---
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenKind {
@@ -46,6 +55,12 @@ pub enum TokenKind {
     EndOfFile,
 }
 
+pub struct Token {
+    pub kind: TokenKind,
+    pub start: usize,
+    pub len: usize,
+}
+
 #[repr(u8)]
 pub enum Sem {
     NUM = 0,
@@ -55,78 +70,85 @@ pub enum Sem {
     ARR = 4,
     OBJ = 5,
 }
-
 #[repr(u8)]
 pub enum Phys {
     NUL = 0,
+    SMI = 1,
     BLOB = 3,
     FLOT = 5,
     TRU = 6,
     FAL = 7,
 }
 
-#[derive(Debug)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub start: usize,
-    pub len: usize,
-}
-
 // --- VBUF CORE ---
 
 pub struct VBuf {
-    pub cells: Vec<Vec<u8>>,
-    strategy: Box<dyn ChecksumStrategy>,
+    pub strategy: Box<dyn ChecksumStrategy>,
 }
 
 impl VBuf {
-    pub fn empty(strategy: Box<dyn ChecksumStrategy>) -> Self {
-        Self {
-            cells: Vec::new(),
-            strategy,
-        }
+    pub fn new(strategy: Box<dyn ChecksumStrategy>) -> Self {
+        Self { strategy }
     }
 
-    pub fn stream_json<W: Write>(&self, input: &[u8], stream: &mut W) -> std::io::Result<()> {
+    pub fn stream_json<W: Write>(
+        &self,
+        input: &[u8],
+        stream: &mut W,
+        arena: &mut DynamicArena,
+    ) -> std::io::Result<()> {
+        stream.write_all(b"VBUF0.3\0")?;
+        stream.write_all(&[0u8; 8])?;
+
         let mut lexer = VBufLexer::new(input);
         let first_token = lexer.next_token();
-        lexer.parse_and_stream(stream, self, String::new(), first_token)
+
+        lexer.parse_and_stream(stream, self, String::new(), first_token, arena)
     }
 
-    fn _create_cell(&self, s_type: u8, p_type: u8, key: &str, payload: &[u8]) -> Vec<u8> {
-        let key_bytes = key.as_bytes();
-        let safe_val_len = payload.len().min(65535) as u16;
-
-        // Wir berechnen den Hash weiterhin vom Namen...
-        let path_hash = xxh3_64(key_bytes) as u32;
+    pub fn write_cell_to_arena<'a>(
+        &self,
+        arena: &'a mut DynamicArena,
+        s_type: u8,
+        p_type: u8,
+        key: &str,
+        payload: &[u8],
+        inline_val: Option<u32>,
+    ) -> &'a [u8] {
+        let path_hash = xxh3_64(key.as_bytes()) as u32;
         let combined_type = (s_type << 4) | (p_type & 0x0F);
+        let val_len = if inline_val.is_some() {
+            4u16
+        } else {
+            payload.len() as u16
+        };
 
-        // ...aber im Header setzen wir key_len auf 0, da wir den String nicht speichern
-        let header: u64 = (path_hash as u64)
-        | ((combined_type as u64) << 32)
-        | (0u64 << 40) // key_len ist jetzt 0
-        | ((safe_val_len as u64) << 48);
+        let total_size = (8 + val_len as usize + 4 + 15) & !15;
+        let buffer = arena.get_mut(total_size);
 
-        // Größe: 8 (Header) + 0 (Key) + Payload + 4 (CRC)
-        let data_size = 8 + safe_val_len as usize + 4;
-        let total_size = (data_size + 15) & !15;
+        let header: u64 =
+            (path_hash as u64) | ((combined_type as u64) << 32) | ((val_len as u64) << 48);
 
-        let mut cell = vec![0; total_size];
-        cell[0..8].copy_from_slice(&header.to_le_bytes());
+        buffer[0..8].copy_from_slice(&header.to_le_bytes());
 
-        // Payload kommt jetzt DIREKT nach dem Header (Offset 8)
-        let val_end = 8 + safe_val_len as usize;
-        cell[8..val_end].copy_from_slice(&payload[..safe_val_len as usize]);
+        if let Some(val) = inline_val {
+            buffer[8..12].copy_from_slice(&val.to_le_bytes());
+        } else {
+            buffer[8..8 + payload.len()].copy_from_slice(payload);
+        }
 
-        let crc = self.strategy.compute(&cell[..total_size - 4]);
-        let crc_start = total_size - 4;
-        cell[crc_start..total_size].copy_from_slice(&crc.to_le_bytes());
+        let crc_pos = total_size - 4;
+        for i in (8 + val_len as usize)..crc_pos {
+            buffer[i] = 0;
+        }
+        let crc = self.strategy.compute(&buffer[..crc_pos]);
+        buffer[crc_pos..total_size].copy_from_slice(&crc.to_le_bytes());
 
-        cell
+        &buffer[..total_size]
     }
 }
 
-// --- STREAMING LEXER LOGIK ---
+// --- LEXER ---
 
 pub struct VBufLexer<'a> {
     input: &'a [u8],
@@ -144,6 +166,7 @@ impl<'a> VBufLexer<'a> {
         vbuf: &VBuf,
         prefix: String,
         current_token: Token,
+        arena: &mut DynamicArena,
     ) -> std::io::Result<()> {
         match current_token.kind {
             TokenKind::LCurly => loop {
@@ -151,25 +174,21 @@ impl<'a> VBufLexer<'a> {
                 if key_token.kind == TokenKind::RCurly || key_token.kind == TokenKind::EndOfFile {
                     break;
                 }
-
                 if key_token.kind == TokenKind::String {
                     let key_str = std::str::from_utf8(
                         &self.input[key_token.start + 1..key_token.start + key_token.len - 1],
                     )
                     .unwrap_or("");
-
                     let new_prefix = if prefix.is_empty() {
                         key_str.to_string()
                     } else {
                         format!("{}.{}", prefix, key_str)
                     };
-
                     if self.next_token().kind == TokenKind::Colon {
                         let val_token = self.next_token();
-                        self.parse_and_stream(stream, vbuf, new_prefix, val_token)?;
+                        self.parse_and_stream(stream, vbuf, new_prefix, val_token, arena)?;
                     }
                 }
-
                 if self.peek_token().kind == TokenKind::Comma {
                     self.next_token();
                 }
@@ -183,11 +202,14 @@ impl<'a> VBufLexer<'a> {
                     {
                         break;
                     }
-
-                    let new_prefix = format!("{}[{}]", prefix, index);
-                    self.parse_and_stream(stream, vbuf, new_prefix, val_token)?;
+                    self.parse_and_stream(
+                        stream,
+                        vbuf,
+                        format!("{}[{}]", prefix, index),
+                        val_token,
+                        arena,
+                    )?;
                     index += 1;
-
                     if self.peek_token().kind == TokenKind::Comma {
                         self.next_token();
                     }
@@ -196,32 +218,74 @@ impl<'a> VBufLexer<'a> {
             TokenKind::String => {
                 let val = &self.input
                     [current_token.start + 1..current_token.start + current_token.len - 1];
-                let cell = vbuf._create_cell(Sem::STR as u8, Phys::BLOB as u8, &prefix, val);
-                stream.write_all(&cell)?;
+                stream.write_all(vbuf.write_cell_to_arena(
+                    arena,
+                    Sem::STR as u8,
+                    Phys::BLOB as u8,
+                    &prefix,
+                    val,
+                    None,
+                ))?;
             }
             TokenKind::Number => {
                 let val_bytes =
                     &self.input[current_token.start..current_token.start + current_token.len];
-                let cell = vbuf._create_cell(Sem::NUM as u8, Phys::FLOT as u8, &prefix, val_bytes);
-                stream.write_all(&cell)?;
+                let val_str = std::str::from_utf8(val_bytes).unwrap_or("0");
+                let cell = if let Ok(num) = val_str.parse::<u16>() {
+                    vbuf.write_cell_to_arena(
+                        arena,
+                        Sem::NUM as u8,
+                        Phys::SMI as u8,
+                        &prefix,
+                        &[],
+                        Some(num as u32),
+                    )
+                } else if let Ok(f_num) = val_str.parse::<f64>() {
+                    vbuf.write_cell_to_arena(
+                        arena,
+                        Sem::NUM as u8,
+                        Phys::FLOT as u8,
+                        &prefix,
+                        &f_num.to_le_bytes(),
+                        None,
+                    )
+                } else {
+                    vbuf.write_cell_to_arena(
+                        arena,
+                        Sem::NUM as u8,
+                        Phys::BLOB as u8,
+                        &prefix,
+                        val_bytes,
+                        None,
+                    )
+                };
+                stream.write_all(cell)?;
             }
             TokenKind::True | TokenKind::False => {
-                let b = if current_token.kind == TokenKind::True {
-                    [1]
+                let val = if current_token.kind == TokenKind::True {
+                    1
                 } else {
-                    [0]
+                    0
                 };
-                let p_type = if current_token.kind == TokenKind::True {
-                    Phys::TRU
-                } else {
-                    Phys::FAL
-                };
-                let cell = vbuf._create_cell(Sem::BOL as u8, p_type as u8, &prefix, &b);
-                stream.write_all(&cell)?;
+                let phys = if val == 1 { Phys::TRU } else { Phys::FAL };
+                stream.write_all(vbuf.write_cell_to_arena(
+                    arena,
+                    Sem::BOL as u8,
+                    phys as u8,
+                    &prefix,
+                    &[],
+                    Some(val),
+                ))?;
             }
             TokenKind::Null => {
-                let cell = vbuf._create_cell(Sem::NUL as u8, Phys::NUL as u8, &prefix, &[]);
-                stream.write_all(&cell)?;
+                stream.write_all(vbuf.write_cell_to_arena(
+                    arena,
+                    Sem::NUL as u8,
+                    Phys::NUL as u8,
+                    &prefix,
+                    &[],
+                    None,
+                ))?;
             }
             _ => {}
         }
@@ -229,9 +293,9 @@ impl<'a> VBufLexer<'a> {
     }
 
     fn peek_token(&mut self) -> Token {
-        let current_i = self.i;
+        let i = self.i;
         let t = self.next_token();
-        self.i = current_i;
+        self.i = i;
         t
     }
 
@@ -246,7 +310,6 @@ impl<'a> VBufLexer<'a> {
                 len: 0,
             };
         }
-
         let start = self.i;
         let kind = match self.input[self.i] {
             b'{' => {
