@@ -94,36 +94,38 @@ void vbuf_close(vbuf_instance_t *inst) {
 
 // --- WRITING CORE (Multi-Type fähig) ---
 
-void vbuf_write_atomic_column(FILE *f, uint32_t id, size_t n, uint32_t alignment, uint16_t bit_width, const void *data) {
-    // 1. Der 64-Bit Anchor (Identität & Typ)
-    uint64_t anchor = 0;
-    anchor |= (1ULL << 4);              // PHYS: Array
-    anchor |= (1ULL << 9);              // OVERFLOW: N folgt als u64
-    anchor |= ((uint64_t)(id & 0xFFFF) << 16);
-    anchor |= ((uint64_t)bit_width << 32);
+void vbuf_write_atomic_column(FILE *f, uint32_t id, size_t n,
+                              uint32_t alignment, uint16_t bit_width,
+                              const void *data) {
+  // 1. Der 64-Bit Anchor (Identität & Typ)
+  uint64_t anchor = 0;
+  anchor |= (1ULL << 4); // PHYS: Array
+  anchor |= (1ULL << 9); // OVERFLOW: N folgt als u64
+  anchor |= ((uint64_t)(id & 0xFFFF) << 16);
+  anchor |= ((uint64_t)bit_width << 32);
 
-    fwrite(&anchor, 8, 1, f);
-    
-    // 2. Die Anzahl (u64)
-    uint64_t n_64 = (uint64_t)n;
-    fwrite(&n_64, 8, 1, f);
+  fwrite(&anchor, 8, 1, f);
 
-    // 3. Alignment auf das Diamond-Grid
-    fflush(f);
-    off_t pos = ftello(f);
-    size_t pad = (alignment - (pos % alignment)) % alignment;
-    if (pad > 0) {
-        // Wir nutzen einen statischen Null-Buffer für Speed
-        static const uint8_t zero[4096] = {0};
-        fwrite(zero, 1, pad, f);
-    }
+  // 2. Die Anzahl (u64)
+  uint64_t n_64 = (uint64_t)n;
+  fwrite(&n_64, 8, 1, f);
 
-    // 4. Die Daten "dumm" rausschreiben
-    size_t bytes_per_item = bit_width / 8;
-    fwrite(data, bytes_per_item, n, f);
-    
-    // Optionaler Debug-Print
-    // printf("[Writer] ID %u: %zu items (%u-bit) written.\n", id, n, bit_width);
+  // 3. Alignment auf das Diamond-Grid
+  fflush(f);
+  off_t pos = ftello(f);
+  size_t pad = (alignment - (pos % alignment)) % alignment;
+  if (pad > 0) {
+    // Wir nutzen einen statischen Null-Buffer für Speed
+    static const uint8_t zero[4096] = {0};
+    fwrite(zero, 1, pad, f);
+  }
+
+  // 4. Die Daten "dumm" rausschreiben
+  size_t bytes_per_item = bit_width / 8;
+  fwrite(data, bytes_per_item, n, f);
+
+  // Optionaler Debug-Print
+  // printf("[Writer] ID %u: %zu items (%u-bit) written.\n", id, n, bit_width);
 }
 
 // --- DISPATCHER ---
