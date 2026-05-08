@@ -101,6 +101,27 @@ fn ensure_test_file(filename: &str, n: usize) -> Result<(), &str> {
 
     Ok(())
 }
+
+fn get_cycles() -> u64 {
+    #[cfg(target_arch = "x86_64")]
+    {
+        unsafe { std::arch::x86_64::_rdtsc() }
+    }
+    #[cfg(target_arch = "riscv64")]
+    {
+        // RISC-V spezifischer Cycle-Counter
+        let cycles: u64;
+        unsafe {
+            std::arch::asm!("rdcycle {}", out(reg) cycles);
+        }
+        cycles
+    }
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "riscv64")))]
+    {
+        // Fallback für andere (z.B. ARM/Mac), falls nötig
+        0
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,7 +154,7 @@ mod tests {
         println!("Vergleiche A vs B: if(A[i] > B[i]) count++ | n = {}", n);
 
         let start = Instant::now();
-        let cycle_start = unsafe { std::arch::x86_64::_rdtsc() };
+        let cycle_start = get_cycles();
 
         // 2. Parallele Verarbeitung mit Rayon
         // Wir nutzen .zip(), um beide Spalten gleichzeitig zu iterieren
@@ -182,7 +203,7 @@ mod tests {
 
         // Messung Start
         let time_start = std::time::Instant::now();
-        let cycle_start = unsafe { std::arch::x86_64::_rdtsc() };
+        let cycle_start = get_cycles();
 
         // Berechnung
         let dot_product: f64 = col_a
@@ -220,7 +241,7 @@ mod tests {
         let n = col_a.len();
 
         let start = Instant::now();
-        let cycle_start = unsafe { std::arch::x86_64::_rdtsc() };
+        let cycle_start = get_cycles();
 
         // 1. Transform (Warning gefixt: Klammern entfernt)
         let result: Vec<u32> = col_a
@@ -271,7 +292,7 @@ mod tests {
 
         println!("\n--- vBuf Weighted Sum (Window Test) ---");
         let start = Instant::now();
-        let cycle_start = unsafe { std::arch::x86_64::_rdtsc() };
+        let cycle_start = get_cycles();
 
         // Wir berechnen eine gewichtete Summe über 3 Elemente (0.25*a + 0.5*b + 0.25*c)
         let result: Vec<u32> = data
@@ -300,7 +321,7 @@ mod tests {
 
         println!("\n--- vBuf Search & Index Collect ---");
         let start = Instant::now();
-        let cycle_start = unsafe { std::arch::x86_64::_rdtsc() };
+        let cycle_start = get_cycles();
 
         // Finde alle Indizes, wo der Wert > 100000 ist
         let indices: Vec<usize> = data
@@ -385,7 +406,7 @@ mod tests {
 
         println!("\n\x1b[1;33m--- vBuf Copy & Scale (SIMD Check) ---\x1b[0m");
         let start = Instant::now();
-        let cycle_start = unsafe { std::arch::x86_64::_rdtsc() };
+        let cycle_start = get_cycles();
 
         // Simuliert das Erstellen einer Arbeitskopie mit Skalierung
         let result: Vec<u32> = data.par_iter().map(|&x| x.wrapping_mul(42)).collect();
@@ -413,7 +434,7 @@ mod tests {
 
         println!("\n\x1b[1;34m--- vBuf Histogramm Benchmark (u32 -> 256 Buckets) ---\x1b[0m");
         let start = Instant::now();
-        let cycle_start = unsafe { std::arch::x86_64::_rdtsc() };
+        let cycle_start = get_cycles();
         // Rayon fold/reduce braucht korrekte Typ-Annotationen
         let bins = data
             .par_iter()
