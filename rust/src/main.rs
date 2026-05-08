@@ -165,7 +165,7 @@ mod tests {
             .count();
 
         let duration = start.elapsed();
-        let cycle_end = unsafe { std::arch::x86_64::_rdtsc() };
+let cycle_end = get_cycles();
         let secs = duration.as_secs_f64();
 
         let total_cycles = (cycle_end - cycle_start) as f64;
@@ -214,7 +214,7 @@ mod tests {
 
         // Messung Ende
         let time_duration = time_start.elapsed();
-        let cycle_end = unsafe { std::arch::x86_64::_rdtsc() };
+let cycle_end = get_cycles();
 
         // Kalkulationen
         let secs = time_duration.as_secs_f64();
@@ -266,7 +266,7 @@ mod tests {
             writer.write_column(103, &result).expect("Write Error");
         }
 
-        let cycle_end = unsafe { std::arch::x86_64::_rdtsc() };
+let cycle_end = get_cycles();
         let secs = start.elapsed().as_secs_f64();
 
         let total_cycles = (cycle_end - cycle_start) as f64;
@@ -300,7 +300,7 @@ mod tests {
             .map(|w| ((w[0] as f32 * 0.25) + (w[1] as f32 * 0.5) + (w[2] as f32 * 0.25)) as u32)
             .collect();
 
-        let cycle_end = unsafe { std::arch::x86_64::_rdtsc() };
+let cycle_end = get_cycles();
         let secs = start.elapsed().as_secs_f64();
         let total_bytes = (n * 4 + result.len() * 4) as f64;
 
@@ -331,7 +331,7 @@ mod tests {
             .map(|(idx, _)| idx)
             .collect();
 
-        let cycle_end = unsafe { std::arch::x86_64::_rdtsc() };
+let cycle_end = get_cycles();
         let secs = start.elapsed().as_secs_f64();
         let total_cycles = (cycle_end - cycle_start) as f64;
         let cycles_per_item = total_cycles / (data.len() as f64);
@@ -411,7 +411,7 @@ mod tests {
         // Simuliert das Erstellen einer Arbeitskopie mit Skalierung
         let result: Vec<u32> = data.par_iter().map(|&x| x.wrapping_mul(42)).collect();
 
-        let cycle_end = unsafe { std::arch::x86_64::_rdtsc() };
+let cycle_end = get_cycles();
         let secs = start.elapsed().as_secs_f64();
 
         let total_cycles = (cycle_end - cycle_start) as f64;
@@ -456,7 +456,7 @@ mod tests {
                 },
             );
 
-        let cycle_end = unsafe { std::arch::x86_64::_rdtsc() };
+let cycle_end = get_cycles();
         let secs = start.elapsed().as_secs_f64();
 
         let total_cycles = (cycle_end - cycle_start) as f64;
