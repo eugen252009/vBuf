@@ -181,7 +181,11 @@ mod tests {
             duration.as_secs_f64() * freq_hz
         };
         let cycles_per_item = total_cycles / (n as f64);
-
+        let cycles_item = if cycles_per_item > 0.0001 {
+            cycles_per_item
+        } else {
+            (duration.as_secs_f64() * freq_hz) / n as f64
+        };
         let total_bytes = (n * bytes_per_item) as f64;
         let speed_gb_s = (total_bytes / secs) / 1e9;
         let speed_per_ghz = speed_gb_s / freq_ghz;
