@@ -1,8 +1,36 @@
+use std::env;
+
 const FILENAME: &str = "/dev/shm/dual_test.vbuf";
 
 fn main() -> Result<(), ()> {
-    _ = ensure_test_file(FILENAME, 4_000_000);
+    let args: Vec<String> = env::args().collect();
+
+    let total_elements = if args.len() > 1 {
+        parse_size(&args[1])
+    } else {
+        100_000_000
+    };
+
+    let n_per_column = total_elements / 6;
+
+    println!("--- vBuf Industrie 5.0 Generator ---");
+    println!("Gesamtzielelemente: {}", total_elements);
+    println!("Elemente pro Spalte (6 Spalten): {}", n_per_column);
+    println!("Generiere vBuf Datei in /dev/shm/test.vbuf...");
+
+    _ = ensure_test_file(FILENAME, n_per_column);
     Ok(())
+}
+fn parse_size(size_str: &str) -> usize {
+    let multiplier = match size_str.chars().last().unwrap().to_ascii_uppercase() {
+        'K' => 1_000,
+        'M' => 1_000_000,
+        'G' => 1_000_000_000,
+        _ => return size_str.parse::<usize>().unwrap_or(0),
+    };
+
+    let val_str = &size_str[..size_str.len() - 1];
+    val_str.parse::<usize>().unwrap_or(0) * multiplier
 }
 fn ensure_test_file(filename: &str, n: usize) -> Result<(), &str> {
     if std::path::Path::new(filename).exists() {
@@ -11,57 +39,65 @@ fn ensure_test_file(filename: &str, n: usize) -> Result<(), &str> {
 
     println!("Generiere Testdatei {} mit {} Einträgen...", filename, n);
 
-    // 1. Writer erstellen (schreibt automatisch MAGIC, VERSION und Padding)
     let mut vbuf_writer = vbuf_core::VBufWriter::<std::fs::File>::create(filename)
         .map_err(|_| "Datei konnte nicht erstellt werden.")?;
 
-    // 2. Daten schreiben
-    // Wir nutzen direkt den internen BufWriter des VBufWriters.
-    // Da vbuf_writer.writer ein BufWriter<File> ist, funktioniert write_all.
+    // Wir teilen n durch 6, da wir 6 Spalten haben wollen
+    let n_per_col = n / 6;
 
-    // n ist die Anzahl der Elemente (z.B. 1.000.000)
-    let n_u32 = n as u32;
+    // --- SPALTE 101 ---
+    {
+        println!("Schreibe Spalte 101...");
+        let col: Vec<u32> = (0..n_per_col as u32).collect();
+        vbuf_writer
+            .write_column(101, &col)
+            .map_err(|_| "Fehler 101")?;
+    } // col wird hier gedroppt -> RAM wieder frei
 
-    // Spalte A: Einfache Sequenz (0, 1, 2, 3...)
-    let col_a: Vec<u32> = (0..n_u32).collect();
+    // --- SPALTE 102 ---
+    {
+        println!("Schreibe Spalte 102...");
+        let col = vec![2u32; n_per_col];
+        vbuf_writer
+            .write_column(102, &col)
+            .map_err(|_| "Fehler 102")?;
+    } // RAM wieder frei
 
-    // Spalte B: Konstante 2 (wie gehabt)
-    let col_b: Vec<u32> = vec![2u32; n];
+    // --- SPALTE 103 ---
+    {
+        println!("Schreibe Spalte 103...");
+        let col: Vec<u32> = (0..n_per_col as u32).map(|x| x * 2).collect();
+        vbuf_writer
+            .write_column(103, &col)
+            .map_err(|_| "Fehler 103")?;
+    }
 
-    // Spalte C: Verdopplung (0, 2, 4, 6...)
-    let col_c: Vec<u32> = (0..n_u32).map(|x| x * 2).collect();
+    // --- SPALTE 104 ---
+    {
+        println!("Schreibe Spalte 104...");
+        let col: Vec<u32> = (0..n_per_col as u32).map(|x| x.wrapping_mul(x)).collect();
+        vbuf_writer
+            .write_column(104, &col)
+            .map_err(|_| "Fehler 104")?;
+    }
 
-    // Spalte D: Quadratzahlen (0, 1, 4, 9...)
-    // Hinweis: Nutze wrapping_mul, falls n sehr groß ist, um Overflows zu vermeiden
-    let col_d: Vec<u32> = (0..n_u32).map(|x| x.wrapping_mul(x)).collect();
+    // --- SPALTE 105 ---
+    {
+        println!("Schreibe Spalte 105...");
+        let col: Vec<u32> = (0..n_per_col as u32).map(|x| !x).collect();
+        vbuf_writer
+            .write_column(105, &col)
+            .map_err(|_| "Fehler 105")?;
+    }
 
-    // Spalte E: Bitweise invertiert (Alle Bits umdrehen)
-    let col_e: Vec<u32> = (0..n_u32).map(|x| !x).collect();
-
-    // Spalte F: Ein Mix aus Addition und Modulo (erzeugt ein Sägezahn-Muster)
-    let col_f: Vec<u32> = (0..n_u32).map(|x| (x + 100) % 500).collect();
-
-    // 3. Deine write_column Methode nutzen
-    // Ich nehme an, die IDs sind 101 und 102
-    vbuf_writer
-        .write_column(101, &col_a)
-        .map_err(|_| "Fehler beim Schreiben von Spalte 101")?;
-
-    vbuf_writer
-        .write_column(102, &col_b)
-        .map_err(|_| "Fehler beim Schreiben von Spalte 102")?;
-    vbuf_writer
-        .write_column(103, &col_c)
-        .map_err(|_| "Fehler beim Schreiben von Spalte 102")?;
-    vbuf_writer
-        .write_column(104, &col_d)
-        .map_err(|_| "Fehler beim Schreiben von Spalte 102")?;
-    vbuf_writer
-        .write_column(105, &col_e)
-        .map_err(|_| "Fehler beim Schreiben von Spalte 102")?;
-    vbuf_writer
-        .write_column(106, &col_f)
-        .map_err(|_| "Fehler beim Schreiben von Spalte 102")?;
+    // --- SPALTE 106 ---
+    {
+        println!("Schreibe Spalte 106...");
+        let col: Vec<u32> = (0..n_per_col as u32).map(|x| (x + 100) % 500).collect();
+        vbuf_writer
+            .write_column(106, &col)
+            .map_err(|_| "Fehler 106")?;
+    }
 
     Ok(())
 }
