@@ -1,6 +1,6 @@
 use std::env;
 
-const FILENAME: &str = "/dev/shm/dual_test.vbuf";
+const FILENAME: &str = "./dual_test.vbuf";
 
 fn main() -> Result<(), ()> {
     let args: Vec<String> = env::args().collect();
