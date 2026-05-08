@@ -234,7 +234,7 @@ let cycle_end = get_cycles();
     }
     #[test]
     fn benchmark_transform_and_write() {
-        const OUTPUT_FILENAME: &str = "/dev/shm/output_test.vbuf";
+        const OUTPUT_FILENAME: &str = "./test_out.vbuf";
         let inst = VBufInstance::open(FILENAME).expect("Input Datei nicht gefunden");
         let col_a = inst.get_as::<u32>(101).expect("Spalte 101 fehlt");
         let col_b = inst.get_as::<u32>(102).expect("Spalte 102 fehlt");
