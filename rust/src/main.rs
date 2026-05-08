@@ -145,11 +145,11 @@ fn get_current_freq_hz() -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Local;
     use rayon::prelude::*;
-    use std::{
-        fs::{OpenOptions, remove_file},
-        time::Instant,
-    };
+    use std::fs::{OpenOptions, remove_file}; // Hier ist OpenOptions jetzt nur einmal drin
+    use std::io::Write;
+    use std::time::Instant;
     use vbuf_core::{VBufInstance, VBufWriter};
 
     // Hilfsfunktion für die "Eugen-Metrik"
@@ -220,19 +220,40 @@ mod tests {
             .open(file_path)
             .expect("Konnte bench.md nicht öffnen");
 
-        // Header nur schreiben, wenn die Datei funkelnagelneu ist
+        // Architektur automatisch erkennen
+        let arch = std::env::consts::ARCH;
+
+        // CPU-Modellnamen unter Linux ermitteln (Cubietruck/Orange Pi)
+        let cpu_model = std::fs::read_to_string("/proc/cpuinfo")
+            .ok()
+            .and_then(|info| {
+                info.lines()
+                    .find(|line| line.starts_with("model name") || line.starts_with("Hardware"))
+                    .and_then(|line| line.split(':').nth(1))
+                    .map(|s| s.trim().to_string())
+            })
+            .unwrap_or_else(|| "Unknown CPU".to_string());
+
         if !file_exists {
-            writeln!(file, "| Timestamp | Testname | Elemente | Speed (GB/s) | Freq (GHz) | Speed/GHz | Cycles/Item |").unwrap();
-            writeln!(file, "|-----------|----------|----------|--------------|------------|-----------|-------------|").unwrap();
+            // Header mit neuen Spalten: Arch | CPU
+            writeln!(file, "| Timestamp | Arch | CPU | Testname | Elemente | Speed (GB/s) | Freq (GHz) | Speed/GHz | Cycles/Item |").unwrap();
+            writeln!(file, "|-----------|------|-----|----------|----------|--------------|------------|-----------|-------------|").unwrap();
         }
 
-        // Timestamp generieren (z.B. 2026-05-08 20:15:42)
         let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
         writeln!(
             file,
-            "| {} | {:<25} | {:>10} | {:>12.2} | {:>10.2} | {:>9.2} | {:>11.4} |",
-            timestamp, name, n, speed_gb_s, freq_ghz, speed_per_ghz, cycles_per_item
+            "| {} | {} | {} | {:<25} | {:>10} | {:>12.2} | {:>10.2} | {:>9.2} | {:>11.4} |",
+            timestamp,
+            arch,
+            cpu_model,
+            name,
+            n,
+            speed_gb_s,
+            freq_ghz,
+            speed_per_ghz,
+            cycles_per_item
         )
         .expect("Schreibfehler in bench.md");
     }
