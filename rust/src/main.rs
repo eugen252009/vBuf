@@ -172,10 +172,14 @@ mod tests {
         c_end: u64,
     ) {
         let secs = duration.as_secs_f64();
-        let freq_hz = get_current_freq_hz(); // <--- HIER wird sie jetzt genutzt!
+        let freq_hz = get_current_freq_hz();
         let freq_ghz = freq_hz / 1e9;
 
-        let total_cycles = (c_end.wrapping_sub(c_start)) as f64;
+        let total_cycles = if c_end > c_start {
+            (c_end.wrapping_sub(c_start)) as f64
+        } else {
+            duration.as_secs_f64() * freq_hz
+        };
         let cycles_per_item = total_cycles / (n as f64);
 
         let total_bytes = (n * bytes_per_item) as f64;
@@ -453,9 +457,7 @@ mod tests {
         let inst = VBufInstance::open(FILENAME).expect("Input fehlt");
         let mem = inst.as_raw_slice();
         let end = mem.len();
-        let alignment = 4096;
-
-        println!("\n\x1b[1;36m--- vBuf Directory Scan (Metadata Speed) ---\x1b[0m");
+        let alignment = 64; // Auf dein vBuf Alignment anpassen
 
         let start = Instant::now();
         let c_start = get_cycles();
@@ -470,12 +472,11 @@ mod tests {
                 continue;
             }
 
-            let id = ((anchor >> 16) & 0xFFFF) as u16;
+            let _id = ((anchor >> 16) & 0xFFFF) as u16;
             let plen = ((anchor >> 32) & 0xFFFF) as u16;
             let n = u64::from_le_bytes(mem[curr + 8..curr + 16].try_into().unwrap());
 
             cols_found += 1;
-
             let data_start = (curr + 16 + (alignment - 1)) & !(alignment - 1);
             let data_bytes = (n * (plen as u64 / 8)) as usize;
             curr = (data_start + data_bytes + 7) & !7;
@@ -484,10 +485,20 @@ mod tests {
         let c_end = get_cycles();
         let duration = start.elapsed();
 
-        let total_cycles = c_end.wrapping_sub(c_start);
+        // Logge den Directory Scan als spezialisierten Eintrag
+        #[allow(dead_code)]
+        let freq_ghz = get_current_freq_hz() / 1e9;
+        log_benchmark_to_md(
+            "Directory Metadata Scan",
+            cols_found,
+            0.0,
+            (c_end - c_start) as f64 / cols_found as f64,
+            freq_ghz,
+            0.0,
+        );
+
+        println!("\n--- vBuf Directory Scan ---");
         println!("Spalten gefunden: {}", cols_found);
-        println!("Scan-Zeit:        {:?}", duration);
-        println!("Zyklen gesamt:    {}", total_cycles);
-        println!("--------------------------------------------");
+        println!("Zeit:             {:?}", duration);
     }
 }
