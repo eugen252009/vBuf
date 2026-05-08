@@ -1,5 +1,11 @@
 [build]
 rustflags = ["-C", "target-cpu=native"]
 
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "target-feature=+neon"]
+
+[target.riscv64gc-unknown-linux-gnu]
+rustflags = ["-C", "target-feature=+v,+zbb", "-C", "target-cpu=generic-rv64"]
+
 [alias]
 perf = "test --release -- --nocapture --test-threads=1"
