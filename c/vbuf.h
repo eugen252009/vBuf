@@ -32,6 +32,9 @@ void vbuf_write_atomic_column(FILE *f, uint32_t id, size_t n,
                               const void *data);
 void vbuf_write_column(FILE *f, uint32_t id, size_t n, uint32_t alignment,
                        const uint16_t *data);
+size_t vbuf_pack_block(void *target, uint16_t key_id, uint8_t type,
+                       const void *data, uint32_t count);
+
 
 // --- GENERIC DISPATCHER (Neu in vbuf.c implementiert) ---
 const void *vbuf_get_col_ptr(vbuf_instance_t *inst, uint32_t id, size_t *n_out,
