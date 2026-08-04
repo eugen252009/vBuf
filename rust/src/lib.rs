@@ -256,7 +256,7 @@ mod tests {
             std::ptr::null(),
             5,
         );
-        assert_eq!(needed_size, 4120);
+        assert_eq!(needed_size, 40);
 
         let mut target = vec![0u8; needed_size];
         let packed_size = super::vbuf_pack_block(
@@ -281,7 +281,7 @@ mod tests {
         assert_eq!(count, 5);
 
         // Verify data
-        let payload_offset = 4096;
+        let payload_offset = 16;
         let mut packed_data = vec![0u32; 5];
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -385,7 +385,7 @@ pub extern "C" fn vbuf_pack_block(
     }
 
     let header_size = 16;
-    let alignment = 4096;
+    let alignment = 16;
     let data_start = (header_size + (alignment - 1)) & !(alignment - 1);
     let data_bytes = count as usize * (bit_width as usize / 8);
     let mut total_size = data_start + data_bytes;
@@ -505,7 +505,7 @@ pub unsafe extern "C" fn vbuf_get_col_ptr(
             return std::ptr::null();
         }
         let r_inst = &*inst;
-        let mem = &r_inst._mmap;
+        let mem = std::slice::from_raw_parts(r_inst.mem, r_inst.size);
         let mut curr = 16;
         let end = mem.len();
         let alignment = r_inst.alignment as usize;

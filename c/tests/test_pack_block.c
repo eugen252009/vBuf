@@ -15,9 +15,9 @@ void run_test(vbuf_instance_t *inst) {
     size_t needed_size = vbuf_pack_block(NULL, key_id, type, test_data, 5);
     printf("Query needed size: %zu bytes\n", needed_size);
 
-    // Header (16) + alignment (to 4096) + data (20) + tail pad (to 8)
-    // 16 to 4096 = 4096. 4096 + 20 = 4116. Aligned to 8 = 4120.
-    assert(needed_size == 4120);
+    // Header (16) + alignment (to 16) + data (20) + tail pad (to 8)
+    // 16 to 16 = 16. 16 + 20 = 36. Aligned to 8 = 40.
+    assert(needed_size == 40);
 
     void* target = malloc(needed_size);
     assert(target != NULL);
@@ -39,7 +39,7 @@ void run_test(vbuf_instance_t *inst) {
     assert(count == 5);
 
     // Verify data
-    uint32_t* packed_data = (uint32_t*)((uint8_t*)target + 4096);
+    uint32_t* packed_data = (uint32_t*)((uint8_t*)target + 16);
     for (int i = 0; i < 5; i++) {
         assert(packed_data[i] == test_data[i]);
     }
