@@ -23,18 +23,25 @@ static inline const uint8_t *vbuf_find_anchor(vbuf_instance_t *inst,
   const uint8_t *curr = inst->mem + 16;
   const uint8_t *end = inst->mem + inst->size;
 
-  while (curr + 16 <=
-         end) { // 8 Byte Anchor + mind. 8 Byte N (wegen Overflow bit)
+  while (curr + 8 <= end) {
     uint64_t anchor = *(const uint64_t *)curr;
     uint16_t current_id = (uint16_t)((anchor >> 16) & 0xFFFF);
     uint16_t bit_width = (uint16_t)((anchor >> 32) & 0xFFFF);
 
-    // N auslesen (wir nutzen immer das Overflow-Feld direkt nach dem Anchor)
-    uint64_t n = *(const uint64_t *)(curr + 8);
-
     if (anchor == 0) {
       curr += 8;
       continue;
+    }
+
+    uint64_t n;
+    size_t header_size;
+    if (anchor & (1ULL << 9)) {
+      if (curr + 16 > end) break;
+      n = *(const uint64_t *)(curr + 8);
+      header_size = 16;
+    } else {
+      n = (anchor >> 48) & 0xFFFF;
+      header_size = 8;
     }
 
     if (current_id == key_id)
@@ -43,7 +50,7 @@ static inline const uint8_t *vbuf_find_anchor(vbuf_instance_t *inst,
     // Sprung zur nächsten Spalte
     size_t bytes_per_item = bit_width / 8;
     size_t data_start =
-        ((size_t)(curr - inst->mem) + 16 + (inst->alignment - 1)) &
+        ((size_t)(curr - inst->mem) + header_size + (inst->alignment - 1)) &
         ~(inst->alignment - 1);
     size_t data_bytes = (size_t)n * bytes_per_item;
 
@@ -137,11 +144,18 @@ const void *vbuf_get_col_ptr(vbuf_instance_t *inst, uint32_t id, size_t *n_out,
     return NULL;
 
   uint64_t anchor = *(const uint64_t *)anchor_ptr;
-  *n_out = (size_t)(*(const uint64_t *)(anchor_ptr + 8));
+  size_t header_size;
+  if (anchor & (1ULL << 9)) {
+    *n_out = (size_t)(*(const uint64_t *)(anchor_ptr + 8));
+    header_size = 16;
+  } else {
+    *n_out = (size_t)((anchor >> 48) & 0xFFFF);
+    header_size = 8;
+  }
   *width_out = (uint16_t)((anchor >> 32) & 0xFFFF);
 
   size_t data_start =
-      ((size_t)(anchor_ptr - inst->mem) + 16 + (inst->alignment - 1)) &
+      ((size_t)(anchor_ptr - inst->mem) + header_size + (inst->alignment - 1)) &
       ~(inst->alignment - 1);
   return (const void *)(inst->mem + data_start);
 }

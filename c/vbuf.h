@@ -44,22 +44,31 @@ static inline const void *vbuf_get_generic(vbuf_instance_t *inst,
   uint8_t *curr = inst->mem + 16;
   uint8_t *end = inst->mem + inst->size;
 
-  while (curr + 16 <= end) {
+  while (curr + 8 <= end) {
     uint64_t anchor = *(uint64_t *)curr;
     uint16_t current_id = (uint16_t)((anchor >> 16) & 0xFFFF);
     uint16_t bit_width = (uint16_t)((anchor >> 32) & 0xFFFF);
-    uint64_t count = *(uint64_t *)(curr + 8);
 
     if (anchor == 0) {
       curr += 8;
       continue;
     }
 
+    uint64_t count;
+    size_t header_size;
+    if (anchor & (1ULL << 9)) {
+      if (curr + 16 > end) break;
+      count = *(const uint64_t *)(curr + 8);
+      header_size = 16;
+    } else {
+      count = (anchor >> 48) & 0xFFFF;
+      header_size = 8;
+    }
+
     size_t current_pos = (size_t)(curr - inst->mem);
     size_t align = (size_t)inst->alignment;
 
-    // Diamond Alignment Sprung (Header ist jetzt immer 16 Byte)
-    size_t payload_offset = (current_pos + 16 + (align - 1)) & ~(align - 1);
+    size_t payload_offset = (current_pos + header_size + (align - 1)) & ~(align - 1);
 
     if (current_id == (uint16_t)key_id) {
       if (count_out)

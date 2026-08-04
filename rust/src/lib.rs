@@ -18,17 +18,22 @@ impl VBufInstance {
     pub fn open(path: &str) -> std::io::Result<Self> {
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
-        Ok(VBufInstance {
-            mmap,
-            alignment: 4096, // Standard
-        })
+        if mmap.len() < 16 || &mmap[0..4] != MAGIC.to_le_bytes() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Invalid Magic header",
+            ));
+        }
+        let a_shift = mmap[8];
+        let alignment = 1 << a_shift;
+        Ok(VBufInstance { mmap, alignment })
     }
 
     pub fn get_as<T>(&self, target_id: u32) -> Option<&[T]> {
         let mem = &self.mmap;
         let mut curr = 16; // Nach Global Header
         let end = mem.len();
-        let alignment = 4096;
+        let alignment = self.alignment;
 
         while curr + 16 <= end {
             let anchor = u64::from_le_bytes(mem[curr..curr + 8].try_into().unwrap());
@@ -39,12 +44,20 @@ impl VBufInstance {
                 continue;
             }
 
-            // ID extrahieren (Bits 16-31 laut deinem Standard)
+            // ID extrahieren (Bits 16-31 laut Standard)
             let id = ((anchor >> 16) & 0xFFFF) as u32;
             let plen = ((anchor >> 32) & 0xFFFF) as u16;
-            let n = u64::from_le_bytes(mem[curr + 8..curr + 16].try_into().unwrap());
 
-            let header_size = 16;
+            // Overflow bit check (Bit 9)
+            let has_overflow = (anchor & (1 << 9)) != 0;
+            let (n, header_size) = if has_overflow {
+                let count = u64::from_le_bytes(mem[curr + 8..curr + 16].try_into().unwrap());
+                (count, 16)
+            } else {
+                let count = ((anchor >> 48) & 0xFFFF) as u64;
+                (count, 8)
+            };
+
             let data_start = (curr + header_size + (alignment - 1)) & !(alignment - 1);
 
             // Wenn das unsere ID ist, Slice zurückgeben
@@ -74,12 +87,13 @@ impl VBufInstance {
 }
 
 impl<W: Write + Seek> VBufWriter<W> {
-    // Gibt jetzt ein Result zurück, damit .expect() in den Tests funktioniert
     pub fn new(mut inner: W, alignment: usize) -> std::io::Result<Self> {
-        // Global Header direkt schreiben (Verwendet MAGIC & VERSION)
+        let a_shift = alignment.trailing_zeros() as u8;
+        // Global Header direkt schreiben (MAGIC & VERSION)
         inner.write_all(&MAGIC.to_le_bytes())?;
         inner.write_all(&VERSION.to_le_bytes())?;
-        inner.write_all(&[0u8; 8])?; // Padding auf 16 Bytes
+        // a_shift at byte 8, and the rest reserved/datalen = 0
+        inner.write_all(&[a_shift, 0, 0, 0, 0, 0, 0, 0])?;
 
         Ok(Self {
             writer: BufWriter::new(inner),
@@ -95,23 +109,20 @@ impl<W: Write + Seek> VBufWriter<W> {
             .truncate(true)
             .open(path)?;
 
-        let mut slf = VBufWriter {
-            writer: BufWriter::new(file),
-            alignment: 4096,
-        };
-        slf.writer.write_all(&[0u8; 16])?;
-        Ok(slf)
+        // Standard: 4096 Alignment (a_shift = 12)
+        VBufWriter::<File>::new(file, 4096)
     }
+
     pub fn write_column<T>(&mut self, id: u16, data: &[T]) -> std::io::Result<()> {
         let n = data.len() as u64;
-        let item_size = std::mem::size_of::<T>() as u16;
-        let plen = item_size * 8;
+        let item_size = std::mem::size_of::<T>();
+        let plen = (item_size * 8) as u64;
 
         let mut anchor: u64 = 0;
-        anchor |= 0x42;
+        anchor |= 1u64 << 4; // PHYS: Array
+        anchor |= 1u64 << 9; // OVERFLOW: N follows as u64
         anchor |= (id as u64) << 16;
-        anchor |= (plen as u64) << 32;
-        anchor |= 1 << 48;
+        anchor |= plen << 32;
 
         self.writer.write_all(&anchor.to_le_bytes())?;
         self.writer.write_all(&n.to_le_bytes())?;

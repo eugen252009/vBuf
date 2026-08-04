@@ -1,29 +1,5 @@
 import { argv, stdout } from "node:process";
-
-const SemNames: Record<number, string> = {
-	0: "NUM", 1: "STR", 2: "BOL", 3: "NUL", 4: "ARR", 5: "OBJ", 6: "UUID"
-};
-const PhysNames: Record<number, string> = {
-	0: "NUL ", 1: "SMI ", 2: "BIGI", 3: "BLOB", 4: "UUID", 5: "FLOT", 6: "FAL", 7: "TRU"
-};
-
-function formatPhysically(pType: number, data: Uint8Array): string {
-	if (data.length === 0 && pType === 0) return "null";
-	const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
-	try {
-		switch (pType) {
-			case 0: return "null";
-			case 1: return dv.getInt32(0, true).toString();
-			case 2: return dv.getBigInt64(0, true).toString();
-			case 3: return new TextDecoder().decode(data);
-			case 4: return data.toHex().replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5");
-			case 5: return dv.getFloat64(0, true).toString();
-			case 6: return "FALSE";
-			case 7: return "TRUE";
-			default: return "???";
-		}
-	} catch { return "ERR_DECODE"; }
-}
+import { VBufInstance } from "./vbuf.ts";
 
 const colors = {
 	red: "\x1b[31m",
@@ -46,44 +22,44 @@ if (!path) {
 const buffer = new Uint8Array(await Bun.file(path).arrayBuffer());
 const view = new DataView(buffer.buffer);
 
-console.log(`${colors.gray}HEADER (T|L|V)${colors.reset} | ${colors.red}TYPE-MAP${colors.reset} | ${colors.cyan}KEY/PATH${colors.reset} | ${colors.green}VALUE${colors.reset}\n`);
-
 const magic = new TextDecoder().decode(buffer.subarray(0, 4));
-const version = buffer[4];
-const dataLen = view.getBigUint64(8, true);
-console.log(`${colors.blue}${magic} v${version} | Total Len: ${dataLen}${colors.reset}`);
+const version = view.getUint32(4, true);
+const aShift = buffer[8]!;
+const alignment = 1 << aShift;
+const dataLen = view.getUint32(12, true);
+
+console.log(`${colors.blue}${magic} v${version.toString(16)} | Alignment: ${alignment} B (AShift: ${aShift}) | Total Len: ${dataLen}${colors.reset}`);
 console.log("-".repeat(100));
 
 let i = 16;
-while (i < buffer.length) {
-	const combinedType = buffer[i]!;
-	const keyLen = buffer[i + 1]!;
-	const valLen = view.getUint16(i + 2, true);
+while (i + 8 <= buffer.length) {
+	const anchor = view.getBigUint64(i, true);
 
-	const sType = (combinedType >> 4) & 0x0F;
-	const pType = combinedType & 0x0F;
+	if (anchor === 0n) {
+		i += 8;
+		continue;
+	}
 
-	const hT = combinedType.toString(16).padStart(2, '0');
-	const hK = keyLen.toString(10).padStart(2, ' ');
-	const hV = valLen.toString(10).padStart(4, ' ');
-	const headerStr = `${colors.red}${hT}${colors.yellow} ${hK} ${hV} ${colors.reset}`;
+	const id = Number((anchor >> 16n) & 0xFFFFn);
+	const plen = Number((anchor >> 32n) & 0xFFFFn);
+	const hasOverflow = (anchor & (1n << 9n)) !== 0n;
 
-	const keyStart = i + 4;
-	const keyName = new TextDecoder().decode(buffer.subarray(keyStart, keyStart + keyLen));
-	const valBuf = buffer.subarray(keyStart + keyLen, keyStart + keyLen + valLen);
+	let count: bigint;
+	let headerSize: number;
 
-	const typeLabel = `${SemNames[sType] || '?'}->${PhysNames[pType] || '?'}`;
-	const readableVal = formatPhysically(pType, valBuf);
+	if (hasOverflow) {
+		count = view.getBigUint64(i + 8, true);
+		headerSize = 16;
+	} else {
+		count = (anchor >> 48n) & 0xFFFFn;
+		headerSize = 8;
+	}
 
-	const minSize = 4 + keyLen + valLen + 4;
-	const totalSize = Math.ceil(minSize / 16) * 16;
-	const crc = buffer.subarray(i + totalSize - 4, i + totalSize).toHex();
+	const dataStart = (i + headerSize + (alignment - 1)) & ~(alignment - 1);
+	const dataBytes = Number(count) * (plen / 8);
 
-	stdout.write(`${headerStr} | `);
-	stdout.write(`${colors.red}${typeLabel.padEnd(12)}${colors.reset} | `);
-	stdout.write(`${colors.cyan}${keyName.padEnd(12)}${colors.reset} | `);
-	stdout.write(`${colors.green}${readableVal.padEnd(25)}${colors.reset} `);
-	stdout.write(`${colors.gray}CRC:${crc}${colors.reset}\n`);
+	console.log(`${colors.yellow}Anchor (0x${anchor.toString(16).toUpperCase()})${colors.reset} | ${colors.cyan}ID: ${id.toString().padEnd(6)}${colors.reset} | ${colors.green}Count: ${count.toString().padEnd(10)}${colors.reset} | ${colors.purple}${plen}-bit${colors.reset} | Offset: ${i}`);
 
-	i += totalSize;
+	i = dataStart + dataBytes;
+	i = (i + 7) & ~7;
 }
