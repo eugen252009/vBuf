@@ -1,0 +1,24 @@
+{
+  "runner_commit": "6391cee1cacced866037966a7c2510f47dc10337",
+  "results_and_readme_commit": "31052d2",
+  "runner_source": "rust/src/bin/protobuf_decode_bench.rs",
+  "runner_source_sha256": "1e6c968aa59d2edb01f505dce7940113300ce2a3d6a38181d5a71ce1f9f2892b",
+  "cargo_lock_sha256": "8b25e60166ce8ae052ad5bcfe979b4032918d3dbdb079c10bb766edde1ccd117",
+  "rustc": "rustc 1.95.0 (59807616e 2026-04-14); LLVM 22.1.2",
+  "effective_release_flag": "-C target-cpu=native",
+  "rustflags": "<unset>",
+  "command": "BENCH_CPU=0 sh scripts/run_protobuf_decode_bench.sh final-NN",
+  "affinity": "taskset -c 0; observed CPU 0 before and after every accepted sample",
+  "worktree_during_runs": "dirty; the five reports record the exact status and did not claim a clean worktree",
+  "reports": {
+    "benchmark-results/final/protobuf-isolated-final-01.csv": "95b250f79dee0cc95afd6624380c298633052e245484ae8a5b788ff1d0b5bf45",
+    "benchmark-results/final/protobuf-isolated-final-02.csv": "71f44897196035379968968e9cb7eebb35157f51856ea3112ed9cd243840f6ef",
+    "benchmark-results/final/protobuf-isolated-final-03.csv": "fd36780f1470b6ad597da7d8f63e55eabcac3188ba6e31586ec591399edeb539",
+    "benchmark-results/final/protobuf-isolated-final-04.csv": "dbe859d7a94b0860c30b801de77d4cd43099a277d1e68290f3c3aa7c379e3626",
+    "benchmark-results/final/protobuf-isolated-final-05.csv": "3a6524b0518cead2f4aaabac6af2df0791bf3f7333885915cc0874da18517b01"
+  },
+  "assembly": {
+    "path": "benchmark-results/assembly/protobuf_decode_bench-1e6c968aa59d2edb01f505dce7940113300ce2a3d6a38181d5a71ce1f9f2892b.s",
+    "sha256": "1916e932448d838efe0e6417fee88db5e2154147c61466377d60c92b4c60448e"
+  }
+}
