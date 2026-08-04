@@ -1,0 +1,77 @@
+# protobuf decode raw benchmark report
+run_label=pinned-04
+commit=5b26ec3
+source_sha256=08938af1dc465b362e4d14fbab3a54fba9119e2afcb48dc30f7fb454c010532b
+rustc=rustc 1.95.0 (59807616e 2026-04-14), LLVM 22.1.2
+affinity=taskset -c 0 (observed CPU 0)
+records=1000000
+warm_up_runs=5
+measured_runs=30
+execution_order=fixed-seed-lcg-fisher-yates(seed=12345); randomized-every-round
+input=one-prefaulted-protobuf-byte-buffer-reused-for-all-samples
+allocation=ProtoRecordList::decode-allocates-and-drops-owned-Vec<ProtoRecord>-per-sample
+black_box=after-end-timestamp
+kind,workload,operation,accepted_samples,rejected_migration_samples,median_ms,mean_ms,stddev_ms,p5_ms,p95_ms,min_ms,max_ms,median_measured_tsc_frequency_ghz
+summary,Value-Only,Protobuf Decode + value checksum,30,0,15.875867000,16.008398667,0.231300156,15.765027000,16.454661000,15.745457000,16.504461000,4.199992165
+summary,Full-Record,Protobuf Decode + id/value checksum,30,0,15.993378000,16.083095033,0.204839503,15.891378000,16.472010000,15.859907000,16.755922000,4.199992465
+kind,workload,operation,round,position,duration_ns,tsc_ticks,measured_tsc_frequency_ghz,cpu_before,cpu_after,migrated
+sample,Value-Only,Protobuf Decode + value checksum,0,0,15821427,66479280,4.201851072,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,1,1,15873218,66667314,4.199987299,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,2,0,15869758,66652866,4.199992590,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,3,1,16454661,69109446,4.199992087,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,4,0,15881517,66702216,4.199990215,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,5,1,16504461,69318816,4.200004835,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,6,0,16417350,68952702,4.199989767,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,7,1,15834388,66504312,4.199992573,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,8,0,15745457,66130764,4.199990130,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,9,1,16287250,68406324,4.199992264,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,10,0,15826967,66473106,4.199990181,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,11,1,16246409,68234754,4.199989918,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,12,0,16032269,67335366,4.199989783,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,13,1,15787637,66307920,4.199990157,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,14,0,16336990,68615190,4.199989717,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,15,1,16244600,68227194,4.199992244,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,16,0,15873677,66669330,4.199992856,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,17,1,15883067,66708768,4.199992860,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,18,0,15834377,66504228,4.199990186,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,19,1,15842507,66538416,4.199992842,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,20,0,16279410,68373396,4.199992260,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,21,1,15839068,66523968,4.199992575,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,22,0,16070158,67494546,4.199992682,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,23,1,15849679,66568530,4.199992315,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,24,0,15843807,66543834,4.199990192,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,25,1,15878057,66687684,4.199990213,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,26,0,15829058,66481842,4.199987264,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,27,1,16036099,67351704,4.200005500,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,28,0,16263610,68306952,4.199987088,0,0,false
+sample,Value-Only,Protobuf Decode + value checksum,29,1,15765027,66213000,4.199992807,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,0,1,15944878,66968370,4.199992625,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,1,0,15935248,66930696,4.200166574,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,2,1,15978028,67107600,4.199992640,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,3,0,16040978,67371948,4.199990050,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,4,1,15929168,66902388,4.199992617,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,5,0,15977489,67105332,4.199992377,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,6,1,15960338,67033302,4.199992632,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,7,0,16033098,67338852,4.199990046,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,8,1,16338650,68622204,4.199992288,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,9,0,16306280,68486250,4.199992273,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,10,1,16041878,67375770,4.199992669,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,11,0,16044049,67384842,4.199989791,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,12,1,16258200,68284314,4.199992250,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,13,0,16190259,67998966,4.199992477,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,14,1,16472010,69182610,4.200010199,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,15,0,15931908,66914232,4.200013708,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,16,1,15933159,66919146,4.199992356,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,17,0,15891378,66743670,4.199992600,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,18,1,15972298,67083534,4.199992637,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,19,0,16176170,67939788,4.199992211,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,20,1,16141049,67792284,4.199992454,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,21,0,16755922,70374696,4.199989472,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,22,1,15914358,66840186,4.199992610,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,23,0,15913237,66835440,4.199990235,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,24,1,15947108,66977736,4.199992626,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,25,0,16292240,68427240,4.199989688,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,26,1,15859907,66611454,4.199990202,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,27,0,16372920,68766138,4.199992304,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,28,1,15931918,66913938,4.199992619,0,0,false
+sample,Full-Record,Protobuf Decode + id/value checksum,29,0,16008728,67236540,4.199992654,0,0,false
