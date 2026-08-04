@@ -1,0 +1,519 @@
+# real vBuf SoA/AoS raw baseline report
+run_label=final-03
+commit=a8ed76df2ee46bc8e8a8396942b48b4a96d691bc
+source_sha256=e732340d9e3aec15f6dcecd82681b84fbaca81647e5842e5615e993b087daa52
+vbuf_core_sha256=613e9d2c6531ae4a571ecc28d0cab6031d7c0928389f5a018e62e209633e1376
+rustc=rustc 1.95.0 (59807616e 2026-04-14);binary: rustc;commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860;commit-date: 2026-04-14;host: x86_64-unknown-linux-gnu;release: 1.95.0;LLVM version: 22.1.2;
+affinity=pid 211637's current affinity list: 0
+worktree_status= M rust/src/lib.rs; M rust/src/main.rs;?? benchmark-results/vbuf/;?? c/active_tests/test_aos_soa.so;?? c/active_tests/test_pack_block.so
+rustflags=<unset>
+effective_rustc_flags=--edition=2024 src/bin/vbuf_baseline_bench.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=5221d4bfafcd44d9 -C extra-filename=-bc033145ec898180 --out-dir /tmp/vbuf-baseline-preflight.5AZlX7/release/deps -C strip=debuginfo -L dependency=/tmp/vbuf-baseline-preflight.5AZlX7/release/deps --extern libc=/tmp/vbuf-baseline-preflight.5AZlX7/release/deps/liblibc-ec3639ab892c74cd.rlib --extern memmap2=/tmp/vbuf-baseline-preflight.5AZlX7/release/deps/libmemmap2-0cf10f5e47bcbc9f.rlib --extern prost=/tmp/vbuf-baseline-preflight.5AZlX7/release/deps/libprost-4396ac0c7cc4db7c.rlib --extern rayon=/tmp/vbuf-baseline-preflight.5AZlX7/release/deps/librayon-d14e2b0784d5308a.rlib --extern vbuf_core=/tmp/vbuf-baseline-preflight.5AZlX7/release/deps/libvbuf_core.rlib --emit=metadata -C target-cpu=native`
+cpu_identification=available
+records=1000000
+warm_up_runs=5
+measured_runs=30
+dataset=id:u32(index),value:f64(index*1.5)
+layouts=Native Rust SoA; Native Rust AoS repr(C); real vBuf SoA (two VBufWriter columns); real vBuf AoS (one VBufWriter NativeRecord column)
+execution_order=deterministic-cyclic-rotation-of-16-targets
+timing_windows=Instant starts after TSC start and ends before TSC end; diagnostic TSC rate is not active core frequency
+quantiles=floor-index: floor(n*p), clamped to n-1
+standard_deviation=population: divide by N
+black_box=TargetResult made opaque before end timestamp; barrier overhead is timed
+kind,target,layout,category,workload,timed_operation,accepted_samples,rejected_migration_samples,median_ms,mean_ms,population_stddev_ms,p5_ms,p95_ms,min_ms,max_ms,median_diagnostic_tsc_rate_ghz
+summary,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,sum(value) over prebuilt Vec<f64>,30,0,0.757101500,0.758069933,0.006726026,0.750711000,0.770062000,0.748532000,0.774942000,4.200264754
+summary,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,visit every NativeRecord and sum(value),30,0,0.781492000,0.781982100,0.009067740,0.769152000,0.798872000,0.757202000,0.799781000,4.200259367
+summary,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,sum(value) over pre-resolved VBufInstance typed f64 slice,30,0,0.753101000,0.754502067,0.005559963,0.747221000,0.764752000,0.747022000,0.767192000,4.200267646
+summary,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,visit every pre-resolved VBufInstance NativeRecord and sum(value),30,0,0.792121500,0.798579400,0.017007517,0.785422000,0.822542000,0.784072000,0.868382000,4.200238625
+summary,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,sum(id as f64 + value) over prebuilt SoA vectors,30,0,0.812337000,0.814079500,0.006737949,0.805992000,0.827152000,0.804412000,0.833782000,4.200245919
+summary,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,visit every NativeRecord and sum(id as f64 + value),30,0,0.845092000,0.847561067,0.011174086,0.834792000,0.869992000,0.819522000,0.871332000,4.200236942
+summary,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,sum(id as f64 + value) over pre-resolved real vBuf typed slices,30,0,0.813162000,0.815974233,0.008895100,0.807132000,0.835882000,0.804192000,0.838212000,4.200246588
+summary,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,visit every pre-resolved real vBuf NativeRecord and sum(id as f64 + value),30,0,0.844257000,0.848490867,0.020549017,0.824722000,0.879782000,0.824192000,0.893092000,4.200234986
+summary,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,VBufInstance::get_as<f64> then sum(value),30,0,0.753576000,0.754230000,0.006072148,0.748181000,0.769311000,0.747652000,0.774922000,4.200266956
+summary,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,VBufInstance::get_as<NativeRecord> then visit every record and sum(value),30,0,0.788696500,0.791882000,0.009414471,0.782342000,0.810622000,0.772901000,0.819482000,4.200253350
+summary,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,two VBufInstance::get_as calls then sum(id as f64 + value),30,0,0.814347000,0.814878833,0.006705171,0.805022000,0.826161000,0.796282000,0.826992000,4.200246307
+summary,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,VBufInstance::get_as<NativeRecord> then visit every record and sum(id as f64 + value),30,0,0.859272000,0.862828267,0.018984994,0.844421000,0.904542000,0.836352000,0.914832000,4.200225578
+summary,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,extract SoA columns from NativeRecord input; VBufWriter writes two columns; sum(value),30,0,7.792957000,7.942714700,0.797075458,7.544827000,8.393218000,7.538776000,12.096296000,4.200017965
+summary,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,VBufWriter writes one NativeRecord column; visit every source record and sum(value),30,0,5.472567000,5.289167467,0.895017138,2.017345000,5.722093000,1.941145000,5.884903000,4.200029164
+summary,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,extract SoA columns from NativeRecord input; VBufWriter writes two columns; sum(id as f64 + value),30,0,7.642811500,7.751774667,0.730723098,7.341996000,7.977948000,7.308806000,11.585025000,4.200018591
+summary,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,VBufWriter writes one NativeRecord column; visit every source record and sum(id as f64 + value),30,0,5.618107000,5.526683867,0.753010715,5.376932000,5.939913000,1.545113000,6.041023000,4.200028411
+kind,target,layout,category,workload,round,position,duration_ns,tsc_ticks,diagnostic_tsc_rate_ghz,cpu_before,cpu_after,migrated
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,0,0,774942,3290322,4.245894531,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,1,15,756851,3178980,4.200271916,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,2,14,753502,3164868,4.200211811,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,3,13,750731,3153234,4.200218187,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,4,12,767032,3221736,4.200262831,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,5,11,759692,3190866,4.200210085,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,6,10,764921,3212958,4.200378863,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,7,9,748532,3144036,4.200269327,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,8,8,753511,3164952,4.200273121,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,9,7,752702,3161508,4.200212036,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,10,6,750771,3153444,4.200274118,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,11,5,752981,3162684,4.200217535,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,12,4,752962,3162600,4.200211963,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,13,3,760912,3196032,4.200264945,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,14,2,763382,3206658,4.200594198,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,15,1,768282,3226986,4.200262404,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,16,0,762912,3204642,4.200539512,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,17,15,756801,3178770,4.200271934,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,18,14,757872,3183264,4.200266008,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,19,13,750711,3153192,4.200274140,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,20,12,762012,3200652,4.200264563,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,21,11,770062,3234462,4.200261797,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,22,10,759801,3191328,4.200215583,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,23,9,760272,3193302,4.200209925,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,24,8,750992,3154326,4.200212519,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,25,7,752081,3158946,4.200273641,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,26,6,752711,3161592,4.200273412,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,27,5,766092,3217746,4.200208330,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,28,4,757352,3181038,4.200210734,0,0,false
+sample,Native SoA Prepared Value,Native Rust SoA,A prepared scan,value-only,29,3,750721,3153234,4.200274136,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,0,1,794122,3335514,4.200253865,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,1,0,778732,3271254,4.200744287,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,2,15,781342,3281838,4.200258018,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,3,14,784412,3294690,4.200203465,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,4,13,781962,3284484,4.200311524,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,5,12,777591,3266088,4.200264664,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,6,11,792962,3330642,4.200254237,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,7,10,784951,3297000,4.200262182,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,8,9,780602,3278688,4.200204458,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,9,8,773112,3247272,4.200260764,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,10,7,777972,3267684,4.200259135,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,11,6,781642,3283098,4.200257919,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,12,5,783361,3290280,4.200209099,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,13,4,799781,3359244,4.200204806,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,14,3,798872,3355884,4.200778097,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,15,2,757202,3180450,4.200266243,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,16,1,792982,3330726,4.200254230,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,17,0,796202,3344250,4.200253202,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,18,15,778292,3269028,4.200259029,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,19,14,784802,3296664,4.200631497,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,20,13,777491,3265668,4.200264698,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,21,12,781992,3284610,4.200311512,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,22,11,769152,3230640,4.200262107,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,23,10,774561,3253362,4.200265699,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,24,9,784931,3296916,4.200262189,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,25,8,778192,3268608,4.200259062,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,26,7,787762,3308802,4.200255915,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,27,6,776582,3261846,4.200259599,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,28,5,769492,3232068,4.200261991,0,0,false
+sample,Native AoS Prepared Value,Native Rust AoS,A prepared scan,value-only,29,4,778412,3269532,4.200258989,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,0,2,763221,3205734,4.200269647,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,1,1,747422,3139374,4.200269727,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,2,0,757242,3180618,4.200266229,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,3,15,754602,3169530,4.200267161,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,4,14,751411,3156132,4.200273885,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,5,13,751872,3158064,4.200268131,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,6,12,750462,3152058,4.200156703,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,7,11,747582,3140046,4.200269669,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,8,10,755072,3171504,4.200266994,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,9,9,763282,3205986,4.200264123,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,10,8,750502,3152226,4.200156695,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,11,7,747672,3140424,4.200269637,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,12,6,751002,3154410,4.200268441,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,13,5,757402,3181290,4.200266173,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,14,4,755051,3171672,4.200606317,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,15,3,753801,3166128,4.200217299,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,16,2,747221,3138534,4.200275421,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,17,1,752401,3160290,4.200273524,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,18,0,751702,3157350,4.200268191,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,19,15,767192,3222408,4.200262776,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,20,14,764752,3212118,4.200208695,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,21,13,758482,3185826,4.200265794,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,22,12,758052,3184020,4.200265945,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,23,11,751532,3156594,4.200212366,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,24,10,747022,3137694,4.200269872,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,25,9,756242,3176418,4.200266581,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,26,8,758932,3187716,4.200265636,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,27,7,762981,3204726,4.200269731,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,28,6,750451,3152100,4.200274235,0,0,false
+sample,vBuf SoA Prepared Value,real vBuf SoA,A prepared scan,value-only,29,5,750502,3152310,4.200268620,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,0,3,814472,3420942,4.200195955,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,1,2,794751,3338118,4.200206102,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,2,1,822542,3454878,4.200245094,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,3,0,785422,3298932,4.200203203,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,4,15,786892,3305064,4.200149449,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,5,14,786962,3305400,4.200202805,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,6,13,790241,3319218,4.200260427,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,7,12,787072,3305862,4.200202777,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,8,11,787311,3306912,4.200261396,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,9,10,809062,3398262,4.200249177,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,10,9,795601,3341688,4.200205882,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,11,8,794552,3337320,4.200253728,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,12,7,788312,3311070,4.200202458,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,13,6,820812,3447612,4.200245610,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,14,5,787282,3307038,4.200576159,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,15,4,805002,3381168,4.200198260,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,16,3,787262,3306660,4.200202728,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,17,2,792642,3329298,4.200254339,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,18,1,786982,3305526,4.200256169,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,19,0,787441,3307458,4.200261353,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,20,15,798422,3353532,4.200199894,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,21,14,801491,3366468,4.200256771,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,22,13,868382,3647406,4.200232156,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,23,12,789982,3318126,4.200255196,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,24,11,796792,3346728,4.200253015,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,25,10,791302,3323628,4.200201693,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,26,9,805761,3384402,4.200255411,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,27,8,818962,3439842,4.200246165,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,28,7,784072,3293262,4.200203553,0,0,false
+sample,vBuf AoS Prepared Value,real vBuf AoS,A prepared scan,value-only,29,6,791601,3324888,4.200206922,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,0,4,811322,3407754,4.200248483,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,1,3,808942,3397758,4.200249214,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,2,2,823192,3457608,4.200244900,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,3,1,812442,3412416,4.200196445,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,4,0,812792,3413928,4.200248034,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,5,15,808531,3396036,4.200254536,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,6,14,807462,3391500,4.200197656,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,7,13,808872,3397674,4.200508857,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,8,12,807892,3393306,4.200197551,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,9,11,820822,3447612,4.200194439,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,10,10,812472,3412584,4.200248132,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,11,9,809961,3402000,4.200202232,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,12,8,817962,3435642,4.200246466,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,13,7,809681,3400866,4.200254174,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,14,6,813782,3418380,4.200609008,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,15,5,827152,3474240,4.200243728,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,16,4,816532,3429678,4.200298335,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,17,3,821612,3450972,4.200245371,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,18,2,805992,3385326,4.200198017,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,19,1,808402,3395490,4.200249381,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,20,0,816442,3429216,4.200195482,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,21,15,815072,3423462,4.200195811,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,22,14,822081,3452904,4.200199250,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,23,13,810331,3403512,4.200150309,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,24,12,809902,3401790,4.200248919,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,25,11,804412,3378732,4.200250618,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,26,10,833782,3502254,4.200443281,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,27,9,822242,3453534,4.200143024,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,28,8,810072,3402504,4.200248867,0,0,false
+sample,Native SoA Prepared Full,Native Rust SoA,A prepared scan,full-record,29,7,812232,3411534,4.200196496,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,0,5,839002,3523968,4.200190226,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,1,4,843332,3542238,4.200288854,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,2,3,865951,3637368,4.200431664,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,3,2,845632,3551814,4.200188735,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,4,1,852841,3582390,4.200536794,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,5,0,845872,3552780,4.200139028,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,6,15,819522,3442194,4.200245997,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,7,14,845961,3553200,4.200193626,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,8,13,847062,3557862,4.200237999,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,9,12,836121,3511914,4.200246137,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,10,11,846462,3555342,4.200238168,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,11,10,841522,3534594,4.200239566,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,12,9,848571,3564162,4.200193030,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,13,8,840072,3528504,4.200239979,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,14,7,841342,3534090,4.200539139,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,15,6,871332,3659838,4.200279572,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,16,5,869992,3654126,4.200183450,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,17,4,863802,3628170,4.200233387,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,18,3,841881,3536022,4.200144676,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,19,2,843362,3542280,4.200189243,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,20,1,843471,3542826,4.200293786,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,21,0,835692,3510108,4.200241237,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,22,15,862472,3622584,4.200233747,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,23,14,834792,3506286,4.200191185,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,24,13,844121,3545514,4.200243804,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,25,12,842402,3538290,4.200239316,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,26,11,854652,3589740,4.200235885,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,27,10,855572,3593562,4.200186542,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,28,9,859472,3609942,4.200185695,0,0,false
+sample,Native AoS Prepared Full,Native Rust AoS,A prepared scan,full-record,29,8,844552,3547278,4.200188976,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,0,6,807132,3390156,4.200249773,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,1,5,813032,3414894,4.200196302,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,2,4,812262,3411660,4.200196488,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,3,3,808171,3394524,4.200254649,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,4,2,808502,3395868,4.200197402,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,5,1,817632,3434256,4.200246566,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,6,0,812922,3414432,4.200196329,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,7,15,817482,3433626,4.200246611,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,8,14,810402,3403848,4.200196939,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,9,13,808762,3397002,4.200249270,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,10,12,815422,3424974,4.200247234,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,11,11,813652,3417540,4.200247772,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,12,10,814932,3422874,4.200195845,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,13,9,813292,3416028,4.200247881,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,14,8,807222,3390786,4.200561927,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,15,7,804192,3377808,4.200250686,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,16,6,833682,3501624,4.200191440,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,17,5,838212,3520692,4.200240512,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,18,4,812652,3413340,4.200248077,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,19,3,816042,3427536,4.200195578,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,20,2,835882,3510906,4.200241182,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,21,1,808181,3394566,4.200254646,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,22,0,810572,3404604,4.200248713,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,23,15,817292,3432786,4.200195279,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,24,14,828092,3478146,4.200192732,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,25,13,808742,3396918,4.200249276,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,26,12,831712,3493392,4.200242392,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,27,11,822942,3456516,4.200193938,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,28,10,818681,3438666,4.200251380,0,0,false
+sample,vBuf SoA Prepared Full,real vBuf SoA,A prepared scan,full-record,29,9,811532,3408636,4.200248419,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,0,7,831651,3493098,4.200196958,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,1,6,824192,3461766,4.200193644,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,2,5,830862,3489822,4.200242640,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,3,4,827352,3475080,4.200243669,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,4,3,833302,3500070,4.200241929,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,5,2,857962,3603642,4.200234975,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,6,1,826782,3472644,4.200193038,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,7,0,830812,3489612,4.200242654,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,8,15,832382,3496206,4.200242196,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,9,14,842482,3538626,4.200239293,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,10,13,841662,3535182,4.200239526,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,11,12,828592,3480246,4.200192616,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,12,11,872892,3666348,4.200230956,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,13,10,846032,3553536,4.200238289,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,14,9,869901,3654000,4.200477985,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,15,8,858432,3605574,4.200185920,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,16,7,879682,3694866,4.200229174,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,17,6,861681,3619224,4.200190094,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,18,5,826262,3470460,4.200193159,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,19,4,825532,3467436,4.200244206,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,20,3,893092,3751188,4.200225733,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,21,2,824722,3464034,4.200244446,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,22,1,849332,3567396,4.200237363,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,23,0,857882,3603306,4.200234997,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,24,15,867992,3645768,4.200232260,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,25,14,869482,3652110,4.200328471,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,26,13,869052,3650220,4.200231977,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,27,12,869821,3653412,4.200188315,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,28,11,879782,3695286,4.200229148,0,0,false
+sample,vBuf AoS Prepared Full,real vBuf AoS,A prepared scan,full-record,29,10,825122,3465714,4.200244328,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,0,8,748552,3144120,4.200269320,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,1,7,756161,3176040,4.200216621,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,2,6,751732,3157434,4.200212310,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,3,5,749372,3147564,4.200269025,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,4,4,748512,3143952,4.200269334,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,5,3,761021,3196494,4.200270426,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,6,2,749382,3147606,4.200269022,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,7,1,748181,3142566,4.200275067,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,8,0,747652,3140298,4.200213468,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,9,15,754472,3168984,4.200267207,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,10,14,769311,3231270,4.200212918,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,11,13,757251,3180660,4.200271773,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,12,12,754332,3168396,4.200267256,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,13,11,756462,3177342,4.200266504,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,14,10,749592,3148740,4.200605129,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,15,9,750781,3153444,4.200218173,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,16,8,755141,3171840,4.200328151,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,17,7,755332,3172554,4.200211298,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,18,6,748802,3145170,4.200269230,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,19,5,749061,3146220,4.200218674,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,20,4,761472,3198384,4.200264750,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,21,3,755892,3174948,4.200266705,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,22,2,754171,3167682,4.200217192,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,23,1,749362,3147522,4.200269029,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,24,0,752612,3161172,4.200267867,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,25,15,774922,3254874,4.200260155,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,26,14,751892,3158106,4.200212265,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,27,13,756092,3175788,4.200266634,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,28,12,756402,3177090,4.200266525,0,0,false
+sample,vBuf SoA Setup Value,real vBuf SoA,B reader/view setup plus scan,value-only,29,11,752981,3162726,4.200273314,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,0,9,787172,3306324,4.200256107,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,1,8,786272,3302460,4.200149567,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,2,7,793591,3333288,4.200259328,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,3,6,793501,3332868,4.200206427,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,4,5,788591,3312246,4.200207712,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,5,4,810622,3404772,4.200196886,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,6,3,786741,3304476,4.200208201,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,7,2,782342,3286038,4.200257688,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,8,1,786592,3303846,4.200202901,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,9,0,786311,3302712,4.200261729,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,10,15,789732,3317076,4.200255276,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,11,14,784442,3294858,4.200256998,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,12,13,819482,3441984,4.200194757,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,13,12,786881,3305106,4.200261539,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,14,11,788502,3312162,4.200575268,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,15,10,784802,3296370,4.200256880,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,16,9,802312,3369870,4.200198925,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,17,8,804452,3378900,4.200250605,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,18,7,785941,3301116,4.200208413,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,19,6,784042,3293178,4.200257129,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,20,5,802582,3371046,4.200251189,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,21,4,772901,3246348,4.200211929,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,22,3,799002,3356010,4.200252315,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,23,2,784012,3293052,4.200257139,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,24,1,804411,3378732,4.200255839,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,25,0,790532,3320352,4.200148761,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,26,15,790421,3319974,4.200260368,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,27,14,796712,3346392,4.200253040,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,28,13,794762,3338202,4.200253661,0,0,false
+sample,vBuf AoS Setup Value,real vBuf AoS,B reader/view setup plus scan,value-only,29,12,788802,3313170,4.200255577,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,0,10,807402,3391248,4.200197671,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,1,9,813722,3417792,4.200196136,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,2,8,812882,3414306,4.200248006,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,3,7,817072,3431862,4.200195332,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,4,6,819292,3441228,4.200246066,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,5,5,805022,3381294,4.200250428,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,6,4,817692,3434508,4.200246548,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,7,3,811712,3409350,4.200196621,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,8,2,805721,3384192,4.200203296,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,9,1,817532,3433794,4.200195222,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,10,0,812061,3410862,4.200253429,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,11,15,820502,3446268,4.200194515,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,12,14,811521,3408594,4.200253598,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,13,13,811152,3407040,4.200248535,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,14,12,826052,3469578,4.200193208,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,15,11,819272,3441102,4.200194807,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,16,10,811162,3407082,4.200248532,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,17,9,819742,3443118,4.200245931,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,18,8,808802,3397170,4.200249258,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,19,7,826992,3473610,4.200294561,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,20,6,813542,3417036,4.200196179,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,21,5,796282,3344544,4.200200432,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,22,4,808662,3396582,4.200249301,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,23,3,822741,3455718,4.200250139,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,24,2,815982,3427326,4.200247064,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,25,1,817712,3434550,4.200195179,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,26,0,826161,3470082,4.200249104,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,27,15,814972,3423084,4.200247370,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,28,14,821302,3449670,4.200245464,0,0,false
+sample,vBuf SoA Setup Full,real vBuf SoA,B reader/view setup plus scan,full-record,29,13,813702,3417960,4.200505836,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,0,11,862161,3621240,4.200189988,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,1,10,847682,3560424,4.200188278,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,2,9,847822,3561054,4.200237786,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,3,8,850812,3573612,4.200236950,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,4,7,850952,3574158,4.200187555,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,5,6,862502,3622710,4.200233739,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,6,5,895102,3759630,4.200225226,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,7,4,846602,3555846,4.200138908,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,8,3,874252,3672018,4.200182556,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,9,2,852192,3579408,4.200236566,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,10,1,904542,3799278,4.200222875,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,11,0,873922,3670674,4.200230684,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,12,15,859422,3609774,4.200234576,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,13,14,848842,3565296,4.200188021,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,14,13,851072,3574704,4.200236878,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,15,12,848312,3563070,4.200188138,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,16,11,867762,3644802,4.200232322,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,17,10,859122,3608514,4.200234658,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,18,9,869892,3653706,4.200183471,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,19,8,892312,3747912,4.200225930,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,20,7,862192,3621366,4.200185110,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,21,6,836352,3512838,4.200190829,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,22,5,850952,3574200,4.200236911,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,23,4,861752,3619560,4.200233942,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,24,3,891692,3745266,4.200178986,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,25,2,860242,3613218,4.200234353,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,26,1,914832,3842496,4.200220368,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,27,0,851202,3575250,4.200236842,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,28,15,844421,3546774,4.200243717,0,0,false
+sample,vBuf AoS Setup Full,real vBuf AoS,B reader/view setup plus scan,full-record,29,14,845932,3553074,4.200188668,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,0,12,8252849,34662138,4.200020866,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,1,11,7859027,33008052,4.200017636,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,2,10,7965038,33453378,4.200027420,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,3,9,8077238,33924534,4.200016639,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,4,8,7793127,32731272,4.200017785,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,5,7,8393218,35251608,4.200011009,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,6,6,7790787,32721486,4.200023181,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,7,5,7815217,32824050,4.200017735,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,8,4,7753817,32566128,4.200012458,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,9,3,7946177,33374082,4.200017442,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,10,2,7804678,32779698,4.200006458,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,11,1,7638487,32081784,4.200018145,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,12,0,7726447,32451174,4.200012503,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,13,15,7562547,31762836,4.200018327,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,14,14,7661606,32178888,4.200018638,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,15,13,7796937,32747274,4.200017776,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,16,12,12096296,50804544,4.200008333,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,17,11,8141877,34196064,4.200022182,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,18,10,7805347,32782596,4.200017757,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,19,9,7707887,32373306,4.200023431,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,20,8,7544827,31688412,4.200018370,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,21,7,7798217,32753196,4.200087789,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,22,6,7586136,31861872,4.200013287,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,23,5,7604177,31937682,4.200018227,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,24,4,7830837,32889822,4.200039153,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,25,3,7538776,31662960,4.200013371,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,26,2,7778057,32667936,4.200012420,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,27,1,7596017,31903410,4.200018246,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,28,0,7623006,32016768,4.200018733,0,0,false
+sample,vBuf SoA Encode Value,real vBuf SoA,C pack/encode,value-only,29,15,7792787,32729928,4.200028565,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,0,13,5669752,23813202,4.200042965,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,1,12,5627592,23636046,4.200028360,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,2,11,5611582,23568762,4.200020957,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,3,10,5448902,22885506,4.200021582,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,4,9,5695333,23920596,4.200034660,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,5,8,5577202,23424408,4.200028616,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,6,7,5643394,23702364,4.200019350,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,7,6,5572572,23404962,4.200028640,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,8,5,5558062,23343978,4.200021158,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,9,4,5458432,22925532,4.200021545,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,10,3,5578042,23428062,4.200051201,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,11,2,5393102,22651230,4.200037381,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,12,1,5454862,22910538,4.200021559,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,13,0,2017345,8473038,4.200093687,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,14,15,5329292,22383186,4.200029948,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,15,14,5884903,24716748,4.200026407,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,16,13,5695173,23919924,4.200034661,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,17,12,5571413,23400132,4.200035431,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,18,11,5394032,22655304,4.200068520,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,19,10,5465572,22955520,4.200021517,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,20,9,5429852,22805496,4.200021658,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,21,8,5392922,22650558,4.200052958,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,22,7,5349272,22467102,4.200029836,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,23,6,5277682,22166466,4.200038199,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,24,5,5722093,24032988,4.200034498,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,25,4,5479352,23013438,4.200029128,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,26,3,5632323,23655870,4.200020134,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,27,2,5465782,22956444,4.200029200,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,28,1,5338042,22419894,4.200022031,0,0,false
+sample,vBuf AoS Encode Value,real vBuf AoS,C pack/encode,value-only,29,0,1941145,8152914,4.200054092,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,0,14,7341996,30836526,4.200019450,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,1,13,7344106,30845346,4.200013725,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,2,12,7530296,31627344,4.200013386,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,3,11,7551006,31714368,4.200018911,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,4,10,7446406,31275048,4.200019177,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,5,9,7370817,30957570,4.200018804,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,6,8,7308806,30697086,4.200013792,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,7,7,7840307,32929512,4.200028392,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,8,6,7598797,31915128,4.200023767,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,9,5,7854678,32989782,4.200017111,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,10,4,7627897,32037516,4.200045701,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,11,3,7692187,32307324,4.200018018,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,12,2,7688977,32293842,4.200018026,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,13,1,7683377,32270448,4.200034438,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,14,0,11585025,48657210,4.200009063,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,15,15,7657106,32160156,4.200040590,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,16,14,7541477,31674342,4.200018378,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,17,13,7431756,31213686,4.200041821,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,18,12,7924497,33283110,4.200028090,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,19,11,7658126,32164230,4.200013162,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,20,10,7676447,32241174,4.200012584,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,21,9,7685027,32277336,4.200028965,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,22,8,7628517,32039910,4.200018169,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,23,7,7977948,33507516,4.200016846,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,24,6,7708687,32376708,4.200028877,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,25,5,7545797,31692486,4.200018368,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,26,4,7560616,31754898,4.200041108,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,27,3,7551086,31714662,4.200013349,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,28,2,7720938,32428116,4.200022847,0,0,false
+sample,vBuf SoA Encode Full,real vBuf SoA,C pack/encode,full-record,29,1,7820537,32846394,4.200017723,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,0,15,5540712,23271234,4.200043965,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,1,14,5614283,23580186,4.200035160,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,2,13,5674793,23834328,4.200034785,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,3,12,5638903,23683506,4.200020110,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,4,11,5603122,23533356,4.200043476,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,5,10,5622022,23612652,4.200028388,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,6,9,5939913,24948042,4.200068587,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,7,8,5741943,24116316,4.200027064,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,8,7,5725813,24048528,4.200019805,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,9,6,5623032,23616852,4.200020914,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,10,5,5529162,23222598,4.200021269,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,11,4,6041023,25372494,4.200032677,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,12,3,5612882,23574264,4.200028435,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,13,2,5610703,23565192,4.200042668,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,14,1,5621852,23611980,4.200035860,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,15,0,1545113,6489672,4.200127758,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,16,15,5741743,24115476,4.200027065,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,17,14,5811413,24408132,4.200033968,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,18,13,5888643,24732498,4.200033522,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,19,12,5597673,23510382,4.200027762,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,20,11,5614362,23580438,4.200020946,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,21,10,5758042,24183936,4.200027718,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,22,9,5376932,22583232,4.200021871,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,23,8,5842343,24537996,4.200026599,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,24,7,5587452,23467458,4.200028564,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,25,6,5540432,23269932,4.200021226,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,26,5,5578323,23429070,4.200020329,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,27,4,5408232,22714734,4.200029511,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,28,3,5564132,23369556,4.200036232,0,0,false
+sample,vBuf AoS Encode Full,real vBuf AoS,C pack/encode,full-record,29,2,5805523,24383352,4.200026768,0,0,false
