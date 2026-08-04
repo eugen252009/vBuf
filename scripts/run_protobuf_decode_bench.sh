@@ -37,7 +37,9 @@ else
     worktree_status=clean
 fi
 
-effective_rustc_line=$(cd "$root/rust" && cargo rustc -vv --locked --release --bin protobuf_decode_bench -- --emit=metadata 2>&1 | grep 'rustc.*protobuf_decode_bench' || true)
+preflight_target=$(mktemp -d "${TMPDIR:-/tmp}/protobuf-decode-preflight.XXXXXX")
+trap 'rm -rf "$preflight_target"' EXIT HUP INT TERM
+effective_rustc_line=$(cd "$root/rust" && cargo rustc -vv --locked --release --target-dir "$preflight_target" --bin protobuf_decode_bench -- --emit=metadata 2>&1 | grep 'rustc.*protobuf_decode_bench' || true)
 if [ -z "$effective_rustc_line" ]; then
     echo "could not capture the effective rustc invocation" >&2
     exit 1

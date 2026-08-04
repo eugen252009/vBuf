@@ -1,0 +1,84 @@
+# isolated Prost decode raw benchmark report
+run_label=final-04
+commit=6391cee1cacced866037966a7c2510f47dc10337
+source_sha256=1e6c968aa59d2edb01f505dce7940113300ce2a3d6a38181d5a71ce1f9f2892b
+rustc=rustc 1.95.0 (59807616e 2026-04-14);binary: rustc;commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860;commit-date: 2026-04-14;host: x86_64-unknown-linux-gnu;release: 1.95.0;LLVM version: 22.1.2;
+affinity=pid 205956's current affinity list: 0
+worktree_status= M rust/src/lib.rs; M rust/src/main.rs; M scripts/run_protobuf_decode_bench.sh;?? benchmark-results/final/;?? benchmark-results/pre-audit/protobuf-isolated-final-01-before-script-preflight-fix.csv;?? c/active_tests/test_aos_soa.so;?? c/active_tests/test_pack_block.so
+rustflags=<unset>
+effective_rustc_flags=--edition=2024 src/bin/protobuf_decode_bench.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=be645bfbe2383f15 -C extra-filename=-f90ae8d456403202 --out-dir /tmp/protobuf-decode-preflight.hkCgaT/release/deps -C strip=debuginfo -L dependency=/tmp/protobuf-decode-preflight.hkCgaT/release/deps --extern libc=/tmp/protobuf-decode-preflight.hkCgaT/release/deps/liblibc-ec3639ab892c74cd.rlib --extern memmap2=/tmp/protobuf-decode-preflight.hkCgaT/release/deps/libmemmap2-0cf10f5e47bcbc9f.rlib --extern prost=/tmp/protobuf-decode-preflight.hkCgaT/release/deps/libprost-4396ac0c7cc4db7c.rlib --extern rayon=/tmp/protobuf-decode-preflight.hkCgaT/release/deps/librayon-d14e2b0784d5308a.rlib --extern vbuf_core=/tmp/protobuf-decode-preflight.hkCgaT/release/deps/libvbuf_core.rlib --emit=metadata -C target-cpu=native`
+cpu_identification=available
+records=1000000
+warm_up_runs=5
+measured_runs=30
+execution_order=deterministic-balanced-two-target-rotation; Value-Only position-0 on even rounds and Full-Record position-0 on odd rounds
+input=one-prefaulted-Protobuf-byte-buffer-reused-for-all-samples
+timed_operation=decode-into-owned-Vec<ProtoRecord>; numeric-sum-reduction; local-decoded-value-is-dropped-before-closure-return
+timing_windows=Instant starts after TSC start and ends before TSC end; diagnostic TSC rate is ticks divided by Instant duration and is not active-core-frequency
+black_box=returned-numeric-aggregation-is-made-opaque-before-end-timestamp; barrier-overhead-is-timed
+quantiles=floor-index: floor(n*p), clamped to n-1
+standard_deviation=population: divide by N
+kind,workload,operation,accepted_samples,rejected_migration_samples,median_ms,mean_ms,population_stddev_ms,p5_ms,p95_ms,min_ms,max_ms,median_diagnostic_tsc_rate_ghz
+summary,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),30,0,16.585017000,16.573254667,0.341890703,16.153614000,17.271530000,16.117664000,17.285730000,4.199993521
+summary,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),30,0,16.344471000,16.458564600,0.272852590,16.158855000,16.968519000,16.134675000,17.162209000,4.199993283
+kind,workload,operation,round,position,duration_ns,tsc_ticks,diagnostic_tsc_rate_ghz,cpu_before,cpu_after,migrated
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),0,0,16234505,68221272,4.202239120,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),1,1,16240695,68210814,4.199993535,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),2,0,16173465,67928448,4.199993508,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),3,1,16492436,69268500,4.200016298,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),4,0,16190865,68001906,4.200016861,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),5,1,16735338,70288302,4.199992973,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),6,0,16376156,68779704,4.199990767,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),7,1,17213080,72294852,4.199995120,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),8,0,16623067,69816726,4.199990652,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),9,1,16117664,67694088,4.199993746,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),10,0,16583937,69653094,4.200033683,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),11,1,16215705,68105898,4.199996115,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),12,0,16188885,67993632,4.200019458,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),13,1,16496476,69285090,4.199993380,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),14,0,16608147,69754146,4.199995701,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),15,1,16320805,68547234,4.199990993,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),16,0,16678987,70051632,4.199993201,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),17,1,16638318,69880776,4.199990408,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),18,0,17122269,71913366,4.199990434,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),19,1,16739188,70304472,4.199992975,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),20,0,17271530,72540342,4.199995137,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),21,1,16586097,69661578,4.199998227,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),22,0,16764297,70410312,4.200015784,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),23,1,16153614,67845036,4.199991160,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),24,0,17285730,72599898,4.199990281,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),25,1,16944238,71165682,4.199993060,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),26,0,16511207,69347082,4.200000763,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),27,1,16171354,67919586,4.199993767,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),28,0,16679987,70055832,4.199993201,0,0,false
+sample,Value-Only,Prost decode into owned Vec<ProtoRecord> + sum(value),29,1,16839598,70726152,4.199990522,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),0,1,16316286,68528670,4.200016474,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),1,0,16174645,67933782,4.200016878,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),2,1,16134675,67765530,4.199993492,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),3,0,16661987,69980190,4.199990673,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),4,1,16749588,70348152,4.199992979,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),5,0,16190354,67999386,4.199993774,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),6,1,16884998,70917210,4.200012935,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),7,0,16325256,68566344,4.200016465,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),8,1,16250584,68252352,4.199993797,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),9,0,16699218,70136598,4.199992958,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),10,1,16222595,68134794,4.199993528,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),11,0,16158855,67867044,4.199990903,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),12,1,16225815,68148276,4.199990940,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),13,0,16256056,68275284,4.199990699,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),14,1,16363686,68727372,4.199993327,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),15,0,16421716,68971098,4.199993350,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),16,1,16280386,68377512,4.199993293,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),17,0,16741137,70312662,4.199993226,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),18,1,16679767,70054866,4.199990683,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),19,0,17162209,72081156,4.199992903,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),20,1,16744507,70326816,4.199993228,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),21,0,16678878,70051170,4.199992949,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),22,1,16260425,68293638,4.199990960,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),23,0,16232376,68175870,4.199993273,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),24,1,16968519,71267616,4.199990347,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),25,0,16649597,69928194,4.199993189,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),26,1,16174625,67933320,4.199993508,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),27,0,16315606,68525520,4.199998455,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),28,1,16428716,69000498,4.199993353,0,0,false
+sample,Full-Record,Prost decode into owned Vec<ProtoRecord> + sum(id as f64 + value),29,0,16403876,68896170,4.199993343,0,0,false
