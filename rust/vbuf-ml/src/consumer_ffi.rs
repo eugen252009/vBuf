@@ -89,3 +89,50 @@ pub unsafe extern "C" fn vbuf_ml_consumer_metadata(handle: *const VbufMlConsumer
         *info = VbufMlModelMetadataInfo { context_length: value.context_length, embedding_length: value.embedding_length, layer_count: value.layer_count, head_count: value.head_count, kv_head_count: value.kv_head_count, key_head_dimension: value.key_head_dimension, value_head_dimension: value.value_head_dimension, feed_forward_length: value.feed_forward_length, normalization_epsilon: value.normalization_epsilon, rope_theta: value.rope_theta }; OK
     })).unwrap_or(VALIDATION_ERROR)
 }
+
+/// Copy a token's UTF-8 bytes, including a trailing NUL. The buffer is caller-owned.
+/// # Safety
+/// `handle` and `buffer` must be valid for the duration of the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_token_text(handle: *const VbufMlConsumerHandle, index: u64, buffer: *mut c_char, capacity: usize) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || buffer.is_null() { return INVALID_ARGUMENT; }
+        let Ok(Some(text)) = (*handle).model.token_text(index) else { return VALIDATION_ERROR; };
+        let bytes = text.as_bytes();
+        if bytes.len().checked_add(1).is_none_or(|needed| needed > capacity) { return BUFFER_TOO_SMALL; }
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), buffer.cast::<u8>(), bytes.len());
+        *buffer.add(bytes.len()) = 0;
+        OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// # Safety
+/// `handle` and `count` must be valid for the duration of the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_merge_count(handle: *const VbufMlConsumerHandle, count: *mut u64) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || count.is_null() { return INVALID_ARGUMENT; }
+        match (*handle).model.merge_count() { Ok(value) => { *count = value; OK }, Err(_) => VALIDATION_ERROR }
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// # Safety
+/// `handle`, `left`, and `right` must be valid for the duration of the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_merge_pair(handle: *const VbufMlConsumerHandle, index: u64, left: *mut u64, right: *mut u64) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || left.is_null() || right.is_null() { return INVALID_ARGUMENT; }
+        match (*handle).model.merge_pair(index) { Ok(Some((l, r))) => { *left = l; *right = r; OK }, _ => VALIDATION_ERROR }
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// `value` is 0 or 1. An absent optional field returns VALIDATION_ERROR.
+/// # Safety
+/// `handle` and `value` must be valid for the duration of the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_add_bos(handle: *const VbufMlConsumerHandle, value: *mut bool) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || value.is_null() { return INVALID_ARGUMENT; }
+        match (*handle).model.add_bos() { Ok(Some(result)) => { *value = result; OK }, _ => VALIDATION_ERROR }
+    })).unwrap_or(VALIDATION_ERROR)
+}

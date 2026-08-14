@@ -32,4 +32,25 @@ bool VbufMlAdapter::metadata(VbufMlModelMetadataInfo & out) const {
     return handle_ && vbuf_ml_consumer_metadata(handle_, &out) == 0;
 }
 
+bool VbufMlAdapter::token_text(uint64_t index, std::string & out) const {
+    if (!handle_) return false;
+    char buffer[4097]{};
+    if (vbuf_ml_consumer_token_text(handle_, index, buffer, sizeof(buffer)) != 0) return false;
+    out = buffer;
+    return true;
+}
+
+uint64_t VbufMlAdapter::merge_count() const {
+    uint64_t count = 0;
+    return handle_ && vbuf_ml_consumer_merge_count(handle_, &count) == 0 ? count : 0;
+}
+
+bool VbufMlAdapter::merge_pair(uint64_t index, uint64_t & left, uint64_t & right) const {
+    return handle_ && vbuf_ml_consumer_merge_pair(handle_, index, &left, &right) == 0;
+}
+
+bool VbufMlAdapter::add_bos(bool & out) const {
+    return handle_ && vbuf_ml_consumer_add_bos(handle_, &out) == 0;
+}
+
 } // namespace vbuf_llama

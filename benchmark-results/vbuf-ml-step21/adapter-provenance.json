@@ -2,7 +2,7 @@
   "repository": "https://github.com/ggml-org/llama.cpp.git",
   "base_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
   "checkout": "external pinned worktree (path supplied at runtime)",
-  "integration": "descriptor-only Rust C ABI + C++ representation wrapper",
+  "integration": "validated Rust C ABI (tensor, metadata, tokenizer) + C++ wrapper",
   "source_locations": {
     "model_entry": "src/llama.cpp:377-425",
     "loader": "src/llama-model-loader.cpp:519-560",
@@ -15,6 +15,7 @@
   },
   "status": {
     "descriptor_bridge": "PASS",
+    "tokenizer_descriptor_bridge": "PASS",
     "llama_model_vbuf_construction": "DEFERRED",
     "tokenizer_parity": "DEFERRED",
     "logit_parity": "DEFERRED",

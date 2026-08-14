@@ -34,6 +34,10 @@ uint32_t vbuf_ml_consumer_tensor_count(const VbufMlConsumerHandle *, uint64_t * 
 uint32_t vbuf_ml_consumer_tensor_info(const VbufMlConsumerHandle *, uint64_t index,
                                       VbufMlTensorInfo *, char * name, size_t name_capacity);
 uint32_t vbuf_ml_consumer_metadata(const VbufMlConsumerHandle *, VbufMlModelMetadataInfo *);
+uint32_t vbuf_ml_consumer_token_text(const VbufMlConsumerHandle *, uint64_t index, char * buffer, size_t capacity);
+uint32_t vbuf_ml_consumer_merge_count(const VbufMlConsumerHandle *, uint64_t * count);
+uint32_t vbuf_ml_consumer_merge_pair(const VbufMlConsumerHandle *, uint64_t index, uint64_t * left, uint64_t * right);
+uint32_t vbuf_ml_consumer_add_bos(const VbufMlConsumerHandle *, bool * value);
 }
 
 namespace vbuf_llama {
@@ -60,6 +64,10 @@ public:
     uint64_t tensor_count() const;
     bool tensor(uint64_t index, TensorDescriptor & out) const;
     bool metadata(VbufMlModelMetadataInfo & out) const;
+    bool token_text(uint64_t index, std::string & out) const;
+    uint64_t merge_count() const;
+    bool merge_pair(uint64_t index, uint64_t & left, uint64_t & right) const;
+    bool add_bos(bool & out) const;
 
 private:
     VbufMlConsumerHandle * handle_ = nullptr;

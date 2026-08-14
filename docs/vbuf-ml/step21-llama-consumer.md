@@ -16,7 +16,7 @@ Added a validated Rust consumer descriptor:
 rust/vbuf-ml/src/consumer.rs
 ```
 
-and a minimal C ABI:
+and a minimal C ABI for tensor, model-metadata, and tokenizer projections:
 
 ```text
 rust/vbuf-ml/src/consumer_ffi.rs
@@ -103,7 +103,7 @@ inference.
 pinned llama.cpp checkout: PASS
 pinned llama.cpp CPU library build: PASS
 Rust descriptor bridge: PASS
-C++ representation wrapper compile: PASS
+C++ representation/tokenizer wrapper compile: PASS
 BF16 llama structural load: DEFERRED
 BF16 tokenizer parity: DEFERRED
 BF16 logits parity: DEFERRED
