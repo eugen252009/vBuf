@@ -16,7 +16,8 @@ from qualify_step16 import EXPECTED, layout_order, parse, role_key  # noqa: E402
 from qualify_step17 import PINNED_COMMIT, expected_bytes  # noqa: E402
 
 TENSOR_KEY_ID = 0x0200
-CONTROL_KEY_IDS = {"Bootstrap": 0x0201, "ModelMetadata": 0x0202, "TokenizerMetadata": 0x0203, "IntegrityMetadata": 0x0204}
+BOOTSTRAP_KEY_ID = 0xF000
+CONTROL_KEY_IDS = {"TensorDirectory": 0x0201, "ModelMetadata": 0x0202, "TokenizerMetadata": 0x0203, "IntegrityMetadata": 0x0204}
 PLACEMENT = "LAYER_MAJOR_ROLE_ORDER"
 SUPPORTED_TYPES = {"F32": ("CanonicalPrimitive", "primitive"), "BF16": ("BF16", "opaque_bytes"), "Q8_0": ("GGML_Q8_0", "opaque_bytes")}
 
@@ -73,6 +74,35 @@ def metadata_plan(artifact) -> list[dict[str, object]]:
     ]
     return [{"source_key": source, "consumer_semantic": consumer, "target": target,
              "status": status, "source_value": value} for source, consumer, target, status, value in fields]
+
+
+def tokenizer_conversion_plan(artifact) -> dict[str, object]:
+    metadata = artifact.metadata
+    tokens = metadata.get("tokenizer.ggml.tokens")
+    merges = metadata.get("tokenizer.ggml.merges")
+    if not isinstance(tokens, list) or not isinstance(merges, list):
+        raise ValueError("GPT2BpeQwen2 conversion requires tokens and merges")
+    token_ids = {}
+    for index, token in enumerate(tokens):
+        if not isinstance(token, str) or token in token_ids:
+            raise ValueError("token vocabulary is not a unique string ordinal table")
+        token_ids[token] = index
+    left_ids, right_ids = [], []
+    for merge in merges:
+        if not isinstance(merge, str):
+            raise ValueError("merge source is not a string")
+        position = merge.find(" ", 1)
+        if position < 0:
+            raise ValueError("merge has no pinned separator")
+        left, right = merge[:position], merge[position + 1:]
+        if left not in token_ids or right not in token_ids:
+            raise ValueError("merge component is absent from vocabulary")
+        left_ids.append(token_ids[left])
+        right_ids.append(token_ids[right])
+    return {"kind": "Gpt2BpeQwen2", "model_id": 1, "pre_tokenizer_id": 1,
+            "add_bos": metadata.get("tokenizer.ggml.add_bos_token"),
+            "merge_left_ids": left_ids, "merge_right_ids": right_ids,
+            "merge_count": len(merges)}
 
 
 def tokenizer_plan(artifact) -> list[dict[str, object]]:
@@ -157,6 +187,9 @@ def validate_manifest(manifest: dict[str, object], artifact) -> None:
         raise ValueError("unexpected payload action")
     if manifest["accounting"]["unaccounted"] != 0:
         raise ValueError("unaccounted source tensors")
+    tokenizer = manifest.get("tokenizer_conversion_plan")
+    if not isinstance(tokenizer, dict) or tokenizer.get("kind") != "Gpt2BpeQwen2" or tokenizer.get("merge_count") != len(tokenizer.get("merge_left_ids", [])) or tokenizer.get("merge_count") != len(tokenizer.get("merge_right_ids", [])):
+        raise ValueError("invalid tokenizer conversion plan")
 
 
 def build_manifest(root: Path, label: str) -> dict[str, object]:
@@ -173,6 +206,7 @@ def build_manifest(root: Path, label: str) -> dict[str, object]:
     plans = tensor_plans(artifact)
     metadata = metadata_plan(artifact)
     tokenizer = tokenizer_plan(artifact)
+    tokenizer_conversion = tokenizer_conversion_plan(artifact)
     source_by_name = {tensor.name: tensor for tensor in artifact.tensors}
     special_hashes = {}
     for name in ("token_embd.weight", "output.weight"):
@@ -204,10 +238,11 @@ def build_manifest(root: Path, label: str) -> dict[str, object]:
                              "metadata_kv_count": artifact.metadata_count, "tensor_count": artifact.tensor_count},
         "consumer_revision": {"repository": "https://github.com/ggml-org/llama.cpp.git", "commit": PINNED_COMMIT},
         "profile_version": "vbuf-ml-0.1",
-        "conversion_options": {"placement": PLACEMENT, "integrity": {"enabled": False, "algorithm": "SHA-256", "coverage": "payload bytes"}},
-        "control_plan": [{"role": role, "target_key_id": key_id, "action": "DERIVED"} for role, key_id in CONTROL_KEY_IDS.items() if role != "IntegrityMetadata"],
+        "conversion_options": {"placement": PLACEMENT, "base_shift": 3, "integrity": {"enabled": False, "algorithm": "SHA-256", "coverage": "payload bytes"}},
+        "control_plan": [{"role": "Bootstrap", "target_key_id": BOOTSTRAP_KEY_ID, "action": "DERIVED"}] + [{"role": role, "target_key_id": key_id, "action": "DERIVED"} for role, key_id in CONTROL_KEY_IDS.items() if role != "IntegrityMetadata"],
         "model_metadata_plan": metadata,
         "tokenizer_plan": tokenizer,
+        "tokenizer_conversion_plan": tokenizer_conversion,
         "tensor_directory_plan": [{"name": plan["target_name"], "shape": plan["source_shape"], "representation": plan["target_representation"],
                                     "key_id": plan["target_key_id"], "occurrence": plan["target_occurrence"], "directory_order": index}
                                    for index, plan in enumerate(sorted(plans, key=lambda plan: plan["target_name"]))],
@@ -238,7 +273,8 @@ class ManifestTests(unittest.TestCase):
 
     def test_target_identity_policy_is_stable(self) -> None:
         self.assertEqual(TENSOR_KEY_ID, 0x0200)
-        self.assertEqual(list(CONTROL_KEY_IDS), ["Bootstrap", "ModelMetadata", "TokenizerMetadata", "IntegrityMetadata"])
+        self.assertEqual(list(CONTROL_KEY_IDS), ["TensorDirectory", "ModelMetadata", "TokenizerMetadata", "IntegrityMetadata"])
+        self.assertEqual(BOOTSTRAP_KEY_ID, 0xF000)
         self.assertEqual(PLACEMENT, "LAYER_MAJOR_ROLE_ORDER")
 
 

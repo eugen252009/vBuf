@@ -1632,35 +1632,35 @@ Evidence is in `docs/vbuf-ml/step19b-qwen3-tokenizer.md` and
 
 ---
 
-### Step 19 — Implement deterministic GGUF-to-vBuf-ML conversion
+### Step 20 — Implement deterministic manifest-driven GGUF → vBuf-ML writer
 
-**Class:** ML tooling.
+#### Step 20 implementation recorded
 
-**Goal:** produce vBuf-ML with identical logical tensors and, for compatible GGML representations, identical packed payload bytes.
+Implemented `scripts/convert_gguf_to_vbuf_ml.py` and the Rust
+`vbuf-ml-convert` writer. The writer consumes the validated Step-18/19B
+manifest, verifies source identity and qualified policy, creates a compact
+execution plan, and writes through the existing `LayoutPlan` and canonical v0.6
+writer.
 
-**Files/modules likely added:**
+Both research artifacts were converted and independently reopened through the
+canonical and vBuf-ML readers:
 
-- add `rust/vbuf-ml-tools/src/bin/gguf-to-vbuf-ml.rs`
-- add `rust/vbuf-ml-tools/src/convert.rs`
-- add conversion integration tests and manifests
+```text
+Q8_0:  310 / 310 tensor payload digests match
+BF16:  311 / 311 tensor payload digests match
+```
 
-**Relevant existing material:** Step 17 mapping, canonical writer, representation registry.
+The targets preserve Q8_0 absence of `output.weight`, preserve BF16's distinct
+explicit output tensor, emit `Gpt2BpeQwen2`, and materialize
+`LAYER_MAJOR_ROLE_ORDER`. Generated `.vbuf` files remain ignored local research
+artifacts. Evidence is under `benchmark-results/vbuf-ml-step20/`; details are in
+`docs/vbuf-ml/step20-gguf-conversion.md`.
 
-**Existing invariants:** conversion is outside timed runtime benchmarks; no tensor requantization or repacking in the qualification path.
-
-**New invariants:** deterministic output; every tensor maps exactly once; source and destination name/shape/representation match; payload digests match; omitted descriptive metadata is reported; conversion tool version and source digest are recorded.
-
-**Tests/qualification:** byte-level per-tensor comparison; metadata/tokenizer parity; repeated conversion digest; files above 4 GiB using sparse/synthetic tests; interrupted output is not treated as finalized.
-
-**Architectural boundaries:** conversion convenience cannot force GGUF-specific fields into generic vBuf.
-
-**Expected commit outcome:** equivalent source material for fair runtime comparison.
-
-**Dependencies:** Steps 13 and 17; optional Steps 14/16.
+No llama.cpp consumer or inference claim is made.
 
 ---
 
-### Step 20 — Prototype a llama.cpp loader adapter
+### Step 21 — Prototype a llama.cpp loader adapter
 
 **Class:** ML runtime integration, kept outside generic vBuf.
 
