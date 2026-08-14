@@ -49,6 +49,8 @@ runtime integration. Step 17 pins llama.cpp commit
 Q8_0 contracts in [`step17-upstream-representation-qualification.md`](step17-upstream-representation-qualification.md).
 Step 18 builds deterministic, read-only conversion manifests without writing
 model bytes; see [`step18-conversion-manifest.md`](step18-conversion-manifest.md).
+Step 19A resolves the pinned Qwen3 KV-head and key/value head-dimension
+metadata gaps; tokenizer semantics remain separate and blocked.
 
 The base remains a small compositional vocabulary: efficient composition is
 preferred over maximal base functionality.

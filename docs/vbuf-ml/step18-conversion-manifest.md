@@ -172,15 +172,15 @@ Directly represented or derivable:
 - RoPE base;
 - vocabulary size.
 
-Current target gaps:
+Step 19A resolves the previous target gaps by adding optional profile-local
+ModelMetadata keys for:
 
 - KV head count;
 - key head dimension;
 - value head dimension.
 
-These are source values required by the pinned Qwen3 consumer but are not
-currently expressible by the existing ModelMetadata profile. The manifests
-therefore remain structurally valid but are not consumer-complete.
+The manifests now mark all model metadata requirements as directly represented.
+The separate Step 19A evidence is in `benchmark-results/vbuf-ml-step19a/`.
 
 ## Tokenizer matrix
 
@@ -204,8 +204,7 @@ scores where present, and special IDs. It cannot represent the GPT-2/BPE model,
 pre-tokenizer, merges, or chat template semantics required for a
 consumer-complete llama.cpp path.
 
-Both manifests are consequently blocked by a tokenizer gap in addition to the
-model metadata gap.
+Both manifests are consequently blocked only by the tokenizer gap.
 
 ## Read behavior and streaming readiness
 
@@ -228,7 +227,6 @@ separate from source physical order.
 Both artifacts are:
 
 ```text
-BLOCKED_BY_METADATA_GAP
 BLOCKED_BY_TOKENIZER_GAP
 ```
 

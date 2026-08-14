@@ -30,6 +30,9 @@ Optional:
 | 6 | FeedForwardLength | nonzero unsigned scalar |
 | 7 | NormalizationEpsilon | finite positive float scalar |
 | 8 | RopeTheta | finite positive float scalar |
+| 9 | KVHeadCount | nonzero unsigned scalar; optional architecture semantic |
+| 10 | KeyHeadDimension | nonzero unsigned scalar; optional architecture semantic |
+| 11 | ValueHeadDimension | nonzero unsigned scalar; optional architecture semantic |
 
 This is a bounded common model configuration, not a universal architecture
 schema. Architecture-specific additions are deferred.

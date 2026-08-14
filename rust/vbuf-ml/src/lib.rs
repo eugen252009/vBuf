@@ -26,7 +26,7 @@ pub use representations::{bf16_bits_to_f32, expected_payload_bytes, logical_elem
 pub use layout::{canonical_payload_alignment, payload_shift, write_indefinite, write_known_size, LayoutClass, LayoutError, LayoutPlan, PlacementRequest, PlannedBlock};
 pub use integrity::{digest_payload, encode_payload as encode_integrity_payload, IntegrityAlgorithm, IntegrityEntry, IntegrityMetadata, IntegrityRecord};
 pub use range_loading::{execute_plan, select_tensor_names, select_tensor_ordinals, Coalescing, LoadedPlan, LoadedRead, MmapSource, PhysicalRange, PositionedFileSource, PlannedTarget, RangeLoadError, ReadPlan, RangeSource, SelectedTensor};
-pub use metadata::{MetadataEntry, MetadataField, MetadataValue, ModelMetadata, ModelMetadataKey};
+pub use metadata::{encode_payload as encode_metadata_payload, MetadataEntry, MetadataField, MetadataValue, ModelMetadata, ModelMetadataKey};
 pub use tokenizer::{SpecialToken, TokenizerEntry, TokenizerKind, TokenizerMetadata, TokenizerRole};
 
 /// Boundary smoke helper for future profile code. It does not parse or

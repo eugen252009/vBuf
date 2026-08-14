@@ -22,6 +22,9 @@ pub enum ModelMetadataKey {
     FeedForwardLength = 6,
     NormalizationEpsilon = 7,
     RopeTheta = 8,
+    KVHeadCount = 9,
+    KeyHeadDimension = 10,
+    ValueHeadDimension = 11,
 }
 
 impl ModelMetadataKey {
@@ -35,6 +38,9 @@ impl ModelMetadataKey {
             6 => Some(Self::FeedForwardLength),
             7 => Some(Self::NormalizationEpsilon),
             8 => Some(Self::RopeTheta),
+            9 => Some(Self::KVHeadCount),
+            10 => Some(Self::KeyHeadDimension),
+            11 => Some(Self::ValueHeadDimension),
             _ => None,
         }
     }
@@ -90,7 +96,7 @@ impl<'a> ModelMetadata<'a> {
         let entries = parse_payload(region.range.bytes())?;
         let mut fields = Vec::with_capacity(entries.len());
         let mut previous = 0u16;
-        let mut seen = [false; 9];
+        let mut seen = [false; 12];
         for (position, entry) in entries.into_iter().enumerate() {
             if position > 0 && entry.key_id <= previous {
                 return Err(MlError::new(if entry.key_id == previous { MlErrorCode::DuplicateMetadataKey } else { MlErrorCode::MalformedModelMetadata }, "model metadata keys must be strictly sorted"));
@@ -121,6 +127,9 @@ impl<'a> ModelMetadata<'a> {
     pub fn architecture(&self) -> Option<&str> { match &self.get(ModelMetadataKey::Architecture)?.value { MetadataValue::Text(value) => Some(value), _ => None } }
     pub fn unsigned(&self, key: ModelMetadataKey) -> Option<u64> { match self.get(key)?.value { MetadataValue::Unsigned(value) => Some(value), _ => None } }
     pub fn float(&self, key: ModelMetadataKey) -> Option<f64> { match self.get(key)?.value { MetadataValue::Float(value) => Some(value), _ => None } }
+    pub fn kv_head_count(&self) -> Option<u64> { self.unsigned(ModelMetadataKey::KVHeadCount) }
+    pub fn key_head_dimension(&self) -> Option<u64> { self.unsigned(ModelMetadataKey::KeyHeadDimension) }
+    pub fn value_head_dimension(&self) -> Option<u64> { self.unsigned(ModelMetadataKey::ValueHeadDimension) }
 }
 
 pub fn encode_payload(entries: &[MetadataEntry]) -> Result<Vec<u8>, MlError> {
@@ -173,7 +182,7 @@ fn decode_value(key: ModelMetadataKey, block: &vbuf_core::v06::V06Block, bytes: 
             let text = String::from_utf8(bytes.to_vec()).map_err(|_| MlError::new(MlErrorCode::MetadataTypeMismatch, "architecture is not UTF-8"))?;
             Ok(MetadataValue::Text(text))
         }
-        ModelMetadataKey::ContextLength | ModelMetadataKey::EmbeddingLength | ModelMetadataKey::LayerCount | ModelMetadataKey::HeadCount | ModelMetadataKey::FeedForwardLength => {
+        ModelMetadataKey::ContextLength | ModelMetadataKey::EmbeddingLength | ModelMetadataKey::LayerCount | ModelMetadataKey::HeadCount | ModelMetadataKey::FeedForwardLength | ModelMetadataKey::KVHeadCount | ModelMetadataKey::KeyHeadDimension | ModelMetadataKey::ValueHeadDimension => {
             let value = decode_unsigned(block, bytes)?;
             if value == 0 { return Err(MlError::new(MlErrorCode::MetadataValueOutOfRange, "model metadata integer must be non-zero")); }
             Ok(MetadataValue::Unsigned(value))

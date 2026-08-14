@@ -1574,6 +1574,32 @@ are in `docs/vbuf-ml/step18-conversion-manifest.md`.
 
 ---
 
+### Step 19A — Resolve pinned Qwen3 model-metadata gaps
+
+#### Step 19A implementation recorded
+
+Pinned llama.cpp commit `4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c` separately
+loads `attention.head_count_kv`, `attention.key_length`, and
+`attention.value_length`. The latter two override the consumer’s fallback of
+`embedding_length / head_count`, so none of the three values is safely
+reducible for the pinned Qwen3 model.
+
+Added optional profile-local ModelMetadata keys:
+
+```text
+9  = KVHeadCount
+10 = KeyHeadDimension
+11 = ValueHeadDimension
+```
+
+Both real artifacts match exactly at `(8, 128, 128)`. The Step-18 manifests now
+report no model-metadata blocker and remain blocked only by tokenizer semantics.
+No tokenizer, converter, generic-crate, or representation changes were made.
+Evidence and provenance are in `docs/vbuf-ml/step19a-qwen3-metadata.md` and
+`benchmark-results/vbuf-ml-step19a/`.
+
+---
+
 ### Step 19 — Implement deterministic GGUF-to-vBuf-ML conversion
 
 **Class:** ML tooling.

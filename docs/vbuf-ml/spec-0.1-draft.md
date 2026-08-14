@@ -44,8 +44,10 @@ offsets or duplicated primitive descriptors.
 Tensor representation qualification is specified in
 [`representations.md`](representations.md) and the Step 17 evidence document.
 Profile 0.1 selects `CanonicalPrimitive`, exact BF16 opaque bytes, and exact
-GGML Q8_0 opaque bytes using profile-local representation IDs. The contracts
-are limited to the pinned llama.cpp revision and do not add GGML semantics to
+GGML Q8_0 opaque bytes using profile-local representation IDs. Step 19A also
+adds optional profile-local model metadata keys `KVHeadCount`,
+`KeyHeadDimension`, and `ValueHeadDimension` (IDs 9–11). The contracts are
+limited to the pinned llama.cpp revision and do not add GGML semantics to
 generic vBuf.
 
 The downstream placement and alignment policy is described in
