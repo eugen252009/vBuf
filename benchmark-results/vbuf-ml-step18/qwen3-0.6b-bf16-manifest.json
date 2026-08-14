@@ -77,21 +77,21 @@
       "consumer_semantic": "KV head count",
       "source_key": "qwen3.attention.head_count_kv",
       "source_value": 8,
-      "status": "MISSING",
+      "status": "DIRECTLY_REPRESENTED",
       "target": "KVHeadCount"
     },
     {
       "consumer_semantic": "key head dimension",
       "source_key": "qwen3.attention.key_length",
       "source_value": 128,
-      "status": "MISSING",
+      "status": "DIRECTLY_REPRESENTED",
       "target": "KeyHeadDimension"
     },
     {
       "consumer_semantic": "value head dimension",
       "source_key": "qwen3.attention.value_length",
       "source_value": 128,
-      "status": "MISSING",
+      "status": "DIRECTLY_REPRESENTED",
       "target": "ValueHeadDimension"
     },
     {
@@ -10271,15 +10271,10 @@
   ],
   "validation": {
     "conversion_readiness": [
-      "BLOCKED_BY_METADATA_GAP",
       "BLOCKED_BY_TOKENIZER_GAP"
     ],
     "manifest_structurally_valid": true,
-    "metadata_blockers": [
-      "KV head count",
-      "key head dimension",
-      "value head dimension"
-    ],
+    "metadata_blockers": [],
     "tokenizer_blockers": [
       "tokenizer.chat_template",
       "tokenizer.ggml.merges",

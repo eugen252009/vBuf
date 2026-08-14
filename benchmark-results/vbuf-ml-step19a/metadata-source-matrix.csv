@@ -1,0 +1,11 @@
+artifact,source_key,source_value,consumer_semantic,status
+Q8_0,qwen3.attention.head_count,16,HeadCount,DIRECTLY_REPRESENTED
+Q8_0,qwen3.attention.head_count_kv,8,KVHeadCount,DIRECTLY_REPRESENTED
+Q8_0,qwen3.attention.key_length,128,KeyHeadDimension,DIRECTLY_REPRESENTED
+Q8_0,qwen3.attention.value_length,128,ValueHeadDimension,DIRECTLY_REPRESENTED
+Q8_0,qwen3.embedding_length,1024,EmbeddingLength,DIRECTLY_REPRESENTED
+BF16,qwen3.attention.head_count,16,HeadCount,DIRECTLY_REPRESENTED
+BF16,qwen3.attention.head_count_kv,8,KVHeadCount,DIRECTLY_REPRESENTED
+BF16,qwen3.attention.key_length,128,KeyHeadDimension,DIRECTLY_REPRESENTED
+BF16,qwen3.attention.value_length,128,ValueHeadDimension,DIRECTLY_REPRESENTED
+BF16,qwen3.embedding_length,1024,EmbeddingLength,DIRECTLY_REPRESENTED

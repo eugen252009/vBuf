@@ -1,0 +1,18 @@
+{
+  "repository_commit": "cd7e2bd610605566965032c218f2e375cde5979f",
+  "consumer_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+  "platform": "Linux-6.12.101+deb13-amd64-x86_64-with-glibc2.41",
+  "artifacts": {
+    "Q8_0": {
+      "filename": "Qwen3-0.6B-Q8_0.gguf",
+      "size": 639446688,
+      "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031"
+    },
+    "BF16": {
+      "filename": "Qwen3-0.6B-BF16.gguf",
+      "size": 1509347552,
+      "sha256": "65a16246f5814dc0587acadcf0328186b17febf6dcaeb1b13efa9243b551d38e"
+    }
+  }
+}

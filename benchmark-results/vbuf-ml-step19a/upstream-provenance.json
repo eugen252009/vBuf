@@ -1,0 +1,62 @@
+{
+  "repository": "https://github.com/ggml-org/llama.cpp.git",
+  "commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "source": {
+    "src/llama-model.cpp": [
+      {
+        "needle": "hparams.n_head_kv_arr = hparams.n_head_arr",
+        "line": 1169,
+        "text": "hparams.n_head_kv_arr = hparams.n_head_arr;"
+      },
+      {
+        "needle": "LLM_KV_ATTENTION_HEAD_COUNT_KV",
+        "line": 1171,
+        "text": "ml.get_key_or_arr(LLM_KV_ATTENTION_HEAD_COUNT_KV, hparams.n_head_kv_arr, hparams.n_layer(), false);"
+      },
+      {
+        "needle": "hparams.n_embd_head_k_full = hparams.n_embd / hparams.n_head()",
+        "line": 1206,
+        "text": "hparams.n_embd_head_k_full = hparams.n_embd / hparams.n_head();"
+      },
+      {
+        "needle": "LLM_KV_ATTENTION_KEY_LENGTH",
+        "line": 1207,
+        "text": "ml.get_key(LLM_KV_ATTENTION_KEY_LENGTH, hparams.n_embd_head_k_full, false);"
+      },
+      {
+        "needle": "LLM_KV_ATTENTION_VALUE_LENGTH",
+        "line": 1210,
+        "text": "ml.get_key(LLM_KV_ATTENTION_VALUE_LENGTH, hparams.n_embd_head_v_full, false);"
+      }
+    ],
+    "src/llama-hparams.cpp": [
+      {
+        "needle": "uint32_t llama_hparams::n_head_kv",
+        "line": 58,
+        "text": "uint32_t llama_hparams::n_head_kv(uint32_t il) const {"
+      },
+      {
+        "needle": "uint32_t llama_hparams::n_embd_head_k",
+        "line": 115,
+        "text": "uint32_t llama_hparams::n_embd_head_k(uint32_t il) const {"
+      },
+      {
+        "needle": "uint32_t llama_hparams::n_embd_head_v",
+        "line": 123,
+        "text": "uint32_t llama_hparams::n_embd_head_v(uint32_t il) const {"
+      }
+    ],
+    "src/llama-graph.cpp": [
+      {
+        "needle": "const int64_t n_embd_kv = n_embd_head * n_head_kv",
+        "line": 1600,
+        "text": "const int64_t n_embd_kv = n_embd_head * n_head_kv;"
+      }
+    ]
+  },
+  "decisions": {
+    "KVHeadCount": "stored; consumer loads optional source key and otherwise defaults to HeadCount",
+    "KeyHeadDimension": "stored; consumer initializes EmbeddingLength / HeadCount then overrides from source key",
+    "ValueHeadDimension": "stored; consumer initializes EmbeddingLength / HeadCount then overrides from source key"
+  }
+}
