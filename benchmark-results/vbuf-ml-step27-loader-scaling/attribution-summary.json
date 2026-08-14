@@ -1,0 +1,23 @@
+{
+  "category": "C — mixture of genuine readiness/construction reduction and deferred first-touch work",
+  "central_answer": "The large vBuf MODEL_READY advantage is repeatable, but it does not survive first useful compute: vBuf defers most weight residency/page-fault work into FIRST_EVAL.",
+  "large_warm_medians_ms": {
+    "GGUF": {"MODEL_READY":20002.8455,"FIRST_EVAL":1754.1605,"TTFUC":21607.7105,"TTFT":21607.7105,"SECOND_EVAL":1070.55},
+    "vBuf": {"MODEL_READY":261.6095,"FIRST_EVAL":35840.346,"TTFUC":36144.8375,"TTFT":36144.8375,"SECOND_EVAL":1073.757}
+  },
+  "large_warm_deltas_ms_GGUF_minus_vBuf": {"MODEL_READY":19741.236,"FIRST_EVAL":-34086.1855,"TTFUC":-14537.127,"TTFT":-14537.127,"SECOND_EVAL":-3.207},
+  "model_ready_delta_repeatable": true,
+  "ttfuc_advantage_survives": false,
+  "work_deferred_past_model_ready": true,
+  "evidence": {
+    "large_vbuf_major_faults_before_ready_median": 347,
+    "large_vbuf_major_faults_first_eval_median": 45953,
+    "large_gguf_major_faults_before_ready_median": 0,
+    "large_gguf_rss_ready_kb_median": 33917124,
+    "large_vbuf_rss_ready_kb_median": 83562,
+    "large_vbuf_rss_first_eval_kb_median": 33318256
+  },
+  "cache_sensitivity": "uncached approximation changes absolute times but preserves the phase shift",
+  "swap_contamination": "not separately classified per run; system swap was nonzero and must limit strong I/O claims",
+  "step27_scaling_claim": "not made; this is attribution evidence only"
+}

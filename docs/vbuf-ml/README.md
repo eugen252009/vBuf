@@ -70,7 +70,9 @@ views are documented in
 runtime-local tokenizer indexes are documented in
 [`step25-runtime-tokenizer-index.md`](step25-runtime-tokenizer-index.md). Step 26
 Qwen3-32B placement qualification is documented in
-[`step26-qwen32b-placement.md`](step26-qwen32b-placement.md).
+[`step26-qwen32b-placement.md`](step26-qwen32b-placement.md). Step 27 controlled
+loader scaling and first-use attribution is documented in
+[`step27-loader-scaling.md`](step27-loader-scaling.md).
 Tokenizer execution and chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is

@@ -1,0 +1,55 @@
+{
+  "artifact_hashes_verified": true,
+  "warm_generation_sequences_equal_by_model": true,
+  "sequences": {
+    "0.6B-GGUF": [
+      [
+        0,
+        1096,
+        374,
+        264,
+        4285,
+        3110,
+        315,
+        264
+      ]
+    ],
+    "0.6B-vBuf": [
+      [
+        0,
+        1096,
+        374,
+        264,
+        4285,
+        3110,
+        315,
+        264
+      ]
+    ],
+    "32B-GGUF": [
+      [
+        504,
+        13027,
+        0,
+        863,
+        198,
+        198,
+        2,
+        19143
+      ]
+    ],
+    "32B-vBuf": [
+      [
+        504,
+        13027,
+        0,
+        863,
+        198,
+        198,
+        2,
+        19143
+      ]
+    ]
+  },
+  "logit_comparison": "not repeated in Step-27 runner; Step-26 exact logit parity retained"
+}

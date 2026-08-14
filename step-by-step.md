@@ -1985,6 +1985,31 @@ disk-capacity blocker and its evidence remain preserved in
 
 See `docs/vbuf-ml/step26-qwen32b-placement.md`.
 
+#### Step 27 — Controlled loader scaling and first-use attribution
+
+Ran a fresh CPU-only, pinned-llama benchmark over 0.6B and 32B GGUF/vBuf
+controls with 10 warm and 3 uncached-approximation samples per case. The
+benchmark measured MODEL_READY, first evaluation, TTFUC, TTFT, second
+synchronous evaluation, page faults, I/O counters, RSS, and CPU time.
+
+The 32B warm medians were:
+
+```text
+             MODEL_READY   FIRST_EVAL   TTFUC
+GGUF           20.003 s       1.754 s  21.608 s
+vBuf            0.262 s      35.840 s  36.145 s
+```
+
+The vBuf readiness advantage is repeatable, but most large-model payload
+residency work moves into first evaluation. vBuf RSS was approximately 84 MB
+at MODEL_READY and 33.3 GB after first evaluation; GGUF was approximately
+33.9 GB at MODEL_READY. Second evaluation was effectively equal (1.071 s vs
+1.074 s). Classification: a mixture of genuine readiness/construction
+reduction and deferred first-touch work. No optimization was implemented.
+
+See `docs/vbuf-ml/step27-loader-scaling.md` and
+`benchmark-results/vbuf-ml-step27-loader-scaling/`.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision

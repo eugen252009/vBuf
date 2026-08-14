@@ -1,0 +1,64 @@
+{
+  "GGUF": {
+    "large_over_small": {
+      "MODEL_READY": 35.88559416296201,
+      "FIRST_EVAL": 52.59220783114469,
+      "TTFUC": 35.33804148285041,
+      "TTFT": 35.33804148285041,
+      "SECOND_EVAL": 33.086087803068935
+    },
+    "large_minus_small_ms": {
+      "MODEL_READY": 19445.4395,
+      "FIRST_EVAL": 1720.8065,
+      "TTFUC": 20996.253,
+      "TTFT": 20996.253,
+      "SECOND_EVAL": 1038.1934999999999
+    }
+  },
+  "vBuf": {
+    "large_over_small": {
+      "MODEL_READY": 1.2008009639107236,
+      "FIRST_EVAL": 70.94520307967302,
+      "TTFUC": 45.12297924108912,
+      "TTFT": 45.12297924108912,
+      "SECOND_EVAL": 33.247368095120144
+    },
+    "large_minus_small_ms": {
+      "MODEL_READY": 43.747000000000014,
+      "FIRST_EVAL": 35335.1625,
+      "TTFUC": 35343.808000000005,
+      "TTFT": 35343.808000000005,
+      "SECOND_EVAL": 1041.461
+    }
+  },
+  "vbuf_advantage": {
+    "small_ms": {
+      "MODEL_READY": 339.54349999999994,
+      "FIRST_EVAL": -471.8295,
+      "TTFUC": -189.57200000000012,
+      "TTFT": -189.57200000000012,
+      "SECOND_EVAL": 0.060499999999997556
+    },
+    "large_ms": {
+      "MODEL_READY": 19741.236,
+      "FIRST_EVAL": -34086.1855,
+      "TTFUC": -14537.127,
+      "TTFT": -14537.127,
+      "SECOND_EVAL": -3.2070000000001073
+    },
+    "small_relative": {
+      "MODEL_READY": 0.6091493453604733,
+      "FIRST_EVAL": -14.146114409066378,
+      "TTFUC": -0.3100329949342353,
+      "TTFT": -0.3100329949342353,
+      "SECOND_EVAL": 0.0018697943226244629
+    },
+    "large_relative": {
+      "MODEL_READY": 0.986921385759841,
+      "FIRST_EVAL": -19.43162299002856,
+      "TTFUC": -0.6727749800239131,
+      "TTFT": -0.6727749800239131,
+      "SECOND_EVAL": -0.0029956564382795925
+    }
+  }
+}

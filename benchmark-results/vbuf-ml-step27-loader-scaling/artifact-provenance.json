@@ -1,0 +1,22 @@
+[
+  {
+    "path": "research-models/Qwen3-0.6B-Q8_0.gguf",
+    "size": 639446688,
+    "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031"
+  },
+  {
+    "path": "research-models/Qwen3-0.6B-Q8_0.vbuf",
+    "size": 637925504,
+    "sha256": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998"
+  },
+  {
+    "path": "research-models/Qwen3-32B-Q8_0.gguf",
+    "size": 34817718912,
+    "sha256": "2c50eb8aad05047dbf24fa014eb621adf552e14176cabe0c5db4ef38c91e2169"
+  },
+  {
+    "path": "research-models/Qwen3-32B-Q8_0.vbuf",
+    "size": 34816197376,
+    "sha256": "84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d"
+  }
+]

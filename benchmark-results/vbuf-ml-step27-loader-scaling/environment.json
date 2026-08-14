@@ -1,0 +1,11 @@
+{
+  "host": "debian",
+  "python": "3.13.5",
+  "cpu_only": true,
+  "gpu": "not involved",
+  "runs_warm": 10,
+  "runs_uncached_approx": 3,
+  "cache_method": "POSIX_FADV_DONTNEED advisory whole-file eviction; not cold-cache",
+  "run_order": "deterministic CASES alternation",
+  "binary": "/tmp/vbuf-ml-step27-loader"
+}

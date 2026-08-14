@@ -1,0 +1,22 @@
+{
+  "models": [
+    "Qwen3-0.6B-Q8_0",
+    "Qwen3-32B-Q8_0"
+  ],
+  "formats": [
+    "GGUF",
+    "vBuf"
+  ],
+  "cpu_only": true,
+  "prompt": "Hello world",
+  "prompt_add_bos": false,
+  "context": 512,
+  "batch": 512,
+  "threads": 2,
+  "deterministic_generation": true,
+  "generation_tokens": 8,
+  "warm_runs": 10,
+  "uncached_approx_runs": 3,
+  "same_pinned_llama": true,
+  "optimization": false
+}
