@@ -1886,6 +1886,38 @@ Release-mode audit evidence is under
 `benchmark-results/vbuf-ml-nano-runtime-audit/`; the detailed report is
 `docs/vbuf-ml/nano-runtime-audit.md`.
 
+#### Step 24 — Borrowed runtime views
+
+Replaced the Step-23 direct path's owned `ConsumerModel` snapshot with a
+mmap-owned, validated `BorrowedModel`/`BorrowedModelView` layer. Token text,
+offsets, types, optional scores, and numeric merge arrays now cross the ABI as
+canonical pointer/count spans; no Rust token or merge object tables are built
+by the direct source. The source-neutral `llama_model_source` seam and common
+llama/GGML runtime are unchanged.
+
+Required canonical validation remains eager and explicit. Runtime token and
+merge indexes remain runtime-local and owned by the final tokenizer. Nano is
+not used in dense lookup or normal Step-24 loading; a separate experiment
+records canonical-descriptor, Nano-plus-minimal-header, and semantic-directory
+physical-index construction costs.
+
+Warm CPU medians over ten samples:
+
+```text
+                 GGUF      compatibility  Step-24 direct
+BF16             249.9 ms  430.5 ms       152.0 ms
+Q8_0             196.0 ms  430.7 ms       149.7 ms
+```
+
+BF16/Q8_0 tokenizer, structural, logit, and deterministic-generation parity
+passed with zero logit difference. Payload copy/repack/reorder remain zero.
+Evidence is under `benchmark-results/vbuf-ml-step24/`; detailed architecture
+and limitations are documented in
+`docs/vbuf-ml/step24-borrowed-runtime-views.md`.
+
+No v0.6 wire, vBuf-ML semantic, tensor-layout, BaseStep, Nano, kernel,
+scheduler, GPU, prefetch, or inference optimization was introduced.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision

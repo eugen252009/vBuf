@@ -1,0 +1,11 @@
+artifact,phase,classification,median_ns,notes
+BF16,canonical_validation,INTRINSIC_VBUF_VALIDATION,39940.0,parse_v06; checked canonical descriptors
+BF16,borrowed_view_establishment,BORROWED_VIEW_SETUP_PLUS_SEMANTIC_VALIDATION,4532867.0,"Bootstrap, metadata, directory, tokenizer; no token/merge object tables"
+BF16,eager_token_index,RUNTIME_TOKEN_INDEX,13461093.0,runtime-owned byte keys
+BF16,eager_merge_index,RUNTIME_MERGE_INDEX,7383447.0,runtime-owned pair keys
+BF16,common_llama_model_ready,COMMON_LLAMA_MODEL_BUILD,151958161.0,Step-24 direct source total
+Q8_0,canonical_validation,INTRINSIC_VBUF_VALIDATION,39305.0,parse_v06; checked canonical descriptors
+Q8_0,borrowed_view_establishment,BORROWED_VIEW_SETUP_PLUS_SEMANTIC_VALIDATION,4681518.0,"Bootstrap, metadata, directory, tokenizer; no token/merge object tables"
+Q8_0,eager_token_index,RUNTIME_TOKEN_INDEX,13274102.0,runtime-owned byte keys
+Q8_0,eager_merge_index,RUNTIME_MERGE_INDEX,7318241.0,runtime-owned pair keys
+Q8_0,common_llama_model_ready,COMMON_LLAMA_MODEL_BUILD,149661103.0,Step-24 direct source total

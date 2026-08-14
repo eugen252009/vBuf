@@ -1,0 +1,3 @@
+artifact,owned_consumer_open,borrowed_model_view,token_index_key_bytes,merge_index_estimated_bytes,copied_canonical_bytes,tensor_payload_copy
+BF16,owned snapshot,borrowed arrays,1372760,3633288,0,0
+Q8_0,owned snapshot,borrowed arrays,1372760,3633288,0,0

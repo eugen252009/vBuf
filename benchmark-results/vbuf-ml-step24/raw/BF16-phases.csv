@@ -1,0 +1,11 @@
+artifact,operation,samples,median_ns,entries,bytes,allocating
+BF16,borrowed_model_open_total,10,5374067.0,0.0,0.0,false
+BF16,borrowed_view_establishment,10,4532867.0,311.0,2588256.0,false
+BF16,canonical_descriptors,10,1000.0,338.0,10816.0,true
+BF16,canonical_validation,10,39940.0,338.0,0.0,false
+BF16,eager_merge_index,10,7383447.0,151387.0,3633288.0,true
+BF16,eager_token_index,10,13461093.0,151936.0,1372760.0,true
+BF16,legacy_semantic_parse_control,10,4541812.5,0.0,0.0,true
+BF16,nano_plus_minimal_headers,10,7110974.0,338.0,23559780.0,true
+BF16,owned_consumer_open_total,10,13790786.5,0.0,0.0,true
+BF16,semantic_directory,10,16585.5,311.0,311.0,true

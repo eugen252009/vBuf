@@ -1,0 +1,12 @@
+{
+  "model_metadata": "small scalar ConsumerModelMetadata copy from validated fields",
+  "tokenizer": {
+    "text": "borrowed canonical byte span",
+    "offsets": "borrowed canonical little-endian u64 span",
+    "types": "borrowed optional canonical numeric span",
+    "scores": "borrowed optional canonical numeric span",
+    "merges": "borrowed left/right u32 spans"
+  },
+  "tensor_directory": "existing validated semantic descriptors; final llama tensor names/dimensions remain consumer-owned",
+  "provenance": "BorrowedModelView -> ValidatedV06/CheckedRange"
+}

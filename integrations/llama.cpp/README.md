@@ -63,5 +63,11 @@ BF16 greedy generation: PASS
 Q8_0 greedy generation: PASS
 ```
 
-No performance claim is made. See Step-21 evidence for exact commands and
-parity records.
+The Step-23 source-neutral direct path is retained. Step 24 changes only its
+vBuf side: validated tokenizer arrays are now borrowed directly from the mmap
+instead of Rust-owned token/merge view tables. The source-neutral
+`llama_model_source` seam and common runtime remain unchanged. Step-24 evidence
+is under `benchmark-results/vbuf-ml-step24/` and the architecture report is
+`docs/vbuf-ml/step24-borrowed-runtime-views.md`.
+
+No GPU, cold-cache, or first-touch performance claim is made.

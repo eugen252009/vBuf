@@ -1,0 +1,6 @@
+path,stage,representation,ownership,allocation_or_copy
+compatibility,vBuf->ConsumerModel,owned semantic snapshot,owned Rust strings/vectors,legacy compatibility retained
+step23_direct,vBuf->Rust bulk views,snapshot-backed token/merge tables,owned Rust tables,legacy direct reference
+step24_direct,vBuf->BorrowedModelView,validated canonical SoA spans,borrowed mapping,token/merge copied bytes 0
+step24_direct,runtime tokenizer,token/rank lookup state,final runtime-owned keys,eager runtime index only
+step24_direct,tensor boundary,validated ranges plus bounded descriptors,final consumer-owned names/dimensions,payload bytes 0

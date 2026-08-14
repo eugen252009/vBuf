@@ -1,0 +1,13 @@
+{
+  "ubsan": {
+    "path": "step24 direct",
+    "artifact": "Qwen3-0.6B-Q8_0.vbuf",
+    "result": "PASS",
+    "dependencies": "prebuilt pinned llama.cpp/Rust dependencies; integration probe instrumented",
+    "diagnostics": "none"
+  },
+  "asan": {
+    "result": "NOT_RUN",
+    "reason": "sanitizer-instrumented llama.cpp/Rust dependencies were not available"
+  }
+}

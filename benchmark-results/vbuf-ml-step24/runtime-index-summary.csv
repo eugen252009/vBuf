@@ -1,0 +1,5 @@
+artifact,phase,classification,median_ns,notes
+BF16,eager_token_index,RUNTIME_TOKEN_INDEX,13461093.0,runtime-owned byte keys
+BF16,eager_merge_index,RUNTIME_MERGE_INDEX,7383447.0,runtime-owned pair keys
+Q8_0,eager_token_index,RUNTIME_TOKEN_INDEX,13274102.0,runtime-owned byte keys
+Q8_0,eager_merge_index,RUNTIME_MERGE_INDEX,7318241.0,runtime-owned pair keys

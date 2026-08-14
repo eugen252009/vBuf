@@ -1,0 +1,11 @@
+artifact,operation,samples,median_ns,entries,bytes,allocating
+Q8_0,borrowed_model_open_total,10,5411777.5,0.0,0.0,false
+Q8_0,borrowed_view_establishment,10,4681518.0,310.0,2588256.0,false
+Q8_0,canonical_descriptors,10,980.0,337.0,10784.0,true
+Q8_0,canonical_validation,10,39305.0,337.0,0.0,false
+Q8_0,eager_merge_index,10,7318241.0,151387.0,3633288.0,true
+Q8_0,eager_token_index,10,13274102.0,151936.0,1372760.0,true
+Q8_0,legacy_semantic_parse_control,10,4681702.5,0.0,0.0,true
+Q8_0,nano_plus_minimal_headers,10,2989601.0,337.0,9967586.0,true
+Q8_0,owned_consumer_open_total,10,13563859.5,0.0,0.0,true
+Q8_0,semantic_directory,10,16090.0,310.0,310.0,true

@@ -1,0 +1,5 @@
+artifact,path,ffi_calls,bulk_calls,element_calls,notes
+BF16,compatibility,910601,0,910601,Step-22A/Step-23 compatibility reference; unchanged representation path
+Q8_0,compatibility,910599,0,910599,Step-22A/Step-23 compatibility reference; unchanged representation path
+BF16,step24_direct,12,3,0,metadata+architecture+token arrays+merge arrays+tensor descriptors+controls
+Q8_0,step24_direct,12,3,0,metadata+architecture+token arrays+merge arrays+tensor descriptors+controls

@@ -1,0 +1,20 @@
+{
+  "step": "24",
+  "hypotheses": [
+    "remove ConsumerModel snapshot materialization",
+    "retain required runtime token/merge indexes",
+    "preserve direct-source correctness"
+  ],
+  "paths": [
+    "gguf",
+    "vbuf compatibility",
+    "vbuf borrowed direct"
+  ],
+  "canonical_copied_bytes": 0,
+  "tensor_payload_copy": 0,
+  "tensor_payload_repack": 0,
+  "tensor_payload_reorder": 0,
+  "wire_change": false,
+  "native_runtime_complete": false,
+  "eager_index_primary": true
+}

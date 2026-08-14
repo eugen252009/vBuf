@@ -1,0 +1,13 @@
+{
+  "artifacts": [
+    "Qwen3-0.6B-BF16.vbuf",
+    "Qwen3-0.6B-Q8_0.vbuf"
+  ],
+  "runs": 10,
+  "mode": "release Rust view benchmark; warm llama model-ready process samples",
+  "cpu_only": true,
+  "wire_changed": false,
+  "nano_in_normal_load": false,
+  "python": "3.13.5",
+  "git": "0575599df80c139bad8cc73a66ba88f75a73fb98"
+}

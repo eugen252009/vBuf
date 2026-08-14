@@ -1,0 +1,7 @@
+artifact,source,median_ns,entries,bytes,classification
+BF16,canonical_descriptors,1000.0,338.0,10816.0,RUNTIME_SEMANTIC_INDEX
+BF16,nano_plus_minimal_headers,7110974.0,338.0,23559780.0,OPTIONAL_PHYSICAL_BOOTSTRAP
+BF16,semantic_directory,16585.5,311.0,311.0,RUNTIME_SEMANTIC_INDEX
+Q8_0,canonical_descriptors,980.0,337.0,10784.0,RUNTIME_SEMANTIC_INDEX
+Q8_0,nano_plus_minimal_headers,2989601.0,337.0,9967586.0,OPTIONAL_PHYSICAL_BOOTSTRAP
+Q8_0,semantic_directory,16090.0,310.0,310.0,RUNTIME_SEMANTIC_INDEX

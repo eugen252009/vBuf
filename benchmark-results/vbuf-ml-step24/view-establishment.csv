@@ -1,0 +1,3 @@
+artifact,phase,classification,median_ns,notes
+BF16,borrowed_view_establishment,BORROWED_VIEW_SETUP_PLUS_SEMANTIC_VALIDATION,4532867.0,"Bootstrap, metadata, directory, tokenizer; no token/merge object tables"
+Q8_0,borrowed_view_establishment,BORROWED_VIEW_SETUP_PLUS_SEMANTIC_VALIDATION,4681518.0,"Bootstrap, metadata, directory, tokenizer; no token/merge object tables"
