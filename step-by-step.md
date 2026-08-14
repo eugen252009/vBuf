@@ -64,6 +64,20 @@ Initial placement guidance:
 
 Promotion is one-way compatibility work and should be conservative; efficient composition, not maximal base functionality, is the objective.
 
+### Supplied design-lineage context
+
+The project lineage is application/performance-driven: a barcode-oriented game led to large OpenFoodFacts ingestion in Bun/JavaScript, allocation and GC pressure motivated BumpArena, and BumpArena then exposed the need for persistent bytes that a runtime could consume without reconstructing an object graph. vBuf's recurring objective is therefore to minimize unnecessary representation transitions:
+
+```text
+stored bytes → validate → direct view / runtime adapter / native consumer
+```
+
+vBuf began in TypeScript; Rust was added later to test whether the layout itself explained the unexpectedly near-native prepared-view behavior. Cheap JavaScript consumption is architectural evidence, not a secondary binding concern. BumpArena/shadow-object framing remains downstream runtime adaptation rather than base wire semantics.
+
+The base should provide a small compositional binary vocabulary, not a universal object type system or schema compiler. A simple mapper may lower flexible high-level values into portable numeric arrays, opaque bytes, and multiple generic blocks. AoS and SoA are ordinary choices of real array layout; variable/composite values and strings may use multiple canonical blocks. The container should largely disappear after validation establishes a compatible direct view.
+
+This supplied lineage is recorded separately from historical written specifications and implementation behavior. Analogies such as “tar plus typed/native-friendly geometry and an optional compact physical index” are architectural intuition only, never normative grammar.
+
 ---
 
 ## 1. Evidence from the current repository
@@ -334,11 +348,23 @@ No descendant may select or override BaseStep through Nano metadata. BaseStep re
 
 **Decision required:** approve the explicit validation-policy split, or require full cross-check before any accelerated access. Steps 5C and 5D cannot freeze reader API/error behavior before this decision.
 
+### Decision J — forward continuation semantics across physical blocks
+
+**Execution status:** resolved by the supplied original design intent, but it exposes a concrete corrective blocker in completed Steps 3–4 that must be repaired before Step 5.
+
+**Observed contradiction:** historical v0.5 says `Chain = 1` means a subsequent block belongs to the same Key-ID, and the supplied design intent makes the direction explicit: the bit on block A answers whether the next canonical block continues A. Current `spec/spec_0.6.md` and Step 4 instead interpret a set bit on block B as “B continues the preceding block,” require the first block to clear it, and encode the shared valid-chain fixture in that reverse direction.
+
+**Recorded resolution:** the current block's continuation bit points forward. If `Continuation == 1`, a next canonical block MUST exist and MUST have the same Key-ID; if it is zero, the current logical chain terminates. Thus A=1, B=1, C=0 represents three physical blocks and one logical value. Every member remains a complete canonical physical block with its own start/header/range. The final physical block MUST clear continuation. An unchained duplicate Key-ID remains legal and begins independently.
+
+**Required corrective supplement before Step 5:** update only the v0.6 chain paragraph/field name as needed, normative malformed/valid vectors, Rust/TypeScript/C validation, and shared fixtures/tests. Preserve every unrelated Step 3/4 safety and geometry decision. This is a directional semantic correction, not a BaseStep, block-layout, Nano, or profile redesign.
+
+**Permanent orthogonality:** Nano marks all physical block/extent starts, including every block in a logical chain. Continuation groups adjacent canonical blocks logically and never suppresses or invents a Nano bit. Nano cannot infer logical grouping; continuation cannot redefine physical boundaries.
+
 ---
 
 ## 3. Proposed descendant layout to validate, not yet freeze
 
-Subject to Decisions A–I, generic finalization follows this state model:
+Subject to Decisions A–J, generic finalization follows this state model:
 
 ```text
 write / stream canonical blocks
@@ -528,15 +554,15 @@ The exact generic finalized-file artifacts are outputs of BASE qualification/spe
 
 **Existing invariants:** sequential writing and aligned payloads remain supported.
 
-**New invariants:** portable primitive encodings are explicit; canonical block streams are deterministic; base payload length/finalization state follows the accepted core spec; non-power-of-two/unsupported alignment fails; native structs are not presented as portable wire values. This step does not emit Nano, directory, rank/select or integrity artifacts.
+**New invariants:** portable primitive encodings are explicit; canonical block streams are deterministic; base payload length/finalization state follows the accepted core spec; non-power-of-two/unsupported alignment fails; native structs are not presented as portable wire values; arrays are emitted as real contiguous primitive arrays; AoS/SoA are layout compositions rather than base feature flags; simple multi-block composition is available for variable/composite representations without growing a universal object type system; forward continuation follows Decision J and terminates on the final physical block. This step does not emit Nano, directory, rank/select or integrity artifacts.
 
-**Tests/qualification:** byte-identical Rust/TS/C primitive output; read-after-write for every primitive; empty and large logical counts; interrupted/indefinite stream behavior; endian simulation where practical.
+**Tests/qualification:** byte-identical Rust/TS/C primitive output; read-after-write for every primitive; empty and large logical counts; forward continuation sequences `0`, `1→0`, and `1→1→0`; reject continuation on a final block and continuation into a different Key-ID; unchained duplicate IDs remain legal; verify each chained member remains a separately enumerable physical block; interrupted/indefinite stream behavior; endian simulation where practical. Include TypeScript-first direct-consumption checks so portability work does not accidentally make JavaScript require object reconstruction.
 
 **Architectural boundaries:** base primitives remain numbers, strings/bytes only if accepted as general-purpose, arrays/containers and opaque payloads. No tensor aliases.
 
 **Expected commit outcome:** vBuf-ML can safely store opaque profile bytes and exact tensor bytes without relying on Rust ABI layout.
 
-**Dependencies:** Steps 3–4.
+**Dependencies:** Steps 3–4 and the Decision J corrective supplement.
 
 ---
 
@@ -578,7 +604,7 @@ A fourth valid result is that one or both generic artifacts fail qualification a
 
 **Existing invariants:** canonical blocks alone remain sufficient; optional indexes are derived; a reader can ignore every artifact; no artifact changes payload bytes; streaming/unfinished files require none.
 
-**New qualification invariants:** generated Nano bits are derived only from a successfully parsed canonical stream; Nano reads the already validated file BaseStep and has no independent quantum; Step 5A treats the Step 3 legal BaseStep set as an input and cannot redefine it; `slot(i) = indexed_region_start + i*BaseStep`; for a non-empty topology the first valid extent start is set; each later `1` is a candidate BaseStep-aligned canonical extent start; `0` creates no new extent and carries no payload/domain meaning; consecutive set bits propose adjacent extent bounds; long zero runs remain one proposed physical extent until the next set bit or indexed-region end; every marked start and Nano-derived upper span remain subordinate to canonical header/range validation; indexed-region start/length and partial-final-slot policy are explicit; unused bits in the final Nano byte are zero; all slot/index arithmetic is checked; benchmark corpora and query distributions are deterministic and recorded.
+**New qualification invariants:** generated Nano bits are derived only from a successfully parsed canonical stream; Nano reads the already validated file BaseStep and has no independent quantum; Step 5A treats the Step 3 legal BaseStep set as an input and cannot redefine it; `slot(i) = indexed_region_start + i*BaseStep`; for a non-empty topology the first valid extent start is set; each later `1` is a candidate BaseStep-aligned canonical physical start, including every physical block in a forward-continuation chain; `0` creates no new extent and carries no payload/domain meaning; consecutive set bits propose adjacent extent bounds; long zero runs remain one proposed physical extent until the next set bit or indexed-region end; continuation is read only from canonical headers and never changes Nano bits or extent boundaries; every marked start and Nano-derived upper span remain subordinate to canonical header/range validation; indexed-region start/length and partial-final-slot policy are explicit; unused bits in the final Nano byte are zero; all slot/index arithmetic is checked; benchmark corpora and query distributions are deterministic and recorded.
 
 **BaseStep performance qualification:** hold payload bytes, block topology and computation constant while comparing legal BaseSteps. Separate unaligned/native access, aligned scalar access, and SIMD/vectorized variants where supported; preserve the same scalar/reference result and report effective pointer alignment, compiler flags, ISA/features and whether aligned or unaligned load instructions are used. Unsupported SIMD is an optional missing variant, not a failed format. Measure traversal/address arithmetic, prepared-view scans, cache/fault behavior and end-to-end downstream-neutral work in addition to bytes. No single-host result may be called universally optimal. Keep the existing near-native prepared-view baseline as motivation/comparison evidence, while recognizing that it did not isolate BaseStep or SIMD.
 
@@ -660,6 +686,8 @@ Use dense small blocks, high-count tiny/multi-block and variable/composite repre
 **Explicit rejection criteria:** record `NOT USEFUL ENOUGH TO MATTER` if gains disappear after including Nano construction/finalization, partition discovery, canonical validation, thread/queue overhead, page-cache controls, or padding/artifact cost; if skew makes static slicing consistently inferior; or if benefit exists only for one synthetic partition query. Record `POSSIBLE BUT NOT YET JUSTIFIED` when correctness is demonstrated but evidence is narrow/noisy. Use `SUPPORTED BY EVIDENCE` only with reproducible scoped results and preserved raw reports. None of these outcomes adds scheduler semantics to vBuf or scheduling metadata to Nano/region directories.
 
 **Tests:** property-test bit generation against canonical enumeration for every surviving BaseStep; represent the same logical block/extent topology under different legal BaseSteps; verify every bit maps to `indexed_region_start + i*BaseStep`; require the first bit for every non-empty topology; verify every later `1` is a representable canonical start; verify `0` creates no extent; consecutive `1` bits produce adjacent candidate extents; long zero runs produce one candidate extent through the next set bit/end; derive first/last/Nth start-plus-next-boundary spans; reject a stream with an unrepresentable block start; correct first/last slot and partial final slot handling; fewer than eight slots; partial final Nano byte; no blocks; all-start bits; one huge extent; padding inside an extent creates no false start; checked huge-region arithmetic; malformed/contradictory BaseStep/index metadata rejected before pointer construction; missing bits cannot authorize merged-block access; extra bits cannot authorize fake headers; Rust/C/TypeScript geometry parity; Nano-ignored parsing yields the same authoritative block sequence; candidate/header/span consistency; duplicate Key-IDs leave Nano bits unchanged; corrupted-header recovery uses later set bits only as validated candidates; run the parallel extent ownership/aggregation properties above across partition strategies and worker counts.
+
+**Artifact deployment variants:** independently measure embedded Nano, locally reconstructed Nano, and locally reconstructed-plus-cached Nano. Construction, persistence/cache validation, cold-start page I/O, reuse count, and invalidation/version costs belong in end-to-end totals. Derivability does not imply local reconstruction is always cheaper; optional embedding does not imply every distributed file should carry it.
 
 **Benchmark/qualification requirements:** compare only equivalent operations: canonical scan versus Nano for physical enumeration/count; raw Nano versus Nano+checkpoints for Nth physical start; canonical Key-ID/range scan versus region directory for logical lookup. A Nano-assisted Key-ID scan is a separately labeled combined path that includes header inspection/map construction; Nano alone is never reported as answering a Key-ID query. Test every legal representative BaseStep surviving base qualification—at minimum 8, 16, 32 and 64 bytes if accepted. Corpora: small/large files, high block count, tiny/multi-block variable/composite layouts, one/few large contiguous blocks, mixed small/large blocks, and equivalent topologies/payload bytes across BaseSteps. Operations: unaligned/native, aligned-scalar and supported SIMD/vectorized prepared-view workloads; canonical block traversal/address calculation; sequential extent enumeration; total extent/block count; Nth extent start; Nth start plus next boundary; random extent/block ordinal access; parallel extent-range construction; random Key-ID lookup; consistency validation; and separately labeled corruption-diagnostic candidate scanning. Environments: cold/warm mmap with validated cache methodology. Metrics: wall time, cycles where reliable, faults, bytes/pages touched, RSS/cache footprint, block density, exact Nano/checkpoint/directory bytes, construction/finalization cost, validation time, scalar/SIMD alignment fixups where observable, and padding waste caused by BaseStep. Report the whole-system result as `padding waste + Nano bytes + checkpoint bytes + region-directory bytes + other finalized-artifact bytes + measured native/scalar/SIMD/cache/traversal effects`, keeping byte costs and timing/cache metrics in separate units rather than inventing an unsupported scalar score. Omit only absent structures/unsupported optional paths. Do not optimize Nano percentage, page correspondence or one ISA in isolation. Use balanced order, repeated independent runs and raw samples.
 
@@ -1245,7 +1273,7 @@ Use dense small blocks, high-count tiny/multi-block and variable/composite repre
 
 **Existing invariants:** upstream GGUF path remains available; kernel selection is not modified for one format.
 
-**New invariants:** loader exposes identical tensor names, shapes, types and bytes; unsupported features fail before execution; mapping lifetime outlives all tensor views; no hidden payload copy/repack; loader-only timing is separately observable.
+**New invariants:** loader exposes identical tensor names, shapes, types and bytes; unsupported features fail before execution; mapping lifetime outlives all tensor views; no hidden payload copy/repack; loader-only timing is separately observable. Backend/runtime-specific transfer plans, placement maps, prepared descriptors and prepacked execution caches are local derived artifacts, never canonical generic vBuf or mandatory portable vBuf-ML state.
 
 **Tests/qualification:** model configuration parity; tokenizer parity; tensor pointer/range audit; logits within the same tolerance as loading the GGUF source; deterministic prompt output under fixed settings; ASan/UBSan where applicable.
 
@@ -1316,10 +1344,14 @@ Use dense small blocks, high-count tiny/multi-block and variable/composite repre
 6. peak and steady RSS/PSS plus mapped virtual size;
 7. bytes actually read, not only file size;
 8. selected-tensor/selected-layer partial loading and request count;
-9. prompt-processing throughput;
-10. token-generation throughput;
-11. file size, BaseStep/payload padding, Nano/checkpoint/region-directory bytes where present, metadata, and other finalized-artifact overhead;
-12. optional integrity verification cost reported separately.
+9. model-open to runtime-ready time, separating metadata/search, host allocation, validation, repacking, transfer-plan construction, fragmented/coalesced transfer calls, transferred bytes and backend/device upload where a supported backend variant exists;
+10. cold TTFT split into model loading/preparation, prompt processing and first-token generation;
+11. prompt-processing throughput;
+12. token-generation throughput after the model is already resident/ready;
+13. file size, BaseStep/payload padding, Nano/checkpoint/region-directory bytes where present, metadata, and other finalized-artifact overhead;
+14. optional integrity verification cost reported separately.
+
+Backend-specific CUDA/HIP/Metal/shared-memory variants are optional descendant/runtime experiments, not base-format qualification and not promises of faster kernels. Compare steady-state throughput separately; when identical bytes reach identical kernels, a null container-format effect after readiness is the expected control.
 
 **Qualification design:** separate at least (A) metadata only, (B) loader/view construction, (C) first-touch/cold access, and (D) steady inference. Use balanced order, warmups, multiple independent runs, raw samples, CPU migration checks and a predeclared statistic. Cold-cache methods must be validated rather than assumed. Report negative and null results.
 
