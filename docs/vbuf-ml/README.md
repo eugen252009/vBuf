@@ -31,5 +31,9 @@ The bootstrap and tensor directory are located through canonical generic
 blocks. Their semantic references resolve by generic Key-ID and physical
 occurrence, never by trusted profile offsets.
 
+Step 11 keeps `VocabularyOnly` normative and qualifies lazy versus eager
+access with file-backed mmap fixtures. Runtime-local indexes and future
+algorithm-specific tokenizer structures remain derived or deferred.
+
 The base remains a small compositional vocabulary: efficient composition is
 preferred over maximal base functionality.

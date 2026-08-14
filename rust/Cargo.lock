@@ -166,6 +166,7 @@ version = "0.1.0"
 name = "vbuf-ml"
 version = "0.1.0"
 dependencies = [
+ "memmap2",
  "vbuf-core",
  "vbuf-layout",
 ]

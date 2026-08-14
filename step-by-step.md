@@ -1214,6 +1214,39 @@ validated descriptors. No generic crate or v0.6 wire behavior changed.
 
 **Dependencies:** Steps 8 and 10.
 
+#### Step 11 qualification recorded
+
+Added `docs/vbuf-ml/step11-qualification.md`,
+`rust/vbuf-ml/examples/step11_qualification.rs`, and
+`scripts/run_step11_qualification.sh`. The qualification uses a real read-only
+file-backed mmap fixture containing small hot semantic regions, a 4 MiB token
+pool, canonical tokenizer arrays, and an 8 MiB unrelated auxiliary region.
+
+The first target is not pinned enough to justify a tokenizer algorithm beyond
+the existing `VocabularyOnly` baseline. BPE/merge tables,
+SentencePiece-like behavior, WordPiece, chat templates, and tokenizer execution
+remain deferred. No merge representation or universal tokenizer framework was
+added.
+
+The measured lazy path performs canonical validation, bootstrap discovery, model
+metadata parsing, and TensorDirectory parsing without touching tokenizer or
+auxiliary payloads. The eager comparison explicitly initializes tokenizer data,
+touches token arrays, and then touches the auxiliary range. On the recorded
+host/fixture, model-open remained about 0.05 ms with no tokenizer payload access;
+tokenizer initialization touched about 4.2 MiB and the auxiliary phase touched
+8 MiB. These are warm-cache, host-specific qualification results; process page
+fault deltas are recorded but are not claimed as storage-I/O measurements.
+
+The current tokenizer parser eagerly validates the complete UTF-8 pool during
+tokenizer initialization. This is documented as the current deterministic
+policy, not silently changed for benchmarking.
+
+No portable LayerIndex, PhysicalRangeIndex, Nano dependency, or transfer plan
+was selected. The current profile lacks target-qualified layer/group semantics;
+a runtime-local ordinal/range index remains possible but not yet justified.
+Any future derived index must be constructed from canonical descriptors and
+remain tied to its source model instance.
+
 ---
 
 ### Step 12 — Define exact tensor and quantization representations

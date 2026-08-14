@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 vbuf-core = { path = ".." }
 vbuf-layout = { path = "../vbuf-layout" }
+memmap2 = "0.9"
