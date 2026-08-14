@@ -3,7 +3,7 @@
 //! Canonical parsing happens once at open. The resulting semantic snapshot is
 //! owned by the handle; payload bytes remain borrowed from its mmap.
 
-use crate::{Bootstrap, ModelMetadata, TensorDirectory, TensorRepresentation, TokenizerMetadata};
+use crate::{Bootstrap, ModelMetadata, ModelMetadataKey, TensorDirectory, TensorRepresentation, TokenizerMetadata};
 use crate::error::{MlError, MlErrorCode};
 use memmap2::Mmap;
 use std::sync::OnceLock;
@@ -44,6 +44,73 @@ pub(crate) struct Snapshot {
 pub struct ConsumerModel {
     pub(crate) mapping: Mmap,
     snapshot: OnceLock<Snapshot>,
+}
+
+/// Validated semantic views whose arrays remain borrowed from the supplied bytes.
+/// This is the runtime-facing counterpart to the owned `ConsumerModel` convenience
+/// API; it deliberately exposes no per-token or per-merge object table.
+#[derive(Debug)]
+pub struct BorrowedModelView<'a> {
+    pub validated: ValidatedV06<'a>,
+    pub bootstrap: Bootstrap<'a>,
+    pub metadata: ModelMetadata<'a>,
+    pub directory: TensorDirectory<'a>,
+    pub tokenizer: TokenizerMetadata<'a>,
+}
+
+impl<'a> BorrowedModelView<'a> {
+    pub fn parse(bytes: &'a [u8]) -> Result<Self, MlError> {
+        let validated = parse_v06(bytes)?;
+        let bootstrap = Bootstrap::discover(&validated)?;
+        let metadata = ModelMetadata::parse(&validated, &bootstrap)?;
+        let directory = TensorDirectory::parse(&validated, &bootstrap)?;
+        let tokenizer = TokenizerMetadata::parse(&validated, &bootstrap)?;
+        Ok(Self { validated, bootstrap, metadata, directory, tokenizer })
+    }
+}
+
+/// Owned mmap lifetime plus borrowed semantic views. The views use a fixed
+/// lifetime internally only after `BorrowedModelView::parse` has validated the
+/// mapping; the mapping field outlives the view and is never exposed mutably.
+#[derive(Debug)]
+pub struct BorrowedModel {
+    // Declared first so the borrowed view is dropped before the mapping.
+    pub(crate) view: BorrowedModelView<'static>,
+    pub(crate) _mapping: Mmap,
+}
+
+impl BorrowedModel {
+    pub fn open(path: impl AsRef<std::path::Path>) -> Result<Self, MlError> {
+        let file = std::fs::File::open(path).map_err(|_| MlError::new(MlErrorCode::MissingTokenizerReference, "borrowed model file cannot be read"))?;
+        let mapping = unsafe { Mmap::map(&file).map_err(|_| MlError::new(MlErrorCode::MissingTokenizerReference, "borrowed model mapping cannot be created"))? };
+        let view = BorrowedModelView::parse(&mapping)?;
+        // SAFETY: `view` contains immutable slices into `mapping`, which is
+        // stored in the same owner and dropped after the view. No mutable
+        // access to the mapping is possible through this type.
+        let view = unsafe { std::mem::transmute::<BorrowedModelView<'_>, BorrowedModelView<'static>>(view) };
+        Ok(Self { _mapping: mapping, view })
+    }
+
+    pub fn view(&self) -> &BorrowedModelView<'static> { &self.view }
+    pub fn is_validated(&self) -> bool { true }
+    pub fn tensor_count(&self) -> Result<usize, MlError> { Ok(self.view.directory.tensors().len()) }
+    pub fn tensor_name(&self, index: usize) -> Result<Option<String>, MlError> { Ok(self.view.directory.tensors().get(index).map(|t| t.name.clone())) }
+    pub fn tensor_shape(&self, index: usize) -> Result<Option<Vec<u64>>, MlError> { Ok(self.view.directory.tensors().get(index).map(|t| t.dimensions.clone())) }
+    pub fn tensor_type(&self, index: usize) -> Result<Option<ConsumerTensorType>, MlError> { Ok(self.view.directory.tensors().get(index).map(|t| match t.representation { TensorRepresentation::CanonicalPrimitive => ConsumerTensorType::F32, TensorRepresentation::Bf16 => ConsumerTensorType::Bf16, TensorRepresentation::GgmlQ8_0 => ConsumerTensorType::Q8_0 })) }
+    pub fn tensor_payload(&self, index: usize) -> Result<Option<&[u8]>, MlError> { Ok(self.view.directory.tensors().get(index).map(|t| t.range.bytes())) }
+    pub fn model_metadata(&self) -> Result<ConsumerModelMetadata, MlError> {
+        let m = &self.view.metadata; let u = |key| m.unsigned(key).ok_or_else(|| MlError::new(MlErrorCode::MissingRequiredMetadata, "borrowed metadata value is absent"));
+        Ok(ConsumerModelMetadata { architecture: m.architecture().ok_or_else(|| MlError::new(MlErrorCode::MissingRequiredMetadata, "borrowed architecture is absent"))?.to_owned(), context_length: u(ModelMetadataKey::ContextLength)?, embedding_length: u(ModelMetadataKey::EmbeddingLength)?, layer_count: u(ModelMetadataKey::LayerCount)?, head_count: u(ModelMetadataKey::HeadCount)?, kv_head_count: u(ModelMetadataKey::KVHeadCount)?, key_head_dimension: u(ModelMetadataKey::KeyHeadDimension)?, value_head_dimension: u(ModelMetadataKey::ValueHeadDimension)?, feed_forward_length: u(ModelMetadataKey::FeedForwardLength)?, normalization_epsilon: m.float(ModelMetadataKey::NormalizationEpsilon).ok_or_else(|| MlError::new(MlErrorCode::MissingRequiredMetadata, "borrowed epsilon is absent"))?, rope_theta: m.float(ModelMetadataKey::RopeTheta).ok_or_else(|| MlError::new(MlErrorCode::MissingRequiredMetadata, "borrowed rope theta is absent"))? })
+    }
+    pub fn tokenizer_count(&self) -> Result<u64, MlError> { Ok(self.view.tokenizer.token_count()) }
+    pub fn token_text(&self, index: u64) -> Result<Option<String>, MlError> { Ok(self.view.tokenizer.token_text(index).map(ToOwned::to_owned)) }
+    pub fn token_type(&self, index: u64) -> Result<Option<u64>, MlError> { Ok(self.view.tokenizer.token_type(index)) }
+    pub fn token_score(&self, index: u64) -> Result<Option<f64>, MlError> { Ok(self.view.tokenizer.score(index)) }
+    pub fn special_token(&self, kind: u8) -> Result<Option<u64>, MlError> { let wanted = [crate::SpecialToken::Bos, crate::SpecialToken::Eos, crate::SpecialToken::Unk, crate::SpecialToken::Pad].get(usize::from(kind)); Ok(wanted.and_then(|w| self.view.tokenizer.specials().iter().find(|(k, _)| k == w).map(|(_, id)| *id))) }
+    pub fn merge_count(&self) -> Result<u64, MlError> { Ok(self.view.tokenizer.merge_count()) }
+    pub fn merge_pair(&self, index: u64) -> Result<Option<(u64, u64)>, MlError> { Ok(self.view.tokenizer.merge_pair(index)) }
+    pub fn add_bos(&self) -> Result<Option<bool>, MlError> { Ok(self.view.tokenizer.add_bos()) }
+    pub fn chat_template(&self) -> Result<Option<String>, MlError> { Ok(self.view.tokenizer.chat_template().map(ToOwned::to_owned)) }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

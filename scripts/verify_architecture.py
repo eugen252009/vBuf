@@ -46,6 +46,8 @@ def main() -> None:
         text = direct_source.read_text()
         if "gguf_context" in text or "gguf_set_" in text or "gguf_init" in text:
             raise SystemExit("direct vBuf source contains GGUF intermediate construction")
+        if "VbufMlTokenView" in text or "VbufMlMergeView" in text or "consumer_token_views" in text or "consumer_merge_views" in text:
+            raise SystemExit("direct vBuf source constructs owned token/merge view tables")
     if not (ROOT / "patches/llama.cpp/0002-source-neutral-model-source.patch").exists():
         raise SystemExit("missing Step-23 source-neutral llama patch")
 

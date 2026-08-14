@@ -1,6 +1,6 @@
 use std::ffi::CString;
 use std::path::PathBuf;
-use vbuf_ml::consumer_ffi::{vbuf_ml_consumer_add_bos, vbuf_ml_consumer_close, vbuf_ml_consumer_merge_count, vbuf_ml_consumer_merge_pair, vbuf_ml_consumer_open, vbuf_ml_consumer_tensor_count, vbuf_ml_consumer_tensor_info, vbuf_ml_consumer_token_text, VbufMlTensorInfo};
+use vbuf_ml::consumer_ffi::{vbuf_ml_consumer_add_bos, vbuf_ml_consumer_close, vbuf_ml_consumer_merge_arrays, vbuf_ml_consumer_merge_count, vbuf_ml_consumer_merge_pair, vbuf_ml_consumer_open, vbuf_ml_consumer_tensor_count, vbuf_ml_consumer_tensor_info, vbuf_ml_consumer_token_arrays, vbuf_ml_consumer_token_text, VbufMlMergeArrays, VbufMlTensorInfo, VbufMlTokenArrays};
 
 #[test]
 fn c_bridge_projects_tokenizer_and_tensor_views() {
@@ -18,11 +18,20 @@ fn c_bridge_projects_tokenizer_and_tensor_views() {
     assert!(info.payload_len > 0);
     let mut token = vec![0i8; 4097];
     assert_eq!(unsafe { vbuf_ml_consumer_token_text(handle, 0, token.as_mut_ptr(), token.len()) }, 0);
+    let mut token_arrays = VbufMlTokenArrays { text: std::ptr::null(), text_len: 0, offsets: std::ptr::null(), offset_count: 0, types: std::ptr::null(), type_bytes: 0, scores: std::ptr::null(), score_bytes: 0, token_count: 0 };
+    assert_eq!(unsafe { vbuf_ml_consumer_token_arrays(handle, &mut token_arrays) }, 0);
+    assert_eq!(token_arrays.token_count, 151_936);
+    assert_eq!(token_arrays.offset_count, token_arrays.token_count + 1);
+    assert!(token_arrays.text_len > 1_000_000 && !token_arrays.text.is_null());
     let mut merges = 0;
     assert_eq!(unsafe { vbuf_ml_consumer_merge_count(handle, &mut merges) }, 0);
     assert_eq!(merges, 151_387);
     let mut left = 0; let mut right = 0;
     assert_eq!(unsafe { vbuf_ml_consumer_merge_pair(handle, 0, &mut left, &mut right) }, 0);
+    let mut merge_arrays = VbufMlMergeArrays { left: std::ptr::null(), right: std::ptr::null(), merge_count: 0 };
+    assert_eq!(unsafe { vbuf_ml_consumer_merge_arrays(handle, &mut merge_arrays) }, 0);
+    assert_eq!(merge_arrays.merge_count, 151_387);
+    assert!(!merge_arrays.left.is_null() && !merge_arrays.right.is_null());
     let mut add_bos = true;
     assert_eq!(unsafe { vbuf_ml_consumer_add_bos(handle, &mut add_bos) }, 0);
     assert!(!add_bos);

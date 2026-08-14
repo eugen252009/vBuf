@@ -9,15 +9,15 @@
 #include <unordered_map>
 
 extern "C" {
-struct VbufMlTokenView { const char * text; uint64_t text_len; float score; int32_t token_type; };
-struct VbufMlMergeView { uint64_t left; uint64_t right; };
+struct VbufMlTokenArrays { const uint8_t * text; uint64_t text_len; const uint8_t * offsets; uint64_t offset_count; const uint8_t * types; uint64_t type_bytes; const uint8_t * scores; uint64_t score_bytes; uint64_t token_count; };
+struct VbufMlMergeArrays { const uint8_t * left; const uint8_t * right; uint64_t merge_count; };
 struct VbufMlTensorView { const char * name; uint64_t name_len; uint8_t representation; uint8_t rank; const uint64_t * dimensions; const uint8_t * payload; uint64_t payload_len; };
 VbufMlConsumerHandle * vbuf_ml_consumer_open(const char * path);
 void vbuf_ml_consumer_close(VbufMlConsumerHandle * handle);
 uint32_t vbuf_ml_consumer_metadata(const VbufMlConsumerHandle *, VbufMlModelMetadataInfo *);
 uint32_t vbuf_ml_consumer_architecture(const VbufMlConsumerHandle *, char *, size_t);
-uint32_t vbuf_ml_consumer_token_views(const VbufMlConsumerHandle *, const VbufMlTokenView **, uint64_t *);
-uint32_t vbuf_ml_consumer_merge_views(const VbufMlConsumerHandle *, const VbufMlMergeView **, uint64_t *);
+uint32_t vbuf_ml_consumer_token_arrays(const VbufMlConsumerHandle *, VbufMlTokenArrays *);
+uint32_t vbuf_ml_consumer_merge_arrays(const VbufMlConsumerHandle *, VbufMlMergeArrays *);
 uint32_t vbuf_ml_consumer_tensor_views(const VbufMlConsumerHandle *, const VbufMlTensorView **, uint64_t *);
 uint32_t vbuf_ml_consumer_special_token(const VbufMlConsumerHandle *, uint8_t, uint64_t *);
 uint32_t vbuf_ml_consumer_add_bos(const VbufMlConsumerHandle *, bool *);
@@ -25,6 +25,10 @@ uint32_t vbuf_ml_consumer_chat_template(const VbufMlConsumerHandle *, char *, si
 }
 
 namespace vbuf_llama {
+
+static uint32_t load_le32(const uint8_t * p) { return uint32_t(p[0]) | (uint32_t(p[1]) << 8) | (uint32_t(p[2]) << 16) | (uint32_t(p[3]) << 24); }
+static uint64_t load_le64(const uint8_t * p) { uint64_t value = 0; for (unsigned i = 0; i < 8; ++i) value |= uint64_t(p[i]) << (8 * i); return value; }
+static float load_le_f32(const uint8_t * p) { const uint32_t bits = load_le32(p); float value; std::memcpy(&value, &bits, sizeof(value)); return value; }
 
 class VbufDirectSource final : public llama_model_source {
 public:
@@ -34,7 +38,8 @@ public:
         if (vbuf_ml_consumer_architecture(handle_, architecture, sizeof(architecture)) != 0) throw std::runtime_error("vBuf architecture lookup failed");
         architecture_ = architecture;
         if (vbuf_ml_consumer_metadata(handle_, &metadata_) != 0) throw std::runtime_error("vBuf metadata lookup failed");
-        if (vbuf_ml_consumer_token_views(handle_, &tokens_, &token_count_) != 0 || vbuf_ml_consumer_merge_views(handle_, &merges_, &merge_count_) != 0 || vbuf_ml_consumer_tensor_views(handle_, &tensors_, &tensor_count_) != 0) throw std::runtime_error("vBuf bulk source view failed");
+        if (vbuf_ml_consumer_token_arrays(handle_, &token_arrays_) != 0 || vbuf_ml_consumer_merge_arrays(handle_, &merge_arrays_) != 0 || vbuf_ml_consumer_tensor_views(handle_, &tensors_, &tensor_count_) != 0) throw std::runtime_error("vBuf borrowed source view failed");
+        token_count_ = token_arrays_.token_count; merge_count_ = merge_arrays_.merge_count;
         for (uint8_t kind = 0; kind < 4; ++kind) vbuf_ml_consumer_special_token(handle_, kind, &special_[kind]);
         vbuf_ml_consumer_add_bos(handle_, &add_bos_);
         char chat[1024 * 1024]{};
@@ -89,19 +94,23 @@ public:
     }
     uint64_t token_count() const override { return token_count_; }
     bool token(uint64_t index, std::string & text, float & score, int32_t & type) const override {
-        if (index >= token_count_) return false; const auto & view = tokens_[index]; text.assign(view.text, view.text_len); score = view.score; type = view.token_type; return true;
+        if (index >= token_count_) return false;
+        uint64_t start = load_le64(token_arrays_.offsets + index * 8); uint64_t end = load_le64(token_arrays_.offsets + (index + 1) * 8);
+        if (end < start || end > token_arrays_.text_len) return false; text.assign(reinterpret_cast<const char *>(token_arrays_.text + start), end - start);
+        type = 1; if (token_arrays_.type_bytes != 0) { const uint64_t width = token_arrays_.type_bytes / token_count_; uint64_t value = 0; if (width == 1) value = token_arrays_.types[index]; else if (width == 2) { value = uint64_t(token_arrays_.types[index * width]) | (uint64_t(token_arrays_.types[index * width + 1]) << 8); } else if (width == 4) value = load_le32(token_arrays_.types + index * width); else if (width == 8) value = load_le64(token_arrays_.types + index * width); else return false; type = static_cast<int32_t>(value); }
+        score = 0.0f; if (token_arrays_.score_bytes != 0) { const uint64_t width = token_arrays_.score_bytes / token_count_; if (width == 4) score = load_le_f32(token_arrays_.scores + index * width); else if (width == 8) { uint64_t bits = load_le64(token_arrays_.scores + index * width); double v; std::memcpy(&v, &bits, sizeof(v)); score = static_cast<float>(v); } else return false; } return true;
     }
     uint64_t merge_count() const override { return merge_count_; }
     bool merge(uint64_t index, uint64_t & left, uint64_t & right) const override {
-        if (index >= merge_count_) return false; left = merges_[index].left; right = merges_[index].right; return true;
+        if (index >= merge_count_) return false; uint32_t l = load_le32(merge_arrays_.left + index * 4); uint32_t r = load_le32(merge_arrays_.right + index * 4); left = l; right = r; return true;
     }
 private:
     VbufMlConsumerHandle * handle_ = nullptr;
     VbufMlModelMetadataInfo metadata_{};
     std::string architecture_;
     std::optional<std::string> chat_template_;
-    const VbufMlTokenView * tokens_ = nullptr;
-    const VbufMlMergeView * merges_ = nullptr;
+    VbufMlTokenArrays token_arrays_{};
+    VbufMlMergeArrays merge_arrays_{};
     const VbufMlTensorView * tensors_ = nullptr;
     uint64_t token_count_ = 0, merge_count_ = 0, tensor_count_ = 0;
     uint64_t special_[4]{};

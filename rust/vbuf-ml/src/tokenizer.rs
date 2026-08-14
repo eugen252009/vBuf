@@ -174,6 +174,18 @@ impl<'a> TokenizerMetadata<'a> {
     }
 
     pub fn token_count(&self) -> u64 { self.token_count }
+    /// Borrow the validated canonical token text pool without materialization.
+    pub fn text_bytes(&self) -> &[u8] { self.text_pool.bytes() }
+    /// Borrow the validated little-endian u64 offset array.
+    pub fn offset_bytes(&self) -> &[u8] { self.offsets.bytes() }
+    /// Borrow optional validated token scores.
+    pub fn score_bytes(&self) -> Option<&[u8]> { self.scores.as_ref().map(|range| range.bytes()) }
+    /// Borrow optional validated token types.
+    pub fn type_bytes(&self) -> Option<&[u8]> { self.types.as_ref().map(|range| range.bytes()) }
+    /// Borrow validated little-endian merge-left IDs.
+    pub fn merge_left_bytes(&self) -> Option<&[u8]> { self.merge_left_ids.as_ref().map(|range| range.bytes()) }
+    /// Borrow validated little-endian merge-right IDs.
+    pub fn merge_right_bytes(&self) -> Option<&[u8]> { self.merge_right_ids.as_ref().map(|range| range.bytes()) }
     pub fn specials(&self) -> &[(SpecialToken, u64)] { &self.specials }
     pub fn model(&self) -> Option<TokenizerModel> { self.model }
     pub fn pre_tokenizer(&self) -> Option<PreTokenizer> { self.pre_tokenizer }

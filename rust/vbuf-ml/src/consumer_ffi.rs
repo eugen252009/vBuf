@@ -1,11 +1,11 @@
 //! Minimal C ABI for the pinned-consumer adapter boundary.
 //! No llama.cpp or GGML headers are used here.
 
-use crate::{ConsumerModel, ConsumerTensorType};
+use crate::{BorrowedModel, ConsumerTensorType};
 use std::ffi::{c_char, CStr};
 
 pub struct VbufMlConsumerHandle {
-    model: ConsumerModel,
+    model: BorrowedModel,
     token_views: std::sync::OnceLock<Vec<VbufMlTokenView>>,
     merge_views: std::sync::OnceLock<Vec<VbufMlMergeView>>,
     tensor_views: std::sync::OnceLock<Vec<VbufMlTensorView>>,
@@ -23,6 +23,26 @@ pub struct VbufMlTokenView {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct VbufMlMergeView { pub left: u64, pub right: u64 }
+
+#[repr(C)]
+pub struct VbufMlTokenArrays {
+    pub text: *const u8,
+    pub text_len: u64,
+    pub offsets: *const u8,
+    pub offset_count: u64,
+    pub types: *const u8,
+    pub type_bytes: u64,
+    pub scores: *const u8,
+    pub score_bytes: u64,
+    pub token_count: u64,
+}
+
+#[repr(C)]
+pub struct VbufMlMergeArrays {
+    pub left: *const u8,
+    pub right: *const u8,
+    pub merge_count: u64,
+}
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -71,7 +91,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_open(path: *const c_char) -> *mut Vbuf
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
         if path.is_null() { return std::ptr::null_mut(); }
         let Ok(path) = CStr::from_ptr(path).to_str() else { return std::ptr::null_mut(); };
-        let Ok(model) = ConsumerModel::open(path) else { return std::ptr::null_mut(); };
+        let Ok(model) = BorrowedModel::open(path) else { return std::ptr::null_mut(); };
         Box::into_raw(Box::new(VbufMlConsumerHandle { model, token_views: std::sync::OnceLock::new(), merge_views: std::sync::OnceLock::new(), tensor_views: std::sync::OnceLock::new() }))
     })).unwrap_or(std::ptr::null_mut())
 }
@@ -140,7 +160,33 @@ pub unsafe extern "C" fn vbuf_ml_consumer_token_type(handle: *const VbufMlConsum
     })).unwrap_or(VALIDATION_ERROR)
 }
 
-/// Return one immutable token table view. Pointers remain valid until close.
+/// Return validated canonical tokenizer arrays. No per-token table is built.
+/// # Safety
+/// `handle`, `arrays` must be valid pointers for the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_token_arrays(handle: *const VbufMlConsumerHandle, arrays: *mut VbufMlTokenArrays) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || arrays.is_null() { return INVALID_ARGUMENT; }
+        let tokenizer = &(*handle).model.view().tokenizer;
+        let scores = tokenizer.score_bytes().unwrap_or(&[]); let types = tokenizer.type_bytes().unwrap_or(&[]);
+        *arrays = VbufMlTokenArrays { text: tokenizer.text_bytes().as_ptr(), text_len: tokenizer.text_bytes().len() as u64, offsets: tokenizer.offset_bytes().as_ptr(), offset_count: (tokenizer.offset_bytes().len() / 8) as u64, types: types.as_ptr(), type_bytes: types.len() as u64, scores: scores.as_ptr(), score_bytes: scores.len() as u64, token_count: tokenizer.token_count() }; OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// Return validated canonical numeric merge arrays. No per-merge table is built.
+/// # Safety
+/// `handle`, `arrays` must be valid pointers for the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_merge_arrays(handle: *const VbufMlConsumerHandle, arrays: *mut VbufMlMergeArrays) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || arrays.is_null() { return INVALID_ARGUMENT; }
+        let tokenizer = &(*handle).model.view().tokenizer;
+        let left = tokenizer.merge_left_bytes().unwrap_or(&[]); let right = tokenizer.merge_right_bytes().unwrap_or(&[]);
+        *arrays = VbufMlMergeArrays { left: left.as_ptr(), right: right.as_ptr(), merge_count: tokenizer.merge_count() }; OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// Return one immutable legacy token table view. Pointers remain valid until close.
 /// # Safety
 /// `handle`, `views`, and `count` must be valid pointers for the call.
 #[unsafe(no_mangle)]
@@ -148,8 +194,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_token_views(handle: *const VbufMlConsu
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
         if handle.is_null() || views.is_null() || count.is_null() { return INVALID_ARGUMENT; }
         let handle = &*handle;
-        let Ok(snapshot) = handle.model.snapshot() else { return VALIDATION_ERROR; };
-        let table = handle.token_views.get_or_init(|| snapshot.token_text.iter().enumerate().map(|(i, text)| VbufMlTokenView { text: text.as_ptr().cast(), text_len: text.len() as u64, score: snapshot.token_scores[i].unwrap_or(0.0) as f32, token_type: snapshot.token_types[i].unwrap_or(1) as i32 }).collect());
+        let table = handle.token_views.get_or_init(|| (0..handle.model.view().tokenizer.token_count()).filter_map(|i| handle.model.view().tokenizer.token_text(i).map(|text| VbufMlTokenView { text: text.as_ptr().cast(), text_len: text.len() as u64, score: handle.model.view().tokenizer.score(i).unwrap_or(0.0) as f32, token_type: handle.model.view().tokenizer.token_type(i).unwrap_or(1) as i32 })).collect());
         *views = table.as_ptr(); *count = table.len() as u64; OK
     })).unwrap_or(VALIDATION_ERROR)
 }
@@ -161,8 +206,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_merge_views(handle: *const VbufMlConsu
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
         if handle.is_null() || views.is_null() || count.is_null() { return INVALID_ARGUMENT; }
         let handle = &*handle;
-        let Ok(snapshot) = handle.model.snapshot() else { return VALIDATION_ERROR; };
-        let table = handle.merge_views.get_or_init(|| snapshot.merges.iter().map(|&(left, right)| VbufMlMergeView { left, right }).collect());
+        let table = handle.merge_views.get_or_init(|| (0..handle.model.view().tokenizer.merge_count()).filter_map(|i| handle.model.view().tokenizer.merge_pair(i).map(|(left, right)| VbufMlMergeView { left, right })).collect());
         *views = table.as_ptr(); *count = table.len() as u64; OK
     })).unwrap_or(VALIDATION_ERROR)
 }
@@ -174,8 +218,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_tensor_views(handle: *const VbufMlCons
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
         if handle.is_null() || views.is_null() || count.is_null() { return INVALID_ARGUMENT; }
         let handle = &*handle;
-        let Ok(snapshot) = handle.model.snapshot() else { return VALIDATION_ERROR; };
-        let table = handle.tensor_views.get_or_init(|| snapshot.tensors.iter().map(|tensor| VbufMlTensorView { name: tensor.name.as_ptr().cast(), name_len: tensor.name.len() as u64, representation: tensor.kind as u8, rank: tensor.dimensions.len() as u8, dimensions: tensor.dimensions.as_ptr(), payload: { let start = tensor.offset as usize; handle.model.mapping[start..].as_ptr() }, payload_len: tensor.length }).collect());
+        let table = handle.tensor_views.get_or_init(|| handle.model.view().directory.tensors().iter().map(|tensor| VbufMlTensorView { name: tensor.name.as_ptr().cast(), name_len: tensor.name.len() as u64, representation: match tensor.representation { crate::TensorRepresentation::CanonicalPrimitive => 0, crate::TensorRepresentation::Bf16 => 1, crate::TensorRepresentation::GgmlQ8_0 => 2 }, rank: tensor.dimensions.len() as u8, dimensions: tensor.dimensions.as_ptr(), payload: tensor.range.bytes().as_ptr(), payload_len: tensor.range.bytes().len() as u64 }).collect());
         *views = table.as_ptr(); *count = table.len() as u64; OK
     })).unwrap_or(VALIDATION_ERROR)
 }
