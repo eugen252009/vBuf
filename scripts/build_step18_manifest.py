@@ -177,6 +177,10 @@ def build_manifest(root: Path, label: str) -> dict[str, object]:
     if label == "Q8_0" and "output.weight" not in source_by_name:
         tied = {"logical_role": "output.weight", "action": "SHARED_REFERENCE", "source_name": "token_embd.weight",
                 "emitted_target_tensor": False, "consumer_behavior": "pinned Qwen3 fallback via TENSOR_DUPLICATED"}
+    output_decision = None
+    if "output.weight" in source_by_name and "token_embd.weight" in source_by_name:
+        output_decision = {"source_descriptors_distinct": True, "payload_hashes_equal": special_hashes["output.weight"] == special_hashes["token_embd.weight"],
+                           "action": "COPY_BYTES independently", "reason": "explicit output.weight remains a distinct source tensor"}
     metadata_blockers = [row["consumer_semantic"] for row in metadata if row["status"] == "MISSING"]
     tokenizer_blockers = [row["source_key"] for row in tokenizer if row["status"] == "UNSUPPORTED_REQUIRED"]
     readiness = []
@@ -203,6 +207,7 @@ def build_manifest(root: Path, label: str) -> dict[str, object]:
                                    for index, plan in enumerate(sorted(plans, key=lambda plan: plan["target_name"]))],
         "tensor_plans": plans,
         "shared_reference_plan": tied,
+        "output_decision": output_decision,
         "payload_evidence": {"selected_source_payload_sha256": special_hashes},
         "placement_plan": {"policy": PLACEMENT, "target_order_is_non_normative": True},
         "source_read_plan": source_read,

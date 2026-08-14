@@ -144,7 +144,10 @@ independent `COPY_BYTES` plan and target entry. It is not collapsed into the
 token embedding merely because the Q8_0 artifact uses fallback behavior.
 
 The manifest records hashes for the special embedding/output payloads as
-read-only evidence.
+read-only evidence. In this artifact the two hashes are equal, but the source
+contains distinct tensor descriptors and the pinned consumer explicitly loads
+`output.weight`; the manifest therefore retains two independent `COPY_BYTES`
+plans rather than inferring a portable alias.
 
 ## Tensor accounting
 
