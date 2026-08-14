@@ -10169,84 +10169,81 @@
       "meaning": "tokenizer metadata",
       "source_key": "tokenizer.chat_template",
       "source_shape_or_value": "string[4100]",
-      "status": "UNSUPPORTED_REQUIRED",
-      "target": null
+      "status": "DIRECTLY_REPRESENTED",
+      "target": "GPT2BpeQwen2 ChatTemplate (optional raw target)"
     },
     {
       "meaning": "tokenizer metadata",
       "source_key": "tokenizer.ggml.add_bos_token",
       "source_shape_or_value": false,
-      "status": "IGNORE_WITH_REASON",
-      "target": "consumer/default metadata"
+      "status": "DIRECTLY_REPRESENTED",
+      "target": "GPT2BpeQwen2 AddBos"
     },
     {
       "meaning": "tokenizer metadata",
       "source_key": "tokenizer.ggml.bos_token_id",
       "source_shape_or_value": 151643,
       "status": "DIRECTLY_REPRESENTED",
-      "target": "VocabularyOnly special ID"
+      "target": "GPT2BpeQwen2 special ID"
     },
     {
       "meaning": "tokenizer metadata",
       "source_key": "tokenizer.ggml.eos_token_id",
       "source_shape_or_value": 151645,
       "status": "DIRECTLY_REPRESENTED",
-      "target": "VocabularyOnly special ID"
+      "target": "GPT2BpeQwen2 special ID"
     },
     {
       "meaning": "tokenizer metadata",
       "source_key": "tokenizer.ggml.merges",
       "source_shape_or_value": "array[151387]",
-      "status": "UNSUPPORTED_REQUIRED",
-      "target": null
+      "status": "DIRECTLY_REPRESENTED",
+      "target": "GPT2BpeQwen2 MergeLeftIds+MergeRightIds"
     },
     {
       "meaning": "tokenizer metadata",
       "source_key": "tokenizer.ggml.model",
       "source_shape_or_value": "gpt2",
-      "status": "UNSUPPORTED_REQUIRED",
-      "target": null
+      "status": "DIRECTLY_REPRESENTED",
+      "target": "GPT2BpeQwen2 TokenizerModelIdentity"
     },
     {
       "meaning": "tokenizer metadata",
       "source_key": "tokenizer.ggml.padding_token_id",
       "source_shape_or_value": 151643,
       "status": "DIRECTLY_REPRESENTED",
-      "target": "VocabularyOnly special ID"
+      "target": "GPT2BpeQwen2 special ID"
     },
     {
       "meaning": "tokenizer metadata",
       "source_key": "tokenizer.ggml.pre",
       "source_shape_or_value": "qwen2",
-      "status": "UNSUPPORTED_REQUIRED",
-      "target": null
+      "status": "DIRECTLY_REPRESENTED",
+      "target": "GPT2BpeQwen2 PreTokenizerIdentity"
     },
     {
       "meaning": "tokenizer metadata",
       "source_key": "tokenizer.ggml.token_type",
       "source_shape_or_value": "array[151936]",
       "status": "DIRECTLY_REPRESENTED",
-      "target": "VocabularyOnly"
+      "target": "GPT2BpeQwen2 vocabulary"
     },
     {
       "meaning": "tokenizer metadata",
       "source_key": "tokenizer.ggml.tokens",
       "source_shape_or_value": "array[151936]",
       "status": "DIRECTLY_REPRESENTED",
-      "target": "VocabularyOnly"
+      "target": "GPT2BpeQwen2 vocabulary"
     }
   ],
   "validation": {
+    "chat_template_readiness": "READY_FOR_CONSUMER_EXECUTION",
     "conversion_readiness": [
-      "BLOCKED_BY_TOKENIZER_GAP"
+      "READY_FOR_CONVERSION"
     ],
     "manifest_structurally_valid": true,
     "metadata_blockers": [],
-    "tokenizer_blockers": [
-      "tokenizer.chat_template",
-      "tokenizer.ggml.merges",
-      "tokenizer.ggml.model",
-      "tokenizer.ggml.pre"
-    ]
+    "raw_inference_tokenizer_readiness": "READY",
+    "tokenizer_blockers": []
   }
 }

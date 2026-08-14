@@ -1,0 +1,3 @@
+artifact,merge_count,source_string_utf8_plus_u64_offsets,numeric_pair_u32_arrays,numeric_savings_bytes,source_split_rule,selected,resolution,duplicate_pairs,runtime_work
+Q8_0,151387,2731556,1211096,1520460,first ASCII space at or after byte index 1,numeric pair arrays; rank is array ordinal,all pairs resolve against vocabulary ordinals,0,resolve IDs to vocabulary text while constructing pinned bpe_ranks
+BF16,151387,2731556,1211096,1520460,first ASCII space at or after byte index 1,numeric pair arrays; rank is array ordinal,all pairs resolve against vocabulary ordinals,0,resolve IDs to vocabulary text while constructing pinned bpe_ranks

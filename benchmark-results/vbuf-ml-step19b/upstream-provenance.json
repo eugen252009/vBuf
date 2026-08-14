@@ -1,0 +1,72 @@
+{
+  "repository": "https://github.com/ggml-org/llama.cpp.git",
+  "commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "source": {
+    "src/llama-vocab.cpp": [
+      {
+        "needle": "void llama_vocab::impl::load",
+        "line": 1923,
+        "text": "void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {"
+      },
+      {
+        "needle": "ml.get_key(LLM_KV_TOKENIZER_MODEL, tokenizer_model)",
+        "line": 1928,
+        "text": "ml.get_key(LLM_KV_TOKENIZER_MODEL, tokenizer_model);"
+      },
+      {
+        "needle": "tokenizer_model == \"gpt2\"",
+        "line": 1977,
+        "text": "} else if (tokenizer_model == \"gpt2\" || tokenizer_model == \"hybriddna\" || tokenizer_model == \"whitespace\") {"
+      },
+      {
+        "needle": "const size_t pos = word.find(' ', 1)",
+        "line": 2000,
+        "text": "const size_t pos = word.find(' ', 1);"
+      },
+      {
+        "needle": "tokenizer_pre == \"qwen2\"",
+        "line": 2216,
+        "text": "tokenizer_pre == \"qwen2\" ||"
+      },
+      {
+        "needle": "gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_LIST)",
+        "line": 2405,
+        "text": "const int token_idx = gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_LIST).c_str());"
+      },
+      {
+        "needle": "gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_TOKEN_TYPE)",
+        "line": 2423,
+        "text": "const int toktype_idx = gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_TOKEN_TYPE).c_str());"
+      },
+      {
+        "needle": "LLM_KV_TOKENIZER_ADD_BOS",
+        "line": 2559,
+        "text": "if (ml.get_key(LLM_KV_TOKENIZER_ADD_BOS, temp, false)) {"
+      },
+      {
+        "needle": "special_token_types",
+        "line": 2511,
+        "text": "const std::vector<std::pair<enum llm_kv, int32_t &>> special_token_types = {"
+      }
+    ],
+    "src/llama-model.cpp": [
+      {
+        "needle": "llama_model_chat_template",
+        "line": 2823,
+        "text": "const char * llama_model_chat_template(const llama_model * model, const char * name) {"
+      },
+      {
+        "needle": "LLM_KV_TOKENIZER_CHAT_TEMPLATE",
+        "line": 2824,
+        "text": "const auto key = name ? LLM_KV(model->arch, name)(LLM_KV_TOKENIZER_CHAT_TEMPLATE)"
+      }
+    ]
+  },
+  "decisions": {
+    "model": "gpt2 -> GPT2_BPE",
+    "pre": "qwen2 -> QWEN2",
+    "merges": "resolved u32 vocabulary-ordinal pairs; array ordinal is rank",
+    "duplicate_pair_behavior": "pinned emplace keeps first rank; real artifacts contain none",
+    "chat_template": "opaque UTF-8 optional payload; execution remains consumer-local"
+  }
+}

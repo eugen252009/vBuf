@@ -1,0 +1,21 @@
+artifact,key,gguf_type,value_count_or_size,semantic,payload_bytes_estimate,same_across_artifacts
+Q8_0,tokenizer.ggml.model,string,string[4 bytes],algorithm identity,4,True
+Q8_0,tokenizer.ggml.pre,string,string[5 bytes],pre-tokenizer identity,5,True
+Q8_0,tokenizer.ggml.tokens,array[8],array[151936],vocabulary ordinal text,1372760,True
+Q8_0,tokenizer.ggml.token_type,array[5],array[151936],consumer token attributes,607744,True
+Q8_0,tokenizer.ggml.merges,array[8],array[151387],ranked BPE source pairs,1520452,True
+Q8_0,tokenizer.ggml.bos_token_id,u32,151643,BOS ID,4,True
+Q8_0,tokenizer.ggml.eos_token_id,u32,151645,EOS ID,4,True
+Q8_0,tokenizer.ggml.padding_token_id,u32,151643,PAD ID,4,True
+Q8_0,tokenizer.ggml.add_bos_token,bool,False,BOS insertion policy,1,True
+Q8_0,tokenizer.chat_template,string,string[4100 bytes],opaque chat-template source,4100,True
+BF16,tokenizer.ggml.model,string,string[4 bytes],algorithm identity,4,True
+BF16,tokenizer.ggml.pre,string,string[5 bytes],pre-tokenizer identity,5,True
+BF16,tokenizer.ggml.tokens,array[8],array[151936],vocabulary ordinal text,1372760,True
+BF16,tokenizer.ggml.token_type,array[5],array[151936],consumer token attributes,607744,True
+BF16,tokenizer.ggml.merges,array[8],array[151387],ranked BPE source pairs,1520452,True
+BF16,tokenizer.ggml.bos_token_id,u32,151643,BOS ID,4,True
+BF16,tokenizer.ggml.eos_token_id,u32,151645,EOS ID,4,True
+BF16,tokenizer.ggml.padding_token_id,u32,151643,PAD ID,4,True
+BF16,tokenizer.ggml.add_bos_token,bool,False,BOS insertion policy,1,True
+BF16,tokenizer.chat_template,string,string[4168 bytes],opaque chat-template source,4168,False
