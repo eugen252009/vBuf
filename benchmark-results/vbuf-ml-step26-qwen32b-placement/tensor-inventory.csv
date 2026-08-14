@@ -1,0 +1,708 @@
+tensor_name,ordinal,shape,type,type_id,payload_bytes,layer,group,role
+output.weight,0,"[5120, 151936]",Q8_0,8,826531840,None,GlobalPost,output.weight
+output_norm.weight,1,"[5120]",F32,0,20480,None,GlobalPost,output_norm.weight
+token_embd.weight,2,"[5120, 151936]",Q8_0,8,826531840,None,GlobalPre,token_embd.weight
+blk.0.attn_k.weight,3,"[5120, 1024]",Q8_0,8,5570560,0,Layer,attn_k.weight
+blk.0.attn_k_norm.weight,4,"[128]",F32,0,512,0,Layer,attn_k_norm.weight
+blk.0.attn_norm.weight,5,"[5120]",F32,0,20480,0,Layer,attn_norm.weight
+blk.0.attn_output.weight,6,"[8192, 5120]",Q8_0,8,44564480,0,Layer,attn_output.weight
+blk.0.attn_q.weight,7,"[5120, 8192]",Q8_0,8,44564480,0,Layer,attn_q.weight
+blk.0.attn_q_norm.weight,8,"[128]",F32,0,512,0,Layer,attn_q_norm.weight
+blk.0.attn_v.weight,9,"[5120, 1024]",Q8_0,8,5570560,0,Layer,attn_v.weight
+blk.0.ffn_down.weight,10,"[25600, 5120]",Q8_0,8,139264000,0,Layer,ffn_down.weight
+blk.0.ffn_gate.weight,11,"[5120, 25600]",Q8_0,8,139264000,0,Layer,ffn_gate.weight
+blk.0.ffn_norm.weight,12,"[5120]",F32,0,20480,0,Layer,ffn_norm.weight
+blk.0.ffn_up.weight,13,"[5120, 25600]",Q8_0,8,139264000,0,Layer,ffn_up.weight
+blk.1.attn_k.weight,14,"[5120, 1024]",Q8_0,8,5570560,1,Layer,attn_k.weight
+blk.1.attn_k_norm.weight,15,"[128]",F32,0,512,1,Layer,attn_k_norm.weight
+blk.1.attn_norm.weight,16,"[5120]",F32,0,20480,1,Layer,attn_norm.weight
+blk.1.attn_output.weight,17,"[8192, 5120]",Q8_0,8,44564480,1,Layer,attn_output.weight
+blk.1.attn_q.weight,18,"[5120, 8192]",Q8_0,8,44564480,1,Layer,attn_q.weight
+blk.1.attn_q_norm.weight,19,"[128]",F32,0,512,1,Layer,attn_q_norm.weight
+blk.1.attn_v.weight,20,"[5120, 1024]",Q8_0,8,5570560,1,Layer,attn_v.weight
+blk.1.ffn_down.weight,21,"[25600, 5120]",Q8_0,8,139264000,1,Layer,ffn_down.weight
+blk.1.ffn_gate.weight,22,"[5120, 25600]",Q8_0,8,139264000,1,Layer,ffn_gate.weight
+blk.1.ffn_norm.weight,23,"[5120]",F32,0,20480,1,Layer,ffn_norm.weight
+blk.1.ffn_up.weight,24,"[5120, 25600]",Q8_0,8,139264000,1,Layer,ffn_up.weight
+blk.2.attn_k.weight,25,"[5120, 1024]",Q8_0,8,5570560,2,Layer,attn_k.weight
+blk.2.attn_k_norm.weight,26,"[128]",F32,0,512,2,Layer,attn_k_norm.weight
+blk.2.attn_norm.weight,27,"[5120]",F32,0,20480,2,Layer,attn_norm.weight
+blk.2.attn_output.weight,28,"[8192, 5120]",Q8_0,8,44564480,2,Layer,attn_output.weight
+blk.2.attn_q.weight,29,"[5120, 8192]",Q8_0,8,44564480,2,Layer,attn_q.weight
+blk.2.attn_q_norm.weight,30,"[128]",F32,0,512,2,Layer,attn_q_norm.weight
+blk.2.attn_v.weight,31,"[5120, 1024]",Q8_0,8,5570560,2,Layer,attn_v.weight
+blk.2.ffn_down.weight,32,"[25600, 5120]",Q8_0,8,139264000,2,Layer,ffn_down.weight
+blk.2.ffn_gate.weight,33,"[5120, 25600]",Q8_0,8,139264000,2,Layer,ffn_gate.weight
+blk.2.ffn_norm.weight,34,"[5120]",F32,0,20480,2,Layer,ffn_norm.weight
+blk.2.ffn_up.weight,35,"[5120, 25600]",Q8_0,8,139264000,2,Layer,ffn_up.weight
+blk.3.attn_k.weight,36,"[5120, 1024]",Q8_0,8,5570560,3,Layer,attn_k.weight
+blk.3.attn_k_norm.weight,37,"[128]",F32,0,512,3,Layer,attn_k_norm.weight
+blk.3.attn_norm.weight,38,"[5120]",F32,0,20480,3,Layer,attn_norm.weight
+blk.3.attn_output.weight,39,"[8192, 5120]",Q8_0,8,44564480,3,Layer,attn_output.weight
+blk.3.attn_q.weight,40,"[5120, 8192]",Q8_0,8,44564480,3,Layer,attn_q.weight
+blk.3.attn_q_norm.weight,41,"[128]",F32,0,512,3,Layer,attn_q_norm.weight
+blk.3.attn_v.weight,42,"[5120, 1024]",Q8_0,8,5570560,3,Layer,attn_v.weight
+blk.3.ffn_down.weight,43,"[25600, 5120]",Q8_0,8,139264000,3,Layer,ffn_down.weight
+blk.3.ffn_gate.weight,44,"[5120, 25600]",Q8_0,8,139264000,3,Layer,ffn_gate.weight
+blk.3.ffn_norm.weight,45,"[5120]",F32,0,20480,3,Layer,ffn_norm.weight
+blk.3.ffn_up.weight,46,"[5120, 25600]",Q8_0,8,139264000,3,Layer,ffn_up.weight
+blk.4.attn_k.weight,47,"[5120, 1024]",Q8_0,8,5570560,4,Layer,attn_k.weight
+blk.4.attn_k_norm.weight,48,"[128]",F32,0,512,4,Layer,attn_k_norm.weight
+blk.4.attn_norm.weight,49,"[5120]",F32,0,20480,4,Layer,attn_norm.weight
+blk.4.attn_output.weight,50,"[8192, 5120]",Q8_0,8,44564480,4,Layer,attn_output.weight
+blk.4.attn_q.weight,51,"[5120, 8192]",Q8_0,8,44564480,4,Layer,attn_q.weight
+blk.4.attn_q_norm.weight,52,"[128]",F32,0,512,4,Layer,attn_q_norm.weight
+blk.4.attn_v.weight,53,"[5120, 1024]",Q8_0,8,5570560,4,Layer,attn_v.weight
+blk.4.ffn_down.weight,54,"[25600, 5120]",Q8_0,8,139264000,4,Layer,ffn_down.weight
+blk.4.ffn_gate.weight,55,"[5120, 25600]",Q8_0,8,139264000,4,Layer,ffn_gate.weight
+blk.4.ffn_norm.weight,56,"[5120]",F32,0,20480,4,Layer,ffn_norm.weight
+blk.4.ffn_up.weight,57,"[5120, 25600]",Q8_0,8,139264000,4,Layer,ffn_up.weight
+blk.5.attn_k.weight,58,"[5120, 1024]",Q8_0,8,5570560,5,Layer,attn_k.weight
+blk.5.attn_k_norm.weight,59,"[128]",F32,0,512,5,Layer,attn_k_norm.weight
+blk.5.attn_norm.weight,60,"[5120]",F32,0,20480,5,Layer,attn_norm.weight
+blk.5.attn_output.weight,61,"[8192, 5120]",Q8_0,8,44564480,5,Layer,attn_output.weight
+blk.5.attn_q.weight,62,"[5120, 8192]",Q8_0,8,44564480,5,Layer,attn_q.weight
+blk.5.attn_q_norm.weight,63,"[128]",F32,0,512,5,Layer,attn_q_norm.weight
+blk.5.attn_v.weight,64,"[5120, 1024]",Q8_0,8,5570560,5,Layer,attn_v.weight
+blk.5.ffn_down.weight,65,"[25600, 5120]",Q8_0,8,139264000,5,Layer,ffn_down.weight
+blk.5.ffn_gate.weight,66,"[5120, 25600]",Q8_0,8,139264000,5,Layer,ffn_gate.weight
+blk.5.ffn_norm.weight,67,"[5120]",F32,0,20480,5,Layer,ffn_norm.weight
+blk.5.ffn_up.weight,68,"[5120, 25600]",Q8_0,8,139264000,5,Layer,ffn_up.weight
+blk.6.attn_k.weight,69,"[5120, 1024]",Q8_0,8,5570560,6,Layer,attn_k.weight
+blk.6.attn_k_norm.weight,70,"[128]",F32,0,512,6,Layer,attn_k_norm.weight
+blk.6.attn_norm.weight,71,"[5120]",F32,0,20480,6,Layer,attn_norm.weight
+blk.6.attn_output.weight,72,"[8192, 5120]",Q8_0,8,44564480,6,Layer,attn_output.weight
+blk.6.attn_q.weight,73,"[5120, 8192]",Q8_0,8,44564480,6,Layer,attn_q.weight
+blk.6.attn_q_norm.weight,74,"[128]",F32,0,512,6,Layer,attn_q_norm.weight
+blk.6.attn_v.weight,75,"[5120, 1024]",Q8_0,8,5570560,6,Layer,attn_v.weight
+blk.6.ffn_down.weight,76,"[25600, 5120]",Q8_0,8,139264000,6,Layer,ffn_down.weight
+blk.6.ffn_gate.weight,77,"[5120, 25600]",Q8_0,8,139264000,6,Layer,ffn_gate.weight
+blk.6.ffn_norm.weight,78,"[5120]",F32,0,20480,6,Layer,ffn_norm.weight
+blk.6.ffn_up.weight,79,"[5120, 25600]",Q8_0,8,139264000,6,Layer,ffn_up.weight
+blk.7.attn_k.weight,80,"[5120, 1024]",Q8_0,8,5570560,7,Layer,attn_k.weight
+blk.7.attn_k_norm.weight,81,"[128]",F32,0,512,7,Layer,attn_k_norm.weight
+blk.7.attn_norm.weight,82,"[5120]",F32,0,20480,7,Layer,attn_norm.weight
+blk.7.attn_output.weight,83,"[8192, 5120]",Q8_0,8,44564480,7,Layer,attn_output.weight
+blk.7.attn_q.weight,84,"[5120, 8192]",Q8_0,8,44564480,7,Layer,attn_q.weight
+blk.7.attn_q_norm.weight,85,"[128]",F32,0,512,7,Layer,attn_q_norm.weight
+blk.7.attn_v.weight,86,"[5120, 1024]",Q8_0,8,5570560,7,Layer,attn_v.weight
+blk.7.ffn_down.weight,87,"[25600, 5120]",Q8_0,8,139264000,7,Layer,ffn_down.weight
+blk.7.ffn_gate.weight,88,"[5120, 25600]",Q8_0,8,139264000,7,Layer,ffn_gate.weight
+blk.7.ffn_norm.weight,89,"[5120]",F32,0,20480,7,Layer,ffn_norm.weight
+blk.7.ffn_up.weight,90,"[5120, 25600]",Q8_0,8,139264000,7,Layer,ffn_up.weight
+blk.8.attn_k.weight,91,"[5120, 1024]",Q8_0,8,5570560,8,Layer,attn_k.weight
+blk.8.attn_k_norm.weight,92,"[128]",F32,0,512,8,Layer,attn_k_norm.weight
+blk.8.attn_norm.weight,93,"[5120]",F32,0,20480,8,Layer,attn_norm.weight
+blk.8.attn_output.weight,94,"[8192, 5120]",Q8_0,8,44564480,8,Layer,attn_output.weight
+blk.8.attn_q.weight,95,"[5120, 8192]",Q8_0,8,44564480,8,Layer,attn_q.weight
+blk.8.attn_q_norm.weight,96,"[128]",F32,0,512,8,Layer,attn_q_norm.weight
+blk.8.attn_v.weight,97,"[5120, 1024]",Q8_0,8,5570560,8,Layer,attn_v.weight
+blk.8.ffn_down.weight,98,"[25600, 5120]",Q8_0,8,139264000,8,Layer,ffn_down.weight
+blk.8.ffn_gate.weight,99,"[5120, 25600]",Q8_0,8,139264000,8,Layer,ffn_gate.weight
+blk.8.ffn_norm.weight,100,"[5120]",F32,0,20480,8,Layer,ffn_norm.weight
+blk.8.ffn_up.weight,101,"[5120, 25600]",Q8_0,8,139264000,8,Layer,ffn_up.weight
+blk.9.attn_k.weight,102,"[5120, 1024]",Q8_0,8,5570560,9,Layer,attn_k.weight
+blk.9.attn_k_norm.weight,103,"[128]",F32,0,512,9,Layer,attn_k_norm.weight
+blk.9.attn_norm.weight,104,"[5120]",F32,0,20480,9,Layer,attn_norm.weight
+blk.9.attn_output.weight,105,"[8192, 5120]",Q8_0,8,44564480,9,Layer,attn_output.weight
+blk.9.attn_q.weight,106,"[5120, 8192]",Q8_0,8,44564480,9,Layer,attn_q.weight
+blk.9.attn_q_norm.weight,107,"[128]",F32,0,512,9,Layer,attn_q_norm.weight
+blk.9.attn_v.weight,108,"[5120, 1024]",Q8_0,8,5570560,9,Layer,attn_v.weight
+blk.9.ffn_down.weight,109,"[25600, 5120]",Q8_0,8,139264000,9,Layer,ffn_down.weight
+blk.9.ffn_gate.weight,110,"[5120, 25600]",Q8_0,8,139264000,9,Layer,ffn_gate.weight
+blk.9.ffn_norm.weight,111,"[5120]",F32,0,20480,9,Layer,ffn_norm.weight
+blk.9.ffn_up.weight,112,"[5120, 25600]",Q8_0,8,139264000,9,Layer,ffn_up.weight
+blk.10.attn_k.weight,113,"[5120, 1024]",Q8_0,8,5570560,10,Layer,attn_k.weight
+blk.10.attn_k_norm.weight,114,"[128]",F32,0,512,10,Layer,attn_k_norm.weight
+blk.10.attn_norm.weight,115,"[5120]",F32,0,20480,10,Layer,attn_norm.weight
+blk.10.attn_output.weight,116,"[8192, 5120]",Q8_0,8,44564480,10,Layer,attn_output.weight
+blk.10.attn_q.weight,117,"[5120, 8192]",Q8_0,8,44564480,10,Layer,attn_q.weight
+blk.10.attn_q_norm.weight,118,"[128]",F32,0,512,10,Layer,attn_q_norm.weight
+blk.10.attn_v.weight,119,"[5120, 1024]",Q8_0,8,5570560,10,Layer,attn_v.weight
+blk.10.ffn_down.weight,120,"[25600, 5120]",Q8_0,8,139264000,10,Layer,ffn_down.weight
+blk.10.ffn_gate.weight,121,"[5120, 25600]",Q8_0,8,139264000,10,Layer,ffn_gate.weight
+blk.10.ffn_norm.weight,122,"[5120]",F32,0,20480,10,Layer,ffn_norm.weight
+blk.10.ffn_up.weight,123,"[5120, 25600]",Q8_0,8,139264000,10,Layer,ffn_up.weight
+blk.11.attn_k.weight,124,"[5120, 1024]",Q8_0,8,5570560,11,Layer,attn_k.weight
+blk.11.attn_k_norm.weight,125,"[128]",F32,0,512,11,Layer,attn_k_norm.weight
+blk.11.attn_norm.weight,126,"[5120]",F32,0,20480,11,Layer,attn_norm.weight
+blk.11.attn_output.weight,127,"[8192, 5120]",Q8_0,8,44564480,11,Layer,attn_output.weight
+blk.11.attn_q.weight,128,"[5120, 8192]",Q8_0,8,44564480,11,Layer,attn_q.weight
+blk.11.attn_q_norm.weight,129,"[128]",F32,0,512,11,Layer,attn_q_norm.weight
+blk.11.attn_v.weight,130,"[5120, 1024]",Q8_0,8,5570560,11,Layer,attn_v.weight
+blk.11.ffn_down.weight,131,"[25600, 5120]",Q8_0,8,139264000,11,Layer,ffn_down.weight
+blk.11.ffn_gate.weight,132,"[5120, 25600]",Q8_0,8,139264000,11,Layer,ffn_gate.weight
+blk.11.ffn_norm.weight,133,"[5120]",F32,0,20480,11,Layer,ffn_norm.weight
+blk.11.ffn_up.weight,134,"[5120, 25600]",Q8_0,8,139264000,11,Layer,ffn_up.weight
+blk.12.attn_k.weight,135,"[5120, 1024]",Q8_0,8,5570560,12,Layer,attn_k.weight
+blk.12.attn_k_norm.weight,136,"[128]",F32,0,512,12,Layer,attn_k_norm.weight
+blk.12.attn_norm.weight,137,"[5120]",F32,0,20480,12,Layer,attn_norm.weight
+blk.12.attn_output.weight,138,"[8192, 5120]",Q8_0,8,44564480,12,Layer,attn_output.weight
+blk.12.attn_q.weight,139,"[5120, 8192]",Q8_0,8,44564480,12,Layer,attn_q.weight
+blk.12.attn_q_norm.weight,140,"[128]",F32,0,512,12,Layer,attn_q_norm.weight
+blk.12.attn_v.weight,141,"[5120, 1024]",Q8_0,8,5570560,12,Layer,attn_v.weight
+blk.12.ffn_down.weight,142,"[25600, 5120]",Q8_0,8,139264000,12,Layer,ffn_down.weight
+blk.12.ffn_gate.weight,143,"[5120, 25600]",Q8_0,8,139264000,12,Layer,ffn_gate.weight
+blk.12.ffn_norm.weight,144,"[5120]",F32,0,20480,12,Layer,ffn_norm.weight
+blk.12.ffn_up.weight,145,"[5120, 25600]",Q8_0,8,139264000,12,Layer,ffn_up.weight
+blk.13.attn_k.weight,146,"[5120, 1024]",Q8_0,8,5570560,13,Layer,attn_k.weight
+blk.13.attn_k_norm.weight,147,"[128]",F32,0,512,13,Layer,attn_k_norm.weight
+blk.13.attn_norm.weight,148,"[5120]",F32,0,20480,13,Layer,attn_norm.weight
+blk.13.attn_output.weight,149,"[8192, 5120]",Q8_0,8,44564480,13,Layer,attn_output.weight
+blk.13.attn_q.weight,150,"[5120, 8192]",Q8_0,8,44564480,13,Layer,attn_q.weight
+blk.13.attn_q_norm.weight,151,"[128]",F32,0,512,13,Layer,attn_q_norm.weight
+blk.13.attn_v.weight,152,"[5120, 1024]",Q8_0,8,5570560,13,Layer,attn_v.weight
+blk.13.ffn_down.weight,153,"[25600, 5120]",Q8_0,8,139264000,13,Layer,ffn_down.weight
+blk.13.ffn_gate.weight,154,"[5120, 25600]",Q8_0,8,139264000,13,Layer,ffn_gate.weight
+blk.13.ffn_norm.weight,155,"[5120]",F32,0,20480,13,Layer,ffn_norm.weight
+blk.13.ffn_up.weight,156,"[5120, 25600]",Q8_0,8,139264000,13,Layer,ffn_up.weight
+blk.14.attn_k.weight,157,"[5120, 1024]",Q8_0,8,5570560,14,Layer,attn_k.weight
+blk.14.attn_k_norm.weight,158,"[128]",F32,0,512,14,Layer,attn_k_norm.weight
+blk.14.attn_norm.weight,159,"[5120]",F32,0,20480,14,Layer,attn_norm.weight
+blk.14.attn_output.weight,160,"[8192, 5120]",Q8_0,8,44564480,14,Layer,attn_output.weight
+blk.14.attn_q.weight,161,"[5120, 8192]",Q8_0,8,44564480,14,Layer,attn_q.weight
+blk.14.attn_q_norm.weight,162,"[128]",F32,0,512,14,Layer,attn_q_norm.weight
+blk.14.attn_v.weight,163,"[5120, 1024]",Q8_0,8,5570560,14,Layer,attn_v.weight
+blk.14.ffn_down.weight,164,"[25600, 5120]",Q8_0,8,139264000,14,Layer,ffn_down.weight
+blk.14.ffn_gate.weight,165,"[5120, 25600]",Q8_0,8,139264000,14,Layer,ffn_gate.weight
+blk.14.ffn_norm.weight,166,"[5120]",F32,0,20480,14,Layer,ffn_norm.weight
+blk.14.ffn_up.weight,167,"[5120, 25600]",Q8_0,8,139264000,14,Layer,ffn_up.weight
+blk.15.attn_k.weight,168,"[5120, 1024]",Q8_0,8,5570560,15,Layer,attn_k.weight
+blk.15.attn_k_norm.weight,169,"[128]",F32,0,512,15,Layer,attn_k_norm.weight
+blk.15.attn_norm.weight,170,"[5120]",F32,0,20480,15,Layer,attn_norm.weight
+blk.15.attn_output.weight,171,"[8192, 5120]",Q8_0,8,44564480,15,Layer,attn_output.weight
+blk.15.attn_q.weight,172,"[5120, 8192]",Q8_0,8,44564480,15,Layer,attn_q.weight
+blk.15.attn_q_norm.weight,173,"[128]",F32,0,512,15,Layer,attn_q_norm.weight
+blk.15.attn_v.weight,174,"[5120, 1024]",Q8_0,8,5570560,15,Layer,attn_v.weight
+blk.15.ffn_down.weight,175,"[25600, 5120]",Q8_0,8,139264000,15,Layer,ffn_down.weight
+blk.15.ffn_gate.weight,176,"[5120, 25600]",Q8_0,8,139264000,15,Layer,ffn_gate.weight
+blk.15.ffn_norm.weight,177,"[5120]",F32,0,20480,15,Layer,ffn_norm.weight
+blk.15.ffn_up.weight,178,"[5120, 25600]",Q8_0,8,139264000,15,Layer,ffn_up.weight
+blk.16.attn_k.weight,179,"[5120, 1024]",Q8_0,8,5570560,16,Layer,attn_k.weight
+blk.16.attn_k_norm.weight,180,"[128]",F32,0,512,16,Layer,attn_k_norm.weight
+blk.16.attn_norm.weight,181,"[5120]",F32,0,20480,16,Layer,attn_norm.weight
+blk.16.attn_output.weight,182,"[8192, 5120]",Q8_0,8,44564480,16,Layer,attn_output.weight
+blk.16.attn_q.weight,183,"[5120, 8192]",Q8_0,8,44564480,16,Layer,attn_q.weight
+blk.16.attn_q_norm.weight,184,"[128]",F32,0,512,16,Layer,attn_q_norm.weight
+blk.16.attn_v.weight,185,"[5120, 1024]",Q8_0,8,5570560,16,Layer,attn_v.weight
+blk.16.ffn_down.weight,186,"[25600, 5120]",Q8_0,8,139264000,16,Layer,ffn_down.weight
+blk.16.ffn_gate.weight,187,"[5120, 25600]",Q8_0,8,139264000,16,Layer,ffn_gate.weight
+blk.16.ffn_norm.weight,188,"[5120]",F32,0,20480,16,Layer,ffn_norm.weight
+blk.16.ffn_up.weight,189,"[5120, 25600]",Q8_0,8,139264000,16,Layer,ffn_up.weight
+blk.17.attn_k.weight,190,"[5120, 1024]",Q8_0,8,5570560,17,Layer,attn_k.weight
+blk.17.attn_k_norm.weight,191,"[128]",F32,0,512,17,Layer,attn_k_norm.weight
+blk.17.attn_norm.weight,192,"[5120]",F32,0,20480,17,Layer,attn_norm.weight
+blk.17.attn_output.weight,193,"[8192, 5120]",Q8_0,8,44564480,17,Layer,attn_output.weight
+blk.17.attn_q.weight,194,"[5120, 8192]",Q8_0,8,44564480,17,Layer,attn_q.weight
+blk.17.attn_q_norm.weight,195,"[128]",F32,0,512,17,Layer,attn_q_norm.weight
+blk.17.attn_v.weight,196,"[5120, 1024]",Q8_0,8,5570560,17,Layer,attn_v.weight
+blk.17.ffn_down.weight,197,"[25600, 5120]",Q8_0,8,139264000,17,Layer,ffn_down.weight
+blk.17.ffn_gate.weight,198,"[5120, 25600]",Q8_0,8,139264000,17,Layer,ffn_gate.weight
+blk.17.ffn_norm.weight,199,"[5120]",F32,0,20480,17,Layer,ffn_norm.weight
+blk.17.ffn_up.weight,200,"[5120, 25600]",Q8_0,8,139264000,17,Layer,ffn_up.weight
+blk.18.attn_k.weight,201,"[5120, 1024]",Q8_0,8,5570560,18,Layer,attn_k.weight
+blk.18.attn_k_norm.weight,202,"[128]",F32,0,512,18,Layer,attn_k_norm.weight
+blk.18.attn_norm.weight,203,"[5120]",F32,0,20480,18,Layer,attn_norm.weight
+blk.18.attn_output.weight,204,"[8192, 5120]",Q8_0,8,44564480,18,Layer,attn_output.weight
+blk.18.attn_q.weight,205,"[5120, 8192]",Q8_0,8,44564480,18,Layer,attn_q.weight
+blk.18.attn_q_norm.weight,206,"[128]",F32,0,512,18,Layer,attn_q_norm.weight
+blk.18.attn_v.weight,207,"[5120, 1024]",Q8_0,8,5570560,18,Layer,attn_v.weight
+blk.18.ffn_down.weight,208,"[25600, 5120]",Q8_0,8,139264000,18,Layer,ffn_down.weight
+blk.18.ffn_gate.weight,209,"[5120, 25600]",Q8_0,8,139264000,18,Layer,ffn_gate.weight
+blk.18.ffn_norm.weight,210,"[5120]",F32,0,20480,18,Layer,ffn_norm.weight
+blk.18.ffn_up.weight,211,"[5120, 25600]",Q8_0,8,139264000,18,Layer,ffn_up.weight
+blk.19.attn_k.weight,212,"[5120, 1024]",Q8_0,8,5570560,19,Layer,attn_k.weight
+blk.19.attn_k_norm.weight,213,"[128]",F32,0,512,19,Layer,attn_k_norm.weight
+blk.19.attn_norm.weight,214,"[5120]",F32,0,20480,19,Layer,attn_norm.weight
+blk.19.attn_output.weight,215,"[8192, 5120]",Q8_0,8,44564480,19,Layer,attn_output.weight
+blk.19.attn_q.weight,216,"[5120, 8192]",Q8_0,8,44564480,19,Layer,attn_q.weight
+blk.19.attn_q_norm.weight,217,"[128]",F32,0,512,19,Layer,attn_q_norm.weight
+blk.19.attn_v.weight,218,"[5120, 1024]",Q8_0,8,5570560,19,Layer,attn_v.weight
+blk.19.ffn_down.weight,219,"[25600, 5120]",Q8_0,8,139264000,19,Layer,ffn_down.weight
+blk.19.ffn_gate.weight,220,"[5120, 25600]",Q8_0,8,139264000,19,Layer,ffn_gate.weight
+blk.19.ffn_norm.weight,221,"[5120]",F32,0,20480,19,Layer,ffn_norm.weight
+blk.19.ffn_up.weight,222,"[5120, 25600]",Q8_0,8,139264000,19,Layer,ffn_up.weight
+blk.20.attn_k.weight,223,"[5120, 1024]",Q8_0,8,5570560,20,Layer,attn_k.weight
+blk.20.attn_k_norm.weight,224,"[128]",F32,0,512,20,Layer,attn_k_norm.weight
+blk.20.attn_norm.weight,225,"[5120]",F32,0,20480,20,Layer,attn_norm.weight
+blk.20.attn_output.weight,226,"[8192, 5120]",Q8_0,8,44564480,20,Layer,attn_output.weight
+blk.20.attn_q.weight,227,"[5120, 8192]",Q8_0,8,44564480,20,Layer,attn_q.weight
+blk.20.attn_q_norm.weight,228,"[128]",F32,0,512,20,Layer,attn_q_norm.weight
+blk.20.attn_v.weight,229,"[5120, 1024]",Q8_0,8,5570560,20,Layer,attn_v.weight
+blk.20.ffn_down.weight,230,"[25600, 5120]",Q8_0,8,139264000,20,Layer,ffn_down.weight
+blk.20.ffn_gate.weight,231,"[5120, 25600]",Q8_0,8,139264000,20,Layer,ffn_gate.weight
+blk.20.ffn_norm.weight,232,"[5120]",F32,0,20480,20,Layer,ffn_norm.weight
+blk.20.ffn_up.weight,233,"[5120, 25600]",Q8_0,8,139264000,20,Layer,ffn_up.weight
+blk.21.attn_k.weight,234,"[5120, 1024]",Q8_0,8,5570560,21,Layer,attn_k.weight
+blk.21.attn_k_norm.weight,235,"[128]",F32,0,512,21,Layer,attn_k_norm.weight
+blk.21.attn_norm.weight,236,"[5120]",F32,0,20480,21,Layer,attn_norm.weight
+blk.21.attn_output.weight,237,"[8192, 5120]",Q8_0,8,44564480,21,Layer,attn_output.weight
+blk.21.attn_q.weight,238,"[5120, 8192]",Q8_0,8,44564480,21,Layer,attn_q.weight
+blk.21.attn_q_norm.weight,239,"[128]",F32,0,512,21,Layer,attn_q_norm.weight
+blk.21.attn_v.weight,240,"[5120, 1024]",Q8_0,8,5570560,21,Layer,attn_v.weight
+blk.21.ffn_down.weight,241,"[25600, 5120]",Q8_0,8,139264000,21,Layer,ffn_down.weight
+blk.21.ffn_gate.weight,242,"[5120, 25600]",Q8_0,8,139264000,21,Layer,ffn_gate.weight
+blk.21.ffn_norm.weight,243,"[5120]",F32,0,20480,21,Layer,ffn_norm.weight
+blk.21.ffn_up.weight,244,"[5120, 25600]",Q8_0,8,139264000,21,Layer,ffn_up.weight
+blk.22.attn_k.weight,245,"[5120, 1024]",Q8_0,8,5570560,22,Layer,attn_k.weight
+blk.22.attn_k_norm.weight,246,"[128]",F32,0,512,22,Layer,attn_k_norm.weight
+blk.22.attn_norm.weight,247,"[5120]",F32,0,20480,22,Layer,attn_norm.weight
+blk.22.attn_output.weight,248,"[8192, 5120]",Q8_0,8,44564480,22,Layer,attn_output.weight
+blk.22.attn_q.weight,249,"[5120, 8192]",Q8_0,8,44564480,22,Layer,attn_q.weight
+blk.22.attn_q_norm.weight,250,"[128]",F32,0,512,22,Layer,attn_q_norm.weight
+blk.22.attn_v.weight,251,"[5120, 1024]",Q8_0,8,5570560,22,Layer,attn_v.weight
+blk.22.ffn_down.weight,252,"[25600, 5120]",Q8_0,8,139264000,22,Layer,ffn_down.weight
+blk.22.ffn_gate.weight,253,"[5120, 25600]",Q8_0,8,139264000,22,Layer,ffn_gate.weight
+blk.22.ffn_norm.weight,254,"[5120]",F32,0,20480,22,Layer,ffn_norm.weight
+blk.22.ffn_up.weight,255,"[5120, 25600]",Q8_0,8,139264000,22,Layer,ffn_up.weight
+blk.23.attn_k.weight,256,"[5120, 1024]",Q8_0,8,5570560,23,Layer,attn_k.weight
+blk.23.attn_k_norm.weight,257,"[128]",F32,0,512,23,Layer,attn_k_norm.weight
+blk.23.attn_norm.weight,258,"[5120]",F32,0,20480,23,Layer,attn_norm.weight
+blk.23.attn_output.weight,259,"[8192, 5120]",Q8_0,8,44564480,23,Layer,attn_output.weight
+blk.23.attn_q.weight,260,"[5120, 8192]",Q8_0,8,44564480,23,Layer,attn_q.weight
+blk.23.attn_q_norm.weight,261,"[128]",F32,0,512,23,Layer,attn_q_norm.weight
+blk.23.attn_v.weight,262,"[5120, 1024]",Q8_0,8,5570560,23,Layer,attn_v.weight
+blk.23.ffn_down.weight,263,"[25600, 5120]",Q8_0,8,139264000,23,Layer,ffn_down.weight
+blk.23.ffn_gate.weight,264,"[5120, 25600]",Q8_0,8,139264000,23,Layer,ffn_gate.weight
+blk.23.ffn_norm.weight,265,"[5120]",F32,0,20480,23,Layer,ffn_norm.weight
+blk.23.ffn_up.weight,266,"[5120, 25600]",Q8_0,8,139264000,23,Layer,ffn_up.weight
+blk.24.attn_k.weight,267,"[5120, 1024]",Q8_0,8,5570560,24,Layer,attn_k.weight
+blk.24.attn_k_norm.weight,268,"[128]",F32,0,512,24,Layer,attn_k_norm.weight
+blk.24.attn_norm.weight,269,"[5120]",F32,0,20480,24,Layer,attn_norm.weight
+blk.24.attn_output.weight,270,"[8192, 5120]",Q8_0,8,44564480,24,Layer,attn_output.weight
+blk.24.attn_q.weight,271,"[5120, 8192]",Q8_0,8,44564480,24,Layer,attn_q.weight
+blk.24.attn_q_norm.weight,272,"[128]",F32,0,512,24,Layer,attn_q_norm.weight
+blk.24.attn_v.weight,273,"[5120, 1024]",Q8_0,8,5570560,24,Layer,attn_v.weight
+blk.24.ffn_down.weight,274,"[25600, 5120]",Q8_0,8,139264000,24,Layer,ffn_down.weight
+blk.24.ffn_gate.weight,275,"[5120, 25600]",Q8_0,8,139264000,24,Layer,ffn_gate.weight
+blk.24.ffn_norm.weight,276,"[5120]",F32,0,20480,24,Layer,ffn_norm.weight
+blk.24.ffn_up.weight,277,"[5120, 25600]",Q8_0,8,139264000,24,Layer,ffn_up.weight
+blk.25.attn_k.weight,278,"[5120, 1024]",Q8_0,8,5570560,25,Layer,attn_k.weight
+blk.25.attn_k_norm.weight,279,"[128]",F32,0,512,25,Layer,attn_k_norm.weight
+blk.25.attn_norm.weight,280,"[5120]",F32,0,20480,25,Layer,attn_norm.weight
+blk.25.attn_output.weight,281,"[8192, 5120]",Q8_0,8,44564480,25,Layer,attn_output.weight
+blk.25.attn_q.weight,282,"[5120, 8192]",Q8_0,8,44564480,25,Layer,attn_q.weight
+blk.25.attn_q_norm.weight,283,"[128]",F32,0,512,25,Layer,attn_q_norm.weight
+blk.25.attn_v.weight,284,"[5120, 1024]",Q8_0,8,5570560,25,Layer,attn_v.weight
+blk.25.ffn_down.weight,285,"[25600, 5120]",Q8_0,8,139264000,25,Layer,ffn_down.weight
+blk.25.ffn_gate.weight,286,"[5120, 25600]",Q8_0,8,139264000,25,Layer,ffn_gate.weight
+blk.25.ffn_norm.weight,287,"[5120]",F32,0,20480,25,Layer,ffn_norm.weight
+blk.25.ffn_up.weight,288,"[5120, 25600]",Q8_0,8,139264000,25,Layer,ffn_up.weight
+blk.26.attn_k.weight,289,"[5120, 1024]",Q8_0,8,5570560,26,Layer,attn_k.weight
+blk.26.attn_k_norm.weight,290,"[128]",F32,0,512,26,Layer,attn_k_norm.weight
+blk.26.attn_norm.weight,291,"[5120]",F32,0,20480,26,Layer,attn_norm.weight
+blk.26.attn_output.weight,292,"[8192, 5120]",Q8_0,8,44564480,26,Layer,attn_output.weight
+blk.26.attn_q.weight,293,"[5120, 8192]",Q8_0,8,44564480,26,Layer,attn_q.weight
+blk.26.attn_q_norm.weight,294,"[128]",F32,0,512,26,Layer,attn_q_norm.weight
+blk.26.attn_v.weight,295,"[5120, 1024]",Q8_0,8,5570560,26,Layer,attn_v.weight
+blk.26.ffn_down.weight,296,"[25600, 5120]",Q8_0,8,139264000,26,Layer,ffn_down.weight
+blk.26.ffn_gate.weight,297,"[5120, 25600]",Q8_0,8,139264000,26,Layer,ffn_gate.weight
+blk.26.ffn_norm.weight,298,"[5120]",F32,0,20480,26,Layer,ffn_norm.weight
+blk.26.ffn_up.weight,299,"[5120, 25600]",Q8_0,8,139264000,26,Layer,ffn_up.weight
+blk.27.attn_k.weight,300,"[5120, 1024]",Q8_0,8,5570560,27,Layer,attn_k.weight
+blk.27.attn_k_norm.weight,301,"[128]",F32,0,512,27,Layer,attn_k_norm.weight
+blk.27.attn_norm.weight,302,"[5120]",F32,0,20480,27,Layer,attn_norm.weight
+blk.27.attn_output.weight,303,"[8192, 5120]",Q8_0,8,44564480,27,Layer,attn_output.weight
+blk.27.attn_q.weight,304,"[5120, 8192]",Q8_0,8,44564480,27,Layer,attn_q.weight
+blk.27.attn_q_norm.weight,305,"[128]",F32,0,512,27,Layer,attn_q_norm.weight
+blk.27.attn_v.weight,306,"[5120, 1024]",Q8_0,8,5570560,27,Layer,attn_v.weight
+blk.27.ffn_down.weight,307,"[25600, 5120]",Q8_0,8,139264000,27,Layer,ffn_down.weight
+blk.27.ffn_gate.weight,308,"[5120, 25600]",Q8_0,8,139264000,27,Layer,ffn_gate.weight
+blk.27.ffn_norm.weight,309,"[5120]",F32,0,20480,27,Layer,ffn_norm.weight
+blk.27.ffn_up.weight,310,"[5120, 25600]",Q8_0,8,139264000,27,Layer,ffn_up.weight
+blk.28.attn_k.weight,311,"[5120, 1024]",Q8_0,8,5570560,28,Layer,attn_k.weight
+blk.28.attn_k_norm.weight,312,"[128]",F32,0,512,28,Layer,attn_k_norm.weight
+blk.28.attn_norm.weight,313,"[5120]",F32,0,20480,28,Layer,attn_norm.weight
+blk.28.attn_output.weight,314,"[8192, 5120]",Q8_0,8,44564480,28,Layer,attn_output.weight
+blk.28.attn_q.weight,315,"[5120, 8192]",Q8_0,8,44564480,28,Layer,attn_q.weight
+blk.28.attn_q_norm.weight,316,"[128]",F32,0,512,28,Layer,attn_q_norm.weight
+blk.28.attn_v.weight,317,"[5120, 1024]",Q8_0,8,5570560,28,Layer,attn_v.weight
+blk.28.ffn_down.weight,318,"[25600, 5120]",Q8_0,8,139264000,28,Layer,ffn_down.weight
+blk.28.ffn_gate.weight,319,"[5120, 25600]",Q8_0,8,139264000,28,Layer,ffn_gate.weight
+blk.28.ffn_norm.weight,320,"[5120]",F32,0,20480,28,Layer,ffn_norm.weight
+blk.28.ffn_up.weight,321,"[5120, 25600]",Q8_0,8,139264000,28,Layer,ffn_up.weight
+blk.29.attn_k.weight,322,"[5120, 1024]",Q8_0,8,5570560,29,Layer,attn_k.weight
+blk.29.attn_k_norm.weight,323,"[128]",F32,0,512,29,Layer,attn_k_norm.weight
+blk.29.attn_norm.weight,324,"[5120]",F32,0,20480,29,Layer,attn_norm.weight
+blk.29.attn_output.weight,325,"[8192, 5120]",Q8_0,8,44564480,29,Layer,attn_output.weight
+blk.29.attn_q.weight,326,"[5120, 8192]",Q8_0,8,44564480,29,Layer,attn_q.weight
+blk.29.attn_q_norm.weight,327,"[128]",F32,0,512,29,Layer,attn_q_norm.weight
+blk.29.attn_v.weight,328,"[5120, 1024]",Q8_0,8,5570560,29,Layer,attn_v.weight
+blk.29.ffn_down.weight,329,"[25600, 5120]",Q8_0,8,139264000,29,Layer,ffn_down.weight
+blk.29.ffn_gate.weight,330,"[5120, 25600]",Q8_0,8,139264000,29,Layer,ffn_gate.weight
+blk.29.ffn_norm.weight,331,"[5120]",F32,0,20480,29,Layer,ffn_norm.weight
+blk.29.ffn_up.weight,332,"[5120, 25600]",Q8_0,8,139264000,29,Layer,ffn_up.weight
+blk.30.attn_k.weight,333,"[5120, 1024]",Q8_0,8,5570560,30,Layer,attn_k.weight
+blk.30.attn_k_norm.weight,334,"[128]",F32,0,512,30,Layer,attn_k_norm.weight
+blk.30.attn_norm.weight,335,"[5120]",F32,0,20480,30,Layer,attn_norm.weight
+blk.30.attn_output.weight,336,"[8192, 5120]",Q8_0,8,44564480,30,Layer,attn_output.weight
+blk.30.attn_q.weight,337,"[5120, 8192]",Q8_0,8,44564480,30,Layer,attn_q.weight
+blk.30.attn_q_norm.weight,338,"[128]",F32,0,512,30,Layer,attn_q_norm.weight
+blk.30.attn_v.weight,339,"[5120, 1024]",Q8_0,8,5570560,30,Layer,attn_v.weight
+blk.30.ffn_down.weight,340,"[25600, 5120]",Q8_0,8,139264000,30,Layer,ffn_down.weight
+blk.30.ffn_gate.weight,341,"[5120, 25600]",Q8_0,8,139264000,30,Layer,ffn_gate.weight
+blk.30.ffn_norm.weight,342,"[5120]",F32,0,20480,30,Layer,ffn_norm.weight
+blk.30.ffn_up.weight,343,"[5120, 25600]",Q8_0,8,139264000,30,Layer,ffn_up.weight
+blk.31.attn_k.weight,344,"[5120, 1024]",Q8_0,8,5570560,31,Layer,attn_k.weight
+blk.31.attn_k_norm.weight,345,"[128]",F32,0,512,31,Layer,attn_k_norm.weight
+blk.31.attn_norm.weight,346,"[5120]",F32,0,20480,31,Layer,attn_norm.weight
+blk.31.attn_output.weight,347,"[8192, 5120]",Q8_0,8,44564480,31,Layer,attn_output.weight
+blk.31.attn_q.weight,348,"[5120, 8192]",Q8_0,8,44564480,31,Layer,attn_q.weight
+blk.31.attn_q_norm.weight,349,"[128]",F32,0,512,31,Layer,attn_q_norm.weight
+blk.31.attn_v.weight,350,"[5120, 1024]",Q8_0,8,5570560,31,Layer,attn_v.weight
+blk.31.ffn_down.weight,351,"[25600, 5120]",Q8_0,8,139264000,31,Layer,ffn_down.weight
+blk.31.ffn_gate.weight,352,"[5120, 25600]",Q8_0,8,139264000,31,Layer,ffn_gate.weight
+blk.31.ffn_norm.weight,353,"[5120]",F32,0,20480,31,Layer,ffn_norm.weight
+blk.31.ffn_up.weight,354,"[5120, 25600]",Q8_0,8,139264000,31,Layer,ffn_up.weight
+blk.32.attn_k.weight,355,"[5120, 1024]",Q8_0,8,5570560,32,Layer,attn_k.weight
+blk.32.attn_k_norm.weight,356,"[128]",F32,0,512,32,Layer,attn_k_norm.weight
+blk.32.attn_norm.weight,357,"[5120]",F32,0,20480,32,Layer,attn_norm.weight
+blk.32.attn_output.weight,358,"[8192, 5120]",Q8_0,8,44564480,32,Layer,attn_output.weight
+blk.32.attn_q.weight,359,"[5120, 8192]",Q8_0,8,44564480,32,Layer,attn_q.weight
+blk.32.attn_q_norm.weight,360,"[128]",F32,0,512,32,Layer,attn_q_norm.weight
+blk.32.attn_v.weight,361,"[5120, 1024]",Q8_0,8,5570560,32,Layer,attn_v.weight
+blk.32.ffn_down.weight,362,"[25600, 5120]",Q8_0,8,139264000,32,Layer,ffn_down.weight
+blk.32.ffn_gate.weight,363,"[5120, 25600]",Q8_0,8,139264000,32,Layer,ffn_gate.weight
+blk.32.ffn_norm.weight,364,"[5120]",F32,0,20480,32,Layer,ffn_norm.weight
+blk.32.ffn_up.weight,365,"[5120, 25600]",Q8_0,8,139264000,32,Layer,ffn_up.weight
+blk.33.attn_k.weight,366,"[5120, 1024]",Q8_0,8,5570560,33,Layer,attn_k.weight
+blk.33.attn_k_norm.weight,367,"[128]",F32,0,512,33,Layer,attn_k_norm.weight
+blk.33.attn_norm.weight,368,"[5120]",F32,0,20480,33,Layer,attn_norm.weight
+blk.33.attn_output.weight,369,"[8192, 5120]",Q8_0,8,44564480,33,Layer,attn_output.weight
+blk.33.attn_q.weight,370,"[5120, 8192]",Q8_0,8,44564480,33,Layer,attn_q.weight
+blk.33.attn_q_norm.weight,371,"[128]",F32,0,512,33,Layer,attn_q_norm.weight
+blk.33.attn_v.weight,372,"[5120, 1024]",Q8_0,8,5570560,33,Layer,attn_v.weight
+blk.33.ffn_down.weight,373,"[25600, 5120]",Q8_0,8,139264000,33,Layer,ffn_down.weight
+blk.33.ffn_gate.weight,374,"[5120, 25600]",Q8_0,8,139264000,33,Layer,ffn_gate.weight
+blk.33.ffn_norm.weight,375,"[5120]",F32,0,20480,33,Layer,ffn_norm.weight
+blk.33.ffn_up.weight,376,"[5120, 25600]",Q8_0,8,139264000,33,Layer,ffn_up.weight
+blk.34.attn_k.weight,377,"[5120, 1024]",Q8_0,8,5570560,34,Layer,attn_k.weight
+blk.34.attn_k_norm.weight,378,"[128]",F32,0,512,34,Layer,attn_k_norm.weight
+blk.34.attn_norm.weight,379,"[5120]",F32,0,20480,34,Layer,attn_norm.weight
+blk.34.attn_output.weight,380,"[8192, 5120]",Q8_0,8,44564480,34,Layer,attn_output.weight
+blk.34.attn_q.weight,381,"[5120, 8192]",Q8_0,8,44564480,34,Layer,attn_q.weight
+blk.34.attn_q_norm.weight,382,"[128]",F32,0,512,34,Layer,attn_q_norm.weight
+blk.34.attn_v.weight,383,"[5120, 1024]",Q8_0,8,5570560,34,Layer,attn_v.weight
+blk.34.ffn_down.weight,384,"[25600, 5120]",Q8_0,8,139264000,34,Layer,ffn_down.weight
+blk.34.ffn_gate.weight,385,"[5120, 25600]",Q8_0,8,139264000,34,Layer,ffn_gate.weight
+blk.34.ffn_norm.weight,386,"[5120]",F32,0,20480,34,Layer,ffn_norm.weight
+blk.34.ffn_up.weight,387,"[5120, 25600]",Q8_0,8,139264000,34,Layer,ffn_up.weight
+blk.35.attn_k.weight,388,"[5120, 1024]",Q8_0,8,5570560,35,Layer,attn_k.weight
+blk.35.attn_k_norm.weight,389,"[128]",F32,0,512,35,Layer,attn_k_norm.weight
+blk.35.attn_norm.weight,390,"[5120]",F32,0,20480,35,Layer,attn_norm.weight
+blk.35.attn_output.weight,391,"[8192, 5120]",Q8_0,8,44564480,35,Layer,attn_output.weight
+blk.35.attn_q.weight,392,"[5120, 8192]",Q8_0,8,44564480,35,Layer,attn_q.weight
+blk.35.attn_q_norm.weight,393,"[128]",F32,0,512,35,Layer,attn_q_norm.weight
+blk.35.attn_v.weight,394,"[5120, 1024]",Q8_0,8,5570560,35,Layer,attn_v.weight
+blk.35.ffn_down.weight,395,"[25600, 5120]",Q8_0,8,139264000,35,Layer,ffn_down.weight
+blk.35.ffn_gate.weight,396,"[5120, 25600]",Q8_0,8,139264000,35,Layer,ffn_gate.weight
+blk.35.ffn_norm.weight,397,"[5120]",F32,0,20480,35,Layer,ffn_norm.weight
+blk.35.ffn_up.weight,398,"[5120, 25600]",Q8_0,8,139264000,35,Layer,ffn_up.weight
+blk.36.attn_k.weight,399,"[5120, 1024]",Q8_0,8,5570560,36,Layer,attn_k.weight
+blk.36.attn_k_norm.weight,400,"[128]",F32,0,512,36,Layer,attn_k_norm.weight
+blk.36.attn_norm.weight,401,"[5120]",F32,0,20480,36,Layer,attn_norm.weight
+blk.36.attn_output.weight,402,"[8192, 5120]",Q8_0,8,44564480,36,Layer,attn_output.weight
+blk.36.attn_q.weight,403,"[5120, 8192]",Q8_0,8,44564480,36,Layer,attn_q.weight
+blk.36.attn_q_norm.weight,404,"[128]",F32,0,512,36,Layer,attn_q_norm.weight
+blk.36.attn_v.weight,405,"[5120, 1024]",Q8_0,8,5570560,36,Layer,attn_v.weight
+blk.36.ffn_down.weight,406,"[25600, 5120]",Q8_0,8,139264000,36,Layer,ffn_down.weight
+blk.36.ffn_gate.weight,407,"[5120, 25600]",Q8_0,8,139264000,36,Layer,ffn_gate.weight
+blk.36.ffn_norm.weight,408,"[5120]",F32,0,20480,36,Layer,ffn_norm.weight
+blk.36.ffn_up.weight,409,"[5120, 25600]",Q8_0,8,139264000,36,Layer,ffn_up.weight
+blk.37.attn_k.weight,410,"[5120, 1024]",Q8_0,8,5570560,37,Layer,attn_k.weight
+blk.37.attn_k_norm.weight,411,"[128]",F32,0,512,37,Layer,attn_k_norm.weight
+blk.37.attn_norm.weight,412,"[5120]",F32,0,20480,37,Layer,attn_norm.weight
+blk.37.attn_output.weight,413,"[8192, 5120]",Q8_0,8,44564480,37,Layer,attn_output.weight
+blk.37.attn_q.weight,414,"[5120, 8192]",Q8_0,8,44564480,37,Layer,attn_q.weight
+blk.37.attn_q_norm.weight,415,"[128]",F32,0,512,37,Layer,attn_q_norm.weight
+blk.37.attn_v.weight,416,"[5120, 1024]",Q8_0,8,5570560,37,Layer,attn_v.weight
+blk.37.ffn_down.weight,417,"[25600, 5120]",Q8_0,8,139264000,37,Layer,ffn_down.weight
+blk.37.ffn_gate.weight,418,"[5120, 25600]",Q8_0,8,139264000,37,Layer,ffn_gate.weight
+blk.37.ffn_norm.weight,419,"[5120]",F32,0,20480,37,Layer,ffn_norm.weight
+blk.37.ffn_up.weight,420,"[5120, 25600]",Q8_0,8,139264000,37,Layer,ffn_up.weight
+blk.38.attn_k.weight,421,"[5120, 1024]",Q8_0,8,5570560,38,Layer,attn_k.weight
+blk.38.attn_k_norm.weight,422,"[128]",F32,0,512,38,Layer,attn_k_norm.weight
+blk.38.attn_norm.weight,423,"[5120]",F32,0,20480,38,Layer,attn_norm.weight
+blk.38.attn_output.weight,424,"[8192, 5120]",Q8_0,8,44564480,38,Layer,attn_output.weight
+blk.38.attn_q.weight,425,"[5120, 8192]",Q8_0,8,44564480,38,Layer,attn_q.weight
+blk.38.attn_q_norm.weight,426,"[128]",F32,0,512,38,Layer,attn_q_norm.weight
+blk.38.attn_v.weight,427,"[5120, 1024]",Q8_0,8,5570560,38,Layer,attn_v.weight
+blk.38.ffn_down.weight,428,"[25600, 5120]",Q8_0,8,139264000,38,Layer,ffn_down.weight
+blk.38.ffn_gate.weight,429,"[5120, 25600]",Q8_0,8,139264000,38,Layer,ffn_gate.weight
+blk.38.ffn_norm.weight,430,"[5120]",F32,0,20480,38,Layer,ffn_norm.weight
+blk.38.ffn_up.weight,431,"[5120, 25600]",Q8_0,8,139264000,38,Layer,ffn_up.weight
+blk.39.attn_k.weight,432,"[5120, 1024]",Q8_0,8,5570560,39,Layer,attn_k.weight
+blk.39.attn_k_norm.weight,433,"[128]",F32,0,512,39,Layer,attn_k_norm.weight
+blk.39.attn_norm.weight,434,"[5120]",F32,0,20480,39,Layer,attn_norm.weight
+blk.39.attn_output.weight,435,"[8192, 5120]",Q8_0,8,44564480,39,Layer,attn_output.weight
+blk.39.attn_q.weight,436,"[5120, 8192]",Q8_0,8,44564480,39,Layer,attn_q.weight
+blk.39.attn_q_norm.weight,437,"[128]",F32,0,512,39,Layer,attn_q_norm.weight
+blk.39.attn_v.weight,438,"[5120, 1024]",Q8_0,8,5570560,39,Layer,attn_v.weight
+blk.39.ffn_down.weight,439,"[25600, 5120]",Q8_0,8,139264000,39,Layer,ffn_down.weight
+blk.39.ffn_gate.weight,440,"[5120, 25600]",Q8_0,8,139264000,39,Layer,ffn_gate.weight
+blk.39.ffn_norm.weight,441,"[5120]",F32,0,20480,39,Layer,ffn_norm.weight
+blk.39.ffn_up.weight,442,"[5120, 25600]",Q8_0,8,139264000,39,Layer,ffn_up.weight
+blk.40.attn_k.weight,443,"[5120, 1024]",Q8_0,8,5570560,40,Layer,attn_k.weight
+blk.40.attn_k_norm.weight,444,"[128]",F32,0,512,40,Layer,attn_k_norm.weight
+blk.40.attn_norm.weight,445,"[5120]",F32,0,20480,40,Layer,attn_norm.weight
+blk.40.attn_output.weight,446,"[8192, 5120]",Q8_0,8,44564480,40,Layer,attn_output.weight
+blk.40.attn_q.weight,447,"[5120, 8192]",Q8_0,8,44564480,40,Layer,attn_q.weight
+blk.40.attn_q_norm.weight,448,"[128]",F32,0,512,40,Layer,attn_q_norm.weight
+blk.40.attn_v.weight,449,"[5120, 1024]",Q8_0,8,5570560,40,Layer,attn_v.weight
+blk.40.ffn_down.weight,450,"[25600, 5120]",Q8_0,8,139264000,40,Layer,ffn_down.weight
+blk.40.ffn_gate.weight,451,"[5120, 25600]",Q8_0,8,139264000,40,Layer,ffn_gate.weight
+blk.40.ffn_norm.weight,452,"[5120]",F32,0,20480,40,Layer,ffn_norm.weight
+blk.40.ffn_up.weight,453,"[5120, 25600]",Q8_0,8,139264000,40,Layer,ffn_up.weight
+blk.41.attn_k.weight,454,"[5120, 1024]",Q8_0,8,5570560,41,Layer,attn_k.weight
+blk.41.attn_k_norm.weight,455,"[128]",F32,0,512,41,Layer,attn_k_norm.weight
+blk.41.attn_norm.weight,456,"[5120]",F32,0,20480,41,Layer,attn_norm.weight
+blk.41.attn_output.weight,457,"[8192, 5120]",Q8_0,8,44564480,41,Layer,attn_output.weight
+blk.41.attn_q.weight,458,"[5120, 8192]",Q8_0,8,44564480,41,Layer,attn_q.weight
+blk.41.attn_q_norm.weight,459,"[128]",F32,0,512,41,Layer,attn_q_norm.weight
+blk.41.attn_v.weight,460,"[5120, 1024]",Q8_0,8,5570560,41,Layer,attn_v.weight
+blk.41.ffn_down.weight,461,"[25600, 5120]",Q8_0,8,139264000,41,Layer,ffn_down.weight
+blk.41.ffn_gate.weight,462,"[5120, 25600]",Q8_0,8,139264000,41,Layer,ffn_gate.weight
+blk.41.ffn_norm.weight,463,"[5120]",F32,0,20480,41,Layer,ffn_norm.weight
+blk.41.ffn_up.weight,464,"[5120, 25600]",Q8_0,8,139264000,41,Layer,ffn_up.weight
+blk.42.attn_k.weight,465,"[5120, 1024]",Q8_0,8,5570560,42,Layer,attn_k.weight
+blk.42.attn_k_norm.weight,466,"[128]",F32,0,512,42,Layer,attn_k_norm.weight
+blk.42.attn_norm.weight,467,"[5120]",F32,0,20480,42,Layer,attn_norm.weight
+blk.42.attn_output.weight,468,"[8192, 5120]",Q8_0,8,44564480,42,Layer,attn_output.weight
+blk.42.attn_q.weight,469,"[5120, 8192]",Q8_0,8,44564480,42,Layer,attn_q.weight
+blk.42.attn_q_norm.weight,470,"[128]",F32,0,512,42,Layer,attn_q_norm.weight
+blk.42.attn_v.weight,471,"[5120, 1024]",Q8_0,8,5570560,42,Layer,attn_v.weight
+blk.42.ffn_down.weight,472,"[25600, 5120]",Q8_0,8,139264000,42,Layer,ffn_down.weight
+blk.42.ffn_gate.weight,473,"[5120, 25600]",Q8_0,8,139264000,42,Layer,ffn_gate.weight
+blk.42.ffn_norm.weight,474,"[5120]",F32,0,20480,42,Layer,ffn_norm.weight
+blk.42.ffn_up.weight,475,"[5120, 25600]",Q8_0,8,139264000,42,Layer,ffn_up.weight
+blk.43.attn_k.weight,476,"[5120, 1024]",Q8_0,8,5570560,43,Layer,attn_k.weight
+blk.43.attn_k_norm.weight,477,"[128]",F32,0,512,43,Layer,attn_k_norm.weight
+blk.43.attn_norm.weight,478,"[5120]",F32,0,20480,43,Layer,attn_norm.weight
+blk.43.attn_output.weight,479,"[8192, 5120]",Q8_0,8,44564480,43,Layer,attn_output.weight
+blk.43.attn_q.weight,480,"[5120, 8192]",Q8_0,8,44564480,43,Layer,attn_q.weight
+blk.43.attn_q_norm.weight,481,"[128]",F32,0,512,43,Layer,attn_q_norm.weight
+blk.43.attn_v.weight,482,"[5120, 1024]",Q8_0,8,5570560,43,Layer,attn_v.weight
+blk.43.ffn_down.weight,483,"[25600, 5120]",Q8_0,8,139264000,43,Layer,ffn_down.weight
+blk.43.ffn_gate.weight,484,"[5120, 25600]",Q8_0,8,139264000,43,Layer,ffn_gate.weight
+blk.43.ffn_norm.weight,485,"[5120]",F32,0,20480,43,Layer,ffn_norm.weight
+blk.43.ffn_up.weight,486,"[5120, 25600]",Q8_0,8,139264000,43,Layer,ffn_up.weight
+blk.44.attn_k.weight,487,"[5120, 1024]",Q8_0,8,5570560,44,Layer,attn_k.weight
+blk.44.attn_k_norm.weight,488,"[128]",F32,0,512,44,Layer,attn_k_norm.weight
+blk.44.attn_norm.weight,489,"[5120]",F32,0,20480,44,Layer,attn_norm.weight
+blk.44.attn_output.weight,490,"[8192, 5120]",Q8_0,8,44564480,44,Layer,attn_output.weight
+blk.44.attn_q.weight,491,"[5120, 8192]",Q8_0,8,44564480,44,Layer,attn_q.weight
+blk.44.attn_q_norm.weight,492,"[128]",F32,0,512,44,Layer,attn_q_norm.weight
+blk.44.attn_v.weight,493,"[5120, 1024]",Q8_0,8,5570560,44,Layer,attn_v.weight
+blk.44.ffn_down.weight,494,"[25600, 5120]",Q8_0,8,139264000,44,Layer,ffn_down.weight
+blk.44.ffn_gate.weight,495,"[5120, 25600]",Q8_0,8,139264000,44,Layer,ffn_gate.weight
+blk.44.ffn_norm.weight,496,"[5120]",F32,0,20480,44,Layer,ffn_norm.weight
+blk.44.ffn_up.weight,497,"[5120, 25600]",Q8_0,8,139264000,44,Layer,ffn_up.weight
+blk.45.attn_k.weight,498,"[5120, 1024]",Q8_0,8,5570560,45,Layer,attn_k.weight
+blk.45.attn_k_norm.weight,499,"[128]",F32,0,512,45,Layer,attn_k_norm.weight
+blk.45.attn_norm.weight,500,"[5120]",F32,0,20480,45,Layer,attn_norm.weight
+blk.45.attn_output.weight,501,"[8192, 5120]",Q8_0,8,44564480,45,Layer,attn_output.weight
+blk.45.attn_q.weight,502,"[5120, 8192]",Q8_0,8,44564480,45,Layer,attn_q.weight
+blk.45.attn_q_norm.weight,503,"[128]",F32,0,512,45,Layer,attn_q_norm.weight
+blk.45.attn_v.weight,504,"[5120, 1024]",Q8_0,8,5570560,45,Layer,attn_v.weight
+blk.45.ffn_down.weight,505,"[25600, 5120]",Q8_0,8,139264000,45,Layer,ffn_down.weight
+blk.45.ffn_gate.weight,506,"[5120, 25600]",Q8_0,8,139264000,45,Layer,ffn_gate.weight
+blk.45.ffn_norm.weight,507,"[5120]",F32,0,20480,45,Layer,ffn_norm.weight
+blk.45.ffn_up.weight,508,"[5120, 25600]",Q8_0,8,139264000,45,Layer,ffn_up.weight
+blk.46.attn_k.weight,509,"[5120, 1024]",Q8_0,8,5570560,46,Layer,attn_k.weight
+blk.46.attn_k_norm.weight,510,"[128]",F32,0,512,46,Layer,attn_k_norm.weight
+blk.46.attn_norm.weight,511,"[5120]",F32,0,20480,46,Layer,attn_norm.weight
+blk.46.attn_output.weight,512,"[8192, 5120]",Q8_0,8,44564480,46,Layer,attn_output.weight
+blk.46.attn_q.weight,513,"[5120, 8192]",Q8_0,8,44564480,46,Layer,attn_q.weight
+blk.46.attn_q_norm.weight,514,"[128]",F32,0,512,46,Layer,attn_q_norm.weight
+blk.46.attn_v.weight,515,"[5120, 1024]",Q8_0,8,5570560,46,Layer,attn_v.weight
+blk.46.ffn_down.weight,516,"[25600, 5120]",Q8_0,8,139264000,46,Layer,ffn_down.weight
+blk.46.ffn_gate.weight,517,"[5120, 25600]",Q8_0,8,139264000,46,Layer,ffn_gate.weight
+blk.46.ffn_norm.weight,518,"[5120]",F32,0,20480,46,Layer,ffn_norm.weight
+blk.46.ffn_up.weight,519,"[5120, 25600]",Q8_0,8,139264000,46,Layer,ffn_up.weight
+blk.47.attn_k.weight,520,"[5120, 1024]",Q8_0,8,5570560,47,Layer,attn_k.weight
+blk.47.attn_k_norm.weight,521,"[128]",F32,0,512,47,Layer,attn_k_norm.weight
+blk.47.attn_norm.weight,522,"[5120]",F32,0,20480,47,Layer,attn_norm.weight
+blk.47.attn_output.weight,523,"[8192, 5120]",Q8_0,8,44564480,47,Layer,attn_output.weight
+blk.47.attn_q.weight,524,"[5120, 8192]",Q8_0,8,44564480,47,Layer,attn_q.weight
+blk.47.attn_q_norm.weight,525,"[128]",F32,0,512,47,Layer,attn_q_norm.weight
+blk.47.attn_v.weight,526,"[5120, 1024]",Q8_0,8,5570560,47,Layer,attn_v.weight
+blk.47.ffn_down.weight,527,"[25600, 5120]",Q8_0,8,139264000,47,Layer,ffn_down.weight
+blk.47.ffn_gate.weight,528,"[5120, 25600]",Q8_0,8,139264000,47,Layer,ffn_gate.weight
+blk.47.ffn_norm.weight,529,"[5120]",F32,0,20480,47,Layer,ffn_norm.weight
+blk.47.ffn_up.weight,530,"[5120, 25600]",Q8_0,8,139264000,47,Layer,ffn_up.weight
+blk.48.attn_k.weight,531,"[5120, 1024]",Q8_0,8,5570560,48,Layer,attn_k.weight
+blk.48.attn_k_norm.weight,532,"[128]",F32,0,512,48,Layer,attn_k_norm.weight
+blk.48.attn_norm.weight,533,"[5120]",F32,0,20480,48,Layer,attn_norm.weight
+blk.48.attn_output.weight,534,"[8192, 5120]",Q8_0,8,44564480,48,Layer,attn_output.weight
+blk.48.attn_q.weight,535,"[5120, 8192]",Q8_0,8,44564480,48,Layer,attn_q.weight
+blk.48.attn_q_norm.weight,536,"[128]",F32,0,512,48,Layer,attn_q_norm.weight
+blk.48.attn_v.weight,537,"[5120, 1024]",Q8_0,8,5570560,48,Layer,attn_v.weight
+blk.48.ffn_down.weight,538,"[25600, 5120]",Q8_0,8,139264000,48,Layer,ffn_down.weight
+blk.48.ffn_gate.weight,539,"[5120, 25600]",Q8_0,8,139264000,48,Layer,ffn_gate.weight
+blk.48.ffn_norm.weight,540,"[5120]",F32,0,20480,48,Layer,ffn_norm.weight
+blk.48.ffn_up.weight,541,"[5120, 25600]",Q8_0,8,139264000,48,Layer,ffn_up.weight
+blk.49.attn_k.weight,542,"[5120, 1024]",Q8_0,8,5570560,49,Layer,attn_k.weight
+blk.49.attn_k_norm.weight,543,"[128]",F32,0,512,49,Layer,attn_k_norm.weight
+blk.49.attn_norm.weight,544,"[5120]",F32,0,20480,49,Layer,attn_norm.weight
+blk.49.attn_output.weight,545,"[8192, 5120]",Q8_0,8,44564480,49,Layer,attn_output.weight
+blk.49.attn_q.weight,546,"[5120, 8192]",Q8_0,8,44564480,49,Layer,attn_q.weight
+blk.49.attn_q_norm.weight,547,"[128]",F32,0,512,49,Layer,attn_q_norm.weight
+blk.49.attn_v.weight,548,"[5120, 1024]",Q8_0,8,5570560,49,Layer,attn_v.weight
+blk.49.ffn_down.weight,549,"[25600, 5120]",Q8_0,8,139264000,49,Layer,ffn_down.weight
+blk.49.ffn_gate.weight,550,"[5120, 25600]",Q8_0,8,139264000,49,Layer,ffn_gate.weight
+blk.49.ffn_norm.weight,551,"[5120]",F32,0,20480,49,Layer,ffn_norm.weight
+blk.49.ffn_up.weight,552,"[5120, 25600]",Q8_0,8,139264000,49,Layer,ffn_up.weight
+blk.50.attn_k.weight,553,"[5120, 1024]",Q8_0,8,5570560,50,Layer,attn_k.weight
+blk.50.attn_k_norm.weight,554,"[128]",F32,0,512,50,Layer,attn_k_norm.weight
+blk.50.attn_norm.weight,555,"[5120]",F32,0,20480,50,Layer,attn_norm.weight
+blk.50.attn_output.weight,556,"[8192, 5120]",Q8_0,8,44564480,50,Layer,attn_output.weight
+blk.50.attn_q.weight,557,"[5120, 8192]",Q8_0,8,44564480,50,Layer,attn_q.weight
+blk.50.attn_q_norm.weight,558,"[128]",F32,0,512,50,Layer,attn_q_norm.weight
+blk.50.attn_v.weight,559,"[5120, 1024]",Q8_0,8,5570560,50,Layer,attn_v.weight
+blk.50.ffn_down.weight,560,"[25600, 5120]",Q8_0,8,139264000,50,Layer,ffn_down.weight
+blk.50.ffn_gate.weight,561,"[5120, 25600]",Q8_0,8,139264000,50,Layer,ffn_gate.weight
+blk.50.ffn_norm.weight,562,"[5120]",F32,0,20480,50,Layer,ffn_norm.weight
+blk.50.ffn_up.weight,563,"[5120, 25600]",Q8_0,8,139264000,50,Layer,ffn_up.weight
+blk.51.attn_k.weight,564,"[5120, 1024]",Q8_0,8,5570560,51,Layer,attn_k.weight
+blk.51.attn_k_norm.weight,565,"[128]",F32,0,512,51,Layer,attn_k_norm.weight
+blk.51.attn_norm.weight,566,"[5120]",F32,0,20480,51,Layer,attn_norm.weight
+blk.51.attn_output.weight,567,"[8192, 5120]",Q8_0,8,44564480,51,Layer,attn_output.weight
+blk.51.attn_q.weight,568,"[5120, 8192]",Q8_0,8,44564480,51,Layer,attn_q.weight
+blk.51.attn_q_norm.weight,569,"[128]",F32,0,512,51,Layer,attn_q_norm.weight
+blk.51.attn_v.weight,570,"[5120, 1024]",Q8_0,8,5570560,51,Layer,attn_v.weight
+blk.51.ffn_down.weight,571,"[25600, 5120]",Q8_0,8,139264000,51,Layer,ffn_down.weight
+blk.51.ffn_gate.weight,572,"[5120, 25600]",Q8_0,8,139264000,51,Layer,ffn_gate.weight
+blk.51.ffn_norm.weight,573,"[5120]",F32,0,20480,51,Layer,ffn_norm.weight
+blk.51.ffn_up.weight,574,"[5120, 25600]",Q8_0,8,139264000,51,Layer,ffn_up.weight
+blk.52.attn_k.weight,575,"[5120, 1024]",Q8_0,8,5570560,52,Layer,attn_k.weight
+blk.52.attn_k_norm.weight,576,"[128]",F32,0,512,52,Layer,attn_k_norm.weight
+blk.52.attn_norm.weight,577,"[5120]",F32,0,20480,52,Layer,attn_norm.weight
+blk.52.attn_output.weight,578,"[8192, 5120]",Q8_0,8,44564480,52,Layer,attn_output.weight
+blk.52.attn_q.weight,579,"[5120, 8192]",Q8_0,8,44564480,52,Layer,attn_q.weight
+blk.52.attn_q_norm.weight,580,"[128]",F32,0,512,52,Layer,attn_q_norm.weight
+blk.52.attn_v.weight,581,"[5120, 1024]",Q8_0,8,5570560,52,Layer,attn_v.weight
+blk.52.ffn_down.weight,582,"[25600, 5120]",Q8_0,8,139264000,52,Layer,ffn_down.weight
+blk.52.ffn_gate.weight,583,"[5120, 25600]",Q8_0,8,139264000,52,Layer,ffn_gate.weight
+blk.52.ffn_norm.weight,584,"[5120]",F32,0,20480,52,Layer,ffn_norm.weight
+blk.52.ffn_up.weight,585,"[5120, 25600]",Q8_0,8,139264000,52,Layer,ffn_up.weight
+blk.53.attn_k.weight,586,"[5120, 1024]",Q8_0,8,5570560,53,Layer,attn_k.weight
+blk.53.attn_k_norm.weight,587,"[128]",F32,0,512,53,Layer,attn_k_norm.weight
+blk.53.attn_norm.weight,588,"[5120]",F32,0,20480,53,Layer,attn_norm.weight
+blk.53.attn_output.weight,589,"[8192, 5120]",Q8_0,8,44564480,53,Layer,attn_output.weight
+blk.53.attn_q.weight,590,"[5120, 8192]",Q8_0,8,44564480,53,Layer,attn_q.weight
+blk.53.attn_q_norm.weight,591,"[128]",F32,0,512,53,Layer,attn_q_norm.weight
+blk.53.attn_v.weight,592,"[5120, 1024]",Q8_0,8,5570560,53,Layer,attn_v.weight
+blk.53.ffn_down.weight,593,"[25600, 5120]",Q8_0,8,139264000,53,Layer,ffn_down.weight
+blk.53.ffn_gate.weight,594,"[5120, 25600]",Q8_0,8,139264000,53,Layer,ffn_gate.weight
+blk.53.ffn_norm.weight,595,"[5120]",F32,0,20480,53,Layer,ffn_norm.weight
+blk.53.ffn_up.weight,596,"[5120, 25600]",Q8_0,8,139264000,53,Layer,ffn_up.weight
+blk.54.attn_k.weight,597,"[5120, 1024]",Q8_0,8,5570560,54,Layer,attn_k.weight
+blk.54.attn_k_norm.weight,598,"[128]",F32,0,512,54,Layer,attn_k_norm.weight
+blk.54.attn_norm.weight,599,"[5120]",F32,0,20480,54,Layer,attn_norm.weight
+blk.54.attn_output.weight,600,"[8192, 5120]",Q8_0,8,44564480,54,Layer,attn_output.weight
+blk.54.attn_q.weight,601,"[5120, 8192]",Q8_0,8,44564480,54,Layer,attn_q.weight
+blk.54.attn_q_norm.weight,602,"[128]",F32,0,512,54,Layer,attn_q_norm.weight
+blk.54.attn_v.weight,603,"[5120, 1024]",Q8_0,8,5570560,54,Layer,attn_v.weight
+blk.54.ffn_down.weight,604,"[25600, 5120]",Q8_0,8,139264000,54,Layer,ffn_down.weight
+blk.54.ffn_gate.weight,605,"[5120, 25600]",Q8_0,8,139264000,54,Layer,ffn_gate.weight
+blk.54.ffn_norm.weight,606,"[5120]",F32,0,20480,54,Layer,ffn_norm.weight
+blk.54.ffn_up.weight,607,"[5120, 25600]",Q8_0,8,139264000,54,Layer,ffn_up.weight
+blk.55.attn_k.weight,608,"[5120, 1024]",Q8_0,8,5570560,55,Layer,attn_k.weight
+blk.55.attn_k_norm.weight,609,"[128]",F32,0,512,55,Layer,attn_k_norm.weight
+blk.55.attn_norm.weight,610,"[5120]",F32,0,20480,55,Layer,attn_norm.weight
+blk.55.attn_output.weight,611,"[8192, 5120]",Q8_0,8,44564480,55,Layer,attn_output.weight
+blk.55.attn_q.weight,612,"[5120, 8192]",Q8_0,8,44564480,55,Layer,attn_q.weight
+blk.55.attn_q_norm.weight,613,"[128]",F32,0,512,55,Layer,attn_q_norm.weight
+blk.55.attn_v.weight,614,"[5120, 1024]",Q8_0,8,5570560,55,Layer,attn_v.weight
+blk.55.ffn_down.weight,615,"[25600, 5120]",Q8_0,8,139264000,55,Layer,ffn_down.weight
+blk.55.ffn_gate.weight,616,"[5120, 25600]",Q8_0,8,139264000,55,Layer,ffn_gate.weight
+blk.55.ffn_norm.weight,617,"[5120]",F32,0,20480,55,Layer,ffn_norm.weight
+blk.55.ffn_up.weight,618,"[5120, 25600]",Q8_0,8,139264000,55,Layer,ffn_up.weight
+blk.56.attn_k.weight,619,"[5120, 1024]",Q8_0,8,5570560,56,Layer,attn_k.weight
+blk.56.attn_k_norm.weight,620,"[128]",F32,0,512,56,Layer,attn_k_norm.weight
+blk.56.attn_norm.weight,621,"[5120]",F32,0,20480,56,Layer,attn_norm.weight
+blk.56.attn_output.weight,622,"[8192, 5120]",Q8_0,8,44564480,56,Layer,attn_output.weight
+blk.56.attn_q.weight,623,"[5120, 8192]",Q8_0,8,44564480,56,Layer,attn_q.weight
+blk.56.attn_q_norm.weight,624,"[128]",F32,0,512,56,Layer,attn_q_norm.weight
+blk.56.attn_v.weight,625,"[5120, 1024]",Q8_0,8,5570560,56,Layer,attn_v.weight
+blk.56.ffn_down.weight,626,"[25600, 5120]",Q8_0,8,139264000,56,Layer,ffn_down.weight
+blk.56.ffn_gate.weight,627,"[5120, 25600]",Q8_0,8,139264000,56,Layer,ffn_gate.weight
+blk.56.ffn_norm.weight,628,"[5120]",F32,0,20480,56,Layer,ffn_norm.weight
+blk.56.ffn_up.weight,629,"[5120, 25600]",Q8_0,8,139264000,56,Layer,ffn_up.weight
+blk.57.attn_k.weight,630,"[5120, 1024]",Q8_0,8,5570560,57,Layer,attn_k.weight
+blk.57.attn_k_norm.weight,631,"[128]",F32,0,512,57,Layer,attn_k_norm.weight
+blk.57.attn_norm.weight,632,"[5120]",F32,0,20480,57,Layer,attn_norm.weight
+blk.57.attn_output.weight,633,"[8192, 5120]",Q8_0,8,44564480,57,Layer,attn_output.weight
+blk.57.attn_q.weight,634,"[5120, 8192]",Q8_0,8,44564480,57,Layer,attn_q.weight
+blk.57.attn_q_norm.weight,635,"[128]",F32,0,512,57,Layer,attn_q_norm.weight
+blk.57.attn_v.weight,636,"[5120, 1024]",Q8_0,8,5570560,57,Layer,attn_v.weight
+blk.57.ffn_down.weight,637,"[25600, 5120]",Q8_0,8,139264000,57,Layer,ffn_down.weight
+blk.57.ffn_gate.weight,638,"[5120, 25600]",Q8_0,8,139264000,57,Layer,ffn_gate.weight
+blk.57.ffn_norm.weight,639,"[5120]",F32,0,20480,57,Layer,ffn_norm.weight
+blk.57.ffn_up.weight,640,"[5120, 25600]",Q8_0,8,139264000,57,Layer,ffn_up.weight
+blk.58.attn_k.weight,641,"[5120, 1024]",Q8_0,8,5570560,58,Layer,attn_k.weight
+blk.58.attn_k_norm.weight,642,"[128]",F32,0,512,58,Layer,attn_k_norm.weight
+blk.58.attn_norm.weight,643,"[5120]",F32,0,20480,58,Layer,attn_norm.weight
+blk.58.attn_output.weight,644,"[8192, 5120]",Q8_0,8,44564480,58,Layer,attn_output.weight
+blk.58.attn_q.weight,645,"[5120, 8192]",Q8_0,8,44564480,58,Layer,attn_q.weight
+blk.58.attn_q_norm.weight,646,"[128]",F32,0,512,58,Layer,attn_q_norm.weight
+blk.58.attn_v.weight,647,"[5120, 1024]",Q8_0,8,5570560,58,Layer,attn_v.weight
+blk.58.ffn_down.weight,648,"[25600, 5120]",Q8_0,8,139264000,58,Layer,ffn_down.weight
+blk.58.ffn_gate.weight,649,"[5120, 25600]",Q8_0,8,139264000,58,Layer,ffn_gate.weight
+blk.58.ffn_norm.weight,650,"[5120]",F32,0,20480,58,Layer,ffn_norm.weight
+blk.58.ffn_up.weight,651,"[5120, 25600]",Q8_0,8,139264000,58,Layer,ffn_up.weight
+blk.59.attn_k.weight,652,"[5120, 1024]",Q8_0,8,5570560,59,Layer,attn_k.weight
+blk.59.attn_k_norm.weight,653,"[128]",F32,0,512,59,Layer,attn_k_norm.weight
+blk.59.attn_norm.weight,654,"[5120]",F32,0,20480,59,Layer,attn_norm.weight
+blk.59.attn_output.weight,655,"[8192, 5120]",Q8_0,8,44564480,59,Layer,attn_output.weight
+blk.59.attn_q.weight,656,"[5120, 8192]",Q8_0,8,44564480,59,Layer,attn_q.weight
+blk.59.attn_q_norm.weight,657,"[128]",F32,0,512,59,Layer,attn_q_norm.weight
+blk.59.attn_v.weight,658,"[5120, 1024]",Q8_0,8,5570560,59,Layer,attn_v.weight
+blk.59.ffn_down.weight,659,"[25600, 5120]",Q8_0,8,139264000,59,Layer,ffn_down.weight
+blk.59.ffn_gate.weight,660,"[5120, 25600]",Q8_0,8,139264000,59,Layer,ffn_gate.weight
+blk.59.ffn_norm.weight,661,"[5120]",F32,0,20480,59,Layer,ffn_norm.weight
+blk.59.ffn_up.weight,662,"[5120, 25600]",Q8_0,8,139264000,59,Layer,ffn_up.weight
+blk.60.attn_k.weight,663,"[5120, 1024]",Q8_0,8,5570560,60,Layer,attn_k.weight
+blk.60.attn_k_norm.weight,664,"[128]",F32,0,512,60,Layer,attn_k_norm.weight
+blk.60.attn_norm.weight,665,"[5120]",F32,0,20480,60,Layer,attn_norm.weight
+blk.60.attn_output.weight,666,"[8192, 5120]",Q8_0,8,44564480,60,Layer,attn_output.weight
+blk.60.attn_q.weight,667,"[5120, 8192]",Q8_0,8,44564480,60,Layer,attn_q.weight
+blk.60.attn_q_norm.weight,668,"[128]",F32,0,512,60,Layer,attn_q_norm.weight
+blk.60.attn_v.weight,669,"[5120, 1024]",Q8_0,8,5570560,60,Layer,attn_v.weight
+blk.60.ffn_down.weight,670,"[25600, 5120]",Q8_0,8,139264000,60,Layer,ffn_down.weight
+blk.60.ffn_gate.weight,671,"[5120, 25600]",Q8_0,8,139264000,60,Layer,ffn_gate.weight
+blk.60.ffn_norm.weight,672,"[5120]",F32,0,20480,60,Layer,ffn_norm.weight
+blk.60.ffn_up.weight,673,"[5120, 25600]",Q8_0,8,139264000,60,Layer,ffn_up.weight
+blk.61.attn_k.weight,674,"[5120, 1024]",Q8_0,8,5570560,61,Layer,attn_k.weight
+blk.61.attn_k_norm.weight,675,"[128]",F32,0,512,61,Layer,attn_k_norm.weight
+blk.61.attn_norm.weight,676,"[5120]",F32,0,20480,61,Layer,attn_norm.weight
+blk.61.attn_output.weight,677,"[8192, 5120]",Q8_0,8,44564480,61,Layer,attn_output.weight
+blk.61.attn_q.weight,678,"[5120, 8192]",Q8_0,8,44564480,61,Layer,attn_q.weight
+blk.61.attn_q_norm.weight,679,"[128]",F32,0,512,61,Layer,attn_q_norm.weight
+blk.61.attn_v.weight,680,"[5120, 1024]",Q8_0,8,5570560,61,Layer,attn_v.weight
+blk.61.ffn_down.weight,681,"[25600, 5120]",Q8_0,8,139264000,61,Layer,ffn_down.weight
+blk.61.ffn_gate.weight,682,"[5120, 25600]",Q8_0,8,139264000,61,Layer,ffn_gate.weight
+blk.61.ffn_norm.weight,683,"[5120]",F32,0,20480,61,Layer,ffn_norm.weight
+blk.61.ffn_up.weight,684,"[5120, 25600]",Q8_0,8,139264000,61,Layer,ffn_up.weight
+blk.62.attn_k.weight,685,"[5120, 1024]",Q8_0,8,5570560,62,Layer,attn_k.weight
+blk.62.attn_k_norm.weight,686,"[128]",F32,0,512,62,Layer,attn_k_norm.weight
+blk.62.attn_norm.weight,687,"[5120]",F32,0,20480,62,Layer,attn_norm.weight
+blk.62.attn_output.weight,688,"[8192, 5120]",Q8_0,8,44564480,62,Layer,attn_output.weight
+blk.62.attn_q.weight,689,"[5120, 8192]",Q8_0,8,44564480,62,Layer,attn_q.weight
+blk.62.attn_q_norm.weight,690,"[128]",F32,0,512,62,Layer,attn_q_norm.weight
+blk.62.attn_v.weight,691,"[5120, 1024]",Q8_0,8,5570560,62,Layer,attn_v.weight
+blk.62.ffn_down.weight,692,"[25600, 5120]",Q8_0,8,139264000,62,Layer,ffn_down.weight
+blk.62.ffn_gate.weight,693,"[5120, 25600]",Q8_0,8,139264000,62,Layer,ffn_gate.weight
+blk.62.ffn_norm.weight,694,"[5120]",F32,0,20480,62,Layer,ffn_norm.weight
+blk.62.ffn_up.weight,695,"[5120, 25600]",Q8_0,8,139264000,62,Layer,ffn_up.weight
+blk.63.attn_k.weight,696,"[5120, 1024]",Q8_0,8,5570560,63,Layer,attn_k.weight
+blk.63.attn_k_norm.weight,697,"[128]",F32,0,512,63,Layer,attn_k_norm.weight
+blk.63.attn_norm.weight,698,"[5120]",F32,0,20480,63,Layer,attn_norm.weight
+blk.63.attn_output.weight,699,"[8192, 5120]",Q8_0,8,44564480,63,Layer,attn_output.weight
+blk.63.attn_q.weight,700,"[5120, 8192]",Q8_0,8,44564480,63,Layer,attn_q.weight
+blk.63.attn_q_norm.weight,701,"[128]",F32,0,512,63,Layer,attn_q_norm.weight
+blk.63.attn_v.weight,702,"[5120, 1024]",Q8_0,8,5570560,63,Layer,attn_v.weight
+blk.63.ffn_down.weight,703,"[25600, 5120]",Q8_0,8,139264000,63,Layer,ffn_down.weight
+blk.63.ffn_gate.weight,704,"[5120, 25600]",Q8_0,8,139264000,63,Layer,ffn_gate.weight
+blk.63.ffn_norm.weight,705,"[5120]",F32,0,20480,63,Layer,ffn_norm.weight
+blk.63.ffn_up.weight,706,"[5120, 25600]",Q8_0,8,139264000,63,Layer,ffn_up.weight

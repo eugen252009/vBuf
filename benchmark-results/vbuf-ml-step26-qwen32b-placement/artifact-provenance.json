@@ -1,0 +1,15 @@
+{
+  "path": "/home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.gguf",
+  "size": 34817718912,
+  "sha256": "2c50eb8aad05047dbf24fa014eb621adf552e14176cabe0c5db4ef38c91e2169",
+  "gguf_version": 3,
+  "architecture": "qwen3",
+  "dense": true,
+  "tensor_count": 707,
+  "layer_count": 64,
+  "vocabulary_size": 151936,
+  "merge_count": 151387,
+  "metadata_count": 28,
+  "alignment": 32,
+  "parse_ms": 19308.478414001
+}

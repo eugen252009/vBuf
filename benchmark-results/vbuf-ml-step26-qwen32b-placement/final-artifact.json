@@ -1,0 +1,9 @@
+{
+  "status": "BLOCKED_RESOURCE",
+  "target": "research-models/Qwen3-32B-Q8_0.vbuf",
+  "required_bytes": 34816197344,
+  "available_bytes": 25532461056,
+  "filesystem_free_bytes": 25532461056,
+  "source_retained": true,
+  "reason": "single final vBuf artifact is larger than available filesystem space; no conversion attempted and no partial artifact retained"
+}
