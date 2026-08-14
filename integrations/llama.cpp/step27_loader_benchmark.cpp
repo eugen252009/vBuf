@@ -1,5 +1,6 @@
 #include "llama_vbuf_loader.h"
 #include "llama.h"
+#include "vbuf_direct_source.h"
 
 #include <chrono>
 #include <cstdio>
@@ -68,8 +69,11 @@ static void print_snapshot(const char * phase, double ms, const Snapshot & value
 }
 
 int main(int argc, char ** argv) {
-    if (argc != 3 || (std::strcmp(argv[1], "gguf") != 0 && std::strcmp(argv[1], "vbuf") != 0)) return 2;
+    if ((argc != 3 && argc != 4) || (std::strcmp(argv[1], "gguf") != 0 && std::strcmp(argv[1], "vbuf") != 0)) return 2;
     const bool vbuf = std::strcmp(argv[1], "vbuf") == 0;
+    const bool step28_mode = argc == 4;
+    const char * preparation_variant = step28_mode ? argv[3] : "baseline";
+    if (!vbuf && std::strcmp(preparation_variant, "baseline") != 0) return 2;
     llama_log_set(quiet_log, nullptr);
     llama_backend_init();
     const auto process_start = Clock::now();
@@ -90,6 +94,12 @@ int main(int argc, char ** argv) {
     const Snapshot model_ready_snapshot = snapshot();
     if (!model) { llama_backend_free(); return 4; }
 
+    vbuf_llama::Step28PreparationResult preparation{};
+    const Snapshot preparation_begin_snapshot = snapshot();
+    if (step28_mode && vbuf && !llama_model_step28_prepare_vbuf(model, preparation_variant, &preparation)) { llama_model_free_vbuf_direct(model); llama_backend_free(); return 4; }
+    const double preparation_complete_ms = elapsed_ms(process_start);
+    const Snapshot preparation_complete_snapshot = snapshot();
+
     const llama_vocab * vocab = llama_model_get_vocab(model);
     std::vector<llama_token> prompt = tokenize(vocab, "Hello world");
     if (prompt.empty()) { vbuf ? llama_model_free_vbuf_direct(model) : llama_model_free(model); llama_backend_free(); return 5; }
@@ -104,6 +114,8 @@ int main(int argc, char ** argv) {
     std::vector<int8_t> logits(prompt.size(), 1);
     llama_batch batch = llama_batch_get_one(prompt.data(), (int32_t) prompt.size());
     batch.logits = logits.data();
+    const Snapshot first_eval_begin_snapshot = snapshot();
+    const double first_eval_begin_ms = elapsed_ms(process_start);
     const auto eval_begin = Clock::now();
     const int eval_rc = llama_decode(context, batch);
     const double first_eval_ms = elapsed_ms(process_start);
@@ -151,13 +163,21 @@ int main(int argc, char ** argv) {
     if (second_rc != 0) { llama_free(context); vbuf ? llama_model_free_vbuf_direct(model) : llama_model_free(model); llama_backend_free(); return 8; }
     const double first_token_ms = first_eval_ms;
 
-    std::printf("{\"format\":\"%s\",\"path\":\"%s\",\"prompt_tokens\":%zu,\"first_token\":%d,\"generated_tokens\":[", argv[1], argv[2], prompt.size(), first_token);
+    std::printf("{\"format\":\"%s\",\"path\":\"%s\",\"preparation_variant\":\"%s\",\"prompt_tokens\":%zu,\"first_token\":%d,\"generated_tokens\":[", argv[1], argv[2], preparation_variant, prompt.size(), first_token);
     for (size_t i = 0; i < generated.size(); ++i) std::printf("%s%d", i ? "," : "", generated[i]);
-    std::printf("],\"model_construction_ms\":%.3f,\"first_eval_duration_ms\":%.3f,\"second_eval_ms\":%.3f,\"ttfuc_ms\":%.3f,\"ttft_ms\":%.3f,\"generation_complete_ms\":%.3f,\"phases\":{", model_construction_ms, first_eval_duration_ms, second_eval_ms, first_eval_ms, first_token_ms, generation_ms);
+    std::printf("],\"model_construction_ms\":%.3f,\"preparation_ms\":%.3f,\"first_eval_duration_ms\":%.3f,\"second_eval_ms\":%.3f,\"ttfuc_ms\":%.3f,\"ttft_ms\":%.3f,\"generation_complete_ms\":%.3f,\"preparation\":{\"span_count\":%llu,\"global_span_count\":%llu,\"covered_bytes\":%llu,\"useful_bytes\":%llu,\"gap_bytes\":%llu,\"prepared_span_bytes\":%llu,\"prepared_useful_bytes\":%llu,\"page_size\":%llu,\"pages_touched\":%llu,\"touch_operations\":%llu,\"minor_faults\":%ld,\"major_faults\":%ld,\"layers\":[", model_construction_ms, preparation.prepare_ms, first_eval_duration_ms, second_eval_ms, first_eval_ms, first_token_ms, generation_ms, (unsigned long long) preparation.span_count, (unsigned long long) preparation.global_span_count, (unsigned long long) preparation.covered_bytes, (unsigned long long) preparation.useful_bytes, (unsigned long long) preparation.gap_bytes, (unsigned long long) preparation.prepared_span_bytes, (unsigned long long) preparation.prepared_useful_bytes, (unsigned long long) preparation.page_size, (unsigned long long) preparation.pages_touched, (unsigned long long) preparation.touch_operations, preparation.minor_faults, preparation.major_faults);
+    for (size_t i = 0; i < preparation.layers.size(); ++i) { const auto & layer = preparation.layers[i]; std::printf("%s{\"layer_id\":%llu,\"start_offset\":%llu,\"end_offset\":%llu,\"span_bytes\":%llu,\"useful_bytes\":%llu,\"gap_bytes\":%llu,\"tensor_count\":%llu,\"prepare_ms\":%.6f,\"minor_faults\":%ld,\"major_faults\":%ld}", i ? "," : "", (unsigned long long) layer.layer_id, (unsigned long long) layer.start_offset, (unsigned long long) layer.end_offset, (unsigned long long) layer.span_bytes, (unsigned long long) layer.useful_bytes, (unsigned long long) layer.gap_bytes, (unsigned long long) layer.tensor_count, layer.prepare_ms, layer.minor_faults, layer.major_faults); }
+    std::printf("],\"spans\":[");
+    for (size_t i = 0; i < preparation.spans.size(); ++i) { const auto & span = preparation.spans[i]; std::printf("%s{\"role\":\"%s\",\"layer_id\":%llu,\"start_offset\":%llu,\"end_offset\":%llu,\"span_bytes\":%llu,\"useful_bytes\":%llu,\"gap_bytes\":%llu,\"tensor_count\":%llu}", i ? "," : "", span.role.c_str(), (unsigned long long) span.layer_id, (unsigned long long) span.start_offset, (unsigned long long) span.end_offset, (unsigned long long) span.span_bytes, (unsigned long long) span.useful_bytes, (unsigned long long) span.gap_bytes, (unsigned long long) span.tensor_count); }
+    std::printf("]},\"phases\":{");
     print_snapshot("PROCESS_START", 0.0, process_snapshot); std::printf(",");
     print_snapshot("SOURCE_OPEN", source_open_ms, source_open_snapshot); std::printf(",");
     print_snapshot("MODEL_READY", model_ready_ms, model_ready_snapshot); std::printf(",");
+    print_snapshot("PREPARATION_BEGIN", model_ready_ms, preparation_begin_snapshot); std::printf(",");
+    print_snapshot("PREPARATION_COMPLETE", preparation_complete_ms, preparation_complete_snapshot); std::printf(",");
+    print_snapshot("FIRST_EVAL_BEGIN", first_eval_begin_ms, first_eval_begin_snapshot); std::printf(",");
     print_snapshot("FIRST_EVAL_COMPLETE", first_eval_ms, first_eval_snapshot); std::printf(",");
+    print_snapshot("FIRST_TOKEN", first_token_ms, first_eval_snapshot); std::printf(",");
     print_snapshot("GENERATION_COMPLETE", generation_ms, generation_snapshot); std::printf(",");
     print_snapshot("SECOND_EVAL_COMPLETE", generation_ms + second_eval_ms, second_eval_snapshot);
     std::printf("}}\n");
