@@ -1162,13 +1162,37 @@ format remain unchanged.
 
 **Dependencies:** Steps 8–9 and Decision E.
 
+#### Step 10 implementation recorded
+
+Added `rust/vbuf-ml/src/metadata.rs` and `tokenizer.rs` with contracts in
+`docs/vbuf-ml/metadata.md` and `docs/vbuf-ml/tokenizer.md`.
+
+Model metadata is a sorted semantic index over canonical Key-ID/occurrence
+references. Profile 0.1 requires `Architecture`, `ContextLength`,
+`EmbeddingLength`, `LayerCount`, and `HeadCount`; it permits
+`FeedForwardLength`, `NormalizationEpsilon`, and `RopeTheta`. Domain checks
+validate UTF-8, scalar semantic compatibility, positivity, and finite floats
+without duplicating generic physical facts.
+
+Tokenizer metadata is optional and currently defines a bounded
+`VocabularyOnly` view. It references canonical UTF-8 bytes, a `u64` offset
+array, optional scores/types arrays, and optional BOS/EOS/UNK/PAD scalars.
+Token IDs are implicit ordinals. Offset ranges, UTF-8, vocabulary counts,
+parallel-array lengths, and special-token bounds are checked. Large arrays and
+text pools remain direct checked canonical ranges; no token object graph is
+materialized.
+
+Unknown optional entries are skipped, unknown required entries fail, known
+entries are sorted and unique, and all references resolve through canonical
+validated descriptors. No generic crate or v0.6 wire behavior changed.
+
 ---
 
-### Step 11 — Add tokenizer metadata as a cold, independently loadable section
+### Step 11 — Qualify future tokenizer algorithms and cold-section loading
 
 **Class:** ML.
 
-**Goal:** make the selected model self-contained while allowing tensor-only consumers to avoid tokenizer parsing and pages.
+**Goal:** qualify tokenizer algorithms and cold-section loading beyond the Step 10 vocabulary-only view, without changing its canonical reference model.
 
 **Files/modules likely added:**
 

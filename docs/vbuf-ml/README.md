@@ -12,10 +12,11 @@ vbuf-core -X-> vbuf-ml
 vbuf-layout -X-> vbuf-ml
 ```
 
-The crate currently defines only a small profile bootstrap and tensor-directory
-semantic index. The tensor directory adds names, shapes, and canonical generic
-value references; it does not duplicate physical descriptors. Model metadata,
-tokenizers, quantization, backends, placement, and conversion remain deferred.
+The crate currently defines a small profile bootstrap, tensor-directory semantic
+index, model-metadata index, and vocabulary-only tokenizer view. These add only
+ML names, relationships, shapes, and domain validation over canonical generic
+values; they do not duplicate physical descriptors. Quantization, tokenizer
+algorithms, merges, backends, placement, and conversion remain deferred.
 A request from this descendant is not by itself
 a reason to promote a feature into generic vBuf; promotion requires independent
 downstream-neutral utility and generic qualification.

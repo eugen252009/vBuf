@@ -32,3 +32,11 @@ shapes, and generic Key-ID/occurrence references. It does not add offsets,
 lengths, generic dtypes, widths, counts, or alignments. Only canonical
 primitive tensors are supported initially; continuation-backed and quantized
 tensors remain future profile work.
+
+`ModelMetadata` and `TokenizerMetadata` are specified in
+[`metadata.md`](metadata.md) and [`tokenizer.md`](tokenizer.md). They are
+semantic indexes over canonical values. Model profile 0.1 requires architecture,
+context length, embedding length, layer count, and head count. Tokenizer data is
+optional and currently supports only a vocabulary-only direct view with implicit
+token ordinal IDs. Metadata and tokenizer regions contain no trusted physical
+offsets or duplicated primitive descriptors.
