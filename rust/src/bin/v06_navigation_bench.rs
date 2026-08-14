@@ -2,6 +2,7 @@
 //! Nano and directories here are in-memory benchmark artifacts, not wire format.
 
 use rayon::prelude::*;
+use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::hint::black_box;
 use std::io::Cursor;
@@ -259,6 +260,11 @@ fn nano(
     bits
 }
 
+fn bit_is_set(bits: &[u8], slot: u64) -> bool {
+    let byte = usize::try_from(slot / 8).unwrap();
+    byte < bits.len() && bits[byte] & (1 << (slot % 8)) != 0
+}
+
 fn set_slots(bits: &[u8]) -> Vec<u64> {
     bits.iter()
         .enumerate()
@@ -270,30 +276,114 @@ fn set_slots(bits: &[u8]) -> Vec<u64> {
         .collect()
 }
 
-fn checkpoints(slots: &[u64], interval: u64) -> Vec<(u64, u64)> {
-    slots
-        .iter()
-        .enumerate()
-        .filter(|(i, _)| (*i as u64).is_multiple_of(interval))
-        .map(|(i, slot)| (i as u64, *slot))
-        .collect()
+fn checkpoints(bits: &[u8], slot_count: u64, interval: u64) -> Vec<(u64, u64)> {
+    let mut result = Vec::new();
+    let mut rank = 0u64;
+    let mut slot = 0u64;
+    while slot < slot_count {
+        result.push((slot, rank));
+        let end = (slot + interval).min(slot_count);
+        while slot < end {
+            if bit_is_set(bits, slot) {
+                rank += 1;
+            }
+            slot += 1;
+        }
+    }
+    result
+}
+
+fn raw_select(bits: &[u8], slot_count: u64, ordinal: u64) -> Option<u64> {
+    let mut rank = 0u64;
+    for slot in 0..slot_count {
+        if bit_is_set(bits, slot) {
+            if rank == ordinal {
+                return Some(slot);
+            }
+            rank += 1;
+        }
+    }
+    None
 }
 
 fn select_checkpointed(
-    slots: &[u64],
+    bits: &[u8],
     checkpoints: &[(u64, u64)],
-    ordinal: usize,
+    slot_count: u64,
     interval: u64,
-) -> u64 {
-    let checkpoint = checkpoints
+    ordinal: u64,
+) -> Option<(u64, u64)> {
+    let &(start_slot, start_rank) = checkpoints
         .iter()
-        .take_while(|(index, _)| (*index as usize) <= ordinal)
-        .last()
-        .copied()
-        .unwrap();
-    let start = checkpoint.0 as usize;
-    let end = (start + interval as usize).min(slots.len());
-    slots[start..end].get(ordinal - start).copied().unwrap()
+        .take_while(|(_, rank)| *rank <= ordinal)
+        .last()?;
+    let end_slot = (start_slot + interval).min(slot_count);
+    let mut rank = start_rank;
+    for slot in start_slot..end_slot {
+        if bit_is_set(bits, slot) {
+            if rank == ordinal {
+                let next = ((slot + 1)..slot_count)
+                    .find(|candidate| bit_is_set(bits, *candidate))
+                    .unwrap_or(slot_count);
+                return Some((slot, next));
+            }
+            rank += 1;
+        }
+    }
+    None
+}
+
+fn serialize_nano(bits: &[u8]) -> Vec<u8> {
+    bits.to_vec()
+}
+
+fn deserialize_nano(bytes: &[u8]) -> Vec<u8> {
+    bytes.to_vec()
+}
+
+fn nano_checksum(bits: &[u8]) -> u64 {
+    bits.iter()
+        .enumerate()
+        .map(|(i, byte)| (*byte as u64) << (i % 8))
+        .sum()
+}
+
+fn nano_start_sum(bits: &[u8], slot_count: u64, data_start: u64, base_step: u64) -> u64 {
+    (0..slot_count)
+        .filter(|slot| bit_is_set(bits, *slot))
+        .map(|slot| data_start + slot * base_step)
+        .sum()
+}
+
+fn lookup_range(blocks: &[vbuf_core::v06::V06Block], key: u16) -> Option<(u64, u64, u64)> {
+    blocks
+        .iter()
+        .find(|block| block.key_id == key)
+        .map(|block| (block.block_start, block.payload_start, block.payload_len))
+}
+
+fn range_checksum(range: Option<(u64, u64, u64)>) -> u64 {
+    range
+        .map(|(a, b, c)| a ^ b.rotate_left(17) ^ c.rotate_left(31))
+        .unwrap_or(u64::MAX)
+}
+
+fn make_directory(blocks: &[vbuf_core::v06::V06Block]) -> Vec<(u16, u64, u64, u64)> {
+    let mut directory: Vec<_> = blocks
+        .iter()
+        .map(|b| (b.key_id, b.block_start, b.payload_start, b.payload_len))
+        .collect();
+    directory.sort_unstable();
+    directory
+}
+
+fn directory_checksum(directory: &[(u16, u64, u64, u64)], key: u16) -> u64 {
+    range_checksum(
+        directory
+            .iter()
+            .find(|entry| entry.0 == key)
+            .map(|entry| (entry.1, entry.2, entry.3)),
+    )
 }
 
 fn measure<F: FnMut() -> u64>(mut f: F) -> Vec<u128> {
@@ -415,13 +505,50 @@ mod tests {
             32,
         ));
         for interval in CHECKPOINTS {
-            let cp = checkpoints(&slots, interval);
-            for ordinal in 0..slots.len() {
-                assert_eq!(
-                    select_checkpointed(&slots, &cp, ordinal, interval),
-                    slots[ordinal]
+            let slot_count = parsed.header().data_region_size.div_ceil(32);
+            let cp = checkpoints(
+                &nano(
+                    parsed.blocks(),
+                    parsed.header().data_region_start,
+                    parsed.header().data_region_size,
+                    32,
+                ),
+                slot_count,
+                interval,
+            );
+            for ordinal in 0..slots.len() as u64 {
+                let bits = nano(
+                    parsed.blocks(),
+                    parsed.header().data_region_start,
+                    parsed.header().data_region_size,
+                    32,
                 );
+                let (start, next) =
+                    select_checkpointed(&bits, &cp, slot_count, interval, ordinal).unwrap();
+                assert_eq!(start, slots[ordinal as usize]);
+                let expected_next = slots
+                    .get(ordinal as usize + 1)
+                    .copied()
+                    .unwrap_or(slot_count);
+                assert_eq!(next, expected_next);
             }
+        }
+    }
+
+    #[test]
+    fn directory_lookup_returns_the_same_validated_range_as_canonical_scan() {
+        let corpus = corpora()
+            .into_iter()
+            .find(|corpus| corpus.name == "many-tiny")
+            .unwrap();
+        let bytes = make_file(&corpus, 4);
+        let parsed = parse_v06(&bytes).unwrap();
+        let directory = make_directory(parsed.blocks());
+        for key in 0..256u16 {
+            assert_eq!(
+                range_checksum(lookup_range(parsed.blocks(), key)),
+                directory_checksum(&directory, key)
+            );
         }
     }
 
@@ -440,6 +567,7 @@ fn main() {
         .nth(1)
         .unwrap_or_else(|| "benchmark-results/vbuf-navigation/step5a.csv".into());
     let mut samples = Vec::new();
+    let mut geometry = BTreeMap::new();
     for base_shift in [3u8, 4, 5, 6, 7, 8] {
         let base_step = 1u64 << base_shift;
         for corpus in corpora() {
@@ -454,13 +582,18 @@ fn main() {
                 base_step,
             );
             let slots = set_slots(&bits);
-            let directory: Vec<(u16, usize)> = blocks
-                .iter()
-                .enumerate()
-                .map(|(i, b)| (b.key_id, i))
-                .collect();
-            let directory_bytes = directory.len() * 16;
+            let slot_count = parsed.header().data_region_size.div_ceil(base_step);
+            let directory = make_directory(blocks);
+            let directory_bytes = directory.len() * 32;
             let nano_bytes = bits.len();
+            let serialized_nano = serialize_nano(&bits);
+            let header_bytes = 24
+                + blocks
+                    .iter()
+                    .map(|block| if block.count > 65535 { 16 } else { 8 })
+                    .sum::<usize>();
+            let padding_bytes = bytes.len() - payload_bytes as usize - header_bytes;
+            geometry.insert((corpus.name, base_step), (header_bytes, padding_bytes));
             append_samples(
                 &mut samples,
                 corpus.name,
@@ -505,7 +638,29 @@ fn main() {
                 base_step,
                 "nano-deployment",
                 "embedded-load",
-                measure(|| bits.clone().len() as u64),
+                measure(|| nano_checksum(&deserialize_nano(&serialized_nano))),
+                bytes.len(),
+                payload_bytes,
+                blocks.len(),
+                nano_bytes,
+                0,
+                directory_bytes,
+                0,
+            );
+            append_samples(
+                &mut samples,
+                corpus.name,
+                base_step,
+                "nano-deployment",
+                "local-reconstruction",
+                measure(|| {
+                    nano_checksum(&nano(
+                        blocks,
+                        parsed.header().data_region_start,
+                        parsed.header().data_region_size,
+                        base_step,
+                    ))
+                }),
                 bytes.len(),
                 payload_bytes,
                 blocks.len(),
@@ -520,7 +675,7 @@ fn main() {
                 base_step,
                 "nano-deployment",
                 "reconstructed-cache-load",
-                measure(|| bits.clone().len() as u64),
+                measure(|| nano_checksum(&deserialize_nano(&serialized_nano))),
                 bytes.len(),
                 payload_bytes,
                 blocks.len(),
@@ -551,10 +706,12 @@ fn main() {
                 "physical-start-enumeration",
                 "nano",
                 measure(|| {
-                    slots
-                        .iter()
-                        .map(|slot| parsed.header().data_region_start + slot * base_step)
-                        .sum()
+                    nano_start_sum(
+                        &bits,
+                        slot_count,
+                        parsed.header().data_region_start,
+                        base_step,
+                    )
                 }),
                 bytes.len(),
                 payload_bytes,
@@ -564,22 +721,50 @@ fn main() {
                 directory_bytes,
                 slots.len() as u64,
             );
+            append_samples(
+                &mut samples,
+                corpus.name,
+                base_step,
+                "nth-start-plus-next-boundary",
+                "raw-nano-linear-select",
+                measure(|| {
+                    (0..slots.len() as u64)
+                        .map(|ordinal| {
+                            let start = raw_select(&bits, slot_count, ordinal).unwrap();
+                            let next = (start + 1..slot_count)
+                                .find(|candidate| bit_is_set(&bits, *candidate))
+                                .unwrap_or(slot_count);
+                            start ^ next
+                        })
+                        .sum()
+                }),
+                bytes.len(),
+                payload_bytes,
+                blocks.len(),
+                nano_bytes,
+                0,
+                directory_bytes,
+                0,
+            );
             for interval in CHECKPOINTS {
-                let cp = checkpoints(&slots, interval);
-                let cp_bytes = cp.len() * 16;
+                let cp = checkpoints(&bits, slot_count, interval);
+                let cp_bytes = cp.len() * 8;
                 append_samples(
                     &mut samples,
                     corpus.name,
                     base_step,
-                    "nth-start",
+                    "nth-start-plus-next-boundary",
                     match interval {
                         512 => "nano+checkpoint-512",
                         4096 => "nano+checkpoint-4096",
                         _ => "nano+checkpoint-65536",
                     },
                     measure(|| {
-                        (0..slots.len())
-                            .map(|i| select_checkpointed(&slots, &cp, i, interval))
+                        (0..slots.len() as u64)
+                            .filter_map(|i| {
+                                select_checkpointed(&bits, &cp, slot_count, interval, i)
+                            })
+                            .map(|(start, next)| start ^ next)
                             .sum()
                     }),
                     bytes.len(),
@@ -591,8 +776,29 @@ fn main() {
                     0,
                 );
             }
-            let mut sorted = directory.clone();
-            sorted.sort_unstable();
+            let sorted = directory;
+            append_samples(
+                &mut samples,
+                corpus.name,
+                base_step,
+                "directory-construction",
+                "sorted-validated-ranges",
+                measure(|| {
+                    let mut candidate: Vec<(u16, u64, u64, u64)> = blocks
+                        .iter()
+                        .map(|b| (b.key_id, b.block_start, b.payload_start, b.payload_len))
+                        .collect();
+                    candidate.sort_unstable();
+                    candidate.len() as u64
+                }),
+                bytes.len(),
+                payload_bytes,
+                blocks.len(),
+                nano_bytes,
+                0,
+                directory_bytes,
+                0,
+            );
             append_samples(
                 &mut samples,
                 corpus.name,
@@ -600,13 +806,8 @@ fn main() {
                 "key-lookup",
                 "canonical-linear-scan",
                 measure(|| {
-                    (0..64u16)
-                        .map(|key| {
-                            blocks
-                                .iter()
-                                .position(|block| block.key_id == key)
-                                .unwrap_or(0) as u64
-                        })
+                    (0..256u16)
+                        .map(|key| range_checksum(lookup_range(blocks, key)))
                         .sum()
                 }),
                 bytes.len(),
@@ -624,12 +825,8 @@ fn main() {
                 "key-lookup",
                 "directory-binary-search",
                 measure(|| {
-                    (0..64u16)
-                        .map(|key| {
-                            sorted
-                                .binary_search_by_key(&key, |(id, _)| *id)
-                                .unwrap_or(0) as u64
-                        })
+                    (0..256u16)
+                        .map(|key| directory_checksum(&sorted, key))
                         .sum()
                 }),
                 bytes.len(),
@@ -659,11 +856,61 @@ fn main() {
                 &mut samples,
                 corpus.name,
                 base_step,
+                "parallel-payload-sum",
+                "nano-guided-rayon",
+                measure(|| {
+                    (0..slot_count)
+                        .into_par_iter()
+                        .filter_map(|slot| {
+                            if !bit_is_set(&bits, slot) {
+                                return None;
+                            }
+                            let start = parsed.header().data_region_start + slot * base_step;
+                            blocks
+                                .iter()
+                                .find(|block| block.block_start == start)
+                                .map(|block| payload_sum(&bytes, block))
+                        })
+                        .sum()
+                }),
+                bytes.len(),
+                payload_bytes,
+                blocks.len(),
+                nano_bytes,
+                0,
+                directory_bytes,
+                0,
+            );
+            append_samples(
+                &mut samples,
+                corpus.name,
+                base_step,
+                "parallel-payload-sum",
+                "dynamic-queue-control",
+                measure(|| {
+                    blocks
+                        .par_iter()
+                        .map(|block| payload_sum(&bytes, block))
+                        .sum()
+                }),
+                bytes.len(),
+                payload_bytes,
+                blocks.len(),
+                nano_bytes,
+                0,
+                directory_bytes,
+                0,
+            );
+            append_samples(
+                &mut samples,
+                corpus.name,
+                base_step,
                 "parallel-start-enumeration",
                 "nano-rayon",
                 measure(|| {
-                    slots
-                        .par_iter()
+                    (0..slot_count)
+                        .into_par_iter()
+                        .filter(|slot| bit_is_set(&bits, *slot))
                         .map(|slot| parsed.header().data_region_start + slot * base_step)
                         .sum()
                 }),
@@ -681,11 +928,12 @@ fn main() {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     let mut file = File::create(path).unwrap();
     use std::io::Write;
-    writeln!(file, "layout,base_step,operation,variant,sample,nanos,file_bytes,payload_bytes,block_count,nano_bytes,checkpoint_bytes,directory_bytes,checksum").unwrap();
+    writeln!(file, "layout,base_step,operation,variant,sample,nanos,file_bytes,header_bytes,padding_bytes,payload_bytes,block_count,nano_bytes,checkpoint_bytes,directory_bytes,checksum").unwrap();
     for s in samples {
+        let (header_bytes, padding_bytes) = geometry[&(s.layout, s.base_step)];
         writeln!(
             file,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             s.layout,
             s.base_step,
             s.operation,
@@ -693,6 +941,8 @@ fn main() {
             s.sample,
             s.nanos,
             s.file_bytes,
+            header_bytes,
+            padding_bytes,
             s.payload_bytes,
             s.block_count,
             s.nano_bytes,

@@ -19,13 +19,15 @@ python3 scripts/validate_v06_navigation.py \
 The runner uses three warmups and 20 measured samples per layout/BaseStep/
 operation. Layouts include many tiny blocks, few large blocks, mixed blocks,
 AoS-style and SoA-style compositions, continuation composites, opaque ranges,
-and zero/partial-final cases. The CSV records exact payload, file, padding
-(indirectly through file minus payload), Nano, checkpoint, and directory sizes.
+and zero/partial-final cases. The CSV records exact canonical header, padding,
+payload, Nano, checkpoint, and experimental directory sizes separately.
 
-The benchmark compares canonical validation/traversal, physical-start
-enumeration, simple checkpointed select, linear Key-ID lookup versus a sorted
-binary-search directory, and Rayon parallel controls. Construction and
-embedded/reconstructed-cache load are separate operations. It does not claim
+The benchmark compares canonical validation/traversal, bitmap physical-start
+enumeration, raw Nano select plus next-boundary lookup, fixed-slot cumulative
+checkpoints, equivalent validated-range Key-ID lookup, and canonical/Nano-guided/
+dynamic Rayon controls. Directory and Nano construction are separate operations;
+embedded serialization load, local reconstruction, and cache-load mechanics are
+separate operations. It does not claim
 cold-cache, page-fault, SIMD, or native-alignment results; those require a
 separate instrumented run on a controlled host.
 

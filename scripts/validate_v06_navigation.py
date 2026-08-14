@@ -10,15 +10,20 @@ REQUIRED_VARIANTS = {
     ("canonical-validation", "parse-and-describe"),
     ("nano-construction", "reconstruct-from-validated-canonical"),
     ("nano-deployment", "embedded-load"),
+    ("nano-deployment", "local-reconstruction"),
     ("nano-deployment", "reconstructed-cache-load"),
     ("canonical-block-traversal", "canonical"),
     ("physical-start-enumeration", "nano"),
-    ("nth-start", "nano+checkpoint-512"),
-    ("nth-start", "nano+checkpoint-4096"),
-    ("nth-start", "nano+checkpoint-65536"),
+    ("nth-start-plus-next-boundary", "raw-nano-linear-select"),
+    ("nth-start-plus-next-boundary", "nano+checkpoint-512"),
+    ("nth-start-plus-next-boundary", "nano+checkpoint-4096"),
+    ("nth-start-plus-next-boundary", "nano+checkpoint-65536"),
+    ("directory-construction", "sorted-validated-ranges"),
     ("key-lookup", "canonical-linear-scan"),
     ("key-lookup", "directory-binary-search"),
     ("parallel-payload-sum", "canonical-rayon"),
+    ("parallel-payload-sum", "nano-guided-rayon"),
+    ("parallel-payload-sum", "dynamic-queue-control"),
     ("parallel-start-enumeration", "nano-rayon"),
 }
 
@@ -45,6 +50,8 @@ def main() -> None:
         row["sample"] = int(row["sample"])
         row["nanos"] = int(row["nanos"])
         row["file_bytes"] = int(row["file_bytes"])
+        row["header_bytes"] = int(row["header_bytes"])
+        row["padding_bytes"] = int(row["padding_bytes"])
         row["payload_bytes"] = int(row["payload_bytes"])
         row["block_count"] = int(row["block_count"])
         row["nano_bytes"] = int(row["nano_bytes"])
@@ -67,14 +74,18 @@ def main() -> None:
             metadata = [row for key, group in groups.items() if key[:2] == (layout, base) for row in group[:1]]
             payload = {row["payload_bytes"] for row in metadata}
             blocks = {row["block_count"] for row in metadata}
-            if len(payload) != 1 or len(blocks) != 1:
+            headers = {row["header_bytes"] for row in metadata}
+            padding = {row["padding_bytes"] for row in metadata}
+            if len(payload) != 1 or len(blocks) != 1 or len(headers) != 1 or len(padding) != 1:
+                raise SystemExit(f"metadata is not stable for {layout}/{base}")
+            if any(row["file_bytes"] != row["header_bytes"] + row["padding_bytes"] + row["payload_bytes"] for row in metadata):
                 raise SystemExit(f"metadata is not stable for {layout}/{base}")
     report = os.path.splitext(raw)[0] + ".md"
     with open(report, "w") as out:
         out.write("# Step 5A raw navigation qualification\n\n")
         out.write("This report is generated from the CSV; timings are measurements, not wire decisions.\n\n")
         out.write(f"- CPU: `{platform.processor() or 'unreported'}`\n- Python validator: `{platform.python_version()}`\n")
-        out.write(f"- Raw rows: {len(rows)}; samples/group: 20; BaseSteps: {', '.join(map(str, sorted(BASE_STEPS)))} bytes\n\n")
+        out.write(f"- Raw rows: {len(rows)}; groups: {len(groups)}; samples/group: 20; operation variants: {len(REQUIRED_VARIANTS)}; BaseSteps: {', '.join(map(str, sorted(BASE_STEPS)))} bytes\n\n")
         out.write("## Median nanoseconds by operation (all layouts pooled per BaseStep)\n\n")
         out.write("| BaseStep | Operation | Variant | Median ns |\n|---:|---|---|---:|\n")
         pooled = defaultdict(list)
@@ -84,7 +95,7 @@ def main() -> None:
             out.write(f"| {base} | {operation} | {variant} | {median(group):,} |\n")
         out.write("\n## Measured facts and conservative decisions\n\n")
         out.write("- **Measured fact:** all six frozen BaseSteps and all eight generic layouts completed with stable metadata and 20 samples per operation.\n")
-        out.write("- **Measured fact:** Nano bytes and padding vary with BaseStep and topology; see the raw `file_bytes`, `payload_bytes`, `nano_bytes`, and checkpoint/directory columns.\n")
+        out.write("- **Measured fact:** exact header and padding bytes are recorded separately from payload, Nano, checkpoint, and directory bytes in the raw CSV.\n")
         out.write("- **Inference:** these in-memory timings do not establish a universal BaseStep winner, nor do they include OS-controlled cold-cache state.\n")
         out.write("- **Decision:** BaseStep remains a legal generic tuning input; no BaseStep is promoted or removed by this run.\n")
         out.write("- **Decision:** Nano, checkpoints, and region-directory paths remain `POSSIBLE BUT NOT YET JUSTIFIED` pending independent end-to-end qualification including construction, persistence, validation, and equivalent lookup work.\n")

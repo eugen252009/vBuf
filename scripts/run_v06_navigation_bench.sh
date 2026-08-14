@@ -11,6 +11,7 @@ fi
 mkdir -p "$out_dir"
 {
   printf 'commit='; git rev-parse HEAD
+  printf 'runner_source_sha256='; sha256sum rust/src/bin/v06_navigation_bench.rs scripts/validate_v06_navigation.py | sha256sum | awk '{print $1}';
   printf 'rustc='; rustc -Vv | tr '\n' ';'; printf '\n'
   printf 'uname='; uname -a; printf '\n'
   printf 'cpu_model='; lscpu | awk -F: '/Model name/ {gsub(/^ +/, "", $2); print $2; exit}'

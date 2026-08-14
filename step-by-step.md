@@ -711,8 +711,8 @@ CSV, generated interpretation, and host/compiler metadata are preserved under
 `scripts/validate_v06_navigation.py`.
 
 **Measured facts:** six frozen BaseSteps (8, 16, 32, 64, 128, 256 bytes) and
-eight generic layouts completed 20 samples for 13 operation/variant paths per
-layout/BaseStep (12,480 raw rows). The layouts include many tiny blocks, few
+eight generic layouts completed 20 samples for 18 operation/variant paths per
+layout/BaseStep (17,280 raw rows across 864 groups). The layouts include many tiny blocks, few
 large blocks, mixed blocks, AoS-style and SoA-style compositions,
 continuation composites, opaque workloads, and zero/partial cases. Canonical
 payload bytes and block topology were held constant while grid/padding
@@ -720,14 +720,21 @@ changed. The raw report records file, payload, Nano, checkpoint, and directory
 byte counts separately. Median file sizes across the corpus were 73,752 /
 131,094 / 262,150 / 524,294 / 1,048,582 / 2,097,158 bytes for BaseStep 8 /
 16 / 32 / 64 / 128 / 256, while the corresponding median payload was 45,056
-bytes. Padding can therefore dominate small and mixed layouts; it is not a
-reason to optimize Nano percentage alone.
+bytes. These pooled medians describe intentionally heterogeneous stress
+corpora; exact canonical-header and padding columns are required for layout-
+level interpretation. They show that coarse BaseSteps can make non-payload
+structural overhead dominate high-block-count small/composite layouts, not that
+any BaseStep is globally optimal.
 
 **Correctness facts:** property tests compare Nano-derived set slots with every
 validated canonical physical block start for every corpus/BaseStep; continuation
-members remain separate; first/last/every-ordinal checkpoint selection agrees
-with raw set-bit enumeration; final-byte unused bits are zero; invalid BaseStep
-and near-`u64::MAX` Nano arithmetic fail closed. Canonical parsing remains the
+members remain separate; first/last/every-ordinal selection agrees with raw
+set-bit enumeration for the experimental checkpoint helper; final-byte unused
+bits are zero; invalid BaseStep and near-`u64::MAX` Nano arithmetic fail
+closed. The current benchmark also includes raw bitmap select plus
+next-boundary work, fixed-slot cumulative checkpoints, exact validated-range
+directory lookup, and checksummed parallel controls; these are qualification
+paths, not wire artifacts. Canonical parsing remains the
 authority. No Nano artifact was added to a reader path, so it cannot authorize
 bytes.
 
@@ -735,9 +742,10 @@ bytes.
 records compiler/CPU metadata. It does not claim controlled cold/warm mmap,
 page-fault, SIMD load, native pointer-alignment, or NUMA results; those remain
 missing evidence rather than failures. Rayon paths are workload controls, not
-format scheduler semantics. Embedded load and reconstructed-cache load are
-measured separately, but persistence, invalidation, and page-I/O qualification
-remain outstanding.
+format scheduler semantics. Embedded serialized load, local reconstruction, and
+reconstructed-cache load are measured as distinct in-memory operations, but
+persistence, invalidation, reuse amortization, and page-I/O qualification remain
+outstanding.
 
 **Conservative decisions:**
 
@@ -748,22 +756,26 @@ contract is changed.
 but this run does not establish end-to-end benefit after construction,
 validation, artifact bytes, persistence, or cache costs. Nano remains optional
 and non-normative.
-- **Rank/select checkpoints:** **POSSIBLE BUT NOT YET JUSTIFIED**. The simple
-512-slot, 4096-slot, and 65536-slot candidates are correct and measured, but
-no checkpoint is selected without a broader equivalent-query and deployment
-study.
+- **Rank/select checkpoints:** **POSSIBLE BUT NOT YET JUSTIFIED**. Raw bitmap
+select plus next-boundary and fixed-slot cumulative checkpoints at 512, 4096,
+and 65536 slots now have correctness and construction/lookup measurements, but
+no checkpoint is selected without broader deployment evidence.
 - **Generic region directory:** **POSSIBLE BUT NOT YET JUSTIFIED**. The
-binary-search experiment is explicitly separate from Nano, but the current
-run is insufficient to justify a generic lookup artifact or a logical-ID wire
-contract.
-- **Parallel CPU partitioning:** **POSSIBLE BUT NOT YET JUSTIFIED**. Rayon
-controls demonstrate executable paths only; no reproducible end-to-end
-advantage over equivalent dynamic/canonical boundary discovery was established.
+experiment now compares the same first validated `(block,payload_start,length)`
+range contract for canonical scan and sorted lookup, while construction and
+storage remain separately accounted for. The current run is insufficient to
+justify a generic lookup artifact or logical-ID wire contract.
+- **Parallel CPU partitioning:** **POSSIBLE BUT NOT YET JUSTIFIED**. Canonical,
+Nano-guided, and dynamic Rayon controls now perform checksummed payload work,
+but worker scaling, skew-balanced partitioning, queue costs, and cold-page
+end-to-end qualification remain insufficient for promotion.
 - **Embedded vs reconstructed:** **POSSIBLE BUT NOT YET JUSTIFIED**. The measured
-load paths are evidence of mechanics, not a cold-start/reuse-count result.
+paths now distinguish serialized load, reconstruction, and cache-load mechanics,
+but they remain warm in-memory operations without cold-start/reuse evidence.
 
 These are measured-fact, inference, and decision distinctions; no optional
-artifact is made normative and no finalization envelope is added.
+artifact is made normative and no finalization envelope is added. The raw
+report records the benchmark source hash for reproducibility.
 
 ---
 
