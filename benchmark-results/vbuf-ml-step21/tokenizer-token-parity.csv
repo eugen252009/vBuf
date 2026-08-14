@@ -1,0 +1,3 @@
+artifact,status,reason
+Q8_0,NOT_RUN_PINNED_RUNTIME,llama_model loader seam not yet connected
+BF16,NOT_RUN_PINNED_RUNTIME,llama_model loader seam not yet connected

@@ -1,0 +1,3 @@
+artifact,tensor_count,expected_representation_mix,bridge_tensor_count,name_shape_type_parity,runtime_observed,result
+Q8_0,310,F32/Q8_0,310,PASS,False,DESCRIPTOR_BRIDGE_PASS
+BF16,311,F32/BF16,311,PASS,False,DESCRIPTOR_BRIDGE_PASS
