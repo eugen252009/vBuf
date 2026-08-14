@@ -14,12 +14,14 @@ pub mod tensor_directory;
 pub mod metadata;
 pub mod tokenizer;
 pub mod representations;
+pub mod layout;
 
 pub use bootstrap::{Bootstrap, BootstrapEntry, SemanticRegion};
 pub use error::{MlError, MlErrorCode};
 pub use region_roles::RegionRole;
 pub use tensor_directory::{TensorDescriptor, TensorDirectory, TensorEntry};
 pub use representations::{representation_contract, validate_tensor_representation, RepresentationContract, TensorRepresentation};
+pub use layout::{canonical_payload_alignment, payload_shift, write_indefinite, write_known_size, LayoutClass, LayoutError, LayoutPlan, PlacementRequest, PlannedBlock};
 pub use metadata::{MetadataEntry, MetadataField, MetadataValue, ModelMetadata, ModelMetadataKey};
 pub use tokenizer::{SpecialToken, TokenizerEntry, TokenizerKind, TokenizerMetadata, TokenizerRole};
 

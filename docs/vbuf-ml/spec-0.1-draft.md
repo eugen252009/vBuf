@@ -45,3 +45,7 @@ Tensor representation qualification is specified in
 [`representations.md`](representations.md). Profile 0.1 selects only
 `CanonicalPrimitive`; packed/quantized representations remain blocked on a
 pinned first target and authoritative upstream layout revision.
+
+The downstream placement and alignment policy is described in
+[`layout-policy.md`](layout-policy.md). It is a deterministic writer policy,
+not a change to canonical BaseStep or a new physical truth table.

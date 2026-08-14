@@ -1326,6 +1326,32 @@ changes were required.
 
 **Dependencies:** Steps 8–12.
 
+#### Step 13 implementation recorded
+
+Added `rust/vbuf-ml/src/layout.rs` and
+`docs/vbuf-ml/layout-policy.md`. `LayoutPlan` provides a small downstream
+placement planner with deterministic control-first ordering:
+
+```text
+Bootstrap → ModelMetadata → TensorDirectory → TokenizerControl
+→ TokenizerPayload → TensorPayload → Auxiliary
+```
+
+Requests provide a unique deterministic source-order key. Key-ID occurrences
+are assigned from the final planned order, preserving the existing semantic
+reference model without storing offsets or relocation data.
+
+Payload alignment is validated as a power-of-two multiple of the selected
+canonical BaseStep and encoded through the existing v0.6 payload-shift
+refinement. `CanonicalPrimitive` defaults to BaseStep alignment. Invalid
+alignments fail before writing; BaseStep itself is never redefined. Known-size
+and indefinite canonical writers are both supported.
+
+This is a writer policy, not a new decoder requirement. No quantized, page,
+SIMD, direct-I/O, GPU, Nano, finalization, transfer-plan, or device alignment
+was selected. Padding remains canonical writer geometry and is not conflated
+with profile control overhead.
+
 ---
 
 ### Step 14 — Add optional cold integrity information
