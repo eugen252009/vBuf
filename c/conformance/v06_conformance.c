@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 static int make_path(char *out, size_t size, const char *dir,
                      const char *name) {
@@ -14,8 +15,87 @@ static const char *const valid_files[] = {
     "valid-basic.vbuf",          "valid-empty.vbuf",
     "valid-zero-array.vbuf",     "valid-duplicate-chain.vbuf",
     "valid-duplicate-unchained.vbuf", "valid-optional-extension.vbuf",
-    "valid-indefinite.vbuf",
+    "valid-indefinite.vbuf",     "valid-writer-primitives.vbuf",
 };
+
+static int files_equal(const char *left_path, const char *right_path) {
+  FILE *left = fopen(left_path, "rb");
+  FILE *right = fopen(right_path, "rb");
+  if (!left || !right) {
+    if (left) fclose(left);
+    if (right) fclose(right);
+    return 0;
+  }
+  int equal = 1;
+  for (;;) {
+    unsigned char a[4096], b[4096];
+    size_t an = fread(a, 1, sizeof(a), left);
+    size_t bn = fread(b, 1, sizeof(b), right);
+    if (an != bn || memcmp(a, b, an) != 0) { equal = 0; break; }
+    if (an < sizeof(a)) break;
+  }
+  fclose(left);
+  fclose(right);
+  return equal;
+}
+
+static int verify_c_writer(const char *fixture_dir) {
+  char output[256], expected[4096];
+  snprintf(output, sizeof(output), "/tmp/vbuf-v06-c-writer-%ld.vbuf", (long)getpid());
+  if (!make_path(expected, sizeof(expected), fixture_dir, "valid-writer-primitives.vbuf")) return 0;
+  uint32_t error = 0;
+  vbuf_v06_writer_t *writer = vbuf_v06_writer_create(output, 4, false, &error);
+  if (!writer || error != 0) return 0;
+#define WRITE(KEY, PHYS, CONT, TYPE, DATA, COUNT) \
+  do { if (vbuf_v06_writer_write(writer, KEY, PHYS, CONT, 0, TYPE, DATA, COUNT) != 0) return 0; } while (0)
+  const uint8_t u8s[] = {1, 2, 255}; WRITE(10, 1, false, VBUF_V06_U8, u8s, 3);
+  const uint16_t u16s[] = {0x1234, 0xabcd}; WRITE(11, 1, false, VBUF_V06_U16, u16s, 2);
+  const uint32_t u32s[] = {1, 0xdeadbeef}; WRITE(12, 1, false, VBUF_V06_U32, u32s, 2);
+  const uint64_t u64s[] = {1, UINT64_C(0x0102030405060708)}; WRITE(13, 1, false, VBUF_V06_U64, u64s, 2);
+  const int8_t i8s[] = {-1, 2}; WRITE(14, 1, false, VBUF_V06_I8, i8s, 2);
+  const int16_t i16s[] = {-2, 3}; WRITE(15, 1, false, VBUF_V06_I16, i16s, 2);
+  const int32_t i32s[] = {-3, 4}; WRITE(16, 1, false, VBUF_V06_I32, i32s, 2);
+  const int64_t i64s[] = {-4, 5}; WRITE(17, 1, false, VBUF_V06_I64, i64s, 2);
+  const float f32s[] = {1.5f, -2.25f}; WRITE(18, 1, false, VBUF_V06_F32, f32s, 2);
+  const double f64s[] = {3.5, -4.75}; WRITE(19, 1, false, VBUF_V06_F64, f64s, 2);
+  const uint8_t opaque[] = {'a', 'b', 'c'}; WRITE(20, 1, false, VBUF_V06_OPAQUE, opaque, 3);
+  const uint32_t scalar[] = {42}; WRITE(21, 0, false, VBUF_V06_U32, scalar, 1);
+  const uint8_t a[] = {'A'}, b[] = {'B'}; WRITE(22, 1, true, VBUF_V06_OPAQUE, a, 1); WRITE(22, 1, false, VBUF_V06_OPAQUE, b, 1);
+#undef WRITE
+  if (vbuf_v06_writer_finish(writer) != 0) return 0;
+  int equal = files_equal(output, expected);
+  remove(output);
+  if (!equal) return 0;
+
+  writer = vbuf_v06_writer_create(output, 3, true, &error);
+  if (!writer || vbuf_v06_writer_write(writer, 1, 1, false, 0,
+                                        VBUF_V06_U8, u8s, 3) != 0 ||
+      vbuf_v06_writer_finish(writer) != 0)
+    return 0;
+  vbuf_v06_instance_t *instance = vbuf_v06_open(output, &error);
+  if (!instance) return 0;
+  vbuf_v06_close(instance);
+  remove(output);
+
+  writer = vbuf_v06_writer_create(output, 3, false, &error);
+  if (!writer || vbuf_v06_writer_write(writer, 7, 1, true, 0,
+                                        VBUF_V06_U8, a, 1) != 0 ||
+      vbuf_v06_writer_write(writer, 8, 1, false, 0,
+                             VBUF_V06_U8, b, 1) == 0 ||
+      vbuf_v06_writer_write(writer, 7, 1, false, 0,
+                             VBUF_V06_U8, b, 1) != 0 ||
+      vbuf_v06_writer_finish(writer) != 0)
+    return 0;
+  remove(output);
+
+  writer = vbuf_v06_writer_create(output, 3, false, &error);
+  if (!writer || vbuf_v06_writer_write(writer, 7, 1, true, 0,
+                                        VBUF_V06_U8, a, 1) != 0 ||
+      vbuf_v06_writer_finish(writer) == 0)
+    return 0;
+  remove(output);
+  return 1;
+}
 
 static const char *const invalid_files[] = {
     "bad-magic.vbuf",
@@ -142,6 +222,9 @@ int main(int argc, char **argv) {
   }
   vbuf_v06_close(instance);
 
-  puts("validated 41 shared vBuf-v0.6 outcomes and complete C pointer ranges");
+  if (!verify_c_writer(argv[1]))
+    return 1;
+
+  puts("validated 42 shared vBuf-v0.6 outcomes, complete C pointer ranges, and canonical C writer bytes");
   return 0;
 }

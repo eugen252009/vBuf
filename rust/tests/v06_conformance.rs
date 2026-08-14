@@ -18,7 +18,7 @@ fn every_cross_language_fixture_has_the_declared_outcome() {
         })
         .collect();
     files.sort();
-    assert_eq!(files.len(), 41);
+    assert_eq!(files.len(), 42);
     for path in files {
         let name = path.file_name().unwrap().to_string_lossy();
         let expected = name.starts_with("valid-");
@@ -54,11 +54,13 @@ fn validated_descriptors_precede_typed_views() {
 fn forward_continuation_preserves_physical_occurrences() {
     let bytes = std::fs::read(fixture_dir().join("valid-duplicate-chain.vbuf")).unwrap();
     let parsed = parse_v06(&bytes).unwrap();
-    assert_eq!(parsed.blocks().len(), 2);
+    assert_eq!(parsed.blocks().len(), 3);
     assert!(parsed.blocks()[0].continuation);
-    assert!(!parsed.blocks()[1].continuation);
+    assert!(parsed.blocks()[1].continuation);
+    assert!(!parsed.blocks()[2].continuation);
     assert_eq!(parsed.u8_view(7, 0).unwrap(), b"A");
     assert_eq!(parsed.u8_view(7, 1).unwrap(), b"B");
+    assert_eq!(parsed.u8_view(7, 2).unwrap(), b"C");
 }
 
 #[test]

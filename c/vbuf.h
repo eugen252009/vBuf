@@ -1,6 +1,7 @@
 #ifndef VBUF_H
 #define VBUF_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -21,10 +22,11 @@ typedef struct {
 
 typedef enum { VBUF_U16 = 16, VBUF_U32 = 32, VBUF_U64 = 64 } vbuf_type_t;
 
-/* Canonical v0.6 API. The structure is opaque and created only after complete
- * v0.6 validation. Return code 0 means success; other values are stable error
- * categories defined by the Rust reader. */
+/* Canonical v0.6 reader API. The structure is opaque and created only after
+ * complete v0.6 validation. Return code 0 means success; other values are
+ * stable error categories defined by the Rust reader. */
 typedef struct vbuf_v06_instance vbuf_v06_instance_t;
+typedef struct vbuf_v06_writer vbuf_v06_writer_t;
 typedef enum {
   VBUF_V06_U8 = 0,
   VBUF_V06_U16 = 1,
@@ -54,6 +56,19 @@ uint32_t vbuf_v06_block_info(const vbuf_v06_instance_t *instance, size_t index,
                              uint64_t *payload_length_out,
                              uint64_t *next_block_start_out,
                              uint64_t *count_out);
+
+/* Canonical portable v0.6 writer. physical is 0 (scalar) or 1 (array); data
+ * points to `count` native C values selected by vbuf_v06_type_t and is encoded
+ * little-endian. Writer calls return 0 on success and nonzero on failure.
+ * finish always consumes the writer handle. */
+vbuf_v06_writer_t *vbuf_v06_writer_create(const char *path, uint8_t base_shift,
+                                           bool indefinite,
+                                           uint32_t *error_out);
+uint32_t vbuf_v06_writer_write(vbuf_v06_writer_t *writer, uint16_t key_id,
+                               uint8_t physical, bool continuation,
+                               uint8_t payload_shift, uint8_t value_type,
+                               const void *data, size_t count);
+uint32_t vbuf_v06_writer_finish(vbuf_v06_writer_t *writer);
 
 // --- LEGACY v0.5 CORE API ---
 vbuf_instance_t *vbuf_open(const char *filename);

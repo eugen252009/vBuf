@@ -1,4 +1,6 @@
 pub mod v06;
+pub mod writer;
+mod writer_ffi;
 
 use ::std::io::{BufWriter, Seek, Write};
 use memmap2::Mmap;

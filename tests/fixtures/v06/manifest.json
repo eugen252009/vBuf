@@ -250,9 +250,9 @@
     {
       "path": "valid-duplicate-chain.vbuf",
       "accept": true,
-      "size": 49,
-      "sha256": "4e67b727748361bccd40549d3264bc13623028b1bb52bc568681a2dea65d158d",
-      "case": "duplicate KeyID with valid forward continuation"
+      "size": 65,
+      "sha256": "a617884f777b24369e9d2e909a87eb65c38631ad19aa447054e87939a896f4f4",
+      "case": "three duplicate KeyIDs with valid 1-to-1-to-0 forward continuation"
     },
     {
       "path": "valid-duplicate-unchained.vbuf",
@@ -281,6 +281,13 @@
       "size": 32,
       "sha256": "937e055378fc46ac571e67ecae0ebb2ca8d2b6ee5d991b07ec3034e225e69da6",
       "case": "unknown optional extension skipped"
+    },
+    {
+      "path": "valid-writer-primitives.vbuf",
+      "accept": true,
+      "size": 465,
+      "sha256": "67d368bd3363b094378e4fe3d9c0a14bcab5405da2589911ce2abdfa80496962",
+      "case": "canonical portable primitives, scalar, and forward continuation"
     },
     {
       "path": "valid-zero-array.vbuf",

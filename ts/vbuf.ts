@@ -298,7 +298,117 @@ export class VBufV06 {
 	}
 }
 
-export class VBufWriter {
+export interface V06BlockOptions {
+	keyId: number;
+	physical?: V06Physical;
+	continuation?: boolean;
+	payloadShift?: number;
+}
+
+/** Canonical portable vBuf v0.6 writer. BaseShift is always explicit. */
+export class VBufV06Writer {
+	private readonly chunks: Uint8Array[] = [];
+	private readonly baseStep: number;
+	private readonly dataRegionStart: number;
+	private requiredContinuationKey: number | null = null;
+	private blockCount = 0;
+
+	constructor(readonly baseShift: number, readonly indefinite = false) {
+		if (!Number.isInteger(baseShift) || baseShift < 3 || baseShift > 8) throw new V06ValidationError("invalid_base_shift", "BaseShift is outside 3..=8");
+		this.baseStep = 2 ** baseShift;
+		this.dataRegionStart = Number(alignUp(24n, BigInt(this.baseStep)));
+		const header = new Uint8Array(this.dataRegionStart);
+		const view = new DataView(header.buffer);
+		header.set([0x56, 0x42, 0x55, 0x46]);
+		view.setUint32(4, 0x00060000, true);
+		header[8] = baseShift;
+		header[9] = indefinite ? 1 : 0;
+		view.setUint16(10, 24, true);
+		this.chunks.push(header);
+	}
+
+	writeU8(options: V06BlockOptions, values: Uint8Array): void { this.writeBlock(options, 0, 8, BigInt(values.length), values); }
+	writeU16(options: V06BlockOptions, values: Uint16Array): void { this.writeBlock(options, 0, 16, BigInt(values.length), this.encode(values.length, 2, (view, offset, index) => view.setUint16(offset, values[index]!, true))); }
+	writeU32(options: V06BlockOptions, values: Uint32Array): void { this.writeBlock(options, 0, 32, BigInt(values.length), this.encode(values.length, 4, (view, offset, index) => view.setUint32(offset, values[index]!, true))); }
+	writeU64(options: V06BlockOptions, values: BigUint64Array): void { this.writeBlock(options, 0, 64, BigInt(values.length), this.encode(values.length, 8, (view, offset, index) => view.setBigUint64(offset, values[index]!, true))); }
+	writeI8(options: V06BlockOptions, values: Int8Array): void { this.writeBlock(options, 2, 8, BigInt(values.length), this.encode(values.length, 1, (view, offset, index) => view.setInt8(offset, values[index]!))); }
+	writeI16(options: V06BlockOptions, values: Int16Array): void { this.writeBlock(options, 2, 16, BigInt(values.length), this.encode(values.length, 2, (view, offset, index) => view.setInt16(offset, values[index]!, true))); }
+	writeI32(options: V06BlockOptions, values: Int32Array): void { this.writeBlock(options, 2, 32, BigInt(values.length), this.encode(values.length, 4, (view, offset, index) => view.setInt32(offset, values[index]!, true))); }
+	writeI64(options: V06BlockOptions, values: BigInt64Array): void { this.writeBlock(options, 2, 64, BigInt(values.length), this.encode(values.length, 8, (view, offset, index) => view.setBigInt64(offset, values[index]!, true))); }
+	writeF32(options: V06BlockOptions, values: Float32Array): void { this.writeBlock(options, 1, 32, BigInt(values.length), this.encode(values.length, 4, (view, offset, index) => view.setFloat32(offset, values[index]!, true))); }
+	writeF64(options: V06BlockOptions, values: Float64Array): void { this.writeBlock(options, 1, 64, BigInt(values.length), this.encode(values.length, 8, (view, offset, index) => view.setFloat64(offset, values[index]!, true))); }
+	writeOpaque(options: V06BlockOptions, values: Uint8Array): void { this.writeBlock(options, 3, 8, BigInt(values.length), values); }
+
+	finish(): Uint8Array {
+		if (this.requiredContinuationKey !== null) throw new V06ValidationError("unterminated_continuation", "final block has Continuation set");
+		const output = new Uint8Array(this.offset());
+		let offset = 0;
+		for (const chunk of this.chunks) { output.set(chunk, offset); offset += chunk.length; }
+		if (!this.indefinite) new DataView(output.buffer).setBigUint64(16, BigInt(output.length - this.dataRegionStart), true);
+		return output;
+	}
+
+	private writeBlock(options: V06BlockOptions, semantic: V06Semantic, bitWidth: number, count: bigint, payload: Uint8Array): void {
+		const physical = options.physical ?? 1;
+		const continuation = options.continuation ?? false;
+		const payloadShift = options.payloadShift ?? 0;
+		if (!Number.isInteger(options.keyId) || options.keyId < 0 || options.keyId > 0xffff) throw new V06ValidationError("invalid_key", "KeyID is outside u16");
+		if (this.requiredContinuationKey !== null && this.requiredContinuationKey !== options.keyId) throw new V06ValidationError("continuation_mismatch", "continued block has a different KeyID");
+		if (!Number.isInteger(payloadShift) || payloadShift < 0 || this.baseShift + payloadShift > 63) throw new V06ValidationError("invalid_payload_shift", "payload shift exceeds 63");
+		this.validateRepresentation(semantic, physical, bitWidth, count);
+		const payloadBits = checkedMul(count, BigInt(bitWidth));
+		const expected = payloadBits / 8n + (payloadBits % 8n === 0n ? 0n : 1n);
+		if (expected !== BigInt(payload.byteLength)) throw new V06ValidationError("payload_length_mismatch", "payload length differs from count and width");
+		const payloadAlignment = 2 ** (this.baseShift + payloadShift);
+		if (!Number.isSafeInteger(payloadAlignment)) throw new V06ValidationError("arithmetic_overflow", "payload alignment exceeds JavaScript exact integer range");
+
+		if (this.blockCount > 0) this.padTo(this.baseStep);
+		const extended = count > 65535n;
+		const header = new Uint8Array(extended ? 16 : 8);
+		const view = new DataView(header.buffer);
+		let anchor = BigInt(semantic) | (BigInt(physical) << 4n);
+		anchor |= BigInt(continuation ? 1 : 0) << 8n;
+		anchor |= BigInt(extended ? 1 : 0) << 9n;
+		anchor |= BigInt(payloadShift) << 10n;
+		anchor |= BigInt(options.keyId) << 16n;
+		anchor |= BigInt(bitWidth) << 32n;
+		anchor |= (extended ? 0n : count) << 48n;
+		view.setBigUint64(0, anchor, true);
+		if (extended) view.setBigUint64(8, count, true);
+		this.chunks.push(header);
+		this.padTo(payloadAlignment);
+		this.chunks.push(new Uint8Array(payload));
+		this.blockCount++;
+		this.requiredContinuationKey = continuation ? options.keyId : null;
+	}
+
+	private validateRepresentation(semantic: V06Semantic, physical: V06Physical, width: number, count: bigint): void {
+		const semanticValid =
+			((semantic === 0 || semantic === 2) && [8, 16, 32, 64].includes(width)) ||
+			(semantic === 1 && [32, 64].includes(width)) || (semantic === 3 && width === 8);
+		if (!semanticValid || !((physical === 0 && count === 1n) || physical === 1)) throw new V06ValidationError("invalid_representation", "invalid semantic/physical/count/width combination");
+	}
+	private encode(length: number, bytes: number, put: (view: DataView, offset: number, index: number) => void): Uint8Array {
+		const byteLength = length * bytes;
+		if (!Number.isSafeInteger(byteLength)) throw new V06ValidationError("arithmetic_overflow", "encoded byte length exceeds JavaScript exact integer range");
+		const output = new Uint8Array(byteLength);
+		const view = new DataView(output.buffer);
+		for (let index = 0; index < length; index++) put(view, index * bytes, index);
+		return output;
+	}
+	private offset(): number {
+		const offset = this.chunks.reduce((total, chunk) => total + chunk.length, 0);
+		if (!Number.isSafeInteger(offset)) throw new V06ValidationError("arithmetic_overflow", "writer offset exceeds JavaScript exact integer range");
+		return offset;
+	}
+	private padTo(alignment: number): void {
+		const padding = (alignment - (this.offset() % alignment)) % alignment;
+		if (padding) this.chunks.push(new Uint8Array(padding));
+	}
+}
+
+/** Explicit pre-v0.6 compatibility writer. */
+export class LegacyV05Writer {
 	private chunks: Uint8Array[] = [];
 	private alignment: number;
 
@@ -370,3 +480,6 @@ export class VBufWriter {
 		return output;
 	}
 }
+
+/** @deprecated Use LegacyV05Writer only for explicit legacy compatibility. */
+export const VBufWriter = LegacyV05Writer;
