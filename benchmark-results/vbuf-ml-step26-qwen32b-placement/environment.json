@@ -1,0 +1,13 @@
+{
+  "step": "26",
+  "source": "Qwen3-32B-Q8_0.gguf",
+  "runs": 1,
+  "planner": "single logical manifest, six descriptor-only candidates",
+  "cpu_only": true,
+  "wire_changed": false,
+  "physical_runtime_work": false,
+  "filesystem_free_bytes_at_emission_preflight": 25510162432,
+  "selected_plan_size": 34816197344,
+  "final_emission": "BLOCKED_RESOURCE",
+  "no_partial_target": true
+}

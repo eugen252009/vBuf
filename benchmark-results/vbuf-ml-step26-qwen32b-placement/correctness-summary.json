@@ -1,0 +1,14 @@
+{
+  "semantic_source_qualification": "PASS",
+  "dense_qwen3": "PASS",
+  "all_six_planner_candidates": "PASS",
+  "final_vbuf_emission": "BLOCKED_RESOURCE",
+  "canonical_reader": "PENDING_FINAL_ARTIFACT",
+  "tensor_hash_parity": "PENDING_FINAL_ARTIFACT",
+  "llama_structural_load": "PENDING_FINAL_ARTIFACT",
+  "logit_parity": "PENDING_FINAL_ARTIFACT",
+  "generation_parity": "PENDING_FINAL_ARTIFACT",
+  "payload_repack": 0,
+  "payload_reorder": 0,
+  "payload_duplication_during_planning": 0
+}
