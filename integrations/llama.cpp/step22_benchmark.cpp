@@ -41,9 +41,13 @@ int main(int argc, char ** argv) {
     auto tok_start = clock_type::now(); auto tokens = tokenize(vocab, prompt); auto tok_end = clock_type::now(); Counters tok_after = sample(); emit(format, "prompt_tokenization", us(tok_start, tok_end), ready, tok_after, st.st_size, (int) tokens.size());
     llama_context_params cp = llama_context_default_params(); cp.n_ctx = 512; cp.n_batch = 512; cp.n_threads = threads; cp.n_threads_batch = threads; llama_context * ctx = llama_init_from_model(model, cp); if (!ctx || tokens.empty()) return 5;
     std::vector<int8_t> flags(tokens.size(), 1); llama_batch batch = llama_batch_get_one(tokens.data(), (int32_t) tokens.size()); batch.logits = flags.data(); Counters prompt_before = sample(); auto prompt_start = clock_type::now(); if (llama_decode(ctx, batch) != 0) return 6; auto prompt_end = clock_type::now(); Counters prompt_after = sample(); emit(format, "prompt_eval", us(prompt_start, prompt_end), prompt_before, prompt_after, st.st_size, (int) tokens.size());
-    const int generated_count = 8; std::vector<llama_token> generated; generated.reserve(generated_count); Counters first_before = sample(); auto first_start = clock_type::now();
-    for (int i = 0; i < generated_count; ++i) { llama_token next = greedy(vocab, llama_get_logits_ith(ctx, (int32_t) tokens.size()-1)); generated.push_back(next); tokens.assign(1, next); int8_t output = 1; batch = llama_batch_get_one(tokens.data(), 1); batch.logits = &output; if (llama_decode(ctx, batch) != 0) return 7; }
-    auto first_end = clock_type::now(); Counters gen_after = sample(); emit(format, "generation", us(first_start, first_end), first_before, gen_after, st.st_size, 0, generated_count);
+    const int generated_count = 8; std::vector<llama_token> generated; generated.reserve(generated_count);
+    Counters first_before = sample(); auto first_start = clock_type::now();
+    llama_token first = greedy(vocab, llama_get_logits_ith(ctx, (int32_t) tokens.size()-1)); generated.push_back(first); tokens.assign(1, first); int8_t first_output = 1; batch = llama_batch_get_one(tokens.data(), 1); batch.logits = &first_output; if (llama_decode(ctx, batch) != 0) return 7;
+    auto first_end = clock_type::now(); Counters first_after = sample(); emit(format, "first_token", us(first_start, first_end), first_before, first_after, st.st_size, 0, 1);
+    Counters generation_before = sample(); auto generation_start = clock_type::now();
+    for (int i = 1; i < generated_count; ++i) { llama_token next = greedy(vocab, llama_get_logits_ith(ctx, 0)); generated.push_back(next); tokens.assign(1, next); int8_t output = 1; batch = llama_batch_get_one(tokens.data(), 1); batch.logits = &output; if (llama_decode(ctx, batch) != 0) return 7; }
+    auto generation_end = clock_type::now(); Counters gen_after = sample(); emit(format, "generation", us(generation_start, generation_end), generation_before, gen_after, st.st_size, 0, generated_count - 1);
     std::fprintf(stderr, "generated:"); for (llama_token token : generated) std::fprintf(stderr, "%s%d", token == generated.front() ? "" : ",", token); std::fprintf(stderr, "\n");
     llama_free(ctx); if (vbuf) llama_model_free_vbuf(model); else llama_model_free(model); llama_backend_free(); return 0;
 }
