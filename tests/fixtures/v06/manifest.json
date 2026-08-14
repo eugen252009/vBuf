@@ -1,0 +1,293 @@
+{
+  "schema": "vbuf-v06-cross-language-conformance-1",
+  "authority": "spec/spec_0.6.md",
+  "files": [
+    {
+      "path": "bad-magic.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "d42e3d726f8c53ddb9efabcba0b5ebe49cca2d2cc4061603f5294c9cb398e1c5",
+      "case": "bad magic"
+    },
+    {
+      "path": "base-shift-high.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "7db8bec08bf8e90bc9c7a7d8824f42e13e50768764b44f677cb08c1bb8c5b3c0",
+      "case": "BaseShift above range"
+    },
+    {
+      "path": "base-shift-low.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "c8082df9212ea683c1508f2b58ecca33f2535d9f5262e86298b5ee9171c0c006",
+      "case": "BaseShift below range"
+    },
+    {
+      "path": "chain-first.vbuf",
+      "accept": false,
+      "size": 33,
+      "sha256": "3d3faf189872e2c7cf4683f14d84c7a573c51d974673e5d9afa07e49e1080e0c",
+      "case": "first block sets Chain"
+    },
+    {
+      "path": "chain-key-mismatch.vbuf",
+      "accept": false,
+      "size": 49,
+      "sha256": "f82180276d15162125835055d9cdddc5c19cef00abeed506a13e4c3cfca3940b",
+      "case": "chain KeyID differs from predecessor"
+    },
+    {
+      "path": "count-overflow.vbuf",
+      "accept": false,
+      "size": 40,
+      "sha256": "4ad105c58314b886fd0c71ceea1dc7319ef21e1b7d348a1752eb1a8a04d6891f",
+      "case": "count times width overflow"
+    },
+    {
+      "path": "final-tail-padding.vbuf",
+      "accept": false,
+      "size": 48,
+      "sha256": "6125e3a4058cbfa7efe7184f29615347d205d5a189beca0383895513b92680ed",
+      "case": "unnecessary final padding"
+    },
+    {
+      "path": "impossible-scalar-count.vbuf",
+      "accept": false,
+      "size": 32,
+      "sha256": "356132ad9f29162f6e7de1eb0dbcfee9ec3597652d52d53b4ae3a52d5649467e",
+      "case": "scalar count is not one"
+    },
+    {
+      "path": "indefinite-nonzero-size.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "e3300114af389e5568563997aa81138d5c4e68ff179a450aa15c1fc2f96bcd6e",
+      "case": "indefinite stream carries size"
+    },
+    {
+      "path": "indefinite-truncated.vbuf",
+      "accept": false,
+      "size": 40,
+      "sha256": "67dd9e035fd0aed94101d30a9079e8b99d54015f47716329b88e1edc0e9e3fa4",
+      "case": "truncated final indefinite block"
+    },
+    {
+      "path": "invalid-header-size.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "fc43006f36ae7aa27137e23f8b1c1be6cac10d43aace7a161f7a6e276939e6be",
+      "case": "HeaderSize not divisible by eight"
+    },
+    {
+      "path": "invalid-payload-shift.vbuf",
+      "accept": false,
+      "size": 32,
+      "sha256": "f7a470a95db67a03a81571e91cd49ba12d1ea54ec3def7bcb7b8358b427bc347",
+      "case": "combined payload shift exceeds 63"
+    },
+    {
+      "path": "invalid-physical.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "f837b1fae9d62e53603f81be7e01ad3fc4454505da71ffa186f61b53c8e01377",
+      "case": "reserved physical mode"
+    },
+    {
+      "path": "invalid-semantic.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "38cdbc8f93eec8ba171ae181a47e4edbb3a2b3a295704c3ec1e4467b69708190",
+      "case": "reserved semantic"
+    },
+    {
+      "path": "known-size-mismatch.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "dd126c03b3a3b8f2be52a481af98a4c1d8e2f834c4c3712a8716cc5d70c16c6d",
+      "case": "known DataRegionSize differs from physical length"
+    },
+    {
+      "path": "known-size-over-4g.vbuf",
+      "accept": false,
+      "size": 24,
+      "sha256": "9f0b44dde011b5b48ccfe9b571c3a39d7b667c317ab2d4946180fce0b137edd0",
+      "case": "declared range exceeds 4 GiB and physical input"
+    },
+    {
+      "path": "known-size-overflow.vbuf",
+      "accept": false,
+      "size": 24,
+      "sha256": "7a90f30c75ac1f6b4ba844570617929106904dd0c03632ae3eb3ae21a0b00838",
+      "case": "data-region end addition overflow"
+    },
+    {
+      "path": "malformed-extension-overrun.vbuf",
+      "accept": false,
+      "size": 32,
+      "sha256": "ad711c837a2ecf0ae434091702e10a55648451f0f62b3c7a000cabf78510536f",
+      "case": "extension exceeds HeaderSize"
+    },
+    {
+      "path": "malformed-extension-zero.vbuf",
+      "accept": false,
+      "size": 32,
+      "sha256": "8df81b5e55b2e2a9341fd512e6fadc3603ecec5c3ed22fe277df35d326588be8",
+      "case": "zero extension length"
+    },
+    {
+      "path": "noncanonical-extended-inline.vbuf",
+      "accept": false,
+      "size": 40,
+      "sha256": "f72dcc6ec1d4259b50ed920db6108b5cc45d2ef518031b4f17cd57fbc3ffca8f",
+      "case": "extended form has inline count"
+    },
+    {
+      "path": "noncanonical-extended-small.vbuf",
+      "accept": false,
+      "size": 40,
+      "sha256": "2b5ca7cb1365e6d72d6c6aaaef87f5ef34f871fea1c3f5a7a3f883db948338b5",
+      "case": "small count uses extended form"
+    },
+    {
+      "path": "nonzero-global-padding.vbuf",
+      "accept": false,
+      "size": 32,
+      "sha256": "b45e5cd8a919c06b319cc223b17dc96622576087a1ba63d1b8b7a512665fbf24",
+      "case": "non-zero global alignment padding"
+    },
+    {
+      "path": "nonzero-payload-padding.vbuf",
+      "accept": false,
+      "size": 52,
+      "sha256": "958065cf0a7233121e77252fa6089cc5e2709a2432cbc9172bf0188b82f6a4d4",
+      "case": "non-zero payload alignment padding"
+    },
+    {
+      "path": "payload-truncated-byte.vbuf",
+      "accept": false,
+      "size": 43,
+      "sha256": "466e21d5682e6783b2f64db9dd33a6a62ba150d2f4d04880921beeccd85bd35d",
+      "case": "payload truncated by one byte"
+    },
+    {
+      "path": "payload-truncated-element.vbuf",
+      "accept": false,
+      "size": 40,
+      "sha256": "36ff6ce85be0227e85810a85dbe86176e1802aab7e160807be875ede8f5e526b",
+      "case": "two Float64 declared; one available"
+    },
+    {
+      "path": "reserved-nonzero.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "378358a8f3cf2336eed5d6bf4461137957c4d00faf35aad9bee70f9ad0538f68",
+      "case": "reserved field non-zero"
+    },
+    {
+      "path": "short-header.vbuf",
+      "accept": false,
+      "size": 8,
+      "sha256": "329ae6a94cbc4328a59d2e8bf5ea7680db15c580049823020716c06dbcf984b6",
+      "case": "short global header"
+    },
+    {
+      "path": "truncated-anchor.vbuf",
+      "accept": false,
+      "size": 28,
+      "sha256": "dc8c8a8fe6e97b5fd358094ab37c261eaedbc134e22188a41ea6d5c4d621d5ee",
+      "case": "truncated block anchor"
+    },
+    {
+      "path": "truncated-extended-count.vbuf",
+      "accept": false,
+      "size": 32,
+      "sha256": "be53cf4f3dfb14223a66359ab55a950773d0686495e85cd06e46970b4acb2af9",
+      "case": "truncated extended count"
+    },
+    {
+      "path": "unaligned-block-start.vbuf",
+      "accept": false,
+      "size": 49,
+      "sha256": "f09dbe7714ba7cd576bfe5e8287d6bd32767a97f1d2ff3d6fd06164fa2238340",
+      "case": "non-zero bytes before canonical next block"
+    },
+    {
+      "path": "unknown-flags.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "d6cd01e17c62b286522e6a2cb455a7bb13aa1d5b70c6be84ea3e358fceab1b46",
+      "case": "unknown global flag"
+    },
+    {
+      "path": "unknown-required-extension.vbuf",
+      "accept": false,
+      "size": 32,
+      "sha256": "168b3fbb53efbb000ff5068044caf1325557c5f53d9ea1397ec79bd386d0a1ea",
+      "case": "unknown required extension"
+    },
+    {
+      "path": "unsupported-version.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "74ada8cc602a1379527173d127ed30785ef396aeecfecda98316ebcad09fae74",
+      "case": "unsupported version"
+    },
+    {
+      "path": "unsupported-width.vbuf",
+      "accept": false,
+      "size": 44,
+      "sha256": "6d0957bd7158cf35546b7f001a71464a4b50ba7d0eb2f1b62ae49f2a23b0bb6b",
+      "case": "unsupported integer width"
+    },
+    {
+      "path": "valid-basic.vbuf",
+      "accept": true,
+      "size": 44,
+      "sha256": "107cac420d3e3e06d453d90db11828620721c3c8f15577fc5d1087a03d6c09db",
+      "case": "known-size u32 array; partial final BaseStep"
+    },
+    {
+      "path": "valid-duplicate-chain.vbuf",
+      "accept": true,
+      "size": 49,
+      "sha256": "aaea33e90322050f49cf1e35537e8b5da8419bdd2c42b35475063deba8a39145",
+      "case": "duplicate KeyID with valid adjacent chain"
+    },
+    {
+      "path": "valid-duplicate-unchained.vbuf",
+      "accept": true,
+      "size": 49,
+      "sha256": "41a237b9429b37fc2c41d10a7700b64422a9b4eb78d9312ff14b19a8ec6b867d",
+      "case": "duplicate KeyID without grouping"
+    },
+    {
+      "path": "valid-empty.vbuf",
+      "accept": true,
+      "size": 24,
+      "sha256": "5e6d14bebacfbb02ae95611b583fb9956e7030a4333137119900ee661117b549",
+      "case": "known-size empty stream"
+    },
+    {
+      "path": "valid-indefinite.vbuf",
+      "accept": true,
+      "size": 44,
+      "sha256": "7a7014d56a875aba9c09bda90733d84bab3aa551fc04bc1b648aa7e82c6a23bb",
+      "case": "complete indefinite stream at EOF"
+    },
+    {
+      "path": "valid-optional-extension.vbuf",
+      "accept": true,
+      "size": 32,
+      "sha256": "937e055378fc46ac571e67ecae0ebb2ca8d2b6ee5d991b07ec3034e225e69da6",
+      "case": "unknown optional extension skipped"
+    },
+    {
+      "path": "valid-zero-array.vbuf",
+      "accept": true,
+      "size": 32,
+      "sha256": "8712b05f81e7097bf083fa4b7671a5527fbd28aab7c5e50bc9ba67953081ba40",
+      "case": "zero-length array"
+    }
+  ]
+}

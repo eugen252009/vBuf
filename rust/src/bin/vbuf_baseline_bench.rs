@@ -18,8 +18,13 @@ const AOS_COLUMN: u16 = 3;
 #[derive(Clone, Copy)]
 struct NativeRecord {
     id: u32,
+    _padding: u32,
     value: f64,
 }
+
+// SAFETY: this benchmark's legacy-only #[repr(C)] record contains only u32/f64,
+// for which every bit pattern is valid. It is not a portable v0.6 wire type.
+unsafe impl vbuf_core::LegacyV05Pod for NativeRecord {}
 
 #[derive(Clone, Copy)]
 struct TargetResult {
@@ -154,11 +159,8 @@ fn encode_vbuf_soa(ids: &[u32], values: &[f64]) -> Vec<u8> {
     {
         let mut writer =
             VBufWriter::new(&mut cursor, ALIGNMENT).expect("create real vBuf SoA writer");
-        writer
-            .write_column(ID_COLUMN, ids)
-            .expect("write real vBuf SoA id column");
-        writer
-            .write_column(VALUE_COLUMN, values)
+        unsafe { writer.write_column(ID_COLUMN, ids) }.expect("write real vBuf SoA id column");
+        unsafe { writer.write_column(VALUE_COLUMN, values) }
             .expect("write real vBuf SoA value column");
     }
     cursor.into_inner()
@@ -169,8 +171,7 @@ fn encode_vbuf_aos(records: &[NativeRecord]) -> Vec<u8> {
     {
         let mut writer =
             VBufWriter::new(&mut cursor, ALIGNMENT).expect("create real vBuf AoS writer");
-        writer
-            .write_column(AOS_COLUMN, records)
+        unsafe { writer.write_column(AOS_COLUMN, records) }
             .expect("write real vBuf AoS record column");
     }
     cursor.into_inner()
@@ -369,7 +370,11 @@ fn main() {
         let value = index as f64 * 1.5;
         ids.push(id);
         values.push(value);
-        aos.push(NativeRecord { id, value });
+        aos.push(NativeRecord {
+            id,
+            _padding: 0,
+            value,
+        });
     }
     let expected_value = 749_999_250_000.0;
     let expected_full = 1_249_998_750_000.0;

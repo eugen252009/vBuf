@@ -49,59 +49,48 @@ fn ensure_test_file(filename: &str, n: usize) -> Result<(), &str> {
     {
         println!("Schreibe Spalte 101...");
         let col: Vec<u32> = (0..n_per_col as u32).collect();
-        vbuf_writer
-            .write_column(101, &col)
-            .map_err(|_| "Fehler 101")?;
+        unsafe { vbuf_writer.write_column(101, &col) }.map_err(|_| "Fehler 101")?;
     } // col wird hier gedroppt -> RAM wieder frei
 
     // --- SPALTE 102 ---
     {
         println!("Schreibe Spalte 102...");
         let col = vec![2u32; n_per_col];
-        vbuf_writer
-            .write_column(102, &col)
-            .map_err(|_| "Fehler 102")?;
+        unsafe { vbuf_writer.write_column(102, &col) }.map_err(|_| "Fehler 102")?;
     } // RAM wieder frei
 
     // --- SPALTE 103 ---
     {
         println!("Schreibe Spalte 103...");
         let col: Vec<u32> = (0..n_per_col as u32).map(|x| x * 2).collect();
-        vbuf_writer
-            .write_column(103, &col)
-            .map_err(|_| "Fehler 103")?;
+        unsafe { vbuf_writer.write_column(103, &col) }.map_err(|_| "Fehler 103")?;
     }
 
     // --- SPALTE 104 ---
     {
         println!("Schreibe Spalte 104...");
         let col: Vec<u32> = (0..n_per_col as u32).map(|x| x.wrapping_mul(x)).collect();
-        vbuf_writer
-            .write_column(104, &col)
-            .map_err(|_| "Fehler 104")?;
+        unsafe { vbuf_writer.write_column(104, &col) }.map_err(|_| "Fehler 104")?;
     }
 
     // --- SPALTE 105 ---
     {
         println!("Schreibe Spalte 105...");
         let col: Vec<u32> = (0..n_per_col as u32).map(|x| !x).collect();
-        vbuf_writer
-            .write_column(105, &col)
-            .map_err(|_| "Fehler 105")?;
+        unsafe { vbuf_writer.write_column(105, &col) }.map_err(|_| "Fehler 105")?;
     }
 
     // --- SPALTE 106 ---
     {
         println!("Schreibe Spalte 106...");
         let col: Vec<u32> = (0..n_per_col as u32).map(|x| (x + 100) % 500).collect();
-        vbuf_writer
-            .write_column(106, &col)
-            .map_err(|_| "Fehler 106")?;
+        unsafe { vbuf_writer.write_column(106, &col) }.map_err(|_| "Fehler 106")?;
     }
 
     Ok(())
 }
 
+#[cfg(test)]
 fn get_cycles() -> u64 {
     #[cfg(target_arch = "x86_64")]
     {
@@ -165,14 +154,14 @@ mod tests {
             .count();
 
         let duration = start.elapsed();
-let cycle_end = get_cycles();
+        let cycle_end = get_cycles();
         let secs = duration.as_secs_f64();
 
         let total_cycles = (cycle_end - cycle_start) as f64;
         let cycles_per_item = total_cycles / (n as f64);
 
         // Berechnung: n * 4 Bytes * 2 Spalten
-        let total_bytes = (n * std::mem::size_of::<u32>() * 2) as f64;
+        let total_bytes = (std::mem::size_of_val(col_a) + std::mem::size_of_val(col_b)) as f64;
         let speed_gb_s = (total_bytes / secs) / 1e9;
         println!("Matches:    {}", match_count);
         println!("Speed:      \x1b[1;33m{:.2} GB/s\x1b[0m", speed_gb_s);
@@ -214,7 +203,7 @@ let cycle_end = get_cycles();
 
         // Messung Ende
         let time_duration = time_start.elapsed();
-let cycle_end = get_cycles();
+        let cycle_end = get_cycles();
 
         // Kalkulationen
         let secs = time_duration.as_secs_f64();
@@ -263,10 +252,10 @@ let cycle_end = get_cycles();
             let mut writer =
                 VBufWriter::new(&mut out_file, a_shift.into()).expect("Writer Init Error");
 
-            writer.write_column(103, &result).expect("Write Error");
+            unsafe { writer.write_column(103, &result) }.expect("Write Error");
         }
 
-let cycle_end = get_cycles();
+        let cycle_end = get_cycles();
         let secs = start.elapsed().as_secs_f64();
 
         let total_cycles = (cycle_end - cycle_start) as f64;
@@ -300,7 +289,7 @@ let cycle_end = get_cycles();
             .map(|w| ((w[0] as f32 * 0.25) + (w[1] as f32 * 0.5) + (w[2] as f32 * 0.25)) as u32)
             .collect();
 
-let cycle_end = get_cycles();
+        let cycle_end = get_cycles();
         let secs = start.elapsed().as_secs_f64();
         let total_bytes = (n * 4 + result.len() * 4) as f64;
 
@@ -331,7 +320,7 @@ let cycle_end = get_cycles();
             .map(|(idx, _)| idx)
             .collect();
 
-let cycle_end = get_cycles();
+        let cycle_end = get_cycles();
         let secs = start.elapsed().as_secs_f64();
         let total_cycles = (cycle_end - cycle_start) as f64;
         let cycles_per_item = total_cycles / (data.len() as f64);
@@ -411,7 +400,7 @@ let cycle_end = get_cycles();
         // Simuliert das Erstellen einer Arbeitskopie mit Skalierung
         let result: Vec<u32> = data.par_iter().map(|&x| x.wrapping_mul(42)).collect();
 
-let cycle_end = get_cycles();
+        let cycle_end = get_cycles();
         let secs = start.elapsed().as_secs_f64();
 
         let total_cycles = (cycle_end - cycle_start) as f64;
@@ -456,7 +445,7 @@ let cycle_end = get_cycles();
                 },
             );
 
-let cycle_end = get_cycles();
+        let cycle_end = get_cycles();
         let secs = start.elapsed().as_secs_f64();
 
         let total_cycles = (cycle_end - cycle_start) as f64;

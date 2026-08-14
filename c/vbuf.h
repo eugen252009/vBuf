@@ -21,7 +21,41 @@ typedef struct {
 
 typedef enum { VBUF_U16 = 16, VBUF_U32 = 32, VBUF_U64 = 64 } vbuf_type_t;
 
-// --- CORE API ---
+/* Canonical v0.6 API. The structure is opaque and created only after complete
+ * v0.6 validation. Return code 0 means success; other values are stable error
+ * categories defined by the Rust reader. */
+typedef struct vbuf_v06_instance vbuf_v06_instance_t;
+typedef enum {
+  VBUF_V06_U8 = 0,
+  VBUF_V06_U16 = 1,
+  VBUF_V06_U32 = 2,
+  VBUF_V06_U64 = 3,
+  VBUF_V06_I8 = 4,
+  VBUF_V06_I16 = 5,
+  VBUF_V06_I32 = 6,
+  VBUF_V06_I64 = 7,
+  VBUF_V06_F32 = 8,
+  VBUF_V06_F64 = 9,
+  VBUF_V06_OPAQUE = 10
+} vbuf_v06_type_t;
+
+vbuf_v06_instance_t *vbuf_v06_open(const char *path, uint32_t *error_out);
+void vbuf_v06_close(vbuf_v06_instance_t *instance);
+uint32_t vbuf_v06_get(const vbuf_v06_instance_t *instance, uint16_t key_id,
+                      size_t occurrence, uint8_t expected_type,
+                      const void **data_out, size_t *count_out);
+uint32_t vbuf_v06_header_info(const vbuf_v06_instance_t *instance,
+                              uint64_t *base_step_out,
+                              uint64_t *data_start_out,
+                              uint64_t *data_size_out);
+uint32_t vbuf_v06_block_info(const vbuf_v06_instance_t *instance, size_t index,
+                             uint64_t *block_start_out,
+                             uint64_t *payload_start_out,
+                             uint64_t *payload_length_out,
+                             uint64_t *next_block_start_out,
+                             uint64_t *count_out);
+
+// --- LEGACY v0.5 CORE API ---
 vbuf_instance_t *vbuf_open(const char *filename);
 void vbuf_close(vbuf_instance_t *inst);
 
@@ -40,7 +74,8 @@ size_t vbuf_pack_block(void *target, uint16_t key_id, uint8_t type,
 const void *vbuf_get_col_ptr(vbuf_instance_t *inst, uint32_t id, size_t *n_out,
                              uint16_t *width_out);
 
-// --- HIGH-SPEED GETTER (Synchronisiert mit Atomic Block Standard) ---
+// --- LEGACY v0.5 GETTER ---
+// This preserves observed pre-v0.6 behavior and is not a safe v0.6 API.
 static inline const void *vbuf_get_generic(vbuf_instance_t *inst,
                                            uint32_t key_id, size_t *count_out,
                                            uint16_t *width_out) {

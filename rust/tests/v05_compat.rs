@@ -15,12 +15,14 @@ fn current_rust_writer_bytes_are_preserved() {
     let mut cursor = Cursor::new(Vec::new());
     {
         let mut writer = VBufWriter::new(&mut cursor, 16).expect("legacy writer header");
-        writer
-            .write_column(1, &[1u32, 2, 3])
-            .expect("legacy u32 column");
-        writer
-            .write_column(2, &[500u16, 1000])
-            .expect("legacy u16 column");
+        unsafe {
+            writer
+                .write_column(1, &[1u32, 2, 3])
+                .expect("legacy u32 column");
+            writer
+                .write_column(2, &[500u16, 1000])
+                .expect("legacy u16 column");
+        }
     }
 
     let expected = std::fs::read(fixture("current-rust.vbuf")).expect("read fixture");

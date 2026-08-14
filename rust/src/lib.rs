@@ -1,10 +1,26 @@
+pub mod v06;
+
 use ::std::io::{BufWriter, Seek, Write};
 use memmap2::Mmap;
 use std::fs::File;
 
+/// Marker for native representations that the explicit legacy-v0.5 reader may
+/// expose after width, bounds, and alignment checks.
+///
+/// # Safety
+/// Every bit pattern must be valid for `Self`, and `Self` must contain no
+/// references or padding whose contents are required to be initialized.
+pub unsafe trait LegacyV05Pod: Copy {}
+
+macro_rules! legacy_v05_pod {
+    ($($ty:ty),+ $(,)?) => { $(unsafe impl LegacyV05Pod for $ty {})+ };
+}
+legacy_v05_pod!(u8, u16, u32, u64, i8, i16, i32, i64, f32, f64);
+
 const MAGIC: u32 = 0x46554256; // "VBUF"
 const VERSION: u32 = 0x00050000; // 0.5.0
 
+/// Explicit pre-v0.6 compatibility instance. New code must use `v06::VBufV06`.
 #[repr(C)]
 pub struct VBufInstance {
     pub mem: *mut u8,
@@ -13,6 +29,8 @@ pub struct VBufInstance {
     pub alignment: u32,
     pub _mmap: Mmap,
 }
+pub type LegacyV05Instance = VBufInstance;
+
 pub struct VBufWriter<W: Write + Seek> {
     writer: BufWriter<W>,
     alignment: usize,
@@ -21,16 +39,22 @@ pub struct VBufWriter<W: Write + Seek> {
 impl VBufInstance {
     pub fn open(path: &str) -> std::io::Result<Self> {
         let file = File::open(path)?;
+        // SAFETY: this creates a read-only mapping owned by the instance; no
+        // mutable alias is created by the legacy reader.
         let mmap = unsafe { Mmap::map(&file)? };
-        if mmap.len() < 16 || &mmap[0..4] != MAGIC.to_le_bytes() {
+        if mmap.len() < 16 || mmap[0..4] != MAGIC.to_le_bytes() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 "Invalid Magic header",
             ));
         }
         let a_shift = mmap[8];
-        let alignment = 1 << a_shift;
+        let alignment = 1usize.checked_shl(u32::from(a_shift)).ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid legacy AShift")
+        })?;
         let mem = mmap.as_ptr() as *mut u8;
+        // SAFETY: the minimum 16-byte legacy header length was checked above,
+        // so adding 16 yields an in-mapping or one-past pointer.
         let data = unsafe { mem.add(16) };
         let size = mmap.len();
         Ok(VBufInstance {
@@ -42,7 +66,12 @@ impl VBufInstance {
         })
     }
 
-    pub fn get_as<T>(&self, target_id: u32) -> Option<&[T]> {
+    /// Reads a native value from the explicitly legacy-v0.5 layout.
+    ///
+    /// This is not the v0.6 API. `LegacyV05Pod` replaces the former unrestricted
+    /// arbitrary-`T` contract, which could construct references to invalid Rust
+    /// representations based only on byte width.
+    pub fn get_as<T: LegacyV05Pod>(&self, target_id: u32) -> Option<&[T]> {
         let mem = &self._mmap;
         let mut curr = 16; // Nach Global Header
         let end = mem.len();
@@ -67,29 +96,40 @@ impl VBufInstance {
                 let count = u64::from_le_bytes(mem[curr + 8..curr + 16].try_into().unwrap());
                 (count, 16)
             } else {
-                let count = ((anchor >> 48) & 0xFFFF) as u64;
+                let count = (anchor >> 48) & 0xFFFF;
                 (count, 8)
             };
 
-            let data_start = (curr + header_size + (alignment - 1)) & !(alignment - 1);
+            let data_start =
+                curr.checked_add(header_size)?.checked_add(alignment - 1)? & !(alignment - 1);
+            let count = usize::try_from(n).ok()?;
+            let bytes_per_item = usize::from(plen).checked_add(7)? / 8;
+            let data_bytes = count.checked_mul(bytes_per_item)?;
+            let data_end = data_start.checked_add(data_bytes)?;
 
             // Wenn das unsere ID ist, Slice zurückgeben
             if id == target_id {
-                if (plen as usize) != std::mem::size_of::<T>() * 8 {
-                    return None; // Typ-Mismatch erkannt!
+                if usize::from(plen) != std::mem::size_of::<T>().checked_mul(8)? || data_end > end {
+                    return None;
                 }
-
-                let data_end = data_start + (n as usize * (plen as usize / 8));
-                if data_end <= end {
-                    let ptr = mem[data_start..data_end].as_ptr() as *const T;
-                    return Some(unsafe { std::slice::from_raw_parts(ptr, n as usize) });
+                let bytes = mem.get(data_start..data_end)?;
+                if !(bytes.as_ptr() as usize).is_multiple_of(std::mem::align_of::<T>()) {
+                    return None;
                 }
+                // SAFETY: the complete byte range is inside the mapping; count
+                // multiplication and end arithmetic were checked; alignment was
+                // checked immediately above; LegacyV05Pod guarantees all bit
+                // patterns are valid and no mutable alias is created; the slice
+                // lifetime remains tied to `self._mmap`.
+                return Some(unsafe {
+                    std::slice::from_raw_parts(bytes.as_ptr().cast::<T>(), count)
+                });
             }
 
-            // Weitermarschieren zum nächsten Block
-            let data_bytes = n as usize * (plen as usize / 8);
-            curr = data_start + data_bytes;
-            curr = (curr + 7) & !7; // Align auf 8-Byte Grenze für den nächsten Anchor
+            if data_end > end {
+                return None;
+            }
+            curr = data_end.checked_add(7)? & !7; // legacy 8-byte anchor step
         }
         None
     }
@@ -126,7 +166,12 @@ impl<W: Write + Seek> VBufWriter<W> {
         VBufWriter::<File>::new(file, 4096)
     }
 
-    pub fn write_column<T>(&mut self, id: u16, data: &[T]) -> std::io::Result<()> {
+    /// Writes the explicitly legacy-v0.5 native-memory representation.
+    ///
+    /// # Safety
+    /// Every byte of every `T`, including padding, must be initialized and the
+    /// native representation must be intentionally accepted as legacy-only.
+    pub unsafe fn write_column<T>(&mut self, id: u16, data: &[T]) -> std::io::Result<()> {
         let n = data.len() as u64;
         let item_size = std::mem::size_of::<T>();
         let plen = (item_size * 8) as u64;
@@ -149,11 +194,11 @@ impl<W: Write + Seek> VBufWriter<W> {
         }
 
         // Sicherer Byte-Cast für die Daten
+        // SAFETY: this method's caller guarantees every byte of every `T`,
+        // including padding, is initialized; the source slice proves the range
+        // and lifetime, and only an immutable byte view is constructed.
         let byte_slice = unsafe {
-            std::slice::from_raw_parts(
-                data.as_ptr() as *const u8,
-                data.len() * std::mem::size_of::<T>(),
-            )
+            std::slice::from_raw_parts(data.as_ptr() as *const u8, std::mem::size_of_val(data))
         };
         self.writer.write_all(byte_slice)?;
 
@@ -169,6 +214,7 @@ impl<W: Write + Seek> VBufWriter<W> {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     // Falls das nicht klappt, versuche den direkten Pfad zu den Konstanten:
     use crate::{MAGIC, VBufInstance, VBufWriter};
@@ -182,9 +228,7 @@ mod tests {
 
         {
             let mut writer = VBufWriter::new(&mut buffer, 12).expect("Writer init failed");
-            writer
-                .write_column(col_id, &test_data)
-                .expect("Write failed");
+            unsafe { writer.write_column(col_id, &test_data) }.expect("Write failed");
         }
 
         let raw_bytes = buffer.into_inner();
@@ -233,13 +277,15 @@ mod tests {
 
         {
             let mut writer = VBufWriter::new(&mut buffer, 12).unwrap();
-            writer.write_column(1, &data1).unwrap();
-            writer.write_column(2, &data2).unwrap();
+            unsafe {
+                writer.write_column(1, &data1).unwrap();
+                writer.write_column(2, &data2).unwrap();
+            }
         }
 
         // In einem echten Integrationstest würde man dies nun über ein Temp-File laden.
         // Hier prüfen wir nur, ob der Buffer geschrieben wurde.
-        assert!(buffer.get_ref().len() > 0);
+        assert!(!buffer.get_ref().is_empty());
     }
 
     #[test]
@@ -249,23 +295,21 @@ mod tests {
         let r#type = 2; // maps to uint32_t, sem = 0
 
         // Test size-query mode
-        let needed_size = super::vbuf_pack_block(
-            std::ptr::null_mut(),
-            key_id,
-            r#type,
-            std::ptr::null(),
-            5,
-        );
+        let needed_size = unsafe {
+            super::vbuf_pack_block(std::ptr::null_mut(), key_id, r#type, std::ptr::null(), 5)
+        };
         assert_eq!(needed_size, 40);
 
         let mut target = vec![0u8; needed_size];
-        let packed_size = super::vbuf_pack_block(
-            target.as_mut_ptr() as *mut std::ffi::c_void,
-            key_id,
-            r#type,
-            test_data.as_ptr() as *const std::ffi::c_void,
-            5,
-        );
+        let packed_size = unsafe {
+            super::vbuf_pack_block(
+                target.as_mut_ptr() as *mut std::ffi::c_void,
+                key_id,
+                r#type,
+                test_data.as_ptr() as *const std::ffi::c_void,
+                5,
+            )
+        };
         assert_eq!(packed_size, needed_size);
 
         // Verify packed header
@@ -296,12 +340,16 @@ mod tests {
 
 // --- C-INTERFACE (Shared Object) ---
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::ffi::{CStr, c_char};
 use std::os::raw::c_uint;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
+/// Opens an explicitly legacy-v0.5 file.
+///
+/// # Safety
+/// `path` must point to a valid NUL-terminated C string for the duration of the call.
 #[unsafe(no_mangle)]
-pub extern "C" fn vbuf_open(path: *const c_char) -> *mut VBufInstance {
+pub unsafe extern "C" fn vbuf_open(path: *const c_char) -> *mut VBufInstance {
     if path.is_null() {
         return std::ptr::null_mut();
     }
@@ -317,8 +365,10 @@ pub extern "C" fn vbuf_open(path: *const c_char) -> *mut VBufInstance {
     }
 }
 
+/// # Safety
+/// `ptr` must be null or a live handle returned by `vbuf_open`, and must not be closed twice.
 #[unsafe(no_mangle)]
-pub extern "C" fn vbuf_close(ptr: *mut VBufInstance) {
+pub unsafe extern "C" fn vbuf_close(ptr: *mut VBufInstance) {
     if !ptr.is_null() {
         unsafe {
             drop(Box::from_raw(ptr));
@@ -326,8 +376,10 @@ pub extern "C" fn vbuf_close(ptr: *mut VBufInstance) {
     }
 }
 
+/// # Safety
+/// `ptr` must identify a live legacy handle for the duration of the call.
 #[unsafe(no_mangle)]
-pub extern "C" fn vbuf_get_sum_u32(ptr: *mut VBufInstance, col_id: c_uint) -> f64 {
+pub unsafe extern "C" fn vbuf_get_sum_u32(ptr: *mut VBufInstance, col_id: c_uint) -> f64 {
     let inst = unsafe {
         if ptr.is_null() {
             return -1.0;
@@ -342,8 +394,13 @@ pub extern "C" fn vbuf_get_sum_u32(ptr: *mut VBufInstance, col_id: c_uint) -> f6
     }
 }
 
+/// Packs a legacy-v0.5 block.
+///
+/// # Safety
+/// When non-null, `target` must be writable for the returned size and `data`
+/// must be readable for `count * element_width` bytes; the ranges must not overlap.
 #[unsafe(no_mangle)]
-pub extern "C" fn vbuf_pack_block(
+pub unsafe extern "C" fn vbuf_pack_block(
     target: *mut std::ffi::c_void,
     key_id: u16,
     r#type: u8,
@@ -364,14 +421,38 @@ pub extern "C" fn vbuf_pack_block(
         sem = 0;
     } else {
         match r#type {
-            0 => { bit_width = 8; sem = 0; }
-            1 => { bit_width = 16; sem = 0; }
-            2 => { bit_width = 32; sem = 0; }
-            3 => { bit_width = 64; sem = 0; }
-            4 => { bit_width = 32; sem = 1; }
-            5 => { bit_width = 64; sem = 1; }
-            6 => { bit_width = 8; sem = 2; }
-            7 => { bit_width = 8; sem = 3; }
+            0 => {
+                bit_width = 8;
+                sem = 0;
+            }
+            1 => {
+                bit_width = 16;
+                sem = 0;
+            }
+            2 => {
+                bit_width = 32;
+                sem = 0;
+            }
+            3 => {
+                bit_width = 64;
+                sem = 0;
+            }
+            4 => {
+                bit_width = 32;
+                sem = 1;
+            }
+            5 => {
+                bit_width = 64;
+                sem = 1;
+            }
+            6 => {
+                bit_width = 8;
+                sem = 2;
+            }
+            7 => {
+                bit_width = 8;
+                sem = 3;
+            }
             _ => {
                 if r#type == 8 {
                     bit_width = 8;
@@ -399,7 +480,7 @@ pub extern "C" fn vbuf_pack_block(
             anchor |= (sem & 0xF) as u64;
             anchor |= 1u64 << 4; // PHYS: Array
             anchor |= 1u64 << 9; // OVERFLOW: N follows as u64
-            anchor |= ((key_id & 0xFFFF) as u64) << 16;
+            anchor |= (key_id as u64) << 16;
             anchor |= (bit_width as u64) << 32;
 
             *(target as *mut u64) = anchor;
@@ -427,6 +508,8 @@ pub extern "C" fn vbuf_pack_block(
     total_size
 }
 
+/// # Safety
+/// `f` must be a valid writable C `FILE*`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vbuf_write_header(f: *mut libc::FILE, a_shift: u8) {
     unsafe {
@@ -438,6 +521,9 @@ pub unsafe extern "C" fn vbuf_write_header(f: *mut libc::FILE, a_shift: u8) {
     }
 }
 
+/// # Safety
+/// `f` must be writable and `data` must be readable for `n * bit_width / 8`
+/// bytes. The alignment and width must satisfy this legacy writer's contract.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vbuf_write_atomic_column(
     f: *mut libc::FILE,
@@ -480,6 +566,8 @@ pub unsafe extern "C" fn vbuf_write_atomic_column(
     }
 }
 
+/// # Safety
+/// `f` must be writable and `data` must contain at least `n` readable `u16` values.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vbuf_write_column(
     f: *mut libc::FILE,
@@ -493,6 +581,11 @@ pub unsafe extern "C" fn vbuf_write_column(
     }
 }
 
+/// Legacy pointer getter retained only for v0.5 compatibility evidence.
+///
+/// # Safety
+/// `inst` must identify a live legacy handle and non-null output pointers must
+/// be writable. The returned legacy pointer does not carry v0.6 guarantees.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vbuf_get_col_ptr(
     inst: *mut VBufInstance,
@@ -525,7 +618,7 @@ pub unsafe extern "C" fn vbuf_get_col_ptr(
                 let count = u64::from_le_bytes(mem[curr + 8..curr + 16].try_into().unwrap());
                 (count, 16)
             } else {
-                let count = ((anchor >> 48) & 0xFFFF) as u64;
+                let count = (anchor >> 48) & 0xFFFF;
                 (count, 8)
             };
 
@@ -548,4 +641,214 @@ pub unsafe extern "C" fn vbuf_get_col_ptr(
 
         std::ptr::null()
     }
+}
+
+/// Opens and fully validates a canonical v0.6 file. Unlike `vbuf_open`, this
+/// never returns a handle for legacy-v0.5 bytes.
+///
+/// # Safety
+/// `path` must be a valid NUL-terminated C string; `error_out`, when non-null,
+/// must be writable for one `u32`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_v06_open(
+    path: *const c_char,
+    error_out: *mut u32,
+) -> *mut v06::VBufV06 {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        // SAFETY: the function contract requires a valid C string and writable
+        // optional error output; both are checked for null before dereference.
+        unsafe {
+            if !error_out.is_null() {
+                *error_out = 0;
+            }
+            if path.is_null() {
+                if !error_out.is_null() {
+                    *error_out = v06::V06ErrorCode::TooShort as u32;
+                }
+                return std::ptr::null_mut();
+            }
+            let path = match CStr::from_ptr(path).to_str() {
+                Ok(path) => path,
+                Err(_) => {
+                    if !error_out.is_null() {
+                        *error_out = v06::V06ErrorCode::TooShort as u32;
+                    }
+                    return std::ptr::null_mut();
+                }
+            };
+            match v06::VBufV06::open(path) {
+                Ok(instance) => Box::into_raw(Box::new(instance)),
+                Err(error) => {
+                    if !error_out.is_null() {
+                        *error_out = error.code as u32;
+                    }
+                    std::ptr::null_mut()
+                }
+            }
+        }
+    }));
+    match result {
+        Ok(instance) => instance,
+        Err(_) => {
+            // SAFETY: the function contract makes a non-null error_out writable.
+            unsafe {
+                if !error_out.is_null() {
+                    *error_out = v06::V06ErrorCode::HostUnsupported as u32;
+                }
+            }
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// # Safety
+/// `instance` must be null or a live handle returned by `vbuf_v06_open`, and
+/// must not be closed twice.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_v06_close(instance: *mut v06::VBufV06) {
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if !instance.is_null() {
+            // SAFETY: the function contract requires this to be the unique live
+            // handle returned by vbuf_v06_open.
+            unsafe { drop(Box::from_raw(instance)) };
+        }
+    }));
+}
+
+/// Returns a pointer only after the complete file and requested primitive range
+/// have been validated. Type codes are declared by `vbuf_v06_type_t` in C.
+///
+/// # Safety
+/// `instance` must be live; `data_out` and `count_out` must be valid writable
+/// pointers. The returned pointer remains valid only while `instance` is live.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_v06_get(
+    instance: *const v06::VBufV06,
+    key_id: u16,
+    occurrence: libc::size_t,
+    expected_type: u8,
+    data_out: *mut *const std::ffi::c_void,
+    count_out: *mut libc::size_t,
+) -> u32 {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        // SAFETY: the function contract requires a live handle and writable output
+        // pointers. Null is handled before the instance is dereferenced. Returned
+        // slices already prove complete range, representation, and alignment.
+        unsafe {
+            if !data_out.is_null() {
+                *data_out = std::ptr::null();
+            }
+            if !count_out.is_null() {
+                *count_out = 0;
+            }
+            if instance.is_null() || data_out.is_null() || count_out.is_null() {
+                return v06::V06ErrorCode::TooShort as u32;
+            }
+            let instance = &*instance;
+            macro_rules! expose {
+                ($result:expr) => {
+                    match $result {
+                        Ok(values) => {
+                            // Empty ranges use the in-mapping base rather than
+                            // a potentially one-past payload pointer. C receives
+                            // count zero and must not dereference it.
+                            *data_out = if values.is_empty() {
+                                instance.bytes().as_ptr().cast()
+                            } else {
+                                values.as_ptr().cast()
+                            };
+                            *count_out = values.len();
+                            return 0;
+                        }
+                        Err(error) => return error.code as u32,
+                    }
+                };
+            }
+            match expected_type {
+                0 => expose!(instance.u8_view(key_id, occurrence)),
+                1 => expose!(instance.u16_view(key_id, occurrence)),
+                2 => expose!(instance.u32_view(key_id, occurrence)),
+                3 => expose!(instance.u64_view(key_id, occurrence)),
+                4 => expose!(instance.i8_view(key_id, occurrence)),
+                5 => expose!(instance.i16_view(key_id, occurrence)),
+                6 => expose!(instance.i32_view(key_id, occurrence)),
+                7 => expose!(instance.i64_view(key_id, occurrence)),
+                8 => expose!(instance.f32_view(key_id, occurrence)),
+                9 => expose!(instance.f64_view(key_id, occurrence)),
+                10 => expose!(instance.opaque_bytes(key_id, occurrence)),
+                _ => v06::V06ErrorCode::TypeMismatch as u32,
+            }
+        }
+    }));
+    result.unwrap_or(v06::V06ErrorCode::HostUnsupported as u32)
+}
+
+/// # Safety
+/// `instance` must be live and all output pointers must be valid and writable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_v06_header_info(
+    instance: *const v06::VBufV06,
+    base_step_out: *mut u64,
+    data_start_out: *mut u64,
+    data_size_out: *mut u64,
+) -> u32 {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        // SAFETY: the function contract requires a live instance and writable
+        // outputs; every pointer is checked for null before dereference.
+        unsafe {
+            if instance.is_null()
+                || base_step_out.is_null()
+                || data_start_out.is_null()
+                || data_size_out.is_null()
+            {
+                return v06::V06ErrorCode::TooShort as u32;
+            }
+            let header = (&*instance).header();
+            *base_step_out = header.base_step;
+            *data_start_out = header.data_region_start;
+            *data_size_out = header.data_region_size;
+            0
+        }
+    }));
+    result.unwrap_or(v06::V06ErrorCode::HostUnsupported as u32)
+}
+
+/// # Safety
+/// `instance` must be live and all output pointers must be valid and writable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_v06_block_info(
+    instance: *const v06::VBufV06,
+    index: libc::size_t,
+    block_start_out: *mut u64,
+    payload_start_out: *mut u64,
+    payload_length_out: *mut u64,
+    next_block_start_out: *mut u64,
+    count_out: *mut u64,
+) -> u32 {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        // SAFETY: the function contract requires a live instance and writable
+        // outputs; every pointer is checked for null before dereference.
+        unsafe {
+            if instance.is_null()
+                || block_start_out.is_null()
+                || payload_start_out.is_null()
+                || payload_length_out.is_null()
+                || next_block_start_out.is_null()
+                || count_out.is_null()
+            {
+                return v06::V06ErrorCode::TooShort as u32;
+            }
+            let block = match (&*instance).blocks().get(index) {
+                Some(block) => block,
+                None => return v06::V06ErrorCode::NotFound as u32,
+            };
+            *block_start_out = block.block_start;
+            *payload_start_out = block.payload_start;
+            *payload_length_out = block.payload_len;
+            *next_block_start_out = block.next_block_start;
+            *count_out = block.count;
+            0
+        }
+    }));
+    result.unwrap_or(v06::V06ErrorCode::HostUnsupported as u32)
 }

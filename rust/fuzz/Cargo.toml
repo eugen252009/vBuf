@@ -1,0 +1,19 @@
+[package]
+name = "vbuf-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+vbuf-core = { path = ".." }
+
+[[bin]]
+name = "v06_parse_and_view"
+path = "fuzz_targets/v06_parse_and_view.rs"
+test = false
+doc = false
+bench = false
