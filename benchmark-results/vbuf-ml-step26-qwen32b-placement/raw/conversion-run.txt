@@ -1,0 +1,1 @@
+PASS — converted and independently validated: /home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.vbuf

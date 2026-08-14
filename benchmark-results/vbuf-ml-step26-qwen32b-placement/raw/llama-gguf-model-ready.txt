@@ -1,0 +1,1 @@
+{"format":"gguf","phase":"model_ready","duration_us":18486082.522}

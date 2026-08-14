@@ -1,0 +1,10 @@
+{
+  "planned_final_size": 34816197376,
+  "actual_final_size": 34816197376,
+  "size_difference": 0,
+  "planned_base_shift": 3,
+  "planned_base_step": 8,
+  "tensor_offset_checks": 707,
+  "tensor_offsets_match": true,
+  "all_checks_match": true
+}

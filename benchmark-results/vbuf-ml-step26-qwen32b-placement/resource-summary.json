@@ -1,0 +1,15 @@
+{
+  "qualification_host": "CPU-only",
+  "free_bytes_before_emission": 237715451904,
+  "free_bytes_after_qualification": 202829688832,
+  "ram_total_bytes": 67304767488,
+  "ram_available_bytes_at_capture": 61070479360,
+  "swap_total_bytes": 25786576896,
+  "swap_used_bytes_at_capture": 6530560000,
+  "gpu": "not involved",
+  "mmap_size_bytes": 34816197376,
+  "peak_rss": "unavailable",
+  "page_faults": "unavailable",
+  "bytes_read": "unavailable",
+  "notes": "Model construction completed; no strong peak-memory claim made."
+}

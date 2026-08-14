@@ -1,9 +1,9 @@
 {
-  "status": "BLOCKED_RESOURCE",
-  "target": "research-models/Qwen3-32B-Q8_0.vbuf",
-  "required_bytes": 34816197344,
-  "available_bytes": 25532461056,
-  "filesystem_free_bytes": 25532461056,
-  "source_retained": true,
-  "reason": "single final vBuf artifact is larger than available filesystem space; no conversion attempted and no partial artifact retained"
+  "path": "research-models/Qwen3-32B-Q8_0.vbuf",
+  "size": 34816197376,
+  "sha256": "84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d",
+  "planned_size": 34816197376,
+  "base_shift": 3,
+  "base_step": 8,
+  "emission": "PASS"
 }

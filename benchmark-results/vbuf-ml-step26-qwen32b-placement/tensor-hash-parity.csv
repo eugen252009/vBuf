@@ -1,2 +1,2 @@
-status,source_tensor_count,source_payload_bytes,target_tensor_count,target_payload_bytes,notes
-PENDING_FINAL_ARTIFACT,707,34811744256,,,final vBuf emission blocked by available filesystem capacity
+status,tensor_count,parity_count,source_tensor_payload_bytes,destination_tensor_payload_bytes,source_to_destination_payload_hashes,notes
+PASS,707,707,34811744256,34811744256,707/707 identical,physical placement differs; payload bytes unchanged

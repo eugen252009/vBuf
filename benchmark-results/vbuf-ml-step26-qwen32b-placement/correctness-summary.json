@@ -1,14 +1,17 @@
 {
-  "semantic_source_qualification": "PASS",
-  "dense_qwen3": "PASS",
-  "all_six_planner_candidates": "PASS",
-  "final_vbuf_emission": "BLOCKED_RESOURCE",
-  "canonical_reader": "PENDING_FINAL_ARTIFACT",
-  "tensor_hash_parity": "PENDING_FINAL_ARTIFACT",
-  "llama_structural_load": "PENDING_FINAL_ARTIFACT",
-  "logit_parity": "PENDING_FINAL_ARTIFACT",
-  "generation_parity": "PENDING_FINAL_ARTIFACT",
+  "artifact_exactness": "PASS",
+  "tensor_byte_parity": "707/707 PASS",
+  "checked_reader": "PASS",
+  "borrowed_model_view": "PASS",
+  "tokenizer_parity": "PASS",
+  "llama_structural_load": "PASS",
+  "model_ready": "PASS",
+  "gguf_vs_vbuf_logit_max_abs_diff": 0.0,
+  "logit_parity": "PASS",
+  "generation_parity": "PASS",
+  "generation_tokens": [504, 13027, 0, 863, 198, 198, 2, 19143],
+  "payload_copy": 0,
   "payload_repack": 0,
   "payload_reorder": 0,
-  "payload_duplication_during_planning": 0
+  "notes": "Initial direct logit run exposed the pre-existing unconditional output.weight-to-token_embd fallback; the fallback is now conditional, preserving distinct output.weight tensors."
 }

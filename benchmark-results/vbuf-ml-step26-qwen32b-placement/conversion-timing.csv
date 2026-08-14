@@ -1,5 +1,5 @@
 phase,status,elapsed_ms,notes
 logical_manifest_and_source_hash,PASS,19308.478,metadata parsing plus source hashing
-all_six_candidate_plans,PASS,5.730,descriptor-only fan-out
-candidate_selection,PASS,0,deterministic Pareto/tie-break selection
-selected_plan_emission,BLOCKED_RESOURCE,,requires 34816197344 bytes; 25510162432 bytes available
+all_six_candidate_plans,PASS,5.730,descriptor-only fan-out; corrected tokenizer identity accounting
+candidate_selection,PASS,0,deterministic selection of BaseShift 3
+selected_plan_emission,PASS,2737500,one final artifact; writer plan checks passed

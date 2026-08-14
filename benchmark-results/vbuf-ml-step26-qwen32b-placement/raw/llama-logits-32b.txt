@@ -1,0 +1,2 @@
+gguf_vs_compatibility max_abs_diff=0
+gguf_vs_direct max_abs_diff=36.6258316

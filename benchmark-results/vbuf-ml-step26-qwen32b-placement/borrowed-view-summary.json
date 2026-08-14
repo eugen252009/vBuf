@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "artifact": "Qwen3-32B-Q8_0.vbuf",
+  "canonical_validation_ns": 117142631,
+  "borrowed_view_establishment_ns": 6927806,
+  "tensor_count": 707,
+  "token_count": 151936,
+  "merge_count": 151387,
+  "mmap": true,
+  "payload_copy": 0
+}

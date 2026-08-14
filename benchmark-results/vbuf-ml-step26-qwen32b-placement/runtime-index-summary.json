@@ -1,0 +1,8 @@
+{
+  "artifact": "Qwen3-32B-Q8_0.vbuf",
+  "borrowed_token_index": {"status":"PASS","entries":151936,"build_ns":7091939,"retained_key_bytes":1372760,"lookup_ns":10676934},
+  "packed_merge_index": {"status":"PASS","entries":151387,"build_ns":4168924,"retained_bytes":2422192,"lookup_ns":7917682},
+  "canonical_token_bytes_copied": 0,
+  "canonical_merge_key_bytes_copied": 0,
+  "normal_llama_direct_source_duplicate_indexes": 0
+}

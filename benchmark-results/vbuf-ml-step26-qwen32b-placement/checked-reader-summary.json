@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "reader": "vbuf-core v0.6 parse_v06 plus vbuf-ml semantic validation",
+  "blocks": 734,
+  "base_shift": 3,
+  "base_step": 8,
+  "bootstrap": "PASS",
+  "model_metadata": "PASS",
+  "tensor_directory": "PASS",
+  "tokenizer_metadata": "PASS",
+  "range_bounds": "PASS",
+  "alignment": "PASS",
+  "q8_0_geometry": "PASS",
+  "payload_ranges": "PASS"
+}

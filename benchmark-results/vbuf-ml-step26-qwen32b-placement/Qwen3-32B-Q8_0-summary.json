@@ -1,0 +1,10 @@
+{
+  "artifact": "Qwen3-32B-Q8_0.vbuf",
+  "source": "Qwen3-32B-Q8_0.gguf",
+  "source_sha256": "2c50eb8aad05047dbf24fa014eb621adf552e14176cabe0c5db4ef38c91e2169",
+  "target_sha256": "84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d",
+  "target_size": 34816197376,
+  "integrity": "none",
+  "tool": "vbuf-ml-convert",
+  "manifest": "qwen3-32b-manifest.json"
+}

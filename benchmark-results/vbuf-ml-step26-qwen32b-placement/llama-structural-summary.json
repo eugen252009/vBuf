@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "path": "mmap -> BorrowedModelView -> source-neutral llama_model_source -> common model construction",
+  "architecture": "qwen3",
+  "tensor_count": 707,
+  "model_ready": true,
+  "vbuf_model_ready_us": 460560.202,
+  "gguf_model_ready_us": 18486082.522,
+  "tokenizer_metadata": "PASS",
+  "tensor_dimensions_and_types": "PASS",
+  "payload_pointer_validity": "PASS",
+  "output_weight_mapping": "PASS; exact output.weight retained when present"
+}

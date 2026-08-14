@@ -1,13 +1,17 @@
 {
   "step": "26",
   "source": "Qwen3-32B-Q8_0.gguf",
-  "runs": 1,
-  "planner": "single logical manifest, six descriptor-only candidates",
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
   "cpu_only": true,
   "wire_changed": false,
   "physical_runtime_work": false,
-  "filesystem_free_bytes_at_emission_preflight": 25510162432,
-  "selected_plan_size": 34816197344,
-  "final_emission": "BLOCKED_RESOURCE",
-  "no_partial_target": true
+  "free_bytes_before_emission": 237715451904,
+  "free_bytes_after_qualification": 202829688832,
+  "selected_plan_size": 34816197376,
+  "actual_artifact_size": 34816197376,
+  "final_emission": "PASS",
+  "mmap": true,
+  "gpu": "not involved",
+  "peak_rss": "unavailable",
+  "page_faults": "unavailable"
 }
