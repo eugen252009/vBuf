@@ -123,6 +123,7 @@
       "target": "VocabularySize"
     }
   ],
+  "output_decision": null,
   "payload_evidence": {
     "selected_source_payload_sha256": {
       "token_embd.weight": "98a8baa5023c260fb83a5e4897e17cfbd89f20ba0f27ce356d61ee9dc517f690"

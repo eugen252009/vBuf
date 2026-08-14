@@ -123,6 +123,12 @@
       "target": "VocabularySize"
     }
   ],
+  "output_decision": {
+    "action": "COPY_BYTES independently",
+    "payload_hashes_equal": true,
+    "reason": "explicit output.weight remains a distinct source tensor",
+    "source_descriptors_distinct": true
+  },
   "payload_evidence": {
     "selected_source_payload_sha256": {
       "output.weight": "8f29acf519434862d95613b2b4f6b9d14933a5e4d16baebf8ac0b33b410acfb6",
