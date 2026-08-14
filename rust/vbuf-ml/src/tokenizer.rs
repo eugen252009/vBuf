@@ -199,10 +199,14 @@ impl<'a> TokenizerMetadata<'a> {
     }
     pub fn chat_template(&self) -> Option<&str> { std::str::from_utf8(self.chat_template.as_ref()?.bytes()).ok() }
     pub fn token_text(&self, index: u64) -> Option<&str> {
+        std::str::from_utf8(self.token_bytes(index)?).ok()
+    }
+    /// Return a validated token byte span without allocating or revalidating UTF-8.
+    pub fn token_bytes(&self, index: u64) -> Option<&[u8]> {
         if index >= self.token_count { return None; }
         let start = usize::try_from(self.offset(index)?).ok()?;
         let end = usize::try_from(self.offset(index + 1)?).ok()?;
-        std::str::from_utf8(self.text_pool.bytes().get(start..end)?).ok()
+        self.text_pool.bytes().get(start..end)
     }
     pub fn score(&self, index: u64) -> Option<f64> {
         let range = self.scores.as_ref()?;

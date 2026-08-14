@@ -43,6 +43,9 @@ uint32_t vbuf_ml_consumer_special_token(const VbufMlConsumerHandle *, uint8_t ki
 uint32_t vbuf_ml_consumer_merge_count(const VbufMlConsumerHandle *, uint64_t * count);
 uint32_t vbuf_ml_consumer_merge_pair(const VbufMlConsumerHandle *, uint64_t index, uint64_t * left, uint64_t * right);
 uint32_t vbuf_ml_consumer_add_bos(const VbufMlConsumerHandle *, bool * value);
+uint32_t vbuf_ml_consumer_runtime_indexes(const VbufMlConsumerHandle *);
+uint32_t vbuf_ml_consumer_token_id(const VbufMlConsumerHandle *, const uint8_t *, size_t, uint32_t *);
+uint32_t vbuf_ml_consumer_merge_rank(const VbufMlConsumerHandle *, uint64_t, uint64_t, uint32_t *);
 }
 
 namespace vbuf_llama {
@@ -73,6 +76,9 @@ public:
     uint64_t merge_count() const;
     bool merge_pair(uint64_t index, uint64_t & left, uint64_t & right) const;
     bool add_bos(bool & out) const;
+    bool build_runtime_indexes() const;
+    bool token_id(const std::string & bytes, uint32_t & out) const;
+    bool merge_rank(uint64_t left, uint64_t right, uint32_t & out) const;
 
 private:
     VbufMlConsumerHandle * handle_ = nullptr;

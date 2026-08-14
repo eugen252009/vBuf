@@ -53,4 +53,16 @@ bool VbufMlAdapter::add_bos(bool & out) const {
     return handle_ && vbuf_ml_consumer_add_bos(handle_, &out) == 0;
 }
 
+bool VbufMlAdapter::build_runtime_indexes() const {
+    return handle_ && vbuf_ml_consumer_runtime_indexes(handle_) == 0;
+}
+
+bool VbufMlAdapter::token_id(const std::string & bytes, uint32_t & out) const {
+    return handle_ && vbuf_ml_consumer_token_id(handle_, reinterpret_cast<const uint8_t *>(bytes.data()), bytes.size(), &out) == 0;
+}
+
+bool VbufMlAdapter::merge_rank(uint64_t left, uint64_t right, uint32_t & out) const {
+    return handle_ && vbuf_ml_consumer_merge_rank(handle_, left, right, &out) == 0;
+}
+
 } // namespace vbuf_llama

@@ -1,6 +1,6 @@
 use std::ffi::CString;
 use std::path::PathBuf;
-use vbuf_ml::consumer_ffi::{vbuf_ml_consumer_add_bos, vbuf_ml_consumer_close, vbuf_ml_consumer_merge_arrays, vbuf_ml_consumer_merge_count, vbuf_ml_consumer_merge_pair, vbuf_ml_consumer_open, vbuf_ml_consumer_tensor_count, vbuf_ml_consumer_tensor_info, vbuf_ml_consumer_token_arrays, vbuf_ml_consumer_token_text, VbufMlMergeArrays, VbufMlTensorInfo, VbufMlTokenArrays};
+use vbuf_ml::consumer_ffi::{vbuf_ml_consumer_add_bos, vbuf_ml_consumer_close, vbuf_ml_consumer_merge_arrays, vbuf_ml_consumer_merge_count, vbuf_ml_consumer_merge_pair, vbuf_ml_consumer_merge_rank, vbuf_ml_consumer_open, vbuf_ml_consumer_runtime_indexes, vbuf_ml_consumer_tensor_count, vbuf_ml_consumer_tensor_info, vbuf_ml_consumer_token_arrays, vbuf_ml_consumer_token_id, vbuf_ml_consumer_token_text, VbufMlMergeArrays, VbufMlTensorInfo, VbufMlTokenArrays};
 
 #[test]
 fn c_bridge_projects_tokenizer_and_tensor_views() {
@@ -23,6 +23,12 @@ fn c_bridge_projects_tokenizer_and_tensor_views() {
     assert_eq!(token_arrays.token_count, 151_936);
     assert_eq!(token_arrays.offset_count, token_arrays.token_count + 1);
     assert!(token_arrays.text_len > 1_000_000 && !token_arrays.text.is_null());
+    assert_eq!(unsafe { vbuf_ml_consumer_runtime_indexes(handle) }, 0);
+    let mut token_id = u32::MAX;
+    let first_end = unsafe { u64::from_le_bytes(*(token_arrays.offsets.cast::<[u8; 8]>().add(1))) } as usize;
+    let first = unsafe { std::slice::from_raw_parts(token_arrays.text, first_end) };
+    assert_eq!(unsafe { vbuf_ml_consumer_token_id(handle, first.as_ptr(), first.len(), &mut token_id) }, 0);
+    assert_eq!(token_id, 0);
     let mut merges = 0;
     assert_eq!(unsafe { vbuf_ml_consumer_merge_count(handle, &mut merges) }, 0);
     assert_eq!(merges, 151_387);
@@ -32,6 +38,11 @@ fn c_bridge_projects_tokenizer_and_tensor_views() {
     assert_eq!(unsafe { vbuf_ml_consumer_merge_arrays(handle, &mut merge_arrays) }, 0);
     assert_eq!(merge_arrays.merge_count, 151_387);
     assert!(!merge_arrays.left.is_null() && !merge_arrays.right.is_null());
+    let mut expected_left = 0; let mut expected_right = 0;
+    assert_eq!(unsafe { vbuf_ml_consumer_merge_pair(handle, 2, &mut expected_left, &mut expected_right) }, 0);
+    let mut rank = u32::MAX;
+    assert_eq!(unsafe { vbuf_ml_consumer_merge_rank(handle, expected_left, expected_right, &mut rank) }, 0);
+    assert_eq!(rank, 2);
     let mut add_bos = true;
     assert_eq!(unsafe { vbuf_ml_consumer_add_bos(handle, &mut add_bos) }, 0);
     assert!(!add_bos);

@@ -1,14 +1,16 @@
 //! Minimal C ABI for the pinned-consumer adapter boundary.
 //! No llama.cpp or GGML headers are used here.
 
-use crate::{BorrowedModel, ConsumerTensorType};
+use crate::{BorrowedModel, ConsumerTensorType, RuntimeTokenizerIndexes};
 use std::ffi::{c_char, CStr};
 
 pub struct VbufMlConsumerHandle {
-    model: BorrowedModel,
+    // Borrowed tables/indexes are declared before the owner so they drop first.
+    runtime_indexes: std::sync::OnceLock<RuntimeTokenizerIndexes<'static>>,
     token_views: std::sync::OnceLock<Vec<VbufMlTokenView>>,
     merge_views: std::sync::OnceLock<Vec<VbufMlMergeView>>,
     tensor_views: std::sync::OnceLock<Vec<VbufMlTensorView>>,
+    model: BorrowedModel,
 }
 
 #[repr(C)]
@@ -92,7 +94,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_open(path: *const c_char) -> *mut Vbuf
         if path.is_null() { return std::ptr::null_mut(); }
         let Ok(path) = CStr::from_ptr(path).to_str() else { return std::ptr::null_mut(); };
         let Ok(model) = BorrowedModel::open(path) else { return std::ptr::null_mut(); };
-        Box::into_raw(Box::new(VbufMlConsumerHandle { model, token_views: std::sync::OnceLock::new(), merge_views: std::sync::OnceLock::new(), tensor_views: std::sync::OnceLock::new() }))
+        Box::into_raw(Box::new(VbufMlConsumerHandle { model, token_views: std::sync::OnceLock::new(), merge_views: std::sync::OnceLock::new(), tensor_views: std::sync::OnceLock::new(), runtime_indexes: std::sync::OnceLock::new() }))
     })).unwrap_or(std::ptr::null_mut())
 }
 
@@ -170,6 +172,44 @@ pub unsafe extern "C" fn vbuf_ml_consumer_token_arrays(handle: *const VbufMlCons
         let tokenizer = &(*handle).model.view().tokenizer;
         let scores = tokenizer.score_bytes().unwrap_or(&[]); let types = tokenizer.type_bytes().unwrap_or(&[]);
         *arrays = VbufMlTokenArrays { text: tokenizer.text_bytes().as_ptr(), text_len: tokenizer.text_bytes().len() as u64, offsets: tokenizer.offset_bytes().as_ptr(), offset_count: (tokenizer.offset_bytes().len() / 8) as u64, types: types.as_ptr(), type_bytes: types.len() as u64, scores: scores.as_ptr(), score_bytes: scores.len() as u64, token_count: tokenizer.token_count() }; OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// Build the reusable runtime-local indexes on first use. The indexes borrow
+/// validated canonical bytes and are retained by the mmap-owning handle.
+/// # Safety
+/// `handle` must be a valid handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_runtime_indexes(handle: *const VbufMlConsumerHandle) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() { return INVALID_ARGUMENT; }
+        let handle = &*handle;
+        let _ = handle.runtime_indexes.get_or_init(|| RuntimeTokenizerIndexes::build(&handle.model.view().tokenizer).expect("validated tokenizer runtime index"));
+        OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// Resolve a token byte span through the runtime-local borrowed-key index.
+/// # Safety
+/// `handle`, `bytes`, and `token_id` must be valid; `bytes` must contain
+/// `length` readable bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_token_id(handle: *const VbufMlConsumerHandle, bytes: *const u8, length: usize, token_id: *mut u32) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || bytes.is_null() || token_id.is_null() { return INVALID_ARGUMENT; }
+        let handle = &*handle; let indexes = handle.runtime_indexes.get_or_init(|| RuntimeTokenizerIndexes::build(&handle.model.view().tokenizer).expect("validated tokenizer runtime index"));
+        let key = std::slice::from_raw_parts(bytes, length); match indexes.token.lookup(key) { Some(value) => { *token_id = value; OK }, None => VALIDATION_ERROR }
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// Resolve a numeric merge pair through the packed runtime-local index.
+/// # Safety
+/// `handle` and `rank` must be valid.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_merge_rank(handle: *const VbufMlConsumerHandle, left: u64, right: u64, rank: *mut u32) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || rank.is_null() { return INVALID_ARGUMENT; }
+        let handle = &*handle; let indexes = handle.runtime_indexes.get_or_init(|| RuntimeTokenizerIndexes::build(&handle.model.view().tokenizer).expect("validated tokenizer runtime index")); match indexes.merge.lookup(left, right) { Some(value) => { *rank = value; OK }, None => VALIDATION_ERROR }
     })).unwrap_or(VALIDATION_ERROR)
 }
 

@@ -19,6 +19,7 @@ pub mod integrity;
 pub mod range_loading;
 pub mod consumer;
 pub mod consumer_ffi;
+pub mod runtime_tokenizer;
 
 pub use bootstrap::{Bootstrap, BootstrapEntry, SemanticRegion};
 pub use error::{MlError, MlErrorCode};
@@ -31,6 +32,7 @@ pub use range_loading::{execute_plan, select_tensor_names, select_tensor_ordinal
 pub use metadata::{encode_payload as encode_metadata_payload, MetadataEntry, MetadataField, MetadataValue, ModelMetadata, ModelMetadataKey};
 pub use tokenizer::{PreTokenizer, SpecialToken, TokenizerEntry, TokenizerKind, TokenizerMetadata, TokenizerModel, TokenizerRole};
 pub use consumer::{BorrowedModel, BorrowedModelView, ConsumerModel, ConsumerModelMetadata, ConsumerTensorType};
+pub use runtime_tokenizer::{MergeRankIndex, RuntimeTokenizerIndexes, TokenIndex};
 
 /// Boundary smoke helper for future profile code. It does not parse or
 /// authorize the range.
