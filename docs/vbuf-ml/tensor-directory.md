@@ -4,9 +4,10 @@ The tensor directory is the semantic payload of the bootstrap's
 `TensorDirectory` role. It is parsed only from that checked semantic region;
 it does not rediscover candidate directories.
 
-Profile 0.1 supports one canonical primitive representation and one physical
-canonical block per tensor. Continuation-backed tensors and quantized layouts
-are deliberately deferred.
+Profile 0.1 supports the generic canonical primitive plus the qualified
+profile-local BF16 and GGML_Q8_0 opaque-byte representations. Each tensor still
+uses one physical canonical block. Continuation-backed and other packed layouts
+remain unsupported.
 
 ## Authority
 

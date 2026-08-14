@@ -1,0 +1,71 @@
+use vbuf_core::v06::{V06Block, V06Physical, V06Semantic};
+use vbuf_ml::{bf16_bits_to_f32, expected_payload_bytes, validate_tensor_representation, MlErrorCode, TensorRepresentation, BF16_BYTES_PER_ELEMENT, Q8_0_BLOCK_BYTES, Q8_0_BLOCK_ELEMENTS};
+
+fn packed_block(payload_len: u64) -> V06Block {
+    V06Block {
+        block_start: 0,
+        payload_start: 0,
+        payload_len,
+        payload_end: payload_len,
+        next_block_start: payload_len,
+        key_id: 1,
+        semantic: V06Semantic::Opaque,
+        physical: V06Physical::Array,
+        continuation: false,
+        bit_width: 8,
+        count: payload_len,
+        payload_alignment: 1,
+    }
+}
+
+#[test]
+fn canonical_f32_remains_the_generic_primitive_contract() {
+    let block = V06Block {
+        semantic: V06Semantic::Float,
+        physical: V06Physical::Array,
+        bit_width: 32,
+        count: 6,
+        payload_len: 24,
+        ..packed_block(24)
+    };
+    validate_tensor_representation(TensorRepresentation::CanonicalPrimitive, &[2, 3], &block).unwrap();
+}
+
+#[test]
+fn bf16_has_exact_two_byte_storage_and_known_bits() {
+    assert_eq!(BF16_BYTES_PER_ELEMENT, 2);
+    assert_eq!(expected_payload_bytes(TensorRepresentation::Bf16, &[2, 3]).unwrap(), 12);
+    assert_eq!(bf16_bits_to_f32(0x0000), 0.0);
+    assert_eq!(bf16_bits_to_f32(0x3f80), 1.0);
+    assert_eq!(bf16_bits_to_f32(0xbf80), -1.0);
+    let block = packed_block(12);
+    validate_tensor_representation(TensorRepresentation::Bf16, &[2, 3], &block).unwrap();
+    assert_eq!(validate_tensor_representation(TensorRepresentation::Bf16, &[2, 3], &packed_block(11)).unwrap_err().code, MlErrorCode::TensorRepresentationMismatch);
+}
+
+#[test]
+fn q8_0_zero_block_fixture_matches_pinned_geometry() {
+    // ggml quantize_row_q8_0_ref over 32 zero floats produces d = 0 and 32 zero q values.
+    let mut block = vec![0u8; Q8_0_BLOCK_BYTES as usize];
+    assert_eq!(block, vec![0; 34]);
+    assert_eq!(expected_payload_bytes(TensorRepresentation::GgmlQ8_0, &[Q8_0_BLOCK_ELEMENTS]).unwrap(), 34);
+    validate_tensor_representation(TensorRepresentation::GgmlQ8_0, &[Q8_0_BLOCK_ELEMENTS], &packed_block(34)).unwrap();
+    block.extend_from_slice(&[0; 34]);
+    assert_eq!(expected_payload_bytes(TensorRepresentation::GgmlQ8_0, &[64, 2]).unwrap(), 136);
+    validate_tensor_representation(TensorRepresentation::GgmlQ8_0, &[64, 2], &packed_block(136)).unwrap();
+}
+
+#[test]
+fn q8_0_requires_innermost_row_divisibility() {
+    assert_eq!(expected_payload_bytes(TensorRepresentation::GgmlQ8_0, &[31]).unwrap_err().code, MlErrorCode::InvalidQuantizedShape);
+}
+
+#[test]
+fn packed_payload_length_and_storage_are_checked() {
+    let mut block = packed_block(34);
+    block.count = 33;
+    assert_eq!(validate_tensor_representation(TensorRepresentation::GgmlQ8_0, &[32], &block).unwrap_err().code, MlErrorCode::TensorRepresentationMismatch);
+    block = packed_block(34);
+    block.semantic = V06Semantic::Unsigned;
+    assert_eq!(validate_tensor_representation(TensorRepresentation::GgmlQ8_0, &[32], &block).unwrap_err().code, MlErrorCode::TensorRepresentationMismatch);
+}

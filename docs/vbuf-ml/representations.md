@@ -1,71 +1,129 @@
-# vBuf-ML tensor representations (Step 12)
+# vBuf-ML tensor representations
 
-## Qualification result
+## Step 17 qualification result
 
-No packed/quantized representation is selected in profile 0.1.
+The first real compatibility corpus and pinned external reference are now
+available:
 
-The repository's Decision D remains unresolved between a profile-local
-namespaced registry and reuse of external numeric IDs. Decision E also does not
-name a first real model fixture or pinned upstream revision. Selecting Q4_K,
-Q8_0, or another packed layout without those authorities would invent unstable
-semantics, so quantized implementation is intentionally blocked.
+- `F32` → generic `CanonicalPrimitive` (profile ID `0`);
+- `BF16` → exact opaque-byte profile contract (profile ID `1`);
+- `GGML Q8_0` → exact opaque-byte profile contract (profile ID `2`).
 
-The exact evidence gap is:
+These IDs are profile-local. They are not copies of external GGML enum values.
+The external mapping is explicit:
 
-```text
-first target architecture/model fixture
-+ pinned upstream GGML/llama.cpp revision
-+ authoritative source layout and size functions
-```
+| vBuf-ML ID | Representation | GGML ID | Storage |
+|---:|---|---:|---|
+| 0 | `CanonicalPrimitive` | F32 = 0 when used for F32 | canonical primitive descriptor |
+| 1 | `BF16` | 30 | opaque canonical bytes |
+| 2 | `GGML_Q8_0` | 8 | opaque canonical bytes |
 
-## Current representation
+The contracts were derived from llama.cpp commit
+`4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c`.
 
-Representation ID `0` is `CanonicalPrimitive`.
+## F32
 
-Its storage meaning is derived entirely from the canonical vBuf descriptor:
+F32 remains `CanonicalPrimitive`. Its descriptor provides float semantics,
+32-bit width, logical count, little-endian primitive bytes, and payload length.
+No duplicate ML F32 type is needed.
 
-```text
-semantic
-physical form
-bit width
-count
-payload length
-alignment
-```
-
-The profile-local contract validates shape product, primitive compatibility,
-checked byte size, and canonical payload range. It stores no duplicate dtype,
-block-size, offset, length, or alignment fields.
-
-The contract descriptor is:
+The consumer mapping is:
 
 ```text
-id = CanonicalPrimitive
-logical elements per block = determined by canonical descriptor
-physical bytes per block = determined by canonical descriptor
-required payload alignment = 1 (canonical alignment remains authoritative)
+CanonicalPrimitive(float, 32 bits) → GGML_TYPE_F32
 ```
 
-## Quantized representations
+## BF16
 
-Future packed representations will use stable profile-local IDs and exact
-external layout contracts. A selected contract must specify:
+BF16 is not treated as ordinary unsigned 16-bit data.
+
+The contract is:
 
 ```text
-upstream project and pinned revision
-source layout name
-logical elements per block
-physical bytes per block
-field ordering and byte order
-row/divisibility rules
-payload-size formula
-alignment requirements
+logical elements: N
+payload bytes: 2 × N
+storage: opaque canonical bytes
+stored scalar: IEEE binary32 high 16 bits
+byte order: little-endian uint16 representation
+correctness alignment: 1; canonical BaseStep/alignment remains authoritative
 ```
 
-Canonical vBuf may store the selected layout as opaque byte payloads. The ML
-representation identity will then validate exact block counts and payload size
-without decoding or repacking the tensor. Generic vBuf will not learn GGML or
-quantization semantics.
+Pinned source defines `ggml_bf16_t` as a struct containing `uint16_t bits` and
+converts to binary32 by shifting `bits << 16`. Conversion helpers use explicit
+bit operations; vBuf-ML does not rely on native BF16 ABI serialization.
 
-No quantized bytes, fake layouts, aliases, or external enum copies are
-currently normative. Unknown representation IDs fail closed.
+The consumer mapping is:
+
+```text
+BF16 → GGML_TYPE_BF16
+```
+
+## Q8_0
+
+Q8_0 is an opaque payload contract. The canonical vBuf layer does not interpret
+its scale or quantized values.
+
+Pinned source establishes:
+
+```text
+GGML_TYPE_Q8_0 = 8
+QK8_0 = 32 logical elements per block
+block_q8_0 = uint16 scale + 32 int8 q values
+physical block size = 34 bytes
+```
+
+The quantizer and dequantizer operate on complete 32-element blocks. For a
+shape whose innermost dimension is `row_width`:
+
+```text
+row_width % 32 == 0
+rows = product(shape[1..])
+blocks_per_row = row_width / 32
+payload_bytes = rows × blocks_per_row × 34
+```
+
+The consumer mapping is:
+
+```text
+GGML_Q8_0 → GGML_TYPE_Q8_0
+```
+
+No dequantization, requantization, repacking, or byte reordering is part of the
+vBuf-ML contract.
+
+## Canonical storage and validation
+
+Packed representations require a canonical opaque byte-array descriptor whose
+byte count equals the exact contract payload size. Shape, row divisibility,
+block count, and checked arithmetic are validated without scanning payload
+contents.
+
+This preserves lazy loading:
+
+```text
+TensorDirectory
+→ representation and range validation
+→ ready
+```
+
+Q8_0 values and scales are not decoded at model-open time.
+
+## Alignment and endianness
+
+The pinned source supplies type/block geometry, not a new vBuf-ML correctness
+alignment. The selected contracts therefore require no alignment beyond the
+existing canonical arrangement. Consumer-specific SIMD alignment is separate
+and non-normative.
+
+F32 scalar bytes, BF16 `bits`, and Q8_0 scale fields are represented as
+little-endian canonical bytes. Q8_0 `int8` q-values are byte-order independent.
+
+## Placement separation
+
+Step 16's `LAYER_MAJOR_ROLE_ORDER` changes tensor-to-tensor file order only.
+It never changes bytes inside an F32, BF16, or Q8_0 tensor payload.
+
+## Unsupported representations
+
+Q4, Q5, K-quants, IQ types, and other GGML types remain unsupported. Unknown
+profile IDs fail closed.

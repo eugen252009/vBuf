@@ -1515,7 +1515,41 @@ are in `docs/vbuf-ml/step16-real-model-placement.md`.
 
 ---
 
-### Step 17 — Implement a read-only GGUF inspector and conversion manifest
+### Step 17 — Pin and qualify F32, BF16, and Q8_0 representation semantics
+
+#### Step 17 implementation recorded
+
+Pinned the external `ggml-org/llama.cpp` repository at commit
+`4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c` and recorded source-level
+provenance for the GGML type enum, BF16 helpers, Q8_0 block definition/type
+traits/size functions, and Qwen3 output fallback.
+
+Added profile-local representation contracts:
+
+```text
+0 = CanonicalPrimitive
+1 = BF16 opaque bytes
+2 = GGML_Q8_0 opaque bytes
+```
+
+F32 remains the generic canonical primitive. BF16 uses two explicit bytes per
+element and Q8_0 uses 32 elements / 34 bytes per block with innermost-row
+32-element divisibility. Both packed contracts validate descriptor geometry and
+payload length without scanning tensor contents.
+
+The exact contracts match every one of the 621 tensors in the two hash-verified
+Qwen3 artifacts. The pinned Qwen3 consumer creates `output.weight` as optional
+and duplicates `token_embd.weight` for the output role when it is absent; this
+explains the Q8_0/BF16 inventory difference without adding alias wire state.
+
+No converter, inference path, llama.cpp dependency, sharding, or generic-crate
+change was introduced. Details and parity evidence are in
+`docs/vbuf-ml/step17-upstream-representation-qualification.md` and
+`benchmark-results/vbuf-ml-step17/`.
+
+---
+
+### Step 18 — Implement a read-only GGUF inspector and conversion manifest
 
 **Class:** ML tooling.
 
@@ -1545,7 +1579,7 @@ are in `docs/vbuf-ml/step16-real-model-placement.md`.
 
 ---
 
-### Step 18 — Implement deterministic GGUF-to-vBuf-ML conversion
+### Step 19 — Implement deterministic GGUF-to-vBuf-ML conversion
 
 **Class:** ML tooling.
 
@@ -1573,7 +1607,7 @@ are in `docs/vbuf-ml/step16-real-model-placement.md`.
 
 ---
 
-### Step 19 — Prototype a llama.cpp loader adapter
+### Step 20 — Prototype a llama.cpp loader adapter
 
 **Class:** ML runtime integration, kept outside generic vBuf.
 
@@ -1603,7 +1637,7 @@ are in `docs/vbuf-ml/step16-real-model-placement.md`.
 
 ---
 
-### Step 20 — Add execution-order layout experiments
+### Step 21 — Add execution-order layout experiments
 
 **Class:** ML writer policy and benchmark only.
 
@@ -1632,7 +1666,7 @@ are in `docs/vbuf-ml/step16-real-model-placement.md`.
 
 ---
 
-### Step 21 — Build the controlled GGUF versus vBuf-ML qualification
+### Step 22 — Build the controlled GGUF versus vBuf-ML qualification
 
 **Class:** benchmark/tooling; no format changes.
 
@@ -1683,7 +1717,7 @@ Backend-specific CUDA/HIP/Metal/shared-memory variants are optional descendant/r
 
 ---
 
-### Step 22 — Qualification review and format-freeze decision
+### Step 23 — Qualification review and format-freeze decision
 
 **Class:** documentation/release gate.
 

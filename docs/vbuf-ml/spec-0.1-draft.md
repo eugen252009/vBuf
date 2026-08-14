@@ -42,9 +42,11 @@ token ordinal IDs. Metadata and tokenizer regions contain no trusted physical
 offsets or duplicated primitive descriptors.
 
 Tensor representation qualification is specified in
-[`representations.md`](representations.md). Profile 0.1 selects only
-`CanonicalPrimitive`; packed/quantized representations remain blocked on a
-pinned first target and authoritative upstream layout revision.
+[`representations.md`](representations.md) and the Step 17 evidence document.
+Profile 0.1 selects `CanonicalPrimitive`, exact BF16 opaque bytes, and exact
+GGML Q8_0 opaque bytes using profile-local representation IDs. The contracts
+are limited to the pinned llama.cpp revision and do not add GGML semantics to
+generic vBuf.
 
 The downstream placement and alignment policy is described in
 [`layout-policy.md`](layout-policy.md). It is a deterministic writer policy,

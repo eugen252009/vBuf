@@ -22,7 +22,7 @@ pub use bootstrap::{Bootstrap, BootstrapEntry, SemanticRegion};
 pub use error::{MlError, MlErrorCode};
 pub use region_roles::RegionRole;
 pub use tensor_directory::{TensorDescriptor, TensorDirectory, TensorEntry};
-pub use representations::{representation_contract, validate_tensor_representation, RepresentationContract, TensorRepresentation};
+pub use representations::{bf16_bits_to_f32, expected_payload_bytes, logical_elements, representation_contract, representation_from_id, representation_name, validate_tensor_representation, CanonicalStorage, RepresentationContract, TensorRepresentation, BF16_BYTES_PER_ELEMENT, Q8_0_BLOCK_BYTES, Q8_0_BLOCK_ELEMENTS};
 pub use layout::{canonical_payload_alignment, payload_shift, write_indefinite, write_known_size, LayoutClass, LayoutError, LayoutPlan, PlacementRequest, PlannedBlock};
 pub use integrity::{digest_payload, encode_payload as encode_integrity_payload, IntegrityAlgorithm, IntegrityEntry, IntegrityMetadata, IntegrityRecord};
 pub use range_loading::{execute_plan, select_tensor_names, select_tensor_ordinals, Coalescing, LoadedPlan, LoadedRead, MmapSource, PhysicalRange, PositionedFileSource, PlannedTarget, RangeLoadError, ReadPlan, RangeSource, SelectedTensor};
