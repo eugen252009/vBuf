@@ -91,8 +91,9 @@ BOS behavior metadata: PASS
 chat template metadata: PASS
 ```
 
-`output.weight` is present as a distinct F32 tensor in the 32B source and is
-planned as an independent payload. No tied-output fallback is used.
+`output.weight` is present as a distinct Q8_0 tensor in the 32B source and is
+planned as an independent payload. The direct llama source now uses it when
+present and only uses the historical tied-output fallback when it is absent.
 
 ## PlacementPlanner architecture
 
@@ -147,18 +148,18 @@ No six payload copies are created.
 
 | BaseShift | BaseStep | Final size | Padding | Nano bytes | Layer spans | Coalesced spans |
 |---:|---:|---:|---:|---:|---:|---:|
-| 3 | 8 | 34,816,197,344 | 30 | 544,003,084 | 64 | 8 |
-| 4 | 16 | 34,816,199,728 | 2,414 | 272,001,561 | 64 | 24 |
-| 5 | 32 | 34,816,211,776 | 14,462 | 136,000,828 | 64 | 24 |
-| 6 | 64 | 34,816,235,840 | 38,526 | 68,000,461 | 64 | 24 |
-| 7 | 128 | 34,816,284,032 | 86,718 | 34,000,278 | 64 | 25 |
-| 8 | 256 | 34,816,380,672 | 183,358 | 17,000,186 | 64 | 25 |
+| 3 | 8 | 34,816,197,376 | 44 | 544,003,084 | 64 | 10 |
+| 4 | 16 | 34,816,199,792 | 2,460 | 272,001,561 | 64 | 26 |
+| 5 | 32 | 34,816,211,904 | 14,572 | 136,000,828 | 64 | 26 |
+| 6 | 64 | 34,816,236,096 | 38,764 | 68,000,461 | 64 | 26 |
+| 7 | 128 | 34,816,284,544 | 87,212 | 34,000,278 | 64 | 27 |
+| 8 | 256 | 34,816,381,696 | 184,364 | 17,000,187 | 64 | 27 |
 
 Common geometry:
 
 ```text
-block count: 732
-physical set-bit count: 732
+block count: 734
+physical set-bit count: 734
 tensor blocks: 707
 layer count: 64
 average spans/layer: 1
@@ -258,114 +259,152 @@ state proportional to descriptor/geometry counts
 
 The planner does not create six model files or six payload buffers.
 
-## Final artifact status
+## Historical disk-capacity blocker
 
-The selected planned final size is:
+The initial Step-26 run stopped before emission because only
+`25,510,162,432` bytes were available. The source was retained and no partial
+target was created. This historical evidence remains in the earlier
+`final-artifact.json` state recorded by the resource-limited qualification.
 
-```text
-34,816,197,344 bytes
-```
+The planner was then corrected to include the two tokenizer identity payloads
+that the production writer emits. This was deterministic accounting repair,
+not a placement-policy change: BaseShift remained 3 and the selected offsets
+now match the writer exactly.
 
-Available filesystem space at conversion qualification time:
-
-```text
-25,510,162,432 bytes
-```
-
-The source was retained and no partial target was created. Final artifact
-emission was blocked before writing to avoid consuming the remaining disk space.
-
-Evidence:
+## Final artifact
 
 ```text
-benchmark-results/vbuf-ml-step26-qwen32b-placement/final-artifact.json
-status = BLOCKED_RESOURCE
+path: research-models/Qwen3-32B-Q8_0.vbuf
+actual size: 34,816,197,376 bytes
+SHA-256: 84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d
+BaseShift: 3
+BaseStep: 8 bytes
 ```
 
-Therefore the following are not yet available:
+The final artifact is the only emitted 32B candidate. No six-way artifact
+fan-out or second payload copy was created.
+
+## Planned versus actual
 
 ```text
-final vBuf SHA-256
-planned-vs-actual 32B file size
-planned-vs-actual 32B offsets
-32B tensor payload parity against emitted vBuf
-32B checked-reader qualification
-32B llama structural load
+planned size: 34,816,197,376 bytes
+actual size:  34,816,197,376 bytes
+difference:   0 bytes
+planned offsets: 707/707 tensor payload offsets match
+writer checks: PASS
 ```
 
-The Rust writer now performs planned-versus-emitted position checks, and the
-small layout test suite verifies those invariants, but they could not be run
-against a completed 32B file in this environment.
-
-## Tensor-byte parity
-
-Source tensor geometry was validated for all 707 tensors.
-No conversion was emitted, so source-to-final payload hash parity is pending
-resource availability.
-
-The conversion plan remains `COPY_BYTES` only:
+## Exactness and readers
 
 ```text
-requantization: 0
-dequantization: 0
-repacking: 0
-tensor merging: 0
+tensor inventory: 707/707 PASS
+source/destination payload hashes: 707/707 PASS
+repack/requantize/dequantize/reorder: 0
+canonical checked reader: PASS
+Bootstrap: PASS
+ModelMetadata: PASS
+TensorDirectory: PASS
+TokenizerMetadata: PASS
+Q8_0 geometry and payload ranges: PASS
+BorrowedModelView: PASS
 ```
+
+Tokenizer parity passed for vocabulary `151,936`, merges `151,387`, token
+bytes, merge pairs, special IDs, BOS behavior, and chat template.
+
+## Runtime indexes
+
+The Step-25 reusable indexes were exercised independently:
+
+```text
+Borrowed TokenIndex: 151,936 entries, build ≈7.09 ms
+Packed MergeRankIndex: 151,387 entries, build ≈4.17 ms
+canonical token/merge key bytes copied: 0
+```
+
+The normal direct llama source does not inject duplicate Rust indexes.
 
 ## llama qualification
 
-Not run for the 32B vBuf because no final 32B vBuf artifact was emitted.
-The source GGUF was semantically qualified. Existing 0.6B llama correctness
-and direct-view qualification remain unchanged.
+Pinned llama.cpp:
+
+```text
+4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c
+```
+
+CPU-only direct-source construction passed:
+
+```text
+architecture and metadata: PASS
+tensor dimensions/types: PASS
+payload pointer validity: PASS
+MODEL_READY: PASS
+```
+
+The direct source was corrected to preserve a distinct `output.weight` when
+present; the tied-output fallback remains only for artifacts without that
+tensor.
+
+Controls:
+
+```text
+GGUF MODEL_READY: ≈18.486 s
+vBuf MODEL_READY: ≈0.461 s
+```
+
+The direct path matched the GGUF control:
+
+```text
+logit max_abs_diff: 0
+generation parity: PASS
+output: 504,13027,0,863,198,198,2,19143
+```
+
+These are qualification controls only; no Step-27 scaling claim is made.
+
+## Resource qualification
+
+```text
+free before emission: 237,715,451,904 bytes
+free after qualification: 202,829,688,832 bytes
+RAM available at capture: ≈61.1 GB
+swap: 25.8 GB total, 6.5 GB used
+GPU: not involved
+peak RSS/page faults/bytes read: unavailable
+```
 
 ## 0.6B regression
 
-Existing Step-22/23/24/25 evidence remains present and unchanged.
-Workspace tests, layout tests, Step-22/22A/23 tests, and Step-26 planner tests
-pass.
+Existing Step-22/23/24/25 evidence remains present and unchanged. Workspace,
+layout, Step-22/22A/23, and Step-26 planner tests pass. No existing 0.6B
+artifact was overwritten.
 
-No existing 0.6B artifact was overwritten.
-
-## Format changes
+## Format and architecture guards
 
 ```text
 v0.6 wire changes: 0
 vBuf-ML semantic wire changes: 0
-BaseShift legality changes: 0
-Nano wire changes: 0
+Nano persistence/changes: 0
+placement policy changes: 0
+LayerView/RuntimeChunk/prefetch/residency/GPU/MoE work: 0
 ```
 
-The only writer change is explicit plan geometry accounting and validation;
-wire semantics remain unchanged.
+## Step-27 readiness
 
-## Step-27 benchmark readiness
+Step-26 now provides the large-model correctness-qualified control artifact
+and raw controls for source open, canonical validation, BorrowedModelView,
+runtime indexes, llama construction, MODEL_READY, logit parity, and generation.
+A controlled small-versus-large benchmark remains Step 27 work; no scaling
+claim is made here.
 
-The Step-26 evidence schema is ready to compare arbitrary qualified artifacts
-with:
+## Final status
 
 ```text
-source/vBuf sizes
-model identity
-layer/tensor/token/merge counts
-BaseShift/BaseStep
-view/index timing
-common runtime timing
-model-ready timing
-future page-touch/I/O fields when measurable
+STEP 26: COMPLETE
 ```
 
-No small-vs-large loader performance claim is made here.
-
-## Blocker and next action
-
-The sole blocking issue is local storage capacity:
+Evidence is under:
 
 ```text
-required final artifact: ~34.8 GB
-available filesystem space: ~25.5 GB
+benchmark-results/vbuf-ml-step26-qwen32b-placement/
 ```
-
-Provide a filesystem with at least the source plus one additional approximately
-35 GB target capacity, then run the selected-plan conversion and the pending
-checked-reader/tensor-parity qualification. Do not change the selected
-BaseShift or introduce physical-runtime work to work around storage.

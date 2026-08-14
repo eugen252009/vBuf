@@ -124,7 +124,15 @@ std::shared_ptr<llama_model_source> make_vbuf_direct_source(const char * path) {
 void set_vbuf_direct_tensor_data(ggml_tensor * tensor, void * userdata) {
     auto & source = *static_cast<llama_model_source *>(userdata);
     std::string wanted = ggml_get_name(tensor);
-    if (wanted == "output.weight") wanted = "token_embd.weight";
+    if (wanted == "output.weight") {
+        bool has_output = false;
+        for (uint64_t i = 0; i < source.tensor_count(); ++i) {
+            std::string name; ggml_type type; std::vector<int64_t> dimensions; const uint8_t * payload = nullptr; uint64_t bytes = 0;
+            if (!source.tensor(i, name, type, dimensions, payload, bytes)) throw std::runtime_error("invalid direct tensor source descriptor");
+            if (name == "output.weight") { has_output = true; break; }
+        }
+        if (!has_output) wanted = "token_embd.weight";
+    }
     for (uint64_t i = 0; i < source.tensor_count(); ++i) {
         std::string name; ggml_type type; std::vector<int64_t> dimensions; const uint8_t * payload = nullptr; uint64_t bytes = 0;
         if (!source.tensor(i, name, type, dimensions, payload, bytes)) throw std::runtime_error("invalid direct tensor source descriptor");

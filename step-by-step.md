@@ -1967,10 +1967,20 @@ It minimizes final size and padding while preserving one physical span per
 layer. Hypothetical Nano accounting was recorded but Nano remains noncanonical
 and unused.
 
-The selected vBuf final size is 34,816,197,344 bytes. Emission is currently
-blocked by local free space of approximately 25.5 GB; the source was retained
-and no partial output was created. Pending final-artifact hash/parity and llama
-qualification are recorded explicitly in
+The final artifact is emitted and qualified:
+
+```text
+research-models/Qwen3-32B-Q8_0.vbuf
+size: 34,816,197,376 bytes
+SHA-256: 84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d
+```
+
+The corrected planner includes the two tokenizer identity payloads emitted by
+the writer; selected BaseShift/BaseStep remain unchanged and planned versus
+actual size and tensor offsets match exactly. Tensor payload parity passed
+707/707. Checked-reader, BorrowedModelView, llama MODEL_READY, zero logit
+parity, and deterministic generation parity passed. The historical 25.5 GB
+disk-capacity blocker and its evidence remain preserved in
 `benchmark-results/vbuf-ml-step26-qwen32b-placement/`.
 
 See `docs/vbuf-ml/step26-qwen32b-placement.md`.

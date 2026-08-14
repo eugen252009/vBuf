@@ -89,7 +89,7 @@ def requests(artifact, manifest):
     tok_entries=8+1+3
     entries.append({"name":"TokenizerControl","class":3,"order":3,"payload":20+12*tok_entries,"group":"control"})
     text_bytes=sum(len(t.encode()) for t in tokens)
-    payloads=[("TokenTextBytes",200,text_bytes,"tokenizer"),("TokenOffsets",201,8*(len(tokens)+1),"tokenizer"),("TokenTypes",202,4*len(types),"tokenizer"),("MergeLeftIds",203,4*len(merges),"tokenizer"),("MergeRightIds",204,4*len(merges),"tokenizer"),("AddBos",205,1,"tokenizer"),("ChatTemplate",208,len(artifact.metadata["tokenizer.chat_template"].encode()),"tokenizer")]
+    payloads=[("TokenTextBytes",200,text_bytes,"tokenizer"),("TokenOffsets",201,8*(len(tokens)+1),"tokenizer"),("TokenTypes",202,4*len(types),"tokenizer"),("MergeLeftIds",203,4*len(merges),"tokenizer"),("MergeRightIds",204,4*len(merges),"tokenizer"),("TokenizerModelIdentity",205,1,"tokenizer"),("PreTokenizerIdentity",206,1,"tokenizer"),("AddBos",207,1,"tokenizer"),("ChatTemplate",208,len(artifact.metadata["tokenizer.chat_template"].encode()),"tokenizer")]
     payloads += [(f"Special.{role}",220+ROLE_IDS[role],8,"tokenizer") for role in ("BosId","EosId","PadId")]
     for name,order,size,group in payloads: entries.append({"name":name,"class":4,"order":order,"payload":size,"group":group})
     for p in plans: entries.append({"name":p["target_name"],"class":5,"order":1_000_000+p["target_order"],"payload":p["source_payload_bytes"],"group":"tensor","layer":p["layer"]})
