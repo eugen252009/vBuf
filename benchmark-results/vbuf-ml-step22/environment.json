@@ -1,0 +1,25 @@
+{
+  "date_utc": "2026-08-14T16:28:55Z",
+  "kernel": "6.12.101+deb13-amd64",
+  "machine": "x86_64",
+  "cpu": "",
+  "logical_cpus": 16,
+  "python": "3.13.5",
+  "filesystem": "see qualification-config.json",
+  "cache_method": "POSIX_FADV_DONTNEED per file; uncached approximation, not drop_caches",
+  "threads": 2,
+  "affinity": "not forced",
+  "vbuf_commit": "d41f8bd78b20989797104acb53e585d2004aeb04",
+  "consumer_checkpoint": "vbuf-ml-0.1-consumer-parity",
+  "consumer_checkpoint_commit": "73a1f36661482037573a789ab90e15039a782ad9",
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "adapter_patch": "patches/llama.cpp/0001-user-metadata-tensor-source.patch",
+  "build_dir": "external pinned build; path supplied at runtime",
+  "runtime_settings": {
+    "n_gpu_layers": 0,
+    "n_ctx": 512,
+    "n_batch": 512,
+    "n_ubatch": "default",
+    "sampling": "greedy qualification only"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "BF16": {
+    "gguf": "Qwen3-0.6B-BF16.gguf",
+    "vbuf": "Qwen3-0.6B-BF16.vbuf",
+    "gguf_sha256": "65a16246f5814dc0587acadcf0328186b17febf6dcaeb1b13efa9243b551d38e",
+    "vbuf_sha256": "6ec3db0bb8a26914be7312cc26c3ec0fb6945202659c46b26b4506f4de75a806",
+    "paths": "research-models (local ignored artifacts)"
+  },
+  "Q8_0": {
+    "gguf": "Qwen3-0.6B-Q8_0.gguf",
+    "vbuf": "Qwen3-0.6B-Q8_0.vbuf",
+    "gguf_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+    "vbuf_sha256": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998",
+    "paths": "research-models (local ignored artifacts)"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "vbuf_commit": "d41f8bd78b20989797104acb53e585d2004aeb04",
+  "consumer_checkpoint": "vbuf-ml-0.1-consumer-parity",
+  "consumer_checkpoint_commit": "73a1f36661482037573a789ab90e15039a782ad9",
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "warm_runs": 3,
+  "cold_runs": 2,
+  "threads": 2,
+  "primary_prompt": "benchmarks/vbuf-ml/step22/prompts.json:primary",
+  "primary_statistic": "median with p25/p75 and min/max",
+  "cold_classification": "uncached approximation",
+  "correctness_gate": "Step-21 runtime qualification required before benchmark",
+  "performance_optimization": false
+}

@@ -62,16 +62,16 @@ Relative delta is `(vBuf - GGUF) / GGUF`; negative means lower latency.
 
 | Artifact / condition | Phase | GGUF median | vBuf median | Relative delta |
 |---|---|---:|---:|---:|
-| BF16 warm | model ready | 250.4 ms | 419.1 ms | +67.4% |
-| BF16 uncached | model ready | 1,078.3 ms | 535.6 ms | -50.3% |
-| BF16 warm | metadata control | 162.2 ms | 427.1 ms | +163.4% |
-| BF16 warm | prompt eval | 287.3 ms | 318.7 ms | +10.9% |
-| BF16 warm | generation | 295.6 ms | 286.8 ms | -3.0% |
-| Q8_0 warm | model ready | 197.3 ms | 415.5 ms | +110.6% |
-| Q8_0 uncached | model ready | 555.3 ms | 496.7 ms | -10.6% |
-| Q8_0 warm | metadata control | 157.2 ms | 408.0 ms | +159.6% |
-| Q8_0 warm | prompt eval | 227.8 ms | 236.3 ms | +3.7% |
-| Q8_0 warm | generation | 165.2 ms | 165.2 ms | approximately 0% |
+| BF16 warm | model ready | 248.9 ms | 407.7 ms | +63.8% |
+| BF16 uncached | model ready | 1,070.1 ms | 486.8 ms | -54.5% |
+| BF16 warm | metadata control | 159.8 ms | 418.9 ms | +162.2% |
+| BF16 warm | prompt eval | 286.4 ms | 318.0 ms | +11.0% |
+| BF16 warm | generation | 285.3 ms | 274.8 ms | -3.7% |
+| Q8_0 warm | model ready | 193.2 ms | 413.8 ms | +114.2% |
+| Q8_0 uncached | model ready | 543.5 ms | 473.9 ms | -12.8% |
+| Q8_0 warm | metadata control | 157.2 ms | 415.8 ms | +164.4% |
+| Q8_0 warm | prompt eval | 223.5 ms | 237.6 ms | +6.3% |
+| Q8_0 warm | generation | 164.4 ms | 161.1 ms | -2.0% |
 
 These are observations from the recorded configuration, not general
 performance claims. The steady-state control behaves as expected: generation
