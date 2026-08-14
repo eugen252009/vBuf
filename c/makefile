@@ -12,6 +12,7 @@ endif
 LIB_NAME = libvbuf.so
 RUNNER_SRC = tests/vbuf_test_runner.c
 RUNNER_EXE = vbuf_test_runner
+CONFORMANCE_EXE = v05_compat
 
 # Scannt alle test_*.c Dateien
 TEST_SOURCES = $(wildcard tests/test_*.c)
@@ -36,6 +37,12 @@ vbuf_writer: vBuf_writer.c vbuf.h $(LIB_NAME)
 active_tests/%.so: tests/%.c tests/test_interface.h $(LIB_NAME)
 	$(CC) $(CFLAGS) -shared $(LDFLAGS) -lvbuf $< -o $@
 
+# 5. Cross-language legacy fixture evidence (not a v0.6 contract)
+$(CONFORMANCE_EXE): conformance/v05_compat.c vbuf.h $(LIB_NAME)
+	$(CC) $(CFLAGS) conformance/v05_compat.c $(LDFLAGS) -lvbuf -o $(CONFORMANCE_EXE)
+
+conformance: $(CONFORMANCE_EXE)
+	./$(CONFORMANCE_EXE) ../tests/fixtures/v05
 
 tests_dir:
 	@mkdir -p ./active_tests
@@ -48,4 +55,4 @@ test: all
 	done
 
 clean:
-	rm -rf *.so $(RUNNER_EXE) vbuf_writer ./active_tests
+	rm -rf *.so $(RUNNER_EXE) $(CONFORMANCE_EXE) vbuf_writer ./active_tests

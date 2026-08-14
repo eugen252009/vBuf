@@ -1,0 +1,96 @@
+{
+  "fixture_set": "vbuf-legacy-v05-behavior",
+  "status": "immutable byte and behavior evidence; not a v0.6 contract",
+  "host_assumptions": {
+    "byte_order": "little-endian",
+    "rust_target": "native scalar representations used by current generic writer"
+  },
+  "shared_observations": {
+    "magic_bytes_hex": "56425546",
+    "version_u32_le": 327680,
+    "stored_a_shift": 4,
+    "current_implementation_alignment_bytes": 16,
+    "first_block_offset": 16,
+    "second_block_offset": 48,
+    "anchor_alignment_bytes": 8,
+    "count_encoding": "overflow bit set; u64 count follows anchor"
+  },
+  "files": [
+    {
+      "path": "current-rust.vbuf",
+      "producer": "rust vbuf_core::VBufWriter from the pre-v0.6 implementation",
+      "size": 72,
+      "sha256": "f1a4587e887998171815af5e479595174f1732100b34d39a566903534337a52c",
+      "data_len_u32_le": 0,
+      "columns": [
+        { "key_id": 1, "semantic": 0, "bit_width": 32, "count": 3, "payload_offset": 32 },
+        { "key_id": 2, "semantic": 0, "bit_width": 16, "count": 2, "payload_offset": 64 }
+      ],
+      "observed_legacy_behavior": {
+        "rust": "reads both declared columns",
+        "typescript": "reads both declared columns",
+        "c": "returns pointers/counts/widths for both declared columns"
+      }
+    },
+    {
+      "path": "current-typescript.vbuf",
+      "producer": "TypeScript VBufWriter from the pre-v0.6 implementation",
+      "size": 80,
+      "sha256": "0ab98e8a8810a722a8b95293c43f382a0769419f3bb8b38fff06738bcd1eeef5",
+      "data_len_u32_le": 80,
+      "columns": [
+        { "key_id": 1, "semantic": 0, "bit_width": 32, "count": 3, "payload_offset": 32 },
+        { "key_id": 2, "semantic": 1, "bit_width": 64, "count": 2, "payload_offset": 64 }
+      ],
+      "observed_legacy_behavior": {
+        "rust": "reads both declared columns",
+        "typescript": "reads both declared columns",
+        "c": "returns pointers/counts/widths for both declared columns"
+      }
+    },
+    {
+      "path": "short.vbuf",
+      "derivation": "eight-byte prefix-like malformed input",
+      "size": 8,
+      "sha256": "f55856843f4b5ba325a5676ee8d849b29cacafd87de9e1cf628c6d36ead67c7a",
+      "observed_legacy_behavior": {
+        "rust": "open rejects because file length is below global header size",
+        "typescript": "constructor rejects because buffer length is below global header size",
+        "c": "vbuf_open rejects through the Rust implementation"
+      },
+      "expected_v06": "reject before block or typed-view access"
+    },
+    {
+      "path": "bad-magic.vbuf",
+      "derivation": "sixteen-byte malformed header with non-VBUF magic",
+      "size": 16,
+      "sha256": "a03e1ebf6ce265926428c88b8229d4223e9e48ca398e3d608e0a7428a7708f18",
+      "observed_legacy_behavior": {
+        "rust": "open rejects magic",
+        "typescript": "constructor rejects magic",
+        "c": "vbuf_open rejects through the Rust implementation"
+      },
+      "expected_v06": "reject before block or typed-view access"
+    },
+    {
+      "path": "truncated-typescript.vbuf",
+      "derivation": "current-typescript.vbuf with one complete Float64 element removed; header still declares two Float64 values",
+      "size": 72,
+      "sha256": "eff2c2b579afec1bb080a0733a6a1fc90d709afa20e6f932d48dc125a4615209",
+      "declared_payload": { "key_id": 2, "bit_width": 64, "count": 2, "required_bytes": 16, "available_bytes": 8 },
+      "observed_legacy_behavior": {
+        "rust": "open accepts the global header; get_as<f64>(2) returns None after its end check",
+        "typescript": "constructor accepts; getCol(2) clamps with subarray and returns Float64Array(1) containing 1.5",
+        "c": "vbuf_get_generic returns a non-null pointer with count=2 and width=64 although only one Float64 is available; the test does not dereference beyond available bytes"
+      },
+      "expected_v06": "all readers reject the declared range before constructing or returning any typed view/pointer"
+    }
+  ],
+  "ambiguities_exercised": [
+    "The implementations encode/decode alignment as 1 << AShift; v0.5 text says 16 << AShift.",
+    "The Rust writer leaves DataLen zero while the TypeScript writer patches a u32 file size.",
+    "Current writers align subsequent anchors to eight bytes rather than defining a v0.6 BaseStep geometry.",
+    "Current generic Rust writing preserves native scalar memory bytes and is not a portable v0.6 primitive contract.",
+    "Legacy readers disagree on incomplete declared payload ranges; Step 2 records this and Step 4 must enforce v0.6 rejection."
+  ]
+}

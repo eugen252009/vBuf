@@ -406,11 +406,11 @@ The exact generic finalized-file artifacts are outputs of BASE qualification/spe
 
 ---
 
-### Step 2 — Build a byte-level baseline and legacy corpus
+### Step 2 — Build a byte-level baseline and legacy-behavior evidence corpus
 
 **Class:** BASE.
 
-**Goal:** preserve observable current behavior before correcting or tightening it.
+**Goal:** preserve current valid bytes, malformed/truncated bytes, and each implementation’s actual legacy behavior before correcting or tightening it. Step 2 observes defects; it is not a strict malformed-input conformance gate.
 
 **Files/modules likely changed:**
 
@@ -423,15 +423,15 @@ The exact generic finalized-file artifacts are outputs of BASE qualification/spe
 
 **Relevant existing code/specification:** `VBufWriter`, `VBufInstance`, `VBufWriter` in TypeScript, C inline reader, `rust/dual_test.vbuf`, and current unit tests.
 
-**Existing invariants:** existing valid SoA/AoS use remains representable; fixture generation is not timed benchmark work.
+**Existing invariants:** existing valid SoA/AoS use remains representable; fixture generation is not timed benchmark work; Step 2 does not repair readers.
 
-**New invariants:** fixture bytes are immutable; every fixture records which implementation produced it and which ambiguities it exercises.
+**New invariants:** fixture bytes are immutable; every fixture records which implementation produced/derived it, which ambiguities it exercises, and the observed Rust/TypeScript/C behavior. The corpus faithfully captures valid bytes, malformed bytes, silent acceptance, clamping, partial reads, unsafe/incomplete pointer exposure, and inconsistent rejection without normalizing legacy defects. Every unsafe or non-rejecting observation carries a pending expected-v0.6 rejection annotation for Step 4.
 
-**Tests/qualification:** cross-language read of scalar widths and multiple columns; payload offset checks; malformed/truncated variants must be rejected rather than silently skipped.
+**Tests/qualification:** cross-language read of valid scalar widths and columns; payload offset checks; malformed/truncated fixtures assert each current implementation’s observed behavior independently and need not agree. In particular, preserve the TypeScript case declaring two Float64 values but truncated by one element, where legacy `getCol(2)` returns `Float64Array(1)`; annotate that v0.6 must reject before constructing/returning a typed view. Preserve the C-facing incomplete-range pointer result without dereferencing beyond available bytes and annotate mandatory v0.6 rejection.
 
 **Architectural boundaries:** fixtures contain generic numeric/byte columns only, never models or tensors.
 
-**Expected commit outcome:** a reviewable compatibility baseline that prevents accidental format drift.
+**Expected commit outcome:** a reviewable byte/behavior baseline that prevents accidental format drift and gives Step 4 immutable malformed cases to promote into mandatory v0.6 rejection tests.
 
 **Dependencies:** Step 1 compatibility decision.
 
@@ -488,11 +488,11 @@ The exact generic finalized-file artifacts are outputs of BASE qualification/spe
 
 **New invariants:** checked arithmetic precedes every addition/multiplication/alignment; payload range is inside the declared and physical file; alignment is valid; no safe arbitrary-`T` construction; semantic representation is checked; no panic crosses FFI; invalid shifts/counts/truncation return structured errors.
 
-**Tests/qualification:** fuzz open/iterate/get; Miri or equivalent tests for typed access; sanitizers for C; malicious `AShift`, count overflow, zero-sized types, wrong semantics, misalignment, truncated overflow header and data beyond EOF.
+**Tests/qualification:** promote every Step 2 `expected_v06: reject` annotation into mandatory Rust/TypeScript/C rejection tests; require rejection before typed-view or pointer construction for declared ranges crossing EOF, including the preserved two-Float64 truncation fixture and C-facing incomplete-range case; fuzz open/iterate/get; Miri or equivalent tests for typed access; sanitizers for C; malicious `AShift`, count overflow, zero-sized types, wrong semantics, misalignment, truncated overflow header and data beyond EOF.
 
 **Architectural boundaries:** known portable primitive views belong in generic vBuf; arbitrary structs remain bytes or require an explicitly unsafe caller contract. No ML types.
 
-**Expected commit outcome:** safe handling of untrusted downloaded containers is possible without copying valid payloads.
+**Expected commit outcome:** the Step 2 transition is complete—legacy observed behavior becomes v0.6 checked range/bounds behavior with mandatory malformed-input rejection—and safe handling of untrusted downloaded containers is possible without copying valid payloads.
 
 **Dependencies:** Step 3.
 
