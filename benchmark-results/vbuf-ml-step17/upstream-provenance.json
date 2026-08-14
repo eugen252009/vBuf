@@ -1,0 +1,122 @@
+{
+  "repository": "https://github.com/ggml-org/llama.cpp.git",
+  "commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "source_provenance": {
+    "ggml/include/ggml.h": [
+      {
+        "needle": "GGML_TYPE_F32",
+        "line": 43,
+        "text": "//       struct ggml_tensor * x = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, 1);"
+      },
+      {
+        "needle": "GGML_TYPE_Q8_0",
+        "line": 398,
+        "text": "GGML_TYPE_Q8_0    = 8,"
+      },
+      {
+        "needle": "GGML_TYPE_BF16",
+        "line": 420,
+        "text": "GGML_TYPE_BF16    = 30,"
+      }
+    ],
+    "ggml/src/ggml-common.h": [
+      {
+        "needle": "#define QK8_0 32",
+        "line": 251,
+        "text": "#define QK8_0 32"
+      },
+      {
+        "needle": "typedef struct {",
+        "line": 181,
+        "text": "typedef struct {"
+      },
+      {
+        "needle": "block_q8_0",
+        "line": 255,
+        "text": "} block_q8_0;"
+      }
+    ],
+    "ggml/src/ggml.c": [
+      {
+        "needle": "[GGML_TYPE_Q8_0]",
+        "line": 736,
+        "text": "[GGML_TYPE_Q8_0] = {"
+      },
+      {
+        "needle": "[GGML_TYPE_BF16]",
+        "line": 885,
+        "text": "[GGML_TYPE_BF16] = {"
+      },
+      {
+        "needle": "size_t ggml_row_size",
+        "line": 1338,
+        "text": "size_t ggml_row_size(enum ggml_type type, int64_t ne) {"
+      }
+    ],
+    "ggml/src/ggml-impl.h": [
+      {
+        "needle": "ggml_compute_bf16_to_fp32",
+        "line": 594,
+        "text": "static inline float ggml_compute_bf16_to_fp32(ggml_bf16_t h) {"
+      },
+      {
+        "needle": "ggml_compute_fp32_to_bf16",
+        "line": 611,
+        "text": "static inline ggml_bf16_t ggml_compute_fp32_to_bf16(float s) {"
+      }
+    ],
+    "ggml/src/ggml-quants.c": [
+      {
+        "needle": "quantize_row_q8_0_ref",
+        "line": 276,
+        "text": "void quantize_row_q8_0_ref(const float * GGML_RESTRICT x, block_q8_0 * GGML_RESTRICT y, int64_t k) {"
+      },
+      {
+        "needle": "dequantize_row_q8_0",
+        "line": 553,
+        "text": "void dequantize_row_q8_0(const block_q8_0 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {"
+      }
+    ],
+    "src/models/qwen3.cpp": [
+      {
+        "needle": "output = create_tensor",
+        "line": 25,
+        "text": "output = create_tensor(tn(LLM_TENSOR_TOKEN_EMBD, \"weight\"), {n_embd, n_vocab}, TENSOR_DUPLICATED);"
+      },
+      {
+        "needle": "TENSOR_DUPLICATED",
+        "line": 25,
+        "text": "output = create_tensor(tn(LLM_TENSOR_TOKEN_EMBD, \"weight\"), {n_embd, n_vocab}, TENSOR_DUPLICATED);"
+      }
+    ],
+    "src/llama-model-loader.cpp": [
+      {
+        "needle": "some models use the token embedding tensor as the output",
+        "line": 1101,
+        "text": "// some models use the token embedding tensor as the output, but since these are used in different layers and with different ops"
+      },
+      {
+        "needle": "TENSOR_DUPLICATED",
+        "line": 1105,
+        "text": "if (tn.tensor == LLM_TENSOR_TOKEN_EMBD && (flags & TENSOR_DUPLICATED)) {"
+      }
+    ]
+  },
+  "contracts": {
+    "F32": {
+      "ggml_type_id": 0,
+      "bytes_per_element": 4
+    },
+    "BF16": {
+      "ggml_type_id": 30,
+      "bytes_per_element": 2
+    },
+    "Q8_0": {
+      "ggml_type_id": 8,
+      "block_elements": 32,
+      "block_bytes": 34,
+      "row_rule": "innermost dimension divisible by 32"
+    }
+  },
+  "output_fallback": "src/models/qwen3.cpp load_arch_tensors creates output.weight as not required and duplicates token_embd.weight with TENSOR_DUPLICATED when absent"
+}
