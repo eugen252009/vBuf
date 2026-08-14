@@ -1,0 +1,9 @@
+commit=c845f61a050e11131e9970dbe8a0a21ac920b2ce
+runner_source_sha256=3a498d968d51ad5a4afea9429bcbac1bf100e4e0af391d8e02ac8356221d4923
+rustc=rustc 1.95.0 (59807616e 2026-04-14);binary: rustc;commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860;commit-date: 2026-04-14;host: x86_64-unknown-linux-gnu;release: 1.95.0;LLVM version: 22.1.2;
+uname=Linux debian 6.12.101+deb13-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.12.101-1 (2026-08-05) x86_64 GNU/Linux
+
+cache_note=real read-only mmap; warm page-cache/process runs; no drop_caches permission assumed; page-fault deltas are process counters, not storage-I/O proof
+lazy=canonical validation + bootstrap + model metadata + tensor directory
+eager=lazy + tokenizer control/content validation + all tokenizer arrays + auxiliary cold range
+14a678d53af5b48f3842ece029c181107ef6ee115e9873fa162f2e9243132277  benchmark-results/vbuf-ml-step11/step11-qualification-final.vbuf

@@ -1,0 +1,10 @@
+scenario,phase,nanoseconds,minor_faults,major_faults,explicit_bytes,checksum
+lazy,T1_canonical,24520,3,0,0,15
+lazy,T2_bootstrap,11090,0,0,176,3
+lazy,T3_model_tensor,11860,0,0,25,1
+eager,T1_canonical,17190,2,0,0,15
+eager,T2_bootstrap,10070,0,0,176,3
+eager,T3_model_tensor,10420,0,0,25,1
+eager,T4_tokenizer_control,1079686,63,0,4202504,1024
+eager,T5_tokenizer_payload,222331,0,0,4199424,4195328
+eager,T6_auxiliary_cold,418662,128,0,8388608,184320
