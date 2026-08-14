@@ -1746,6 +1746,29 @@ Evidence and provenance are in `docs/vbuf-ml/step21-llama-consumer.md` and
 
 ### Step 22 — Build the controlled GGUF versus vBuf-ML qualification
 
+#### Step 22A implementation recorded
+
+The frozen Step-21 checkpoint is tagged `vbuf-ml-0.1-consumer-parity` at
+`73a1f36661482037573a789ad9`. Added the CPU-only in-process benchmark harness
+`integrations/llama.cpp/step22_benchmark.cpp`, fixed prompts, and
+`scripts/qualify_step22.py`.
+
+The harness verifies the Step-21 gate, pinned llama.cpp commit, adapter patch,
+and all four artifact hashes before running balanced GGUF/vBuf repetitions. It
+records model-ready, vocab-only metadata control, prompt tokenization, prompt
+evaluation, and greedy generation phases together with faults, RSS/PSS,
+virtual size, procfs read bytes, and file size.
+
+Results are under `benchmark-results/vbuf-ml-step22/`. Warm runs used three
+samples per format; uncached approximations used two. `POSIX_FADV_DONTNEED`
+was available but privileged `drop_caches` was not, so no true cold-cache claim
+is made. Steady generation was approximately equal; model-ready, metadata, and
+first-touch behavior differed. No optimization was introduced.
+
+See `docs/vbuf-ml/step22-baseline-benchmark.md`.
+
+---
+
 **Class:** benchmark/tooling; no format changes.
 
 **Goal:** test the efficiency hypothesis with the same model representation, runtime revision, kernel selection and workload.
