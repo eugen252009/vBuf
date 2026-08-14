@@ -1,0 +1,186 @@
+{
+  "schema": "vbuf-v06-normative-vectors-1",
+  "authority": "spec/spec_0.6.md",
+  "valid_base_geometry": [
+    { "base_shift": 3, "base_step": 8, "header_size": 24, "data_region_start": 24 },
+    { "base_shift": 4, "base_step": 16, "header_size": 24, "data_region_start": 32 },
+    { "base_shift": 5, "base_step": 32, "header_size": 24, "data_region_start": 32 },
+    { "base_shift": 6, "base_step": 64, "header_size": 24, "data_region_start": 64 },
+    { "base_shift": 7, "base_step": 128, "header_size": 24, "data_region_start": 128 },
+    { "base_shift": 8, "base_step": 256, "header_size": 24, "data_region_start": 256 },
+    { "base_shift": 4, "base_step": 16, "header_size": 40, "data_region_start": 48 }
+  ],
+  "block_offset_cases": [
+    {
+      "base_shift": 3,
+      "cases": [
+        { "offset": 0, "representable": true },
+        { "offset": 1, "representable": false },
+        { "offset": 7, "representable": false },
+        { "offset": 8, "representable": true },
+        { "offset": 9, "representable": false },
+        { "offset": 65535, "representable": false },
+        { "offset": 18446744073709551608, "representable": true }
+      ]
+    },
+    {
+      "base_shift": 4,
+      "cases": [
+        { "offset": 0, "representable": true },
+        { "offset": 1, "representable": false },
+        { "offset": 15, "representable": false },
+        { "offset": 16, "representable": true },
+        { "offset": 17, "representable": false },
+        { "offset": 65535, "representable": false },
+        { "offset": 18446744073709551600, "representable": true }
+      ]
+    },
+    {
+      "base_shift": 5,
+      "cases": [
+        { "offset": 0, "representable": true },
+        { "offset": 1, "representable": false },
+        { "offset": 31, "representable": false },
+        { "offset": 32, "representable": true },
+        { "offset": 33, "representable": false },
+        { "offset": 65535, "representable": false },
+        { "offset": 18446744073709551584, "representable": true }
+      ]
+    },
+    {
+      "base_shift": 6,
+      "cases": [
+        { "offset": 0, "representable": true },
+        { "offset": 1, "representable": false },
+        { "offset": 63, "representable": false },
+        { "offset": 64, "representable": true },
+        { "offset": 65, "representable": false },
+        { "offset": 65535, "representable": false },
+        { "offset": 18446744073709551552, "representable": true }
+      ]
+    },
+    {
+      "base_shift": 7,
+      "cases": [
+        { "offset": 0, "representable": true },
+        { "offset": 1, "representable": false },
+        { "offset": 127, "representable": false },
+        { "offset": 128, "representable": true },
+        { "offset": 129, "representable": false },
+        { "offset": 65535, "representable": false },
+        { "offset": 18446744073709551488, "representable": true }
+      ]
+    },
+    {
+      "base_shift": 8,
+      "cases": [
+        { "offset": 0, "representable": true },
+        { "offset": 1, "representable": false },
+        { "offset": 255, "representable": false },
+        { "offset": 256, "representable": true },
+        { "offset": 257, "representable": false },
+        { "offset": 65535, "representable": false },
+        { "offset": 18446744073709551360, "representable": true }
+      ]
+    }
+  ],
+  "valid_blocks": [
+    {
+      "name": "inline-u32-array-partial-final-step",
+      "base_shift": 3,
+      "block_start": 24,
+      "payload_shift": 0,
+      "count64": false,
+      "count": 3,
+      "bit_width": 32,
+      "expected": {
+        "header_size": 8,
+        "payload_alignment": 8,
+        "payload_start": 32,
+        "payload_bytes": 12,
+        "payload_end": 44,
+        "next_block_start": 48,
+        "final_data_region_size": 20
+      }
+    },
+    {
+      "name": "extended-u16-array-stricter-payload-alignment",
+      "base_shift": 4,
+      "block_start": 32,
+      "payload_shift": 1,
+      "count64": true,
+      "count": 70000,
+      "bit_width": 16,
+      "expected": {
+        "header_size": 16,
+        "payload_alignment": 32,
+        "payload_start": 64,
+        "payload_bytes": 140000,
+        "payload_end": 140064,
+        "next_block_start": 140064,
+        "final_data_region_size": 140032
+      }
+    },
+    {
+      "name": "scalar-u64-partial-final-step",
+      "base_shift": 6,
+      "block_start": 64,
+      "payload_shift": 1,
+      "count64": false,
+      "count": 1,
+      "bit_width": 64,
+      "expected": {
+        "header_size": 8,
+        "payload_alignment": 128,
+        "payload_start": 128,
+        "payload_bytes": 8,
+        "payload_end": 136,
+        "next_block_start": 192,
+        "final_data_region_size": 72
+      }
+    },
+    {
+      "name": "zero-length-array",
+      "base_shift": 5,
+      "block_start": 32,
+      "payload_shift": 0,
+      "count64": false,
+      "count": 0,
+      "bit_width": 8,
+      "expected": {
+        "header_size": 8,
+        "payload_alignment": 32,
+        "payload_start": 64,
+        "payload_bytes": 0,
+        "payload_end": 64,
+        "next_block_start": 64,
+        "final_data_region_size": 32
+      }
+    }
+  ],
+  "canonical_file_hex": [
+    {
+      "name": "known-size-inline-u32-array",
+      "hex": "5642554600000600030018000000000014000000000000001000010020000300010000000200000003000000",
+      "file_size": 44,
+      "base_step": 8,
+      "data_region_start": 24,
+      "data_region_size": 20,
+      "payload_start": 32,
+      "payload_values_u32": [1, 2, 3]
+    }
+  ],
+  "invalid": [
+    { "name": "base-shift-below-range", "operation": "base_step", "base_shift": 2, "error": "invalid_base_shift" },
+    { "name": "base-shift-above-range", "operation": "base_step", "base_shift": 9, "error": "invalid_base_shift" },
+    { "name": "header-too-small", "operation": "data_region_start", "base_shift": 3, "header_size": 16, "error": "invalid_header_size" },
+    { "name": "header-not-eight-byte-multiple", "operation": "data_region_start", "base_shift": 3, "header_size": 25, "error": "invalid_header_size" },
+    { "name": "payload-shift-overflow", "operation": "payload_alignment", "base_shift": 8, "payload_shift": 56, "error": "invalid_payload_shift" },
+    { "name": "payload-bits-overflow", "operation": "payload_bytes", "count": 18446744073709551615, "bit_width": 64, "error": "u64_overflow" },
+    { "name": "align-add-overflow", "operation": "align_up", "value": 18446744073709551612, "alignment": 8, "error": "u64_overflow" },
+    { "name": "inline-count-too-large", "operation": "count_form", "count64": false, "count": 65536, "inline_count": 0, "error": "noncanonical_count" },
+    { "name": "extended-small-count", "operation": "count_form", "count64": true, "count": 65535, "inline_count": 0, "error": "noncanonical_count" },
+    { "name": "extended-inline-count-nonzero", "operation": "count_form", "count64": true, "count": 65536, "inline_count": 1, "error": "noncanonical_count" },
+    { "name": "known-size-end-overflow", "operation": "known_data_end", "data_region_start": 256, "data_region_size": 18446744073709551615, "error": "u64_overflow" }
+  ]
+}

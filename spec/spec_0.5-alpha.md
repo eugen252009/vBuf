@@ -1,5 +1,7 @@
 # Specification: vBuf (Vector-Buffer) v0.5-alpha
 
+> **Historical implementation-lineage evidence — not normative.** The authoritative generic contract is [vBuf v0.6](spec_0.6.md); see [compatibility notes](compatibility.md). This alpha is preserved without retroactive correction.
+
 **Project Codename:** Kraftpaket  
 **Design Goal:** Maximum throughput with deterministic hardware alignment.  
 **Byte Order:** Little-Endian (LE)  

@@ -1,5 +1,7 @@
 # Specification: vBuf (Vector-Buffer)
 
+> **Historical design evidence — not normative.** The authoritative generic contract is [vBuf v0.6](spec_0.6.md); see [compatibility notes](compatibility.md). This draft is preserved without retroactive correction.
+
 **Version:** 0.1-draft  
 **Status:** Experimental  
 **Byte Order:** Little-Endian (LE)  

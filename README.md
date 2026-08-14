@@ -1,51 +1,51 @@
-## 🤖 AI Context: Problem & Solution
-
-> **For AI Agents & LLMs:** This section defines the architectural intent of vBuf.
-
-* **Problem:** JSON/BSON/Protobuf require expensive parsing (CPU cycles) and often suffer from memory misalignment, preventing direct CPU vectorization (SIMD). Existing flat formats like FlexBuffers lack native integrity checks and strict hardware-level alignment for zero-copy `mmap`.
-* **Solution:** **vBuf** provides a binary layout where every data cell is strictly **16-byte aligned**. This enables **Zero-Copy Memory Mapping (mmap)** and allows CPU SIMD units to load data directly into registers.
-* **Use Case:** Ideal for high-throughput telemetry, real-time analytics, and large-scale data lakes where "parsing time" is the primary bottleneck.
-* **Key Constraint:** Every entry is a multiple of 16 bytes; internal padding is utilized for CRC32 checksums to ensure data integrity without overhead.
-
----
-
 # vBuf (Vector-Buffer) ⚡
 
-A high-performance, zero-copy binary serialization format optimized for **SIMD** instructions and **mmap**-readability.
+vBuf is a generic binary block format for checked, mmap-friendly, direct native consumption.
 
-## 🚀 Why vBuf?
+## Architectural intent
 
-vBuf is designed for scenarios where JSON is too slow and FlatBuffers/FlexBuffers are not "hardware-native" enough. By enforcing a strict **16-byte alignment** for every data cell, vBuf allows modern CPUs to load data directly into vector registers (SSE/AVX/NEON) without any transformation.
+`BaseStep` is vBuf's hardware-neutral physical granularity. It provides predictable block starts and can support naturally aligned scalar loads, SIMD-friendly payload positions, simple physical address calculation, vectorized traversal, and favorable cache behavior. The format does not hard-code one contemporary SIMD, cache-line, or page width.
 
-### Key Features
-- **Zero-Copy:** No deserialization step. Map a file to memory and start reading.
-- **SIMD-Ready:** Every data entry (Cell) starts on a 16-byte boundary.
-- **Self-Healing/Verifying:** Each Cell contains its own CRC32 checksum embedded in the padding.
-- **Streaming & Random Access:** Supports sequential writing (like TAR) and O(1) lookups via an optional index.
-- **Memory-Efficient:** Small integers (SMI) and metadata are optimized to minimize footprint.
+The v0.6 wire contract permits BaseStep values from 8 through 256 bytes. Choosing a writer default is a whole-system trade-off among native access, cache/traversal behavior, padding, and packing density—especially for small or composite multi-block representations. Optional indexes, if qualified later, derive their geometry from BaseStep and do not select it.
+
+### v0.6 base properties
+
+- exact little-endian magic/version and checked 64-bit ranges;
+- power-of-two canonical block geometry;
+- orthogonal payload alignment as a multiple of BaseStep;
+- portable selected primitive encodings and opaque bytes;
+- known-size and indefinite canonical streams;
+- deterministic next-block calculation with no required final tail padding;
+- no mandatory or currently selected index, checksum, directory, or finalization artifact.
+
+The existing Rust, TypeScript, and C implementations still represent legacy v0.5-style behavior until the v0.6 safety/writer steps are implemented. Do not infer implementation conformance from publication of the specification.
 
 ---
 
-## 🏗️ The Memory Layout
+## 🏗️ Canonical memory layout
 
-vBuf organizes data into **Cells**. A Cell is the smallest unit of data, guaranteed to be a multiple of 16 bytes.
+```text
+minimum global header
+alignment padding to BaseStep
+canonical block anchor [+ optional extended count]
+padding to PayloadAlignment
+payload bytes
+padding to the next BaseStep block start (only when another block follows)
+```
 
-| Header (4B) | Payload (nB) | Padding (pB) | Checksum (4B) |
-|:---:|:---:|:---:|:---:|
-| `Type`, `Meta`, `KeyID` | Raw Data | Null-fill | `CRC32` |
-
-- **Header:** 1 byte Type, 1 byte Metadata, 2 bytes Key-ID (Little-Endian).
-- **Checksum:** Always located at the last 4 bytes of the 16-byte block.
+Canonical headers and checked ranges remain authoritative. See the normative specification for exact fields and formulas.
 
 ---
 
 ## 🛠️ Roadmap
 
-1.  **Phase 1 (Current):** TypeScript/Bun prototype for logic validation and schema definition.
-2.  **Phase 2:** High-performance Rust implementation using `zerocopy` and SIMD intrinsics.
-3.  **Phase 3:** C-Bindings for embedded and low-level system integration.
+1. **Current:** normative v0.6 base specification and immutable legacy evidence.
+2. **Next:** checked v0.6 Rust, TypeScript, and C readers/writers with cross-language conformance.
+3. **Qualification:** measure BaseStep and optional generic navigation structures before selecting defaults or artifacts.
 
-## 💻 Usage (TypeScript Prototype)
+## 💻 Legacy TypeScript prototype usage
+
+> This example uses the pre-v0.6 prototype API and does not claim v0.6 wire conformance.
 
 ```typescript
 import { VBufWriter } from "./src/vbuf";
@@ -60,7 +60,11 @@ const buffer = writer.finish();
 
 ## 📜 Specification
 
-The current implementation lineage is documented by [`spec/spec_0.5-alpha.md`](spec/spec_0.5-alpha.md), with earlier drafts retained as design history. It is not yet a frozen interoperable contract. The corrected v0.6 and descendant-profile work is gated by the decisions and qualification plan in [`step-by-step.md`](step-by-step.md).
+- **Normative generic wire contract:** [`spec/spec_0.6.md`](spec/spec_0.6.md)
+- **Compatibility and historical status:** [`spec/compatibility.md`](spec/compatibility.md)
+- **Execution and qualification plan:** [`step-by-step.md`](step-by-step.md)
+
+Specifications v0.1 through v0.5 are retained as historical evidence, not alternate definitions of v0.6.
 
 ## ⚖️ License
 
