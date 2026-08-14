@@ -161,3 +161,11 @@ dependencies = [
 [[package]]
 name = "vbuf-layout"
 version = "0.1.0"
+
+[[package]]
+name = "vbuf-ml"
+version = "0.1.0"
+dependencies = [
+ "vbuf-core",
+ "vbuf-layout",
+]

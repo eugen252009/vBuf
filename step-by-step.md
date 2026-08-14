@@ -1014,6 +1014,25 @@ report records the benchmark source hash for reproducibility.
 
 **Dependencies:** Step 1 framing decision; preferably Steps 3–5.
 
+#### Step 7 implementation recorded
+
+`rust/vbuf-ml` is now a separate workspace crate depending only downward on
+`vbuf-core` and `vbuf-layout`. `scripts/verify_architecture.py` checks the
+actual Cargo metadata graph and rejects reverse references from generic Rust
+sources. Its only public helper accepts an already validated generic range and
+reports its byte length; this is a boundary smoke seam, not ML semantics.
+
+No tensor, model, tokenizer, quantization, backend, placement, finalization,
+Nano, checkpoint, or directory behavior was added. Future profile semantics
+must follow:
+
+```text
+raw bytes -> canonical v0.6 validation -> checked ranges -> vbuf-ml semantics
+```
+
+Generic promotion still requires independent downstream-neutral utility and
+qualification. Building generic packages does not require the descendant.
+
 ---
 
 ### Step 8 — Specify the vBuf-ML bootstrap and map semantic roles onto generic regions
