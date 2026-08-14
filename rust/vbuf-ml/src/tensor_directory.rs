@@ -1,6 +1,7 @@
 use crate::bootstrap::Bootstrap;
 use crate::error::{MlError, MlErrorCode};
 use crate::region_roles::RegionRole;
+use crate::representations::{representation_from_id, validate_tensor_representation, TensorRepresentation};
 use vbuf_core::v06::{V06Physical, V06Semantic, ValidatedV06};
 use vbuf_layout::CheckedRange;
 
@@ -12,21 +13,6 @@ pub const MAX_NAME_BYTES: usize = 4096;
 pub const MAX_RANK: usize = 16;
 const HEADER_BYTES: usize = 20;
 const ENTRY_FIXED_BYTES: usize = 10;
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[repr(u8)]
-pub enum TensorRepresentation {
-    CanonicalPrimitive = 0,
-}
-
-impl TensorRepresentation {
-    fn from_id(id: u8) -> Result<Self, MlError> {
-        match id {
-            0 => Ok(Self::CanonicalPrimitive),
-            _ => Err(MlError::new(MlErrorCode::UnsupportedTensorRepresentation, "unsupported tensor representation")),
-        }
-    }
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TensorEntry {
@@ -82,7 +68,7 @@ impl<'a> TensorDirectory<'a> {
             if target.continuation {
                 return Err(MlError::new(MlErrorCode::TensorRepresentationMismatch, "continuation tensor values are not supported by profile 0.1"));
             }
-            validate_primitive_shape(&raw.dimensions, target)?;
+            validate_tensor_representation(raw.representation, &raw.dimensions, target)?;
             tensors.push(TensorDescriptor {
                 name,
                 dimensions: raw.dimensions,
@@ -175,7 +161,7 @@ fn parse_payload(bytes: &[u8]) -> Result<Vec<RawEntry>, MlError> {
         if u16::from_le_bytes(fixed[8..10].try_into().unwrap()) != 0 {
             return Err(MlError::new(MlErrorCode::MalformedTensorDirectory, "tensor entry reserved field is non-zero"));
         }
-        let representation = TensorRepresentation::from_id(fixed[3])?;
+        let representation = representation_from_id(fixed[3])?;
         cursor += ENTRY_FIXED_BYTES;
         let name_end = cursor.checked_add(name_len).ok_or_else(|| MlError::new(MlErrorCode::MalformedTensorDirectory, "tensor name length overflows"))?;
         let name = bytes.get(cursor..name_end).ok_or_else(|| MlError::new(MlErrorCode::MalformedTensorDirectory, "truncated tensor name"))?.to_vec();
@@ -216,17 +202,5 @@ fn validate_entry(entry: &TensorEntry) -> Result<(), MlError> {
         }
     }
     entry.dimensions.iter().try_fold(1u64, |product, dimension| product.checked_mul(*dimension)).ok_or_else(|| MlError::new(MlErrorCode::ShapeOverflow, "tensor shape product overflows u64"))?;
-    Ok(())
-}
-
-fn validate_primitive_shape(dimensions: &[u64], block: &vbuf_core::v06::V06Block) -> Result<(), MlError> {
-    let logical_elements = dimensions.iter().try_fold(1u64, |product, dimension| product.checked_mul(*dimension)).ok_or_else(|| MlError::new(MlErrorCode::ShapeOverflow, "tensor shape product overflows u64"))?;
-    if !matches!(block.semantic, V06Semantic::Unsigned | V06Semantic::Signed | V06Semantic::Float) || !block.bit_width.is_multiple_of(8) || block.count != logical_elements {
-        return Err(MlError::new(MlErrorCode::TensorRepresentationMismatch, "canonical primitive does not match tensor shape"));
-    }
-    let expected_bytes = logical_elements.checked_mul(u64::from(block.bit_width / 8)).ok_or_else(|| MlError::new(MlErrorCode::ShapeOverflow, "tensor payload size overflows u64"))?;
-    if block.payload_len != expected_bytes {
-        return Err(MlError::new(MlErrorCode::TensorPayloadSizeMismatch, "tensor payload length does not match shape"));
-    }
     Ok(())
 }

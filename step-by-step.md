@@ -1276,6 +1276,28 @@ remain tied to its source model instance.
 
 **Dependencies:** Step 9 and Decision D.
 
+#### Step 12 implementation recorded
+
+Added `rust/vbuf-ml/src/representations.rs` and
+`docs/vbuf-ml/representations.md`. Profile 0.1 now has a small static
+representation contract API, but selects only `CanonicalPrimitive`.
+
+Primitive representation validation is centralized in
+`validate_tensor_representation`. It derives semantic, physical, bit width,
+count, payload length, and alignment from canonical vBuf descriptors without
+adding duplicate ML dtype or storage fields.
+
+Packed/quantized representations were deliberately not selected. Decision D
+(namespaced local IDs versus external numeric IDs) and Decision E (first real
+model plus pinned GGML/llama.cpp revision) remain insufficiently resolved to
+provide authoritative Q4/Q5/Q8 layouts, row rules, endianness, and size
+functions. No guessed quantized layouts or fake fixtures were added; unknown
+representation IDs fail closed.
+
+The existing profile 0.1 single non-continuing canonical-block tensor policy is
+unchanged. No v0.6, generic range, backend, Nano, finalization, or converter
+changes were required.
+
 ---
 
 ### Step 13 — Implement canonical layout and alignment policy

@@ -32,8 +32,10 @@ blocks. Their semantic references resolve by generic Key-ID and physical
 occurrence, never by trusted profile offsets.
 
 Step 11 keeps `VocabularyOnly` normative and qualifies lazy versus eager
-access with file-backed mmap fixtures. Runtime-local indexes and future
-algorithm-specific tokenizer structures remain derived or deferred.
+access with file-backed mmap fixtures. Step 12 keeps `CanonicalPrimitive`
+normative while quantized layouts await a pinned first target and upstream
+revision. Runtime-local indexes and future algorithm-specific structures remain
+derived or deferred.
 
 The base remains a small compositional vocabulary: efficient composition is
 preferred over maximal base functionality.

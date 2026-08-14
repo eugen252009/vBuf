@@ -13,11 +13,13 @@ pub mod region_roles;
 pub mod tensor_directory;
 pub mod metadata;
 pub mod tokenizer;
+pub mod representations;
 
 pub use bootstrap::{Bootstrap, BootstrapEntry, SemanticRegion};
 pub use error::{MlError, MlErrorCode};
 pub use region_roles::RegionRole;
-pub use tensor_directory::{TensorDescriptor, TensorDirectory, TensorEntry, TensorRepresentation};
+pub use tensor_directory::{TensorDescriptor, TensorDirectory, TensorEntry};
+pub use representations::{representation_contract, validate_tensor_representation, RepresentationContract, TensorRepresentation};
 pub use metadata::{MetadataEntry, MetadataField, MetadataValue, ModelMetadata, ModelMetadataKey};
 pub use tokenizer::{SpecialToken, TokenizerEntry, TokenizerKind, TokenizerMetadata, TokenizerRole};
 

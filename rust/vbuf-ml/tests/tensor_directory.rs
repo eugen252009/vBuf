@@ -3,7 +3,7 @@ use vbuf_core::v06::{parse_v06, V06Semantic};
 use vbuf_core::writer::{BlockOptions, VBufV06Writer};
 use vbuf_ml::bootstrap::{encode_payload as encode_bootstrap, BootstrapEntry, BOOTSTRAP_KEY_ID};
 use vbuf_ml::tensor_directory::{encode_payload, TensorEntry};
-use vbuf_ml::{Bootstrap, MlErrorCode, TensorDirectory};
+use vbuf_ml::{representation_contract, Bootstrap, MlErrorCode, TensorDirectory, TensorRepresentation};
 
 fn file(directory: &[u8], tensor_values: &[(&[u8], u16, u64)]) -> Vec<u8> {
     let mut writer = VBufV06Writer::new_known_size(Cursor::new(Vec::new()), 3).unwrap();
@@ -34,6 +34,14 @@ fn parsed(directory: &[u8], tensors: &[(&[u8], u16, u64)]) -> Result<TensorDirec
     let validated = parse_v06(bytes).map_err(|error| MlErrorCode::Canonical(error.code))?;
     let bootstrap = Bootstrap::discover(&validated).map_err(|error| error.code)?;
     TensorDirectory::parse(&validated, &bootstrap).map_err(|error| error.code)
+}
+
+#[test]
+fn canonical_primitive_contract_has_no_duplicate_packed_layout() {
+    let contract = representation_contract(TensorRepresentation::CanonicalPrimitive);
+    assert_eq!(contract.logical_elements_per_block, None);
+    assert_eq!(contract.physical_bytes_per_block, None);
+    assert_eq!(contract.required_payload_alignment, 1);
 }
 
 #[test]

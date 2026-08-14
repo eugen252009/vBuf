@@ -40,3 +40,8 @@ context length, embedding length, layer count, and head count. Tokenizer data is
 optional and currently supports only a vocabulary-only direct view with implicit
 token ordinal IDs. Metadata and tokenizer regions contain no trusted physical
 offsets or duplicated primitive descriptors.
+
+Tensor representation qualification is specified in
+[`representations.md`](representations.md). Profile 0.1 selects only
+`CanonicalPrimitive`; packed/quantized representations remain blocked on a
+pinned first target and authoritative upstream layout revision.
