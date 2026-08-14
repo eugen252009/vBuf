@@ -74,7 +74,9 @@ Qwen3-32B placement qualification is documented in
 loader scaling and first-use attribution is documented in
 [`step27-loader-scaling.md`](step27-loader-scaling.md). Step 28 layer-span
 prefetch and wave-readiness qualification is documented in
-[`step28-layer-prefetch.md`](step28-layer-prefetch.md).
+[`step28-layer-prefetch.md`](step28-layer-prefetch.md). Step 29 host-relative
+layer compute and bulk-I/O qualification is documented in
+[`step29-layer-io.md`](step29-layer-io.md).
 Tokenizer execution and chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is

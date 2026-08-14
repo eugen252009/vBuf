@@ -2032,6 +2032,29 @@ architecture was changed.
 See `docs/vbuf-ml/step28-layer-prefetch.md` and
 `benchmark-results/vbuf-ml-step28-layer-prefetch/`.
 
+#### Step 29 — Layer compute boundaries and bulk I/O preparation
+
+Used the existing pinned llama/GGML scheduler evaluation callback to observe
+`embd`, `l_out-0..63`, `result_norm`, and `result_output` boundaries without
+changing graph semantics. Ten resident 32B samples measured approximately
+1.061 s median aggregate transformer-layer compute and 27 ms non-layer traced
+overhead.
+
+The best uncached bounded bulk-read result on this host was synchronous
+`pread`, 16 MiB chunks, QD4: approximately 1.409 GB/s. The page-touch control
+was approximately 1.232 GB/s. Median layer preparation was approximately 359
+ms versus approximately 16.15 ms resident layer compute; the host-local
+prepare/compute ratio was approximately 22.2× and modeled bounded lookahead
+still stalled.
+
+This is a host-relative result, not a vBuf bandwidth or universal Wave claim.
+Bulk I/O qualification: **YES** for this host. Wave Track-B: **NO / NOT YET**.
+The artifact, physical spans, wire format, BaseShift, and runtime architecture
+were unchanged.
+
+See `docs/vbuf-ml/step29-layer-io.md` and
+`benchmark-results/vbuf-ml-step29-layer-io/`.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision
