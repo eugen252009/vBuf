@@ -378,10 +378,20 @@ fn make_directory(blocks: &[vbuf_core::v06::V06Block]) -> Vec<(u16, u64, u64, u6
 }
 
 fn directory_checksum(directory: &[(u16, u64, u64, u64)], key: u16) -> u64 {
+    let mut low = 0usize;
+    let mut high = directory.len();
+    while low < high {
+        let middle = low + (high - low) / 2;
+        if directory[middle].0 < key {
+            low = middle + 1;
+        } else {
+            high = middle;
+        }
+    }
     range_checksum(
         directory
-            .iter()
-            .find(|entry| entry.0 == key)
+            .get(low)
+            .filter(|entry| entry.0 == key)
             .map(|entry| (entry.1, entry.2, entry.3)),
     )
 }
