@@ -58,8 +58,10 @@ validated Rust/C vBuf consumer adapter and proves BF16/Q8_0 CPU parity through
 the pinned llama.cpp/GGML runtime. See
 [`step21-llama-consumer.md`](step21-llama-consumer.md). Step 22 records the
 neutral unoptimized CPU baseline without changing the loader or format; see
-[`step22-baseline-benchmark.md`](step22-baseline-benchmark.md). Tokenizer
-execution and chat-template rendering remain consumer/runtime responsibilities.
+[`step22-baseline-benchmark.md`](step22-baseline-benchmark.md). Step 22A
+attributes the warm adapter/model-construction overhead without optimization;
+see [`step22a-loader-overhead-attribution.md`](step22a-loader-overhead-attribution.md).
+Tokenizer execution and chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is
 preferred over maximal base functionality.

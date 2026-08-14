@@ -1767,6 +1767,26 @@ first-touch behavior differed. No optimization was introduced.
 
 See `docs/vbuf-ml/step22-baseline-benchmark.md`.
 
+#### Step 22A implementation recorded
+
+Added optional diagnostic-only Rust, C++, and Python attribution tooling under
+`rust/vbuf-ml/src/bin/vbuf-ml-diagnose.rs`, `integrations/llama.cpp/`, and
+`scripts/qualify_step22a.py`. The immutable Step-22 evidence is untouched.
+
+Ten warm runs per artifact/format show that canonical vBuf validation is small
+(about 0.8 ms), while the current Rust consumer materialization and
+GGUF-compatible tokenizer metadata synthesis are each about 132 ms. Numeric
+merge reconstruction is about 75 ms and performs approximately 910,600 fine-
+grained C ABI calls. Tensor projection and payload attachment are sub-
+millisecond/tens-of-microseconds costs.
+
+The measured result rejects canonical parsing as the primary cause and
+identifies current adapter representation churn as the main optimization
+hypothesis. No optimization or native-source seam was implemented.
+
+Evidence is under `benchmark-results/vbuf-ml-step22a/`; details are in
+`docs/vbuf-ml/step22a-loader-overhead-attribution.md`.
+
 ---
 
 **Class:** benchmark/tooling; no format changes.
