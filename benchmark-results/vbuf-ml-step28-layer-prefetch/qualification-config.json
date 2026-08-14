@@ -1,0 +1,18 @@
+{
+  "step": 28,
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "cpu_only": true,
+  "variants": [
+    "A-fault-driven",
+    "B-sequential-prefault",
+    "C-layer-span-prefault",
+    "D-advisory-prefetch"
+  ],
+  "warm_runs_per_model_variant": 10,
+  "uncached_runs_per_model_variant": 3,
+  "page_touch": "one volatile read per system page",
+  "advisory": "madvise(MADV_WILLNEED)",
+  "artifact_layout": "existing BaseShift 3 / BaseStep 8; no reconversion",
+  "wire_changes": false,
+  "execution_semantics_changed": false
+}

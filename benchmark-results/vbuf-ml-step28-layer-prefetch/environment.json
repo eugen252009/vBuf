@@ -1,0 +1,19 @@
+{
+  "host": "debian",
+  "system_before": {
+    "platform": "Linux-6.12.101+deb13-amd64-x86_64-with-glibc2.41",
+    "python": "3.13.5",
+    "cpu_only": true,
+    "meminfo_kb": {}
+  },
+  "system_after": {
+    "platform": "Linux-6.12.101+deb13-amd64-x86_64-with-glibc2.41",
+    "python": "3.13.5",
+    "cpu_only": true,
+    "meminfo_kb": {}
+  },
+  "cache_method": "POSIX_FADV_DONTNEED advisory whole-file eviction for uncached approximation",
+  "true_cold_cache": false,
+  "gpu": "not involved",
+  "peak_rss_instrumentation": false
+}

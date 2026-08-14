@@ -1,0 +1,71 @@
+{
+  "categories": [
+    "B",
+    "F"
+  ],
+  "category_B": "Explicit preparation moves faults out of FIRST_EVAL, but total TTFUC is the relevant metric and is not uniformly improved.",
+  "category_F": "Current BaseShift 3 / BaseStep 8 layout is layer-major; sequential and layer-order prefault have nearly identical coverage and behavior.",
+  "advisory_effective_without_prefault": false,
+  "large_warm": {
+    "A-fault-driven": {
+      "model_ready_ms": 170.66500000000002,
+      "preparation_ms": 0.0,
+      "first_eval_ms": 1707.1805,
+      "ttfuc_ms": 1899.016,
+      "second_eval_ms": 1060.859,
+      "prep_major_faults": 0.0,
+      "first_eval_major_faults": 0.0
+    },
+    "B-sequential-prefault": {
+      "model_ready_ms": 173.1805,
+      "preparation_ms": 1639.5325,
+      "first_eval_ms": 1070.5545,
+      "ttfuc_ms": 2907.808,
+      "second_eval_ms": 1051.1285,
+      "prep_major_faults": 0.0,
+      "first_eval_major_faults": 0.0
+    },
+    "C-layer-span-prefault": {
+      "model_ready_ms": 174.77949999999998,
+      "preparation_ms": 1647.895,
+      "first_eval_ms": 1046.462,
+      "ttfuc_ms": 2894.4145,
+      "second_eval_ms": 1046.2675,
+      "prep_major_faults": 0.0,
+      "first_eval_major_faults": 0.0
+    },
+    "D-advisory-prefetch": {
+      "model_ready_ms": 175.5605,
+      "preparation_ms": 0.209,
+      "first_eval_ms": 1715.8445,
+      "ttfuc_ms": 1912.0925000000002,
+      "second_eval_ms": 1045.259,
+      "prep_major_faults": 0.0,
+      "first_eval_major_faults": 0.0
+    }
+  },
+  "small_control": {
+    "A-fault-driven": {
+      "preparation_ms": 0.0,
+      "first_eval_ms": 50.6255,
+      "ttfuc_ms": 217.012
+    },
+    "B-sequential-prefault": {
+      "preparation_ms": 32.397,
+      "first_eval_ms": 34.658500000000004,
+      "ttfuc_ms": 235.7305
+    },
+    "C-layer-span-prefault": {
+      "preparation_ms": 32.6135,
+      "first_eval_ms": 35.0815,
+      "ttfuc_ms": 234.8025
+    },
+    "D-advisory-prefetch": {
+      "preparation_ms": 0.0925,
+      "first_eval_ms": 50.936,
+      "ttfuc_ms": 221.1035
+    }
+  },
+  "wave_prerequisite": "partial: exact/stable spans and per-layer preparation are measurable, but no per-layer compute timing or concurrent overlap was executed",
+  "track_b_decision": "NO/NOT YET \u2014 preparation qualification does not justify a new wave execution seam"
+}

@@ -1,0 +1,38 @@
+{
+  "artifact_hashes_verified": true,
+  "variants": [
+    "A-fault-driven",
+    "B-sequential-prefault",
+    "C-layer-span-prefault",
+    "D-advisory-prefetch"
+  ],
+  "generation_sequences_equal_across_variants": true,
+  "sequences": {
+    "0.6B": [
+      [
+        0,
+        1096,
+        374,
+        264,
+        4285,
+        3110,
+        315,
+        264
+      ]
+    ],
+    "32B": [
+      [
+        504,
+        13027,
+        0,
+        863,
+        198,
+        198,
+        2,
+        19143
+      ]
+    ]
+  },
+  "step26_logit_max_abs_diff": 0,
+  "payload_duplication": 0
+}
