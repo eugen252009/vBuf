@@ -57,7 +57,7 @@ def build_plan(source: Path, manifest: dict, artifact, integrity: str) -> bytes:
         raise ValueError("manifest profile or pinned consumer revision is stale")
     if manifest["validation"]["conversion_readiness"] != ["READY_FOR_CONVERSION"]:
         raise ValueError("manifest is not conversion-ready")
-    if manifest["conversion_options"]["placement"] != "LAYER_MAJOR_ROLE_ORDER" or manifest["conversion_options"].get("base_shift") != 3:
+    if manifest["conversion_options"]["placement"] != "LAYER_MAJOR_ROLE_ORDER" or not 3 <= int(manifest["conversion_options"].get("base_shift", -1)) <= 8:
         raise ValueError("manifest placement or BaseShift policy is not qualified")
     if integrity != "none":
         raise ValueError("Step 20 currently supports only --integrity none")

@@ -232,6 +232,10 @@ impl<W: Write + Seek> VBufV06Writer<W> {
         Ok(())
     }
 
+    pub fn position(&mut self) -> Result<u64, WriterError> {
+        self.inner.stream_position().map_err(WriterError::from)
+    }
+
     pub fn finish(mut self) -> Result<W, WriterError> {
         if self.required_continuation_key.is_some() {
             return Err(WriterError::UnterminatedContinuation);

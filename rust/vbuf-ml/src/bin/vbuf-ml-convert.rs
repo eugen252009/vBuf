@@ -56,7 +56,7 @@ type ControlSpec = (LayoutClass, u64, u16, V06Semantic, V06Physical, u16, u64, u
 type RequestSpec = (LayoutClass, u64, u16, V06Semantic, V06Physical, u16, u64, usize, Option<(u64, u64)>);
 
 #[allow(clippy::too_many_arguments)]
-fn req<'a>(class: LayoutClass, order: u64, key: u16, semantic: V06Semantic, physical: V06Physical, width: u16, count: u64, payload: &'a [u8]) -> PlacementRequest<'a> { PlacementRequest { class, order, key_id: key, semantic, physical, bit_width: width, count, payload_alignment: 8, payload } }
+fn req<'a>(class: LayoutClass, order: u64, key: u16, semantic: V06Semantic, physical: V06Physical, width: u16, count: u64, payload: &'a [u8], base_shift: u8) -> PlacementRequest<'a> { PlacementRequest { class, order, key_id: key, semantic, physical, bit_width: width, count, payload_alignment: 1u64 << base_shift, payload } }
 fn metadata_payload(plan: &Plan, controls: &mut Vec<Vec<u8>>, requests: &mut Vec<ControlSpec>) -> Result<Vec<u8>, String> {
     let mut entries = Vec::new();
     for meta in &plan.metadata { let data_key = 0x0400u16.checked_add(meta.key).ok_or("metadata key overflow")?; let index = controls.len(); controls.push(meta.bytes.clone()); let (semantic, width) = match meta.kind { 1 => (V06Semantic::Opaque, 8), 2 => (V06Semantic::Unsigned, 64), 3 => (V06Semantic::Float, 64), _ => return Err("invalid metadata kind".into()) }; let count = if semantic == V06Semantic::Opaque { controls[index].len() as u64 } else { 1 }; requests.push((LayoutClass::ModelMetadata, 100 + u64::from(meta.key), data_key, semantic, V06Physical::Array, width, count, index)); entries.push(MetadataEntry::new(meta.key, meta.required, data_key, 0)); }
@@ -104,7 +104,7 @@ fn main() -> Result<(), String> {
             let end = start.checked_add(*len).ok_or("source range overflow")?;
             source.get(usize::try_from(*start).map_err(|_| "source offset host overflow")?..usize::try_from(end).map_err(|_| "source end host overflow")?).ok_or("source range outside file")?
         } else { &controls[*index] };
-        placements.push(req(*class, *order, *key, *semantic, *physical, *width, *count, payload));
+        placements.push(req(*class, *order, *key, *semantic, *physical, *width, *count, payload, plan.base_shift));
     }
     let out = OpenOptions::new().write(true).create_new(true).open(&target_path).map_err(|e| e.to_string())?; let out = vbuf_ml::layout::write_known_size(out,plan.base_shift,&placements).map_err(|e| e.to_string())?; drop(out);
     validate_target(&target_path,&source,&plan,&evidence)

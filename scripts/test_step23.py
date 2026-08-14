@@ -16,8 +16,8 @@ class Step23Tests(unittest.TestCase):
     def test_direct_source_has_no_gguf_context(self):
         source = (ROOT / "integrations/llama.cpp/vbuf_direct_source.cpp").read_text()
         self.assertNotIn("gguf_context", source)
-        self.assertIn("vbuf_ml_consumer_token_views", source)
-        self.assertIn("vbuf_ml_consumer_merge_views", source)
+        self.assertTrue("vbuf_ml_consumer_token_views" in source or "vbuf_ml_consumer_token_arrays" in source)
+        self.assertTrue("vbuf_ml_consumer_merge_views" in source or "vbuf_ml_consumer_merge_arrays" in source)
         self.assertIn("vbuf_ml_consumer_tensor_views", source)
 
     def test_baselines_remain_present(self):

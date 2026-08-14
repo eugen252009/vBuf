@@ -18,7 +18,13 @@ fn control_first_order_and_occurrences_are_deterministic() {
     assert_eq!(plan.entries()[1].occurrence, 0);
     assert_eq!(plan.entries()[2].occurrence, 1);
     let bytes = write_known_size(Cursor::new(Vec::new()), 3, &requests).unwrap().into_inner();
+    assert_eq!(plan.final_size(), bytes.len() as u64);
     let validated = parse_v06(&bytes).unwrap();
+    for (planned, actual) in plan.entries().iter().zip(validated.blocks()) {
+        assert_eq!(planned.block_start, actual.block_start);
+        assert_eq!(planned.payload_start, actual.payload_start);
+        assert_eq!(planned.payload_end, actual.payload_end);
+    }
     assert_eq!(validated.blocks().iter().map(|block| block.key_id).collect::<Vec<_>>(), vec![0xF000, 7, 7]);
 }
 
