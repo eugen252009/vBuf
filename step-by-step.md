@@ -238,9 +238,13 @@ There is independent, non-ML evidence for a generic direct-navigation primitive:
 
 **Observed contradiction:** historical Nano drafts literally use 16-byte slots; v0.5 says `BaseStep = 16 << AShift`; current Rust/TypeScript readers derive alignment as `1 << AShift`; current writers/readers can place block anchors on an 8-byte boundary. The repository therefore has no single interoperable definition of the base physical geometry.
 
-**Evidence:** `spec/spec_0.2-draft.md:36-60` and `spec/spec_0.4-alpha.md:45-60` define 16-byte slots. `spec/spec_0.5-alpha.md:6-17,40-53` defines dynamic `16 << AShift` alignment and describes next 16-byte slots. `rust/src/lib.rs` writes `alignment.trailing_zeros()` and reads `1 << a_shift`, then tail-aligns anchors to 8; `ts/vbuf.ts` and `c/vbuf.h` likewise use absolute power-of-two alignment/8-byte stepping.
+**Evidence:** `spec/spec_0.2-draft.md:36-60` and `spec/spec_0.4-alpha.md:45-60` define 16-byte slots. `spec/spec_0.5-alpha.md:6-17,40-53` defines dynamic `16 << AShift` alignment and describes next 16-byte slots. Those drafts and the README repeatedly motivate alignment by native/SIMD access, but do not provide portable measurements that establish one universal width. `rust/src/lib.rs` writes `alignment.trailing_zeros()` and reads `1 << a_shift`, then tail-aligns anchors to 8; `ts/vbuf.ts` and `c/vbuf.h` likewise use absolute power-of-two alignment/8-byte stepping. The validated existing baseline shows prepared real-vBuf SoA/AoS scans near the corresponding native Rust layouts for its one-million-record workload, but it does not isolate BaseStep or compare scalar/aligned/SIMD paths.
 
-**Why it matters:** Nano cannot safely describe canonical starts until vBuf itself has one unambiguous `BaseStep`. Choosing 16 merely for historical Nano compatibility would invert the dependency. An independently configurable Nano quantum would create two physical geometries and permit unrepresentable block starts.
+**Design-intent clarification supplied now:** BaseStep was intended as vBuf's generic physical-layout performance knob for efficient direct native CPU consumption, including naturally aligned loads, SIMD-friendly payload positions, predictable starts, simple address calculation, vectorized traversal and favorable cache behavior. This intent is domain-neutral and does not select 16, 32, 64, a page size, or any contemporary ISA width.
+
+Keep four records distinct: historical written behavior (`16`-byte slots and later `16 << AShift`, with SIMD claims but incomplete evidence); current implementation behavior (`1 << AShift` with 8-byte anchor stepping); original performance intent supplied now (hardware-neutral native/SIMD-friendly physical geometry); and corrected normative v0.6 behavior (`1 << BaseShift` over the accepted legal range). Do not rewrite history to make these agree.
+
+**Why it matters:** BaseStep is upstream of both canonical blocks and Nano. It must preserve efficient direct native consumption without making small or multi-block representations pay unreasonable padding. Nano cannot safely describe canonical starts until vBuf itself has one unambiguous BaseStep, but Nano size, word/page coincidences, rank/select convenience and vBuf-ML needs are secondary effects and cannot select BaseStep. An independently configurable Nano quantum would create two physical geometries and permit unrepresentable block starts.
 
 **Required v0.6 base decisions before Nano semantics:**
 
@@ -271,20 +275,22 @@ canonical block-start granularity = Nano slot granularity = BaseStep
 Examples: BaseStep 8/16/32/64 imply one Nano bit per 8/16/32/64 bytes respectively. Nano has no separate quantum field unless future concrete evidence proves independence necessary.
 
 ```text
-vBuf BaseStep
-      ↓
-canonical block/payload geometry
-      ↓
-optional Nano description of that geometry
-      ↓
-generic and profile consumers
+native CPU / SIMD-friendly generic physical geometry
+                         ↓
+                  vBuf BaseStep
+                         ↓
+            canonical block/payload geometry
+                         ↓
+          optional Nano description of that geometry
+                         ↓
+               generic/profile consumers
 ```
 
 No descendant may select or override BaseStep through Nano metadata. BaseStep remains a generic file-layout decision even when a demanding descendant exposes its costs.
 
-**Recommended first-principles resolution:** qualify and choose the legal v0.6 BaseStep encoding/set from generic block-header size, portable alignment and generic canonical-layout requirements before Step 3 is frozen. Independent base-layout measurements may inform that prerequisite decision, but Nano results may not. Step 5A then measures padding/index trade-offs among the already legal BaseSteps and may inform writer defaults—not redefine the wire-legal set. Do not restore 16-byte starts merely to preserve history, and do not preserve 8-byte starts merely to preserve current implementation behavior.
+**Recommended first-principles resolution:** qualify and choose the legal v0.6 BaseStep encoding/set from generic block-header size, portable alignment, direct native-access behavior and generic canonical-layout requirements before Step 3 is frozen. Evaluate the whole-system trade-off: padding/packing density and small/multi-block cost; native scalar, aligned scalar and optional SIMD/vectorized access; cache/traversal behavior; and, secondarily, Nano/checkpoint overhead. Use identical payloads and algorithms across access variants, report actual alignment and ISA assumptions, preserve a scalar reference, and make unsupported SIMD paths optional. Independent base-layout measurements may inform that prerequisite decision, but Nano results may not. Step 5A then remeasures production layout and artifact trade-offs among the already legal BaseSteps and may inform writer defaults—not redefine the wire-legal set. Do not restore 16-byte starts merely to preserve history, preserve 8-byte starts merely to preserve current implementation behavior, or make BaseStep coarse enough to penalize ordinary small/composite representations merely for SIMD/Nano convenience.
 
-**Recorded decision:** v0.6 uses the absolute exponent above; `data_region_start` and every block start lie on that BaseStep grid, the next block uses checked `align_up(previous_block_end, BaseStep)`, and the final block needs no tail padding. Stricter payload alignment is encoded orthogonally as a power-of-two multiple of BaseStep and never changes Nano geometry. Legacy bytes are not reclassified as v0.6 merely because their implementation interpretation happens to match.
+**Recorded decision:** v0.6 uses the absolute exponent above; `data_region_start` and every block start lie on that BaseStep grid, the next block uses checked `align_up(previous_block_end, BaseStep)`, and the final block needs no tail padding. Stricter payload alignment is encoded orthogonally as a power-of-two multiple of BaseStep and never changes Nano geometry. The legal range is a hardware-neutral interoperability contract, not a claim that every value is equally fast or that one is universally optimal; no normative writer default is selected without generic qualification. Legacy bytes are not reclassified as v0.6 merely because their implementation interpretation happens to match.
 
 ### Decision H — locating optional finalized-file artifacts
 
@@ -446,7 +452,7 @@ The exact generic finalized-file artifacts are outputs of BASE qualification/spe
 
 **Class:** BASE.
 
-**Goal:** create a precise corrected v0.6 specification according to Decision A; legacy-v0.5 behavior may be documented separately but cannot substitute as the vBuf-ML parent.
+**Goal:** create a precise corrected v0.6 specification according to Decision A; define BaseStep as the hardware-neutral canonical physical granularity supporting efficient direct native consumption; legacy-v0.5 behavior may be documented separately but cannot substitute as the vBuf-ML parent.
 
 **Files/modules likely changed:**
 
@@ -457,13 +463,13 @@ The exact generic finalized-file artifacts are outputs of BASE qualification/spe
 
 **Relevant existing material:** all historical specs and actual Rust/TS/C offset calculations.
 
-**Required specification details:** exact byte order and magic bytes; version encoding; finalized versus indefinite stream; file/header lengths; 64-bit-safe size policy; normative minimum/legal/maximum `BaseStep` and unambiguous encoding; checked exponent/field derivation; canonical block-start geometry; block-tail padding; payload alignment and optional stricter per-payload multiples of BaseStep; count and overflow rules; payload-start and next-block formulas including overflow checks; legal semantic/physical combinations; duplicate Key-ID behavior; zero-length payloads; partial final BaseStep policy; unknown/reserved bits; extension skipping; canonical writer behavior; legacy detection.
+**Required specification details:** exact byte order and magic bytes; version encoding; finalized versus indefinite stream; file/header lengths; 64-bit-safe size policy; normative minimum/legal/maximum `BaseStep` and unambiguous encoding; checked exponent/field derivation; hardware-neutral canonical-physical-granularity semantics without an ISA-specific promise; canonical block-start geometry; block-tail padding; payload alignment and optional stricter per-payload multiples of BaseStep; count and overflow rules; payload-start and next-block formulas including overflow checks; legal semantic/physical combinations; duplicate Key-ID behavior; zero-length payloads; partial final BaseStep policy; unknown/reserved bits; extension skipping; canonical writer behavior; legacy detection. The specification defines legal values, not a universal performance winner; any writer default is non-normative unless separately qualified.
 
 **Existing invariants:** little parsing, deterministic alignment, generic semantic categories, streaming where selected by the decision.
 
 **New invariants:** two conforming implementations calculate identical offsets; all sizes/offsets have specified integer widths; unknown skippable content has a known length; reserved bits are rejected or ignored exactly as specified.
 
-**Tests/qualification:** work examples by hand and by script; for every accepted BaseStep test candidate block offsets 0, 1, BaseStep−1, BaseStep, BaseStep+1, 65535 and near integer limits, accepting only offsets representable relative to the canonical region origin; test overflow counts; reject invalid stricter payload alignments; Rust/C/TypeScript derive identical BaseStep; independent review against fixture bytes.
+**Tests/qualification:** work examples by hand and by script; for every accepted BaseStep test candidate block offsets 0, 1, BaseStep−1, BaseStep, BaseStep+1, 65535 and near integer limits, accepting only offsets representable relative to the canonical region origin; test overflow counts; reject invalid stricter payload alignments; Rust/C/TypeScript derive identical BaseStep; independent review against fixture bytes. Before claiming or selecting a preferred default, use deterministic generic layouts spanning tiny/high-count multi-block, mixed and large contiguous payloads to report padding/packing density, block traversal/address calculation, cache observations, and equivalent unaligned/native, aligned-scalar and optional SIMD/vectorized paths where practical. Use identical payload bytes and work, report alignment/ISA/compiler assumptions, retain a scalar reference, and relate results to—but do not overgeneralize—the existing prepared-view near-native baseline.
 
 **Architectural boundaries:** no tensor, model, tokenizer, quantization, GGUF or llama.cpp terminology in the normative base specification.
 
@@ -536,7 +542,7 @@ The exact generic finalized-file artifacts are outputs of BASE qualification/spe
 
 **Class:** BASE design/benchmark; no production wire-format implementation.
 
-**Goal:** determine from first principles whether Nano physical-extent topology, Nano plus simple checkpoints, a generic region directory, or a smaller combination materially improves generic vBuf consumption, including whether complete Nano-derived extents provide useful work partitions for parallel CPU consumers.
+**Goal:** remeasure the already legal BaseSteps as a whole-system generic physical-layout trade-off, then determine whether Nano physical-extent topology, Nano plus simple checkpoints, a generic region directory, or a smaller combination materially improves generic vBuf consumption, including whether complete Nano-derived extents provide useful work partitions for parallel CPU consumers.
 
 **Rationale and questions answered:**
 
@@ -566,11 +572,13 @@ A fourth valid result is that one or both generic artifacts fail qualification a
 - add `scripts/validate_vbuf_navigation_reports.py`
 - later store raw reports under `benchmark-results/vbuf-navigation/`; do not commit conclusions without raw data
 
-**Historical references:** `spec/spec_0.2-draft.md:5-11,18-20,24-32,36-60,68-76,86-87`; `spec/spec_0.4-alpha.md:45-60`; v0.5 anchor/grid text in `spec/spec_0.5-alpha.md`; 8-byte stepping in `rust/src/lib.rs`, `ts/vbuf.ts`, `c/vbuf.h`; README O(1) claim.
+**Historical references:** `spec/spec_0.1-draft.md:11,50-68`, `spec/spec_0.2-draft.md:5-11,18-20,24-32,36-60,68-87`, `spec/spec_0.4-alpha.md:12,45-76`, v0.5 SIMD/cache-grid and anchor text in `spec/spec_0.5-alpha.md`, 8-byte stepping in `rust/src/lib.rs`, `ts/vbuf.ts`, `c/vbuf.h`, and README SIMD/O(1) claims. Treat their performance language as design evidence, not proof of one width.
 
 **Existing invariants:** canonical blocks alone remain sufficient; optional indexes are derived; a reader can ignore every artifact; no artifact changes payload bytes; streaming/unfinished files require none.
 
 **New qualification invariants:** generated Nano bits are derived only from a successfully parsed canonical stream; Nano reads the already validated file BaseStep and has no independent quantum; Step 5A treats the Step 3 legal BaseStep set as an input and cannot redefine it; `slot(i) = indexed_region_start + i*BaseStep`; for a non-empty topology the first valid extent start is set; each later `1` is a candidate BaseStep-aligned canonical extent start; `0` creates no new extent and carries no payload/domain meaning; consecutive set bits propose adjacent extent bounds; long zero runs remain one proposed physical extent until the next set bit or indexed-region end; every marked start and Nano-derived upper span remain subordinate to canonical header/range validation; indexed-region start/length and partial-final-slot policy are explicit; unused bits in the final Nano byte are zero; all slot/index arithmetic is checked; benchmark corpora and query distributions are deterministic and recorded.
+
+**BaseStep performance qualification:** hold payload bytes, block topology and computation constant while comparing legal BaseSteps. Separate unaligned/native access, aligned scalar access, and SIMD/vectorized variants where supported; preserve the same scalar/reference result and report effective pointer alignment, compiler flags, ISA/features and whether aligned or unaligned load instructions are used. Unsupported SIMD is an optional missing variant, not a failed format. Measure traversal/address arithmetic, prepared-view scans, cache/fault behavior and end-to-end downstream-neutral work in addition to bytes. No single-host result may be called universally optimal. Keep the existing near-native prepared-view baseline as motivation/comparison evidence, while recognizing that it did not isolate BaseStep or SIMD.
 
 **Rank/select candidates to measure, not assume:**
 
@@ -628,7 +636,7 @@ All timed paths must perform equivalent per-block canonical header/range validat
 - deterministic mixed synthetic cost, explicitly separated from I/O, to expose scheduling imbalance;
 - optional generic conversion/transcoding, derived-index construction, inspection/statistics, and block transforms only when outputs can be compared exactly.
 
-Use dense small blocks, sparse large blocks, mixed/uniform/highly skewed sizes, uniform/clustered starts, small files dominated by thread setup, and large files where scaling is plausible. Cover all representative surviving BaseSteps and warm/cold mmap. vBuf-ML may later reuse a successful primitive but is not qualifying evidence for BASE promotion.
+Use dense small blocks, high-count tiny/multi-block and variable/composite representations, sparse large blocks, mixed/uniform/highly skewed sizes, uniform/clustered starts, small files dominated by setup, and large files where scaling/vectorization is plausible. This must expose when a coarse BaseStep loses packing density even if it improves alignment or reduces Nano bytes. Cover all representative surviving BaseSteps and warm/cold mmap. vBuf-ML may later reuse a successful primitive but is not qualifying evidence for BASE promotion.
 
 **Parallel correctness invariants/tests:**
 
@@ -651,7 +659,7 @@ Use dense small blocks, sparse large blocks, mixed/uniform/highly skewed sizes, 
 
 **Tests:** property-test bit generation against canonical enumeration for every surviving BaseStep; represent the same logical block/extent topology under different legal BaseSteps; verify every bit maps to `indexed_region_start + i*BaseStep`; require the first bit for every non-empty topology; verify every later `1` is a representable canonical start; verify `0` creates no extent; consecutive `1` bits produce adjacent candidate extents; long zero runs produce one candidate extent through the next set bit/end; derive first/last/Nth start-plus-next-boundary spans; reject a stream with an unrepresentable block start; correct first/last slot and partial final slot handling; fewer than eight slots; partial final Nano byte; no blocks; all-start bits; one huge extent; padding inside an extent creates no false start; checked huge-region arithmetic; malformed/contradictory BaseStep/index metadata rejected before pointer construction; missing bits cannot authorize merged-block access; extra bits cannot authorize fake headers; Rust/C/TypeScript geometry parity; Nano-ignored parsing yields the same authoritative block sequence; candidate/header/span consistency; duplicate Key-IDs leave Nano bits unchanged; corrupted-header recovery uses later set bits only as validated candidates; run the parallel extent ownership/aggregation properties above across partition strategies and worker counts.
 
-**Benchmark/qualification requirements:** compare only equivalent operations: canonical scan versus Nano for physical enumeration/count; raw Nano versus Nano+checkpoints for Nth physical start; canonical Key-ID/range scan versus region directory for logical lookup. A Nano-assisted Key-ID scan is a separately labeled combined path that includes header inspection/map construction; Nano alone is never reported as answering a Key-ID query. Test every legal representative BaseStep surviving base qualification—at minimum 8, 16, 32 and 64 bytes if accepted. Corpora: small/large files, high block count, one/few large contiguous blocks, mixed small/large blocks, and equivalent topologies across BaseSteps. Operations: sequential extent enumeration, total extent/block count, Nth extent start, Nth start plus next boundary, random extent/block ordinal access, parallel extent-range construction, random Key-ID lookup, consistency validation, and separately labeled corruption-diagnostic candidate scanning. Environments: cold/warm mmap with validated cache methodology. Metrics: wall time, cycles where reliable, faults, bytes/pages touched, RSS/cache footprint, block density, exact Nano/checkpoint/directory bytes, construction/finalization cost, validation time, and padding waste caused by BaseStep. Report combined structural cost as `padding waste + Nano bytes + checkpoint bytes + region-directory bytes + other finalized-artifact bytes`; omit only structures absent from that candidate. Do not optimize Nano percentage in isolation. Use balanced order, repeated independent runs and raw samples.
+**Benchmark/qualification requirements:** compare only equivalent operations: canonical scan versus Nano for physical enumeration/count; raw Nano versus Nano+checkpoints for Nth physical start; canonical Key-ID/range scan versus region directory for logical lookup. A Nano-assisted Key-ID scan is a separately labeled combined path that includes header inspection/map construction; Nano alone is never reported as answering a Key-ID query. Test every legal representative BaseStep surviving base qualification—at minimum 8, 16, 32 and 64 bytes if accepted. Corpora: small/large files, high block count, tiny/multi-block variable/composite layouts, one/few large contiguous blocks, mixed small/large blocks, and equivalent topologies/payload bytes across BaseSteps. Operations: unaligned/native, aligned-scalar and supported SIMD/vectorized prepared-view workloads; canonical block traversal/address calculation; sequential extent enumeration; total extent/block count; Nth extent start; Nth start plus next boundary; random extent/block ordinal access; parallel extent-range construction; random Key-ID lookup; consistency validation; and separately labeled corruption-diagnostic candidate scanning. Environments: cold/warm mmap with validated cache methodology. Metrics: wall time, cycles where reliable, faults, bytes/pages touched, RSS/cache footprint, block density, exact Nano/checkpoint/directory bytes, construction/finalization cost, validation time, scalar/SIMD alignment fixups where observable, and padding waste caused by BaseStep. Report the whole-system result as `padding waste + Nano bytes + checkpoint bytes + region-directory bytes + other finalized-artifact bytes + measured native/scalar/SIMD/cache/traversal effects`, keeping byte costs and timing/cache metrics in separate units rather than inventing an unsupported scalar score. Omit only absent structures/unsupported optional paths. Do not optimize Nano percentage, page correspondence or one ISA in isolation. Use balanced order, repeated independent runs and raw samples.
 
 **Non-goals/architectural boundaries:** no ML fixture is required to justify a result; no tensor names/shapes/types; no corruption “recovery” claim; no production parser changes; no sophisticated succinct structure beyond the small checkpoint candidates.
 
