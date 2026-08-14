@@ -2010,6 +2010,28 @@ reduction and deferred first-touch work. No optimization was implemented.
 See `docs/vbuf-ml/step27-loader-scaling.md` and
 `benchmark-results/vbuf-ml-step27-loader-scaling/`.
 
+#### Step 28 — Layer-span prefetch and wave-readiness qualification
+
+Derived a noncanonical runtime-local plan from validated tensor physical
+ranges. The Qwen3-32B artifact has 64 layer spans and 3 global spans, with
+8,704 gap bytes and 1.0000002500 coverage amplification.
+
+Qualified fault-driven, whole-payload prefault, ordered layer-span prefault,
+and `MADV_WILLNEED` variants on 0.6B and 32B vBuf artifacts. In the uncached
+approximation, 32B TTFUC was approximately 36.0 s for the baseline, 27.0 s
+for either explicit prefault strategy, and 36.1 s for advisory prefetch.
+Explicit prefault moved approximately 42k major faults from FIRST_EVAL into
+PREPARATION; advisory prefetch did not. Sequential and layer-order preparation
+were effectively equivalent because the existing layout is already layer-major.
+
+Preparation and exact layer distributions were measured, but no per-layer
+compute timing or actual overlap was available. Track-B wave processing is
+therefore **NO/NOT YET**. No runtime, wire, Nano, Nested-vBuf, graph, or kernel
+architecture was changed.
+
+See `docs/vbuf-ml/step28-layer-prefetch.md` and
+`benchmark-results/vbuf-ml-step28-layer-prefetch/`.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision
