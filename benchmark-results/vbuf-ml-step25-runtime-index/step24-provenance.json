@@ -1,0 +1,13 @@
+{
+  "baseline_tag": "vbuf-ml-0.1-direct-view-baseline",
+  "tag_target_commit": "b569f26effaba1e358985d37e9464093fc59657c",
+  "tag_object": "38d416445bfffae68bfb01dd4edd561ed08b64ae",
+  "step24_evidence_directory_preserved": true,
+  "step24_environment_recorded_commit": "0575599df80c139bad8cc73a66ba88f75a73fb98",
+  "step24_environment_note": "Historical evidence is unchanged; final Step-24 cleanup/tag target is b569f26.",
+  "step24_correctness_evidence": "benchmark-results/vbuf-ml-step24/correctness-summary.json",
+  "artifact_hashes": {
+    "Qwen3-0.6B-BF16.vbuf": "6ec3db0bb8a26914be7312cc26c3ec0fb6945202659c46b26b4506f4de75a806",
+    "Qwen3-0.6B-Q8_0.vbuf": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998"
+  }
+}

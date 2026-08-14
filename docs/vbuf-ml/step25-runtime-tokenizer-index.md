@@ -35,7 +35,10 @@ Qwen3-0.6B-Q8_0.vbuf
 SHA-256 2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998
 ```
 
-Step-24 evidence was preserved unchanged.
+Step-24 evidence was preserved unchanged. Its historical environment record
+contains the earlier qualification commit `0575599`; the immutable baseline
+tag targets the final cleanup commit `b569f26`. This provenance distinction is
+recorded in `benchmark-results/vbuf-ml-step25-runtime-index/step24-provenance.json`.
 
 ## Current index audit
 
