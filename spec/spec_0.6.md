@@ -95,7 +95,7 @@ Every non-empty data region begins with a block at `data_region_start`. Every bl
 |---:|---|---|
 | 0–3 | `Semantic` | representation category, Section 4.1 |
 | 4–7 | `Physical` | cardinality mode, Section 4.1 |
-| 8 | `Chain` | continuation/grouping marker, Section 4.2 |
+| 8 | `Continuation` | next-block logical continuation marker, Section 4.2 |
 | 9 | `Count64` | a `u64` count follows the anchor |
 | 10–15 | `PayloadShift` | payload alignment multiplier exponent |
 | 16–31 | `KeyID` | generic numeric block identifier |
@@ -126,11 +126,13 @@ All other semantic/physical codes are reserved and MUST be rejected by v0.6 read
 
 A zero-length payload is represented by a fixed-width array with count zero. A scalar never has a zero count.
 
-### 4.2 Key IDs, duplicates, and chains
+### 4.2 Key IDs, duplicates, and forward continuation
 
 `KeyID` is a generic numeric identifier. Duplicate Key IDs are legal and preserve physical stream order. The base format does not define first-wins, last-wins, or uniqueness lookup behavior.
 
-If `Chain == 1`, the block MUST immediately follow another canonical block and MUST have the same `KeyID`; it indicates only that a representation may group the adjacent blocks. The first block cannot set `Chain`. `Chain == 0` begins an independent block/group. Profiles and applications define any higher-level meaning. Every chained block remains a complete canonical physical block with its own validated header, count, payload, and range.
+`Continuation` points forward from the current block. If `Continuation == 1`, another canonical block MUST follow and that next block MUST have the same `KeyID`; the next block logically continues the current value. If `Continuation == 0`, the current logical chain terminates. Therefore A=1, B=1, C=0 represents three physical blocks and one logical value. The final physical block MUST clear `Continuation`. An adjacent duplicate Key-ID following a zero continuation bit is legal but begins independently.
+
+Continuation does not alter physical geometry. Every member remains a complete canonical physical block with its own validated start, header, count, payload, and range. Any future physical-topology index marks every member's physical start independently and does not encode logical continuation. Profiles and applications define higher-level value meaning.
 
 ### 4.3 Count encoding
 
@@ -210,7 +212,7 @@ A canonical writer MUST:
 4. compute all positions with checked arithmetic;
 5. place each block and payload at the positions defined above;
 6. omit final BaseStep tail padding;
-7. preserve block order and duplicate Key IDs;
+7. preserve block order, duplicate Key IDs, and forward-continuation termination;
 8. use `BaseStep` for physical granularity without claiming a hardware-specific default.
 
 A conforming reader MUST reject malformed magic/version, invalid shifts, flags, extension framing, reserved fields/codes, non-canonical count forms, arithmetic overflow, non-zero padding, truncated ranges, contradictory known/indefinite length fields, and any range outside the canonical data region before exposing a typed view or pointer.

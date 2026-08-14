@@ -22,7 +22,7 @@ ACTIVE_TESTS = $(patsubst tests/%.c, active_tests/%.so, $(TEST_SOURCES))
 all: $(LIB_NAME) $(RUNNER_EXE) vbuf_writer tests_dir $(ACTIVE_TESTS)
 
 # 1. Die Haupt-Library (von Rust gebaut und herüberkopiert)
-$(LIB_NAME): ../rust/src/lib.rs ../rust/Cargo.toml
+$(LIB_NAME): $(wildcard ../rust/src/*.rs) ../rust/Cargo.toml
 	cd ../rust && cargo build --release
 	cp ../rust/target/release/libvbuf_core.so ./$(LIB_NAME)
 

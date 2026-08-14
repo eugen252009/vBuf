@@ -32,7 +32,7 @@ pub enum V06ErrorCode {
     InvalidAnchor = 13,
     InvalidRepresentation = 14,
     NonCanonicalCount = 15,
-    InvalidChain = 16,
+    InvalidContinuation = 16,
     NonZeroPadding = 17,
     Misaligned = 18,
     NotFound = 19,
@@ -113,7 +113,7 @@ pub struct V06Block {
     pub key_id: u16,
     pub semantic: V06Semantic,
     pub physical: V06Physical,
-    pub chain: bool,
+    pub continuation: bool,
     pub bit_width: u16,
     pub count: u64,
     pub payload_alignment: u64,
@@ -387,7 +387,7 @@ pub fn parse_v06(bytes: &[u8]) -> Result<ValidatedV06<'_>, V06Error> {
 
     let mut blocks = Vec::new();
     let mut block_start = data_region_start;
-    let mut previous_key = None;
+    let mut required_continuation_key = None;
     while block_start < data_region_end {
         if block_start % base_step != 0 || (block_start - data_region_start) % base_step != 0 {
             return Err(V06Error::at(
@@ -414,18 +414,20 @@ pub fn parse_v06(bytes: &[u8]) -> Result<ValidatedV06<'_>, V06Error> {
         }
         let semantic_code = (anchor & 0x0f) as u8;
         let physical_code = ((anchor >> 4) & 0x0f) as u8;
-        let chain = anchor & (1 << 8) != 0;
+        let continuation = anchor & (1 << 8) != 0;
         let count64 = anchor & (1 << 9) != 0;
         let payload_shift = ((anchor >> 10) & 0x3f) as u8;
         let key_id = ((anchor >> 16) & 0xffff) as u16;
         let bit_width = ((anchor >> 32) & 0xffff) as u16;
         let inline_count = (anchor >> 48) & 0xffff;
 
-        if chain && previous_key != Some(key_id) {
+        if let Some(required_key) = required_continuation_key.take()
+            && required_key != key_id
+        {
             return Err(V06Error::at(
-                V06ErrorCode::InvalidChain,
+                V06ErrorCode::InvalidContinuation,
                 block_start,
-                "chain has no immediately preceding matching KeyID",
+                "continued block does not match the preceding KeyID",
             ));
         }
 
@@ -510,12 +512,19 @@ pub fn parse_v06(bytes: &[u8]) -> Result<ValidatedV06<'_>, V06Error> {
             key_id,
             semantic,
             physical,
-            chain,
+            continuation,
             bit_width,
             count,
             payload_alignment,
         });
-        previous_key = Some(key_id);
+        if continuation && (payload_end == data_region_end || next_block_start >= data_region_end) {
+            return Err(V06Error::at(
+                V06ErrorCode::InvalidContinuation,
+                block_start,
+                "final physical block cannot continue",
+            ));
+        }
+        required_continuation_key = continuation.then_some(key_id);
 
         if payload_end == data_region_end {
             break;

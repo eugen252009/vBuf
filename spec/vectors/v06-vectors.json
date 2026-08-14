@@ -158,6 +158,50 @@
       }
     }
   ],
+  "continuation_cases": [
+    {
+      "name": "two-block-forward-chain",
+      "accept": true,
+      "blocks": [
+        { "key_id": 7, "continuation": true },
+        { "key_id": 7, "continuation": false }
+      ]
+    },
+    {
+      "name": "three-block-forward-chain",
+      "accept": true,
+      "blocks": [
+        { "key_id": 9, "continuation": true },
+        { "key_id": 9, "continuation": true },
+        { "key_id": 9, "continuation": false }
+      ]
+    },
+    {
+      "name": "unchained-duplicate",
+      "accept": true,
+      "blocks": [
+        { "key_id": 7, "continuation": false },
+        { "key_id": 7, "continuation": false }
+      ]
+    },
+    {
+      "name": "final-block-continuation",
+      "accept": false,
+      "blocks": [
+        { "key_id": 7, "continuation": true }
+      ],
+      "error": "invalid_continuation"
+    },
+    {
+      "name": "continuation-key-mismatch",
+      "accept": false,
+      "blocks": [
+        { "key_id": 7, "continuation": true },
+        { "key_id": 8, "continuation": false }
+      ],
+      "error": "invalid_continuation"
+    }
+  ],
   "canonical_file_hex": [
     {
       "name": "known-size-inline-u32-array",

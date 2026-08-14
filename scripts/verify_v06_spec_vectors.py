@@ -133,6 +133,22 @@ def verify_valid_blocks(vectors: dict) -> int:
     return checked
 
 
+def verify_continuation(vectors: dict) -> int:
+    checked = 0
+    for vector in vectors["continuation_cases"]:
+        blocks = vector["blocks"]
+        valid = all(
+            not block["continuation"]
+            or (index + 1 < len(blocks) and blocks[index + 1]["key_id"] == block["key_id"])
+            for index, block in enumerate(blocks)
+        )
+        assert valid == vector["accept"], vector
+        if not valid:
+            assert vector["error"] == "invalid_continuation", vector
+        checked += 1
+    return checked
+
+
 def verify_file_hex(vectors: dict) -> int:
     checked = 0
     for vector in vectors["canonical_file_hex"]:
@@ -201,6 +217,7 @@ def main() -> int:
             verify_valid_geometry(vectors),
             verify_block_offsets(vectors),
             verify_valid_blocks(vectors),
+            verify_continuation(vectors),
             verify_file_hex(vectors),
             verify_invalid(vectors),
         )

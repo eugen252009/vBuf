@@ -24,18 +24,18 @@
       "case": "BaseShift below range"
     },
     {
-      "path": "chain-first.vbuf",
-      "accept": false,
-      "size": 33,
-      "sha256": "3d3faf189872e2c7cf4683f14d84c7a573c51d974673e5d9afa07e49e1080e0c",
-      "case": "first block sets Chain"
-    },
-    {
       "path": "chain-key-mismatch.vbuf",
       "accept": false,
       "size": 49,
-      "sha256": "f82180276d15162125835055d9cdddc5c19cef00abeed506a13e4c3cfca3940b",
-      "case": "chain KeyID differs from predecessor"
+      "sha256": "706d3839ed1029419c9dbcef33db67f020e84ce868b0f1bcaa8f69e769297de5",
+      "case": "forward continuation KeyID differs from next block"
+    },
+    {
+      "path": "continuation-final.vbuf",
+      "accept": false,
+      "size": 33,
+      "sha256": "3d3faf189872e2c7cf4683f14d84c7a573c51d974673e5d9afa07e49e1080e0c",
+      "case": "final block sets Continuation"
     },
     {
       "path": "count-overflow.vbuf",
@@ -251,8 +251,8 @@
       "path": "valid-duplicate-chain.vbuf",
       "accept": true,
       "size": 49,
-      "sha256": "aaea33e90322050f49cf1e35537e8b5da8419bdd2c42b35475063deba8a39145",
-      "case": "duplicate KeyID with valid adjacent chain"
+      "sha256": "4e67b727748361bccd40549d3264bc13623028b1bb52bc568681a2dea65d158d",
+      "case": "duplicate KeyID with valid forward continuation"
     },
     {
       "path": "valid-duplicate-unchained.vbuf",

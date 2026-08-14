@@ -21,7 +21,7 @@ static const char *const invalid_files[] = {
     "bad-magic.vbuf",
     "base-shift-high.vbuf",
     "base-shift-low.vbuf",
-    "chain-first.vbuf",
+    "continuation-final.vbuf",
     "chain-key-mismatch.vbuf",
     "count-overflow.vbuf",
     "final-tail-padding.vbuf",

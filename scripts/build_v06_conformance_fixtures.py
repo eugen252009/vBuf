@@ -17,10 +17,10 @@ def align_up(value: int, alignment: int) -> int:
     return (value + alignment - 1) & ~(alignment - 1)
 
 
-def anchor(*, semantic=0, physical=1, chain=False, count64=False,
+def anchor(*, semantic=0, physical=1, continuation=False, count64=False,
            payload_shift=0, key=1, width=32, count=1, inline_override=None) -> int:
     inline = (0 if count64 else count) if inline_override is None else inline_override
-    return (semantic | (physical << 4) | (int(chain) << 8) |
+    return (semantic | (physical << 4) | (int(continuation) << 8) |
             (int(count64) << 9) | (payload_shift << 10) | (key << 16) |
             (width << 32) | (inline << 48))
 
@@ -48,7 +48,7 @@ def canonical(blocks: list[dict], *, base_shift=3, flags=0,
         count64 = block.get("count64", count > 65535)
         raw_anchor = anchor(
             semantic=block.get("semantic", 0), physical=block.get("physical", 1),
-            chain=block.get("chain", False), count64=count64,
+            continuation=block.get("continuation", False), count64=count64,
             payload_shift=block.get("payload_shift", 0), key=block.get("key", 1),
             width=block.get("width", 8), count=count,
         )
@@ -92,9 +92,9 @@ def fixtures() -> dict[str, tuple[bool, bytearray, str]]:
         "valid-empty.vbuf": (True, global_header(3, 0), "known-size empty stream"),
         "valid-zero-array.vbuf": (True, canonical([{"key": 2, "width": 8, "count": 0, "payload": b""}]), "zero-length array"),
         "valid-duplicate-chain.vbuf": (True, canonical([
-            {"key": 7, "width": 8, "count": 1, "payload": b"A"},
-            {"key": 7, "width": 8, "count": 1, "payload": b"B", "chain": True},
-        ]), "duplicate KeyID with valid adjacent chain"),
+            {"key": 7, "width": 8, "count": 1, "payload": b"A", "continuation": True},
+            {"key": 7, "width": 8, "count": 1, "payload": b"B"},
+        ]), "duplicate KeyID with valid forward continuation"),
         "valid-duplicate-unchained.vbuf": (True, canonical([
             {"key": 7, "width": 8, "count": 1, "payload": b"A"},
             {"key": 7, "width": 8, "count": 1, "payload": b"B"},
@@ -136,11 +136,11 @@ def fixtures() -> dict[str, tuple[bool, bytearray, str]]:
         ]), "non-zero bytes before canonical next block"),
         "noncanonical-extended-small.vbuf": (False, global_header(3, 16) + struct.pack("<QQ", anchor(count64=True, width=8, count=1), 1), "small count uses extended form"),
         "noncanonical-extended-inline.vbuf": (False, global_header(3, 16) + struct.pack("<QQ", anchor(count64=True, width=8, count=70000, inline_override=1), 70000), "extended form has inline count"),
-        "chain-first.vbuf": (False, canonical([{"key": 7, "width": 8, "count": 1, "payload": b"A", "chain": True}]), "first block sets Chain"),
+        "continuation-final.vbuf": (False, canonical([{"key": 7, "width": 8, "count": 1, "payload": b"A", "continuation": True}]), "final block sets Continuation"),
         "chain-key-mismatch.vbuf": (False, canonical([
-            {"key": 7, "width": 8, "count": 1, "payload": b"A"},
-            {"key": 8, "width": 8, "count": 1, "payload": b"B", "chain": True},
-        ]), "chain KeyID differs from predecessor"),
+            {"key": 7, "width": 8, "count": 1, "payload": b"A", "continuation": True},
+            {"key": 8, "width": 8, "count": 1, "payload": b"B"},
+        ]), "forward continuation KeyID differs from next block"),
     }
     out["bad-magic.vbuf"][1][0] = 0
     set_u32(out["unsupported-version.vbuf"][1], 4, 0x00050000)

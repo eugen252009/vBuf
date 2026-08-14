@@ -51,12 +51,12 @@ fn validated_descriptors_precede_typed_views() {
 }
 
 #[test]
-fn duplicate_and_chain_rules_preserve_physical_occurrences() {
+fn forward_continuation_preserves_physical_occurrences() {
     let bytes = std::fs::read(fixture_dir().join("valid-duplicate-chain.vbuf")).unwrap();
     let parsed = parse_v06(&bytes).unwrap();
     assert_eq!(parsed.blocks().len(), 2);
-    assert!(!parsed.blocks()[0].chain);
-    assert!(parsed.blocks()[1].chain);
+    assert!(parsed.blocks()[0].continuation);
+    assert!(!parsed.blocks()[1].continuation);
     assert_eq!(parsed.u8_view(7, 0).unwrap(), b"A");
     assert_eq!(parsed.u8_view(7, 1).unwrap(), b"B");
 }

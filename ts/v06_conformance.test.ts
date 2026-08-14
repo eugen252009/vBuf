@@ -47,7 +47,7 @@ describe("canonical vBuf v0.6 checked reader", () => {
 
 	test("duplicate KeyIDs use explicit physical occurrence", async () => {
 		const parsed = new VBufV06(await readFixture("valid-duplicate-chain.vbuf"));
-		expect(parsed.blocks.map((block) => block.chain)).toEqual([false, true]);
+		expect(parsed.blocks.map((block) => block.continuation)).toEqual([true, false]);
 		expect(Array.from(parsed.getU8(7, 0))).toEqual([65]);
 		expect(Array.from(parsed.getU8(7, 1))).toEqual([66]);
 	});

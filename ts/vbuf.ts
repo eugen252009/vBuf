@@ -94,7 +94,7 @@ export interface V06Block {
 	readonly keyId: number;
 	readonly semantic: V06Semantic;
 	readonly physical: V06Physical;
-	readonly chain: boolean;
+	readonly continuation: boolean;
 	readonly bitWidth: number;
 	readonly count: bigint;
 	readonly payloadAlignment: bigint;
@@ -179,7 +179,7 @@ export class VBufV06 {
 		this.dataRegionSize = dataEnd - dataStart;
 
 		let blockStart = dataStart;
-		let previousKey: number | null = null;
+		let requiredContinuationKey: number | null = null;
 		while (blockStart < dataEnd) {
 			if (blockStart % baseStepBig !== 0n || (blockStart - dataStart) % baseStepBig !== 0n) throw new V06ValidationError("misaligned", "unaligned block start");
 			this.requireRange(blockStart, checkedAdd(blockStart, 8n), "truncated block anchor");
@@ -187,13 +187,14 @@ export class VBufV06 {
 			if (anchor === 0n) throw new V06ValidationError("invalid_anchor", "zero block anchor");
 			const semantic = Number(anchor & 0xfn);
 			const physical = Number((anchor >> 4n) & 0xfn);
-			const chain = (anchor & (1n << 8n)) !== 0n;
+			const continuation = (anchor & (1n << 8n)) !== 0n;
 			const count64 = (anchor & (1n << 9n)) !== 0n;
 			const payloadShift = Number((anchor >> 10n) & 0x3fn);
 			const keyId = Number((anchor >> 16n) & 0xffffn);
 			const bitWidth = Number((anchor >> 32n) & 0xffffn);
 			const inlineCount = (anchor >> 48n) & 0xffffn;
-			if (chain && previousKey !== keyId) throw new V06ValidationError("invalid_chain", "chain lacks preceding matching KeyID");
+			if (requiredContinuationKey !== null && requiredContinuationKey !== keyId) throw new V06ValidationError("invalid_continuation", "continued block does not match preceding KeyID");
+			requiredContinuationKey = null;
 
 			let count: bigint;
 			let blockHeaderSize: bigint;
@@ -224,9 +225,10 @@ export class VBufV06 {
 				blockStart: this.toIndex(blockStart), payloadStart: this.toIndex(payloadStart),
 				payloadLength: this.toIndex(payloadLength), payloadEnd: this.toIndex(payloadEnd),
 				nextBlockStart: this.toSafeNumber(nextBlockStart), keyId, semantic: semantic as V06Semantic,
-				physical: physical as V06Physical, chain, bitWidth, count, payloadAlignment,
+				physical: physical as V06Physical, continuation, bitWidth, count, payloadAlignment,
 			}));
-			previousKey = keyId;
+			if (continuation && (payloadEnd === dataEnd || nextBlockStart >= dataEnd)) throw new V06ValidationError("invalid_continuation", "final physical block cannot continue");
+			requiredContinuationKey = continuation ? keyId : null;
 			if (payloadEnd === dataEnd) break;
 			if (nextBlockStart >= dataEnd) throw new V06ValidationError("length_mismatch", "final tail padding is not canonical");
 			this.requireZero(payloadEnd, nextBlockStart);
