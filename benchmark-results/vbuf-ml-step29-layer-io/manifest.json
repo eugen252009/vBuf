@@ -1,0 +1,10 @@
+{
+  "step": 29,
+  "host_id": "88fd01f0a9d15a43",
+  "plan": "Step-28 layer-span plan; not persisted into artifact",
+  "sample_counts": {
+    "compute_warm": 10,
+    "compute_uncached": 3
+  },
+  "bulk_matrix": "warm full widths/queue depths; reduced uncached matrix"
+}

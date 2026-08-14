@@ -1,0 +1,23 @@
+[
+  {
+    "bytes": 536870912,
+    "rounds": 3,
+    "elapsed_ms": 91.755107,
+    "effective_GB_per_s": 17.553385187,
+    "sink": 90
+  },
+  {
+    "bytes": 536870912,
+    "rounds": 3,
+    "elapsed_ms": 91.386454,
+    "effective_GB_per_s": 17.624195551,
+    "sink": 90
+  },
+  {
+    "bytes": 536870912,
+    "rounds": 3,
+    "elapsed_ms": 91.550515,
+    "effective_GB_per_s": 17.592612516,
+    "sink": 90
+  }
+]

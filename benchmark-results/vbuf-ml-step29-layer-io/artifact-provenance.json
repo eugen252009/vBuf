@@ -1,0 +1,18 @@
+{
+  "0.6B": {
+    "path": "research-models/Qwen3-0.6B-Q8_0.vbuf",
+    "bytes": 637925504,
+    "sha256": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998",
+    "base_shift": 3,
+    "base_step": 8,
+    "immutable": true
+  },
+  "32B": {
+    "path": "research-models/Qwen3-32B-Q8_0.vbuf",
+    "bytes": 34816197376,
+    "sha256": "84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d",
+    "base_shift": 3,
+    "base_step": 8,
+    "immutable": true
+  }
+}
