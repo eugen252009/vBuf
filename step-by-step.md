@@ -1454,7 +1454,39 @@ added.
 
 ---
 
-### Step 16 — Define sharding without changing generic vBuf
+### Step 16 — Qualify real-model tensor placement
+
+**Class:** ML research qualification.
+
+#### Step 16 implementation recorded
+
+Added the research-only `scripts/qualify_step16.py` tool and generated local
+Qwen3-0.6B evidence under `benchmark-results/vbuf-ml-step16/`. The exact
+ignored Q8_0 and BF16 GGUF artifacts were hash-verified before parsing.
+
+The tool extracts checked GGUF metadata, tensor names/shapes/types/sizes,
+absolute payload ranges and alignment, derives conservative Qwen3 layer/role
+groupings, and simulates source, name-order, layer-major, role-order and
+prefix-friendly placements without copying or repacking payloads.
+
+The artifacts contain 310 and 311 tensors respectively. The logical inventories
+match for 310 names/shapes; BF16 additionally contains `output.weight`. Q8_0
+source order is already layer-monotonic. BF16 source order is lexicographic
+within block names and materially scatters sequential multi-layer prefixes.
+
+The measured recommendation is `LAYER_MAJOR_ROLE_ORDER` as a vBuf-ML writer
+policy. It materially reduces BF16 sequential prefix spans and early
+multi-layer exact-read extents while changing Q8_0 only negligibly. The policy
+is non-normative; readers remain order-independent and GGUF source order is
+retained as the baseline.
+
+No converter, representation contract, LayerIndex wire state, sharding, runtime,
+backend, llama.cpp source, or generic-crate change was introduced. Full details
+are in `docs/vbuf-ml/step16-real-model-placement.md`.
+
+---
+
+### Step 16b — Define sharding without changing generic vBuf
 
 **Class:** ML.
 

@@ -41,5 +41,10 @@ role and is verified only when a runtime requests it. Partial loading derives ru
 read plans from canonical checked ranges; mmap and positioned-read paths remain
 separate from semantic selection.
 
+Step 16 real-model placement qualification is documented in
+[`step16-real-model-placement.md`](step16-real-model-placement.md). It analyzes
+the ignored local Qwen3-0.6B Q8_0 and BF16 GGUF artifacts without conversion or
+runtime integration.
+
 The base remains a small compositional vocabulary: efficient composition is
 preferred over maximal base functionality.
