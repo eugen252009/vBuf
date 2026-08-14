@@ -1,0 +1,17 @@
+{
+  "strategies": [
+    "owned HashMap<Vec<u8>,u32>",
+    "borrowed HashMap<&[u8],u32>",
+    "sorted borrowed token spans",
+    "tuple merge HashMap",
+    "packed u64 merge HashMap",
+    "sorted merge pairs"
+  ],
+  "selected_token": "borrowed HashMap<&[u8],u32>",
+  "selected_merge": "packed u64 HashMap<u64,u32>",
+  "indexes_persisted": false,
+  "lazy_default": false,
+  "parallel_build": "not selected",
+  "incremental": "API-compatible future option",
+  "wire_change": false
+}

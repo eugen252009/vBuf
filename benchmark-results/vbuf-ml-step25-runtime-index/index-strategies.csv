@@ -1,0 +1,3 @@
+index,baseline,candidate,selected,reason
+token,current owned HashMap<Vec<u8>,u32>,borrowed HashMap<&[u8],u32>,borrowed HashMap<&[u8],u32>,zero canonical key-byte copy and faster construction than owned/sorted candidates
+merge,current HashMap<(u64,u64),u32>,packed HashMap<u64,u32>,packed HashMap<u64,u32>,validated Qwen3 IDs fit u32 and packed key is exact

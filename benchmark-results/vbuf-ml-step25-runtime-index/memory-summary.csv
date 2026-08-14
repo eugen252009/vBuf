@@ -1,0 +1,5 @@
+artifact,index,baseline_bytes,candidate_reported_bytes,canonical_key_bytes_copied,notes
+BF16,token,1372760,1372760,0,borrowed key bytes remain in mmap; table overhead not allocator-instrumented
+BF16,merge,3633288,2422192,0,packed u64 key plus u32 rank estimate
+Q8_0,token,1372760,1372760,0,borrowed key bytes remain in mmap; table overhead not allocator-instrumented
+Q8_0,merge,3633288,2422192,0,packed u64 key plus u32 rank estimate

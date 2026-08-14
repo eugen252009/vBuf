@@ -1918,6 +1918,36 @@ and limitations are documented in
 No v0.6 wire, vBuf-ML semantic, tensor-layout, BaseStep, Nano, kernel,
 scheduler, GPU, prefetch, or inference optimization was introduced.
 
+#### Step 25 — Runtime-local tokenizer indexes
+
+Frozen the Step-24 direct-view state with the annotated immutable tag
+`vbuf-ml-0.1-direct-view-baseline` targeting `b569f26`. Added reusable
+`TokenIndex<'a>`, packed `MergeRankIndex`, and `RuntimeTokenizerIndexes` in
+`vbuf-ml`. Token keys borrow validated canonical bytes; merge keys are packed
+only after u32 bounds validation. The indexes are runtime-local and are not
+persisted or added to the wire format.
+
+Thirty-sample release microbenchmarks selected:
+
+```text
+borrowed token map:
+BF16 ~7.6 ms, Q8_0 ~7.5 ms
+
+packed merge map:
+BF16 ~4.4 ms, Q8_0 ~4.4 ms
+```
+
+The reusable C ABI supports lazy index construction and token/merge lookup for
+current and future runtimes. The default llama source does not build duplicate
+Rust indexes because llama still owns its final vocabulary maps. Existing
+Step-24 model-ready behavior and correctness remain the reference; new direct
+controls were recorded separately under
+`benchmark-results/vbuf-ml-step25-runtime-index/`.
+
+No Nano, LayerView, RuntimeChunk, prefetch, residency, GPU streaming, or other
+physical-runtime work was introduced. See
+`docs/vbuf-ml/step25-runtime-tokenizer-index.md`.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision

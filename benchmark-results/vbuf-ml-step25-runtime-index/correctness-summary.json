@@ -1,0 +1,18 @@
+{
+  "BF16": {
+    "structural": "PASS",
+    "tokenizer": "PASS",
+    "logit_max_abs_diff_gguf_vs_direct": 0,
+    "generation": "PASS"
+  },
+  "Q8_0": {
+    "structural": "PASS",
+    "tokenizer": "PASS",
+    "logit_max_abs_diff_gguf_vs_direct": 0,
+    "generation": "PASS"
+  },
+  "index_semantics": "ordinal duplicate handling and packed merge rank tested",
+  "payload_copy": 0,
+  "payload_repack": 0,
+  "payload_reorder": 0
+}

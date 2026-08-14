@@ -66,7 +66,9 @@ see [`step23-native-llama-source.md`](step23-native-llama-source.md).
 The Nano/direct-view audit is documented in
 [`nano-runtime-audit.md`](nano-runtime-audit.md). Step 24 borrowed runtime
 views are documented in
-[`step24-borrowed-runtime-views.md`](step24-borrowed-runtime-views.md).
+[`step24-borrowed-runtime-views.md`](step24-borrowed-runtime-views.md). Step 25
+runtime-local tokenizer indexes are documented in
+[`step25-runtime-tokenizer-index.md`](step25-runtime-tokenizer-index.md).
 Tokenizer execution and chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is

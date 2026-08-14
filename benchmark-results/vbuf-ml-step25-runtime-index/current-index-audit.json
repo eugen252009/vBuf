@@ -1,0 +1,20 @@
+{
+  "llama_token_index": {
+    "location": "pinned llama.cpp src/llama-vocab.cpp llama_vocab::impl",
+    "type": "std::unordered_map<std::string, llama_token>",
+    "key_ownership": "owned std::string",
+    "construction": "token_to_id[word] = ordinal during vocabulary load",
+    "reserve_observed": false,
+    "duplicate_behavior": "last ordinal assignment wins"
+  },
+  "llama_merge_index": {
+    "location": "pinned llama.cpp src/llama-vocab.cpp llama_vocab::impl",
+    "type": "std::unordered_map<std::pair<std::string,std::string>, int, pair_hash>",
+    "key_ownership": "owned pair of std::string",
+    "construction": "bpe_ranks.emplace(string pair, ordinal)",
+    "reserve_observed": false,
+    "rank_semantics": "merge ordinal"
+  },
+  "step25_portable_proxies": "Rust borrowed byte-key token map and packed numeric merge map",
+  "note": "The current pinned llama vocabulary owns its final lookup structures; the reusable Rust indexes are source-neutral and future-runtime ready. No llama-specific common-runtime rewrite was made in Step 25."
+}

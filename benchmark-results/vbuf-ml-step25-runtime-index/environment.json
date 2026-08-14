@@ -1,0 +1,12 @@
+{
+  "step": "25-runtime-index",
+  "tag": "vbuf-ml-0.1-direct-view-baseline",
+  "tag_target": "b569f26effaba1e358985d37e9464093fc59657c",
+  "tag_object": "38d416445bfffae68bfb01dd4edd561ed08b64ae",
+  "runs_microbenchmark": 30,
+  "runs_model_ready": 10,
+  "build": "release Rust microbench; O2 pinned llama integration",
+  "cpu_only": true,
+  "wire_changed": false,
+  "physical_runtime_work": false
+}
