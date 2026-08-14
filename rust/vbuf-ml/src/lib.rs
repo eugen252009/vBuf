@@ -10,10 +10,12 @@
 pub mod bootstrap;
 pub mod error;
 pub mod region_roles;
+pub mod tensor_directory;
 
 pub use bootstrap::{Bootstrap, BootstrapEntry, SemanticRegion};
 pub use error::{MlError, MlErrorCode};
 pub use region_roles::RegionRole;
+pub use tensor_directory::{TensorDescriptor, TensorDirectory, TensorEntry, TensorRepresentation};
 
 /// Boundary smoke helper for future profile code. It does not parse or
 /// authorize the range.

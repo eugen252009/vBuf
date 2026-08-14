@@ -42,7 +42,7 @@ pub struct Bootstrap<'a> {
 }
 
 impl<'a> Bootstrap<'a> {
-    pub fn discover(validated: &'a ValidatedV06<'a>) -> Result<Self, MlError> {
+    pub fn discover(validated: &ValidatedV06<'a>) -> Result<Self, MlError> {
         let mut bootstrap_index = None;
         for (index, block) in validated.blocks().iter().enumerate() {
             if block.key_id == BOOTSTRAP_KEY_ID && bootstrap_index.replace(index).is_some() {

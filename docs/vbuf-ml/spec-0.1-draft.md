@@ -25,3 +25,10 @@ metadata. Their contents are intentionally deferred to later steps.
 The profile version is independent of the Cargo package version and the vBuf
 v0.6 wire version. Unsupported profile versions fail closed. Generic vBuf
 remains valid and usable without this profile.
+
+Profile 0.1's `TensorDirectory` is specified in
+[`tensor-directory.md`](tensor-directory.md). It adds tensor names, checked
+shapes, and generic Key-ID/occurrence references. It does not add offsets,
+lengths, generic dtypes, widths, counts, or alignments. Only canonical
+primitive tensors are supported initially; continuation-backed and quantized
+tensors remain future profile work.

@@ -1090,7 +1090,7 @@ behavior was added.
 
 **Class:** ML.
 
-**Goal:** represent exactly what a runtime needs to construct tensor views, no more: identity, shape, representation and byte location.
+**Goal:** represent exactly what a runtime needs to construct tensor views, no more: identity, shape, representation and a canonical generic value reference.
 
 **Files/modules likely added:**
 
@@ -1102,7 +1102,7 @@ behavior was added.
 
 **Existing invariants:** tensor payload bytes need no metadata prefix and remain directly mmap-able.
 
-**New invariants:** unique UTF-8 tensor names; rank and each dimension are explicit `u64`; logical element count is checked against dimensions; representation ID resolves through a profile registry; absolute or section-relative direct offset and stored byte length are explicit; required payload alignment is validated; ranges do not overlap unless aliasing is explicitly standardized later; fixed-width entries use offsets into separate variable tables.
+**New invariants:** unique UTF-8 tensor names; rank and each dimension are explicit `u64`; logical element count is checked against dimensions; the initial representation ID is `CanonicalPrimitive`; generic Key-ID plus physical occurrence resolves the canonical value; offsets, lengths, generic counts, widths, physical types, and alignments are not duplicated; profile 0.1 constrains each tensor to one non-continuing canonical block.
 
 **Tests/qualification:** scalar through maximum accepted rank; duplicate names; invalid UTF-8 policy; dimension product overflow; packed block-size versus byte-length checks; lookup by directory index and exact name; directory-only range read.
 
@@ -1111,6 +1111,27 @@ behavior was added.
 **Expected commit outcome:** a runtime can locate and validate a tensor without scanning payloads or parsing model metadata.
 
 **Dependencies:** Steps 8 and Decision D.
+
+#### Step 9 implementation recorded
+
+Implemented the minimal tensor directory in `rust/vbuf-ml/src/tensor_directory.rs`
+with its contract in `docs/vbuf-ml/tensor-directory.md`. The directory is
+parsed only from the checked `TensorDirectory` role discovered by the Step 8
+bootstrap. Entries contain UTF-8 names, rank/dimensions, a minimal
+`CanonicalPrimitive` representation ID, and canonical generic Key-ID plus
+physical occurrence.
+
+The wire format uses a 20-byte header and 10-byte fixed per-entry overhead,
+followed by inline names and `u64` dimensions. Entries are canonically sorted
+by UTF-8 bytes. Rank zero is a scalar; ranks through 16 and nonzero dimensions
+are supported. Shape products, canonical count, bit width, and payload byte
+length are checked against the canonical descriptor. Exact-name lookup uses
+binary search over validated order.
+
+No tensor offsets, lengths, generic primitive facts, quantization layouts,
+continuation aggregation, metadata schema, tokenizer schema, backend behavior,
+or generic region-directory support was added. Generic vBuf and the v0.6 wire
+format remain unchanged.
 
 ---
 
