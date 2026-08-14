@@ -1,0 +1,10 @@
+commit=8da4674a87b6a35ecc4634d8fec44e3d0c76c5ab
+rustc=rustc 1.95.0 (59807616e 2026-04-14);binary: rustc;commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860;commit-date: 2026-04-14;host: x86_64-unknown-linux-gnu;release: 1.95.0;LLVM version: 22.1.2;
+uname=Linux debian 6.12.101+deb13-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.12.101-1 (2026-08-05) x86_64 GNU/Linux
+
+cpu_model=AMD Ryzen 7 5800X 8-Core Processor
+architecture=x86_64
+
+rayon_threads=default
+runner_flags=release profile; see Cargo.toml and Cargo.lock
+cache_note=warm in-process samples; cold mmap/page-fault qualification not claimed

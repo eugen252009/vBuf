@@ -701,6 +701,70 @@ Use dense small blocks, high-count tiny/multi-block and variable/composite repre
 
 **Dependencies:** Steps 3–5 and Decisions A/G. Results feed Decisions B/H.
 
+#### Step 5A evidence recorded — 2026-08-14
+
+The evidence runner is `rust/src/bin/v06_navigation_bench.rs`; its outputs are
+experimental, in-memory artifacts and do not define a v0.6 wire structure.
+Reproduce with `scripts/run_v06_navigation_bench.sh LABEL`. The measured raw
+CSV, generated interpretation, and host/compiler metadata are preserved under
+`benchmark-results/vbuf-navigation/`. Validation is performed by
+`scripts/validate_v06_navigation.py`.
+
+**Measured facts:** six frozen BaseSteps (8, 16, 32, 64, 128, 256 bytes) and
+eight generic layouts completed 20 samples for 13 operation/variant paths per
+layout/BaseStep (12,480 raw rows). The layouts include many tiny blocks, few
+large blocks, mixed blocks, AoS-style and SoA-style compositions,
+continuation composites, opaque workloads, and zero/partial cases. Canonical
+payload bytes and block topology were held constant while grid/padding
+changed. The raw report records file, payload, Nano, checkpoint, and directory
+byte counts separately. Median file sizes across the corpus were 73,752 /
+131,094 / 262,150 / 524,294 / 1,048,582 / 2,097,158 bytes for BaseStep 8 /
+16 / 32 / 64 / 128 / 256, while the corresponding median payload was 45,056
+bytes. Padding can therefore dominate small and mixed layouts; it is not a
+reason to optimize Nano percentage alone.
+
+**Correctness facts:** property tests compare Nano-derived set slots with every
+validated canonical physical block start for every corpus/BaseStep; continuation
+members remain separate; first/last/every-ordinal checkpoint selection agrees
+with raw set-bit enumeration; final-byte unused bits are zero; invalid BaseStep
+and near-`u64::MAX` Nano arithmetic fail closed. Canonical parsing remains the
+authority. No Nano artifact was added to a reader path, so it cannot authorize
+bytes.
+
+**Measured-path boundary:** the run measures warm in-process operations and
+records compiler/CPU metadata. It does not claim controlled cold/warm mmap,
+page-fault, SIMD load, native pointer-alignment, or NUMA results; those remain
+missing evidence rather than failures. Rayon paths are workload controls, not
+format scheduler semantics. Embedded load and reconstructed-cache load are
+measured separately, but persistence, invalidation, and page-I/O qualification
+remain outstanding.
+
+**Conservative decisions:**
+
+- **BaseStep:** measured behavior supports retaining the frozen legal set as a
+generic tuning input. No value is promoted as universally optimal and no core
+contract is changed.
+- **Nano:** **POSSIBLE BUT NOT YET JUSTIFIED**. Physical enumeration is correct,
+but this run does not establish end-to-end benefit after construction,
+validation, artifact bytes, persistence, or cache costs. Nano remains optional
+and non-normative.
+- **Rank/select checkpoints:** **POSSIBLE BUT NOT YET JUSTIFIED**. The simple
+512-slot, 4096-slot, and 65536-slot candidates are correct and measured, but
+no checkpoint is selected without a broader equivalent-query and deployment
+study.
+- **Generic region directory:** **POSSIBLE BUT NOT YET JUSTIFIED**. The
+binary-search experiment is explicitly separate from Nano, but the current
+run is insufficient to justify a generic lookup artifact or a logical-ID wire
+contract.
+- **Parallel CPU partitioning:** **POSSIBLE BUT NOT YET JUSTIFIED**. Rayon
+controls demonstrate executable paths only; no reproducible end-to-end
+advantage over equivalent dynamic/canonical boundary discovery was established.
+- **Embedded vs reconstructed:** **POSSIBLE BUT NOT YET JUSTIFIED**. The measured
+load paths are evidence of mechanics, not a cold-start/reuse-count result.
+
+These are measured-fact, inference, and decision distinctions; no optional
+artifact is made normative and no finalization envelope is added.
+
 ---
 
 ### Step 5B — Specify the generic finalization envelope and selected artifact contracts
