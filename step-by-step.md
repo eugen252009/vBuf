@@ -1574,37 +1574,7 @@ are in `docs/vbuf-ml/step18-conversion-manifest.md`.
 
 ---
 
-### Step 19 — Implement a read-only GGUF inspector and conversion manifest
-
-**Class:** ML tooling.
-
-**Goal:** map required source information explicitly before writing a converter; detect unsupported fields instead of dropping them.
-
-**Files/modules likely added:**
-
-- add `rust/vbuf-ml-tools/Cargo.toml`
-- add `rust/vbuf-ml-tools/src/bin/gguf-inspect.rs`
-- add `rust/vbuf-ml-tools/src/gguf/{reader,mapping}.rs`, or use a pinned audited dependency
-- add `docs/vbuf-ml/gguf-mapping.md`
-- add mapping fixtures
-
-**Relevant existing material:** upstream GGUF spec/header, selected model fixtures, Steps 9–12 requirement matrices.
-
-**Existing invariants:** source GGUF is never modified; unsupported required data is an error.
-
-**New invariants:** every source metadata key is categorized as runtime-required, descriptive-preserved, safely omitted with reason, or unsupported/blocking; tensor names/shapes/types/sizes are validated before conversion.
-
-**Tests/qualification:** inspect selected GGUF fixtures; compare with trusted `gguf`/llama.cpp tooling output; malformed GGUF tests; mapping report has no uncategorized required key.
-
-**Architectural boundaries:** GGUF code and names exist only in tools/profile documentation, never generic vBuf.
-
-**Expected commit outcome:** auditable feasibility evidence and a complete conversion contract.
-
-**Dependencies:** Steps 9–12 and Decision E.
-
----
-
-### Step 20 — Implement deterministic GGUF-to-vBuf-ML conversion
+### Step 19 — Implement deterministic GGUF-to-vBuf-ML conversion
 
 **Class:** ML tooling.
 
@@ -1632,7 +1602,7 @@ are in `docs/vbuf-ml/step18-conversion-manifest.md`.
 
 ---
 
-### Step 21 — Prototype a llama.cpp loader adapter
+### Step 20 — Prototype a llama.cpp loader adapter
 
 **Class:** ML runtime integration, kept outside generic vBuf.
 
@@ -1662,7 +1632,7 @@ are in `docs/vbuf-ml/step18-conversion-manifest.md`.
 
 ---
 
-### Step 22 — Add execution-order layout experiments
+### Step 21 — Add execution-order layout experiments
 
 **Class:** ML writer policy and benchmark only.
 
@@ -1691,7 +1661,7 @@ are in `docs/vbuf-ml/step18-conversion-manifest.md`.
 
 ---
 
-### Step 23 — Build the controlled GGUF versus vBuf-ML qualification
+### Step 22 — Build the controlled GGUF versus vBuf-ML qualification
 
 **Class:** benchmark/tooling; no format changes.
 
@@ -1742,7 +1712,7 @@ Backend-specific CUDA/HIP/Metal/shared-memory variants are optional descendant/r
 
 ---
 
-### Step 24 — Qualification review and format-freeze decision
+### Step 23 — Qualification review and format-freeze decision
 
 **Class:** documentation/release gate.
 
