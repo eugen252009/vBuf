@@ -1,0 +1,10 @@
+{
+  "artifact": "Qwen3-0.6B-BF16.vbuf",
+  "source": "Qwen3-0.6B-BF16.gguf",
+  "source_sha256": "65a16246f5814dc0587acadcf0328186b17febf6dcaeb1b13efa9243b551d38e",
+  "target_sha256": "6ec3db0bb8a26914be7312cc26c3ec0fb6945202659c46b26b4506f4de75a806",
+  "target_size": 1507825912,
+  "integrity": "none",
+  "tool": "vbuf-ml-convert",
+  "manifest": "qwen3-0.6b-bf16-manifest.json"
+}

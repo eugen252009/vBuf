@@ -1,0 +1,23 @@
+artifact,source_key,consumer_semantic,source_value,match
+Q8_0,general.architecture,architecture,qwen3,True
+Q8_0,qwen3.context_length,context length,40960,True
+Q8_0,qwen3.embedding_length,embedding length,1024,True
+Q8_0,qwen3.block_count,layer count,28,True
+Q8_0,qwen3.attention.head_count,attention head count,16,True
+Q8_0,qwen3.attention.head_count_kv,KV head count,8,True
+Q8_0,qwen3.attention.key_length,key head dimension,128,True
+Q8_0,qwen3.attention.value_length,value head dimension,128,True
+Q8_0,qwen3.feed_forward_length,feed-forward length,3072,True
+Q8_0,qwen3.attention.layer_norm_rms_epsilon,RMS normalization epsilon,9.999999974752427e-07,True
+Q8_0,qwen3.rope.freq_base,RoPE base,1000000.0,True
+BF16,general.architecture,architecture,qwen3,True
+BF16,qwen3.context_length,context length,40960,True
+BF16,qwen3.embedding_length,embedding length,1024,True
+BF16,qwen3.block_count,layer count,28,True
+BF16,qwen3.attention.head_count,attention head count,16,True
+BF16,qwen3.attention.head_count_kv,KV head count,8,True
+BF16,qwen3.attention.key_length,key head dimension,128,True
+BF16,qwen3.attention.value_length,value head dimension,128,True
+BF16,qwen3.feed_forward_length,feed-forward length,3072,True
+BF16,qwen3.attention.layer_norm_rms_epsilon,RMS normalization epsilon,9.999999974752427e-07,True
+BF16,qwen3.rope.freq_base,RoPE base,1000000.0,True

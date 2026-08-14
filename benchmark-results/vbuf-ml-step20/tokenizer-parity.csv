@@ -1,0 +1,17 @@
+artifact,semantic,count,match
+Q8_0,vocabulary,151936,True
+Q8_0,token_types,151936,True
+Q8_0,merges,151387,True
+Q8_0,model_identity,1,True
+Q8_0,pre_tokenizer_identity,1,True
+Q8_0,add_bos,1,True
+Q8_0,special_token_ids,1,True
+Q8_0,chat_template_bytes,1,True
+BF16,vocabulary,151936,True
+BF16,token_types,151936,True
+BF16,merges,151387,True
+BF16,model_identity,1,True
+BF16,pre_tokenizer_identity,1,True
+BF16,add_bos,1,True
+BF16,special_token_ids,1,True
+BF16,chat_template_bytes,1,True

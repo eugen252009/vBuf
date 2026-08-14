@@ -1,0 +1,34 @@
+{
+  "BF16": {
+    "base_shift": 3,
+    "integrity": "none",
+    "placement_policy": "LAYER_MAJOR_ROLE_ORDER",
+    "profile_version": "vbuf-ml-0.1",
+    "source_filename": "Qwen3-0.6B-BF16.gguf",
+    "source_payload_bytes": 1503395840,
+    "source_sha256": "65a16246f5814dc0587acadcf0328186b17febf6dcaeb1b13efa9243b551d38e",
+    "source_size": 1509347552,
+    "target_control_and_padding_bytes": 4430072,
+    "target_filename": "Qwen3-0.6B-BF16.vbuf",
+    "target_sha256": "6ec3db0bb8a26914be7312cc26c3ec0fb6945202659c46b26b4506f4de75a806",
+    "target_size": 1507825912,
+    "target_tensor_payload_bytes": 1503395840,
+    "tensor_count": 311
+  },
+  "Q8_0": {
+    "base_shift": 3,
+    "integrity": "none",
+    "placement_policy": "LAYER_MAJOR_ROLE_ORDER",
+    "profile_version": "vbuf-ml-0.1",
+    "source_filename": "Qwen3-0.6B-Q8_0.gguf",
+    "source_payload_bytes": 633495552,
+    "source_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+    "source_size": 639446688,
+    "target_control_and_padding_bytes": 4429952,
+    "target_filename": "Qwen3-0.6B-Q8_0.vbuf",
+    "target_sha256": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998",
+    "target_size": 637925504,
+    "target_tensor_payload_bytes": 633495552,
+    "tensor_count": 310
+  }
+}

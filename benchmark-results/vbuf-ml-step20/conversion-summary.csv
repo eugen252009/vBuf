@@ -1,0 +1,3 @@
+artifact,source_filename,target_filename,source_size,target_size,difference_bytes,difference_percent,tensor_count,source_payload_bytes,target_payload_bytes,source_reads,payload_digest_matches,result
+Q8_0,Qwen3-0.6B-Q8_0.gguf,Qwen3-0.6B-Q8_0.vbuf,639446688,637925504,-1521184,-0.2379,310,633495552,633495552,310,True,CONVERTED_AND_VALIDATED
+BF16,Qwen3-0.6B-BF16.gguf,Qwen3-0.6B-BF16.vbuf,1509347552,1507825912,-1521640,-0.1008,311,1503395840,1503395840,311,True,CONVERTED_AND_VALIDATED

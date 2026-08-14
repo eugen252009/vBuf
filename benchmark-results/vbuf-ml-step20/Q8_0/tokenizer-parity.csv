@@ -1,0 +1,8 @@
+semantic,count,match
+vocabulary,151936,true
+token_types,151936,true
+merges,151387,true
+model_identity,1,true
+pre_tokenizer_identity,1,true
+add_bos,1,true
+chat_template,1,true
