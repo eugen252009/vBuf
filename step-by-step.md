@@ -1948,6 +1948,33 @@ No Nano, LayerView, RuntimeChunk, prefetch, residency, GPU streaming, or other
 physical-runtime work was introduced. See
 `docs/vbuf-ml/step25-runtime-tokenizer-index.md`.
 
+#### Step 26 — Qwen3-32B placement qualification
+
+Qualified the new dense `Qwen3-32B-Q8_0.gguf` source: 34,817,718,912 bytes,
+707 tensors, 64 layers, 151,936 tokens, and 151,387 merges. Existing Qwen3
+semantic parsing passed without widening the profile. A deterministic planner
+simulated all legal BaseShift values 3..8 from one logical manifest; no payload
+copies or six model files were created.
+
+The artifact-qualified selection is:
+
+```text
+BaseShift 3
+BaseStep 8
+```
+
+It minimizes final size and padding while preserving one physical span per
+layer. Hypothetical Nano accounting was recorded but Nano remains noncanonical
+and unused.
+
+The selected vBuf final size is 34,816,197,344 bytes. Emission is currently
+blocked by local free space of approximately 25.5 GB; the source was retained
+and no partial output was created. Pending final-artifact hash/parity and llama
+qualification are recorded explicitly in
+`benchmark-results/vbuf-ml-step26-qwen32b-placement/`.
+
+See `docs/vbuf-ml/step26-qwen32b-placement.md`.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision
