@@ -107,6 +107,34 @@ export class V06ValidationError extends Error {
 	}
 }
 
+const RANGE_TOKEN = Symbol("validated-v06-range");
+
+/** Immutable, provenance-preserving bytes borrowed from one validated VBufV06. */
+export class V06Range {
+	constructor(
+		private readonly token: symbol,
+		private readonly owner: VBufV06,
+		readonly offset: bigint,
+		readonly length: bigint,
+	) {
+		if (token !== RANGE_TOKEN || offset < 0n || length < 0n || offset + length > BigInt(owner.mem.byteLength)) throw new V06ValidationError("length_mismatch", "range lies outside validated mapping");
+	}
+	get end(): bigint { return this.offset + this.length; }
+	bytes(): Uint8Array {
+		const start = this.owner.toIndex(this.offset);
+		const end = this.owner.toIndex(this.end);
+		return this.owner.mem.subarray(start, end);
+	}
+	refine(relativeOffset: bigint, length: bigint): V06Range {
+		if (relativeOffset < 0n || length < 0n || relativeOffset > this.length || relativeOffset + length > this.length) throw new V06ValidationError("length_mismatch", "child range lies outside parent");
+		return new V06Range(RANGE_TOKEN, this.owner, this.offset + relativeOffset, length);
+	}
+	requireAlignment(alignment: bigint): void {
+		if (alignment <= 0n || (alignment & (alignment - 1n)) !== 0n) throw new V06ValidationError("misaligned", "invalid alignment");
+		if ((BigInt(this.owner.mem.byteOffset) + this.offset) % alignment !== 0n) throw new V06ValidationError("misaligned", "range is not aligned");
+	}
+}
+
 const U64_MAX = (1n << 64n) - 1n;
 const checkedAdd = (a: bigint, b: bigint): bigint => {
 	const value = a + b;
@@ -237,6 +265,20 @@ export class VBufV06 {
 		Object.freeze(this.validatedBlocks);
 	}
 
+	private rangeFor(index: number, kind: 0 | 1): V06Range {
+		const block = this.validatedBlocks[index];
+		if (!block) throw new V06ValidationError("not_found", "block index not found");
+		const dataEnd = BigInt(this.dataRegionStart) + this.dataRegionSize;
+		const end = kind === 1 ? BigInt(block.payloadEnd) : BigInt(block.payloadEnd) === dataEnd ? BigInt(block.payloadEnd) : BigInt(block.nextBlockStart);
+		const start = kind === 1 ? BigInt(block.payloadStart) : BigInt(block.blockStart);
+		if (end < start || end > dataEnd) throw new V06ValidationError("length_mismatch", "validated range lies outside data region");
+		return new V06Range(RANGE_TOKEN, this, start, end - start);
+	}
+
+	blockRange(index: number): V06Range { return this.rangeFor(index, 0); }
+	payloadRange(index: number): V06Range { return this.rangeFor(index, 1); }
+	payloadSubrange(index: number, relativeOffset: bigint, length: bigint): V06Range { return this.payloadRange(index).refine(relativeOffset, length); }
+
 	block(keyId: number, occurrence = 0): V06Block | undefined {
 		return this.validatedBlocks.filter((block) => block.keyId === keyId)[occurrence];
 	}
@@ -261,9 +303,11 @@ export class VBufV06 {
 		const count = Number(block.count);
 		const expectedLength = count * elementBytes;
 		if (!Number.isSafeInteger(count) || !Number.isSafeInteger(expectedLength) || expectedLength !== block.payloadLength) throw new V06ValidationError("length_mismatch", "typed length differs from validated payload");
-		const absoluteOffset = this.mem.byteOffset + block.payloadStart;
+		const range = this.payloadRange(this.validatedBlocks.indexOf(block));
+		if (range.length !== BigInt(expectedLength)) throw new V06ValidationError("length_mismatch", "typed length differs from checked payload range");
+		const absoluteOffset = this.mem.byteOffset + this.toIndex(range.offset);
 		if (absoluteOffset % elementBytes !== 0) throw new V06ValidationError("misaligned", "typed-array alignment is not satisfied");
-		if (block.payloadStart > block.payloadEnd || block.payloadEnd > this.mem.byteLength) throw new V06ValidationError("length_mismatch", "validated payload unavailable");
+		range.requireAlignment(BigInt(elementBytes));
 		// Construction occurs only after exact range, length, representation, and alignment checks.
 		return new ctor(this.mem.buffer, absoluteOffset, count);
 	}
@@ -287,7 +331,7 @@ export class VBufV06 {
 			if (this.mem[index] !== 0) throw new V06ValidationError("nonzero_padding", "non-zero canonical padding");
 		}
 	}
-	private toIndex(value: bigint): number {
+	public toIndex(value: bigint): number {
 		if (value < 0n || value > BigInt(this.mem.byteLength)) throw new V06ValidationError("too_short", "offset lies outside input");
 		return this.toSafeNumber(value);
 	}

@@ -155,4 +155,9 @@ dependencies = [
  "memmap2",
  "prost",
  "rayon",
+ "vbuf-layout",
 ]
+
+[[package]]
+name = "vbuf-layout"
+version = "0.1.0"

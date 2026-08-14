@@ -1,3 +1,6 @@
+[workspace]
+members = ["vbuf-layout"]
+
 [package]
 name = "vbuf-core"
 version = "0.1.0"
@@ -9,5 +12,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 libc = "0.2.186"
 memmap2 = "0.9"
+vbuf-layout = { path = "vbuf-layout" }
 rayon = "1.10"
 prost = "0.13"

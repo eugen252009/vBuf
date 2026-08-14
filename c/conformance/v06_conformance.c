@@ -188,6 +188,33 @@ int main(int argc, char **argv) {
     vbuf_v06_close(instance);
     return 1;
   }
+  uint64_t range_offset = 0, range_length = 0, range_end = 0, range_alignment = 0;
+  if (vbuf_v06_range_info(instance, 0, 0, &range_offset, &range_length,
+                          &range_end, &range_alignment) != 0 ||
+      range_offset != 24 || range_length != 20 || range_end != 44 ||
+      range_alignment != 8 ||
+      vbuf_v06_range_info(instance, 0, 1, &range_offset, &range_length,
+                          &range_end, &range_alignment) != 0 ||
+      range_offset != 32 || range_length != 12 || range_end != 44 ||
+      range_alignment != 8 ||
+      vbuf_v06_range_subrange(instance, 0, 1, 4, 8, &range_offset,
+                              &range_length, &range_end) != 0 ||
+      range_offset != 36 || range_length != 8 || range_end != 44 ||
+      vbuf_v06_range_subrange(instance, 0, 1, 12, 1, &range_offset,
+                              &range_length, &range_end) == 0) {
+    vbuf_v06_close(instance);
+    return 1;
+  }
+  const void *range_pointer = NULL;
+  size_t range_pointer_length = 0;
+  if (vbuf_v06_range_ptr(instance, 0, 1, &range_pointer,
+                         &range_pointer_length) != 0 ||
+      range_pointer == NULL || range_pointer_length != 12 ||
+      vbuf_v06_range_require_alignment(instance, 0, 1, 8) != 0 ||
+      vbuf_v06_range_require_alignment(instance, 0, 1, 3) == 0) {
+    vbuf_v06_close(instance);
+    return 1;
+  }
 
   const void *payload = (const void *)(uintptr_t)1;
   size_t count = SIZE_MAX;

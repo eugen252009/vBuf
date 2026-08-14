@@ -8,6 +8,7 @@ use std::fmt;
 use std::fs::File;
 use std::mem::{align_of, size_of};
 use std::path::Path;
+use vbuf_layout::{ByteRange, CheckedRange, RangeError};
 
 pub const V06_MAGIC: [u8; 4] = *b"VBUF";
 pub const V06_VERSION: u32 = 0x0006_0000;
@@ -124,6 +125,26 @@ pub struct ValidatedV06<'a> {
     bytes: &'a [u8],
     header: V06Header,
     blocks: Vec<V06Block>,
+}
+
+fn range_error(error: RangeError) -> V06Error {
+    let code = match error {
+        RangeError::InvalidAlignment | RangeError::Misaligned => V06ErrorCode::Misaligned,
+        RangeError::OutsideMapping | RangeError::OutsideParent | RangeError::HostIndexOverflow => {
+            V06ErrorCode::LengthMismatch
+        }
+        RangeError::Overflow | RangeError::EndBeforeStart => V06ErrorCode::ArithmeticOverflow,
+    };
+    V06Error::global(code, "checked physical range is invalid")
+}
+
+fn make_checked_range<'a>(
+    bytes: &'a [u8],
+    start: u64,
+    end: u64,
+) -> Result<CheckedRange<'a>, V06Error> {
+    let range = ByteRange::from_end(start, end).map_err(range_error)?;
+    CheckedRange::from_mapping(bytes, range).map_err(range_error)
 }
 
 #[derive(Debug)]
@@ -566,6 +587,44 @@ impl<'a> ValidatedV06<'a> {
         &self.blocks
     }
 
+    /// Returns the validated physical bytes of one canonical block. For a
+    /// non-final block this includes canonical padding up to the next block;
+    /// the final block ends at its payload end because no tail padding is
+    /// required by v0.6.
+    pub fn block_range(&self, index: usize) -> Result<CheckedRange<'a>, V06Error> {
+        let block = self
+            .blocks
+            .get(index)
+            .ok_or_else(|| V06Error::global(V06ErrorCode::NotFound, "block index not found"))?;
+        let end = if block.payload_end == self.header.data_region_end {
+            block.payload_end
+        } else {
+            block.next_block_start
+        };
+        make_checked_range(self.bytes, block.block_start, end)
+    }
+
+    /// Returns only the validated payload bytes of one canonical block.
+    pub fn payload_range(&self, index: usize) -> Result<CheckedRange<'a>, V06Error> {
+        let block = self
+            .blocks
+            .get(index)
+            .ok_or_else(|| V06Error::global(V06ErrorCode::NotFound, "block index not found"))?;
+        make_checked_range(self.bytes, block.payload_start, block.payload_end)
+    }
+
+    /// Refines a validated payload range without permitting escape from it.
+    pub fn payload_subrange(
+        &self,
+        index: usize,
+        relative_offset: u64,
+        length: u64,
+    ) -> Result<CheckedRange<'a>, V06Error> {
+        self.payload_range(index)?
+            .refine(relative_offset, length)
+            .map_err(range_error)
+    }
+
     pub fn block(&self, key_id: u16, occurrence: usize) -> Option<&V06Block> {
         self.blocks
             .iter()
@@ -589,15 +648,7 @@ impl<'a> ValidatedV06<'a> {
 }
 
 fn payload_range<'a>(bytes: &'a [u8], block: &V06Block) -> Result<&'a [u8], V06Error> {
-    let start = to_usize(block.payload_start)?;
-    let end = to_usize(block.payload_end)?;
-    bytes.get(start..end).ok_or_else(|| {
-        V06Error::at(
-            V06ErrorCode::LengthMismatch,
-            block.payload_start,
-            "validated payload range is unavailable",
-        )
-    })
+    Ok(make_checked_range(bytes, block.payload_start, block.payload_end)?.bytes())
 }
 
 fn typed_view<'a, T>(
@@ -704,6 +755,38 @@ impl VBufV06 {
     }
     pub fn blocks(&self) -> &[V06Block] {
         &self.blocks
+    }
+
+    pub fn block_range(&self, index: usize) -> Result<CheckedRange<'_>, V06Error> {
+        let block = self
+            .blocks
+            .get(index)
+            .ok_or_else(|| V06Error::global(V06ErrorCode::NotFound, "block index not found"))?;
+        let end = if block.payload_end == self.header.data_region_end {
+            block.payload_end
+        } else {
+            block.next_block_start
+        };
+        make_checked_range(self.bytes(), block.block_start, end)
+    }
+
+    pub fn payload_range(&self, index: usize) -> Result<CheckedRange<'_>, V06Error> {
+        let block = self
+            .blocks
+            .get(index)
+            .ok_or_else(|| V06Error::global(V06ErrorCode::NotFound, "block index not found"))?;
+        make_checked_range(self.bytes(), block.payload_start, block.payload_end)
+    }
+
+    pub fn payload_subrange(
+        &self,
+        index: usize,
+        relative_offset: u64,
+        length: u64,
+    ) -> Result<CheckedRange<'_>, V06Error> {
+        self.payload_range(index)?
+            .refine(relative_offset, length)
+            .map_err(range_error)
     }
 
     pub fn block(&self, key_id: u16, occurrence: usize) -> Option<&V06Block> {

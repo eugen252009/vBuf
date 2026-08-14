@@ -26,6 +26,20 @@ describe("canonical vBuf v0.6 checked reader", () => {
 		}
 	});
 
+	test("validated physical and payload ranges refine without escaping provenance", async () => {
+		const parsed = new VBufV06(await readFixture("valid-basic.vbuf"));
+		const physical = parsed.blockRange(0);
+		expect([physical.offset, physical.length, physical.end]).toEqual([24n, 20n, 44n]);
+		expect(Array.from(physical.bytes())).toEqual(Array.from(parsed.mem.slice(24, 44)));
+		const payload = parsed.payloadRange(0);
+		expect([payload.offset, payload.length, payload.end]).toEqual([32n, 12n, 44n]);
+		expect(Array.from(payload.refine(4n, 8n).bytes())).toEqual(Array.from(parsed.mem.slice(36, 44)));
+		expect(() => payload.refine(12n, 1n)).toThrow(V06ValidationError);
+		expect(() => payload.refine((1n << 64n) - 1n, 1n)).toThrow(V06ValidationError);
+		payload.requireAlignment(8n);
+		expect(() => payload.requireAlignment(3n)).toThrow(V06ValidationError);
+	});
+
 	test("descriptor and exact range validation precede typed-array construction", async () => {
 		const parsed = new VBufV06(await readFixture("valid-basic.vbuf"));
 		expect(parsed.baseStep).toBe(8);

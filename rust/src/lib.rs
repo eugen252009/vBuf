@@ -5,6 +5,7 @@ mod writer_ffi;
 use ::std::io::{BufWriter, Seek, Write};
 use memmap2::Mmap;
 use std::fs::File;
+use vbuf_layout::RangeError;
 
 /// Marker for native representations that the explicit legacy-v0.5 reader may
 /// expose after width, bounds, and alignment checks.
@@ -850,6 +851,181 @@ pub unsafe extern "C" fn vbuf_v06_block_info(
             *next_block_start_out = block.next_block_start;
             *count_out = block.count;
             0
+        }
+    }));
+    result.unwrap_or(v06::V06ErrorCode::HostUnsupported as u32)
+}
+
+/// Returns a checked physical (kind 0) or payload (kind 1) range. The range
+/// is borrowed from `instance` and remains valid only while it is live.
+///
+/// # Safety
+/// `instance` must be a live handle returned by `vbuf_v06_open`; all output
+/// pointers must be valid writable pointers.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_v06_range_info(
+    instance: *const v06::VBufV06,
+    index: libc::size_t,
+    kind: u8,
+    offset_out: *mut u64,
+    length_out: *mut u64,
+    end_out: *mut u64,
+    alignment_out: *mut u64,
+) -> u32 {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if instance.is_null()
+            || offset_out.is_null()
+            || length_out.is_null()
+            || end_out.is_null()
+            || alignment_out.is_null()
+        {
+            return v06::V06ErrorCode::TooShort as u32;
+        }
+        let instance = &*instance;
+        let range = match kind {
+            0 => instance.block_range(index),
+            1 => instance.payload_range(index),
+            _ => return v06::V06ErrorCode::TypeMismatch as u32,
+        };
+        let range = match range {
+            Ok(range) => range,
+            Err(error) => return error.code as u32,
+        };
+        let alignment = if kind == 0 {
+            instance.header().base_step
+        } else {
+            instance.blocks()[index].payload_alignment
+        };
+        *offset_out = range.offset();
+        *length_out = range.length();
+        *end_out = range.end();
+        *alignment_out = alignment;
+        0
+    }));
+    result.unwrap_or(v06::V06ErrorCode::HostUnsupported as u32)
+}
+
+/// Returns a checked child of a canonical block or payload range.
+///
+/// # Safety
+/// `instance` must be a live handle returned by `vbuf_v06_open`; all output
+/// pointers must be valid writable pointers.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_v06_range_subrange(
+    instance: *const v06::VBufV06,
+    index: libc::size_t,
+    kind: u8,
+    relative_offset: u64,
+    length: u64,
+    offset_out: *mut u64,
+    length_out: *mut u64,
+    end_out: *mut u64,
+) -> u32 {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if instance.is_null() || offset_out.is_null() || length_out.is_null() || end_out.is_null() {
+            return v06::V06ErrorCode::TooShort as u32;
+        }
+        let instance = &*instance;
+        let range = match kind {
+            0 => instance.block_range(index),
+            1 => instance.payload_range(index),
+            _ => return v06::V06ErrorCode::TypeMismatch as u32,
+        };
+        let range = match range {
+            Ok(range) => range,
+            Err(error) => return error.code as u32,
+        };
+        let child = match range.refine(relative_offset, length) {
+            Ok(child) => child,
+            Err(RangeError::Overflow | RangeError::EndBeforeStart) => {
+                return v06::V06ErrorCode::ArithmeticOverflow as u32;
+            }
+            Err(_) => return v06::V06ErrorCode::LengthMismatch as u32,
+        };
+        *offset_out = child.offset();
+        *length_out = child.length();
+        *end_out = child.end();
+        0
+    }));
+    result.unwrap_or(v06::V06ErrorCode::HostUnsupported as u32)
+}
+
+/// Returns a borrowed pointer to a checked physical or payload range.
+///
+/// # Safety
+/// `instance` must be a live handle returned by `vbuf_v06_open`; output
+/// pointers must be valid writable pointers. The returned pointer is valid only
+/// while `instance` remains live.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_v06_range_ptr(
+    instance: *const v06::VBufV06,
+    index: libc::size_t,
+    kind: u8,
+    data_out: *mut *const std::ffi::c_void,
+    length_out: *mut libc::size_t,
+) -> u32 {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if instance.is_null() || data_out.is_null() || length_out.is_null() {
+            return v06::V06ErrorCode::TooShort as u32;
+        }
+        *data_out = std::ptr::null();
+        *length_out = 0;
+        let instance = &*instance;
+        let range = match kind {
+            0 => instance.block_range(index),
+            1 => instance.payload_range(index),
+            _ => return v06::V06ErrorCode::TypeMismatch as u32,
+        };
+        let range = match range {
+            Ok(range) => range,
+            Err(error) => return error.code as u32,
+        };
+        let bytes = range.bytes();
+        *data_out = if bytes.is_empty() {
+            instance.bytes().as_ptr().cast()
+        } else {
+            bytes.as_ptr().cast()
+        };
+        *length_out = bytes.len();
+        0
+    }));
+    result.unwrap_or(v06::V06ErrorCode::HostUnsupported as u32)
+}
+
+/// Checks requested alignment against the actual borrowed mapping address.
+///
+/// # Safety
+/// `instance` must be a live handle returned by `vbuf_v06_open`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_v06_range_require_alignment(
+    instance: *const v06::VBufV06,
+    index: libc::size_t,
+    kind: u8,
+    alignment: u64,
+) -> u32 {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if instance.is_null() {
+            return v06::V06ErrorCode::TooShort as u32;
+        }
+        let instance = &*instance;
+        let range = match kind {
+            0 => instance.block_range(index),
+            1 => instance.payload_range(index),
+            _ => return v06::V06ErrorCode::TypeMismatch as u32,
+        };
+        let range = match range {
+            Ok(range) => range,
+            Err(error) => return error.code as u32,
+        };
+        match range.require_alignment(alignment) {
+            Ok(()) => 0,
+            Err(
+                vbuf_layout::RangeError::InvalidAlignment | vbuf_layout::RangeError::Misaligned,
+            ) => v06::V06ErrorCode::Misaligned as u32,
+            Err(vbuf_layout::RangeError::HostIndexOverflow) => {
+                v06::V06ErrorCode::ArithmeticOverflow as u32
+            }
+            Err(_) => v06::V06ErrorCode::LengthMismatch as u32,
         }
     }));
     result.unwrap_or(v06::V06ErrorCode::HostUnsupported as u32)

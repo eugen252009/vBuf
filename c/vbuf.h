@@ -56,6 +56,25 @@ uint32_t vbuf_v06_block_info(const vbuf_v06_instance_t *instance, size_t index,
                              uint64_t *payload_length_out,
                              uint64_t *next_block_start_out,
                              uint64_t *count_out);
+/* kind 0 is physical block range; kind 1 is payload range. Returned ranges
+ * and alignment are borrowed from the live opaque instance. */
+uint32_t vbuf_v06_range_info(const vbuf_v06_instance_t *instance, size_t index,
+                             uint8_t kind, uint64_t *offset_out,
+                             uint64_t *length_out, uint64_t *end_out,
+                             uint64_t *alignment_out);
+uint32_t vbuf_v06_range_subrange(const vbuf_v06_instance_t *instance,
+                                 size_t index, uint8_t kind,
+                                 uint64_t relative_offset, uint64_t length,
+                                 uint64_t *offset_out, uint64_t *length_out,
+                                 uint64_t *end_out);
+/* Returns a borrowed pointer only after the complete selected range is checked;
+ * it remains valid while instance is live. */
+uint32_t vbuf_v06_range_ptr(const vbuf_v06_instance_t *instance, size_t index,
+                            uint8_t kind, const void **data_out,
+                            size_t *length_out);
+uint32_t vbuf_v06_range_require_alignment(const vbuf_v06_instance_t *instance,
+                                           size_t index, uint8_t kind,
+                                           uint64_t alignment);
 
 /* Canonical portable v0.6 writer. physical is 0 (scalar) or 1 (array); data
  * points to `count` native C values selected by vbuf_v06_type_t and is encoded
