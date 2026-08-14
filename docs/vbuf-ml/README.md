@@ -47,6 +47,8 @@ the ignored local Qwen3-0.6B Q8_0 and BF16 GGUF artifacts without conversion or
 runtime integration. Step 17 pins llama.cpp commit
 `4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c` and qualifies exact F32, BF16, and
 Q8_0 contracts in [`step17-upstream-representation-qualification.md`](step17-upstream-representation-qualification.md).
+Step 18 builds deterministic, read-only conversion manifests without writing
+model bytes; see [`step18-conversion-manifest.md`](step18-conversion-manifest.md).
 
 The base remains a small compositional vocabulary: efficient composition is
 preferred over maximal base functionality.

@@ -1549,7 +1549,32 @@ change was introduced. Details and parity evidence are in
 
 ---
 
-### Step 18 — Implement a read-only GGUF inspector and conversion manifest
+### Step 18 — Implement a read-only GGUF inspector and deterministic conversion manifest
+
+#### Step 18 implementation recorded
+
+Added `scripts/build_step18_manifest.py` and generated deterministic manifests
+for both hash-verified Qwen3 artifacts under `benchmark-results/vbuf-ml-step18/`.
+The builder reuses the Step-16 GGUF parser and Step-17 representation formulas,
+verifies source identity, and emits no target model bytes.
+
+Each manifest accounts for every source tensor, maps only F32/BF16/Q8_0,
+assigns stable target Key-ID/occurrence identities, selects
+`LAYER_MAJOR_ROLE_ORDER`, and separates source offsets from target semantic
+identity. Q8_0 records the pinned llama.cpp output fallback as a local
+`SHARED_REFERENCE` note without adding alias wire semantics; BF16 copies its
+explicit `output.weight` independently.
+
+Both manifests are structurally complete with zero unaccounted tensors, but
+both remain blocked for consumer-complete conversion by missing KV-head/head-
+dimension ModelMetadata fields and unsupported GPT-2/BPE tokenizer semantics
+(model, pre-tokenizer, merges, and chat template). No converter, generic-crate
+change, llama.cpp modification, or payload copy was introduced. Full details
+are in `docs/vbuf-ml/step18-conversion-manifest.md`.
+
+---
+
+### Step 19 — Implement a read-only GGUF inspector and conversion manifest
 
 **Class:** ML tooling.
 
@@ -1579,7 +1604,7 @@ change was introduced. Details and parity evidence are in
 
 ---
 
-### Step 19 — Implement deterministic GGUF-to-vBuf-ML conversion
+### Step 20 — Implement deterministic GGUF-to-vBuf-ML conversion
 
 **Class:** ML tooling.
 
@@ -1607,7 +1632,7 @@ change was introduced. Details and parity evidence are in
 
 ---
 
-### Step 20 — Prototype a llama.cpp loader adapter
+### Step 21 — Prototype a llama.cpp loader adapter
 
 **Class:** ML runtime integration, kept outside generic vBuf.
 
@@ -1637,7 +1662,7 @@ change was introduced. Details and parity evidence are in
 
 ---
 
-### Step 21 — Add execution-order layout experiments
+### Step 22 — Add execution-order layout experiments
 
 **Class:** ML writer policy and benchmark only.
 
@@ -1666,7 +1691,7 @@ change was introduced. Details and parity evidence are in
 
 ---
 
-### Step 22 — Build the controlled GGUF versus vBuf-ML qualification
+### Step 23 — Build the controlled GGUF versus vBuf-ML qualification
 
 **Class:** benchmark/tooling; no format changes.
 
@@ -1717,7 +1742,7 @@ Backend-specific CUDA/HIP/Metal/shared-memory variants are optional descendant/r
 
 ---
 
-### Step 23 — Qualification review and format-freeze decision
+### Step 24 — Qualification review and format-freeze decision
 
 **Class:** documentation/release gate.
 
