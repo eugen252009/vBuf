@@ -60,7 +60,7 @@ const buffer = writer.finish();
 
 ## 📜 Specification
 
-Detailed binary format details can be found in SPEC.md.
+The current implementation lineage is documented by [`spec/spec_0.5-alpha.md`](spec/spec_0.5-alpha.md), with earlier drafts retained as design history. It is not yet a frozen interoperable contract. The corrected v0.6 and descendant-profile work is gated by the decisions and qualification plan in [`step-by-step.md`](step-by-step.md).
 
 ## ⚖️ License
 
