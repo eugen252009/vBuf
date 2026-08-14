@@ -1,0 +1,15 @@
+{
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "runs_per_artifact_path": 10,
+  "condition": "warm page cache, CPU n_gpu_layers=0",
+  "affinity": "not forced",
+  "diagnostic_trace": "disabled",
+  "ubsan_direct_probe": "PASS for BF16 and Q8_0; prebuilt llama/Rust libraries were not sanitizer-instrumented",
+  "asan": "not run against prebuilt dependencies",
+  "artifacts": "existing Step-20/21 artifacts; hashes verified",
+  "baseline_directories_untouched": [
+    "benchmark-results/vbuf-ml-step21",
+    "benchmark-results/vbuf-ml-step22",
+    "benchmark-results/vbuf-ml-step22a"
+  ]
+}

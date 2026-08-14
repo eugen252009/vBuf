@@ -61,6 +61,8 @@ neutral unoptimized CPU baseline without changing the loader or format; see
 [`step22-baseline-benchmark.md`](step22-baseline-benchmark.md). Step 22A
 attributes the warm adapter/model-construction overhead without optimization;
 see [`step22a-loader-overhead-attribution.md`](step22a-loader-overhead-attribution.md).
+Step 23 adds a source-neutral llama construction seam and direct vBuf source;
+see [`step23-native-llama-source.md`](step23-native-llama-source.md).
 Tokenizer execution and chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is

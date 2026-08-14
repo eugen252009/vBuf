@@ -1,0 +1,11 @@
+{
+  "hypotheses": [
+    "H1 remove ConsumerModel materialization reduces warm load",
+    "H2 bulk borrowed views reduce ABI overhead",
+    "H3 direct numeric merges remove GGUF synthesis",
+    "H4 tensor path remains unchanged",
+    "H5 inference throughput remains common-runtime behavior"
+  ],
+  "optimization_scope": "source construction only",
+  "wire_format_changed": false
+}

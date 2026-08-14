@@ -1,0 +1,5 @@
+artifact,path,ffi_calls,bulk_calls,element_calls,notes
+BF16,compatibility,910601,0,910601,Step-22A measured fine-grained path
+Q8_0,compatibility,910599,0,910599,Step-22A measured fine-grained path
+BF16,direct,12,3,0,open+metadata+architecture+bulk token/merge/tensor+special/chat calls
+Q8_0,direct,12,3,0,open+metadata+architecture+bulk token/merge/tensor+special/chat calls

@@ -1838,6 +1838,39 @@ Backend-specific CUDA/HIP/Metal/shared-memory variants are optional descendant/r
 
 ---
 
+### Step 23 — Source-neutral llama construction seam and direct vBuf source
+
+**Class:** architectural runtime integration.
+
+Added `patches/llama.cpp/0002-source-neutral-model-source.patch` on top of the
+frozen Step-21 patch. The pinned llama construction pipeline now accepts a
+semantic `llama_model_source` without constructing a `gguf_context` for the
+vBuf direct path. GGUF native loading and the Step-21 compatibility adapter
+remain intact.
+
+The direct source uses bulk immutable tokenizer, numeric merge, and tensor
+views, retains validated mmap ownership through model destruction, preserves
+Q8_0 tied-output fallback and BF16 explicit output, and attaches payloads
+without copy/repack/reorder.
+
+Three-way BF16/Q8_0 qualification passed metadata/tokenizer parity, zero logit
+delta, and deterministic generation parity. Ten warm samples show:
+
+```text
+                 GGUF       old compatibility       direct
+BF16             249.3 ms   414.1 ms                 247.1 ms
+Q8_0             196.0 ms   416.3 ms                 247.0 ms
+```
+
+The old approximately 910k ABI calls reduce to 12 coarse calls in the direct
+path. Evidence is under `benchmark-results/vbuf-ml-step23/`; full design and
+gap report: `docs/vbuf-ml/step23-native-llama-source.md`.
+
+No wire-format, tensor-layout, kernel, scheduler, GPU, prefetch, or inference
+optimization was introduced.
+
+---
+
 ### Step 23 — Qualification review and format-freeze decision
 
 **Class:** documentation/release gate.

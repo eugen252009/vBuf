@@ -1,0 +1,7 @@
+path,stage,representation,ownership,allocation_or_copy
+compatibility,vBuf->ConsumerModel,owned semantic snapshot,owned Rust strings/vectors,ConsumerModel materialization
+compatibility,C ABI,scalar/string calls,caller buffers,~910k calls
+compatibility,C++ adapter,GGUF metadata/maps,owned,GGUF-compatible synthesis
+direct,vBuf->Rust bulk views,validated snapshot-backed views,borrowed pointers,0 payload copy
+direct,llama source,typed metadata/token/tensor semantics,source shared ownership,12 coarse ABI calls
+direct,common builder,llama vocabulary/tensors,final runtime-owned state,token strings copied once by llama

@@ -1,0 +1,11 @@
+{
+  "interface": "llama_model_source",
+  "metadata": "typed required/optional lookup",
+  "tokenizer": "bulk immutable token and numeric merge views; final llama BPE map only",
+  "tensors": "bulk immutable descriptors with borrowed mmap payloads",
+  "ownership": "shared_ptr source retained by direct integration registry until llama_model_free",
+  "gguf_context_direct_vbuf": 0,
+  "payload_copy": 0,
+  "payload_repack": 0,
+  "payload_reorder": 0
+}

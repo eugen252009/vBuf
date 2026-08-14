@@ -1,0 +1,22 @@
+qualification binary: integrations/llama.cpp/step23_qualification.cpp
+
+BF16 logits:
+gguf_vs_compatibility max_abs_diff=0
+gguf_vs_direct max_abs_diff=0
+
+BF16 generation:
+gguf=0,1096,374,264,4285,3110,315,264
+compatibility=0,1096,374,264,4285,3110,315,264
+direct=0,1096,374,264,4285,3110,315,264
+
+Q8_0 logits:
+gguf_vs_compatibility max_abs_diff=0
+gguf_vs_direct max_abs_diff=0
+
+Q8_0 generation:
+gguf=0,1096,374,264,4285,3110,315,264
+compatibility=0,1096,374,264,4285,3110,315,264
+direct=0,1096,374,264,4285,3110,315,264
+
+Tokenizer corpus: five prompts, all three paths matched for BF16 and Q8_0.
+Metadata fields and chat-template retrieval matched for all three paths.

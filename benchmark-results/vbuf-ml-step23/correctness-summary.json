@@ -1,0 +1,45 @@
+{
+  "qualification_binary": "integrations/llama.cpp/step23_qualification.cpp",
+  "paths": [
+    "gguf",
+    "compatibility",
+    "direct"
+  ],
+  "BF16": {
+    "metadata": "PASS",
+    "tokenizer": "PASS",
+    "logit_max_abs_diff_gguf_vs_compatibility": 0,
+    "logit_max_abs_diff_gguf_vs_direct": 0,
+    "generation": "PASS",
+    "output": [
+      0,
+      1096,
+      374,
+      264,
+      4285,
+      3110,
+      315,
+      264
+    ]
+  },
+  "Q8_0": {
+    "metadata": "PASS",
+    "tokenizer": "PASS",
+    "logit_max_abs_diff_gguf_vs_compatibility": 0,
+    "logit_max_abs_diff_gguf_vs_direct": 0,
+    "generation": "PASS",
+    "output": [
+      0,
+      1096,
+      374,
+      264,
+      4285,
+      3110,
+      315,
+      264
+    ]
+  },
+  "payload_copy": 0,
+  "payload_repack": 0,
+  "payload_reorder": 0
+}
