@@ -1,19 +1,22 @@
 //! Downstream vBuf-ML profile boundary.
 //!
-//! This crate intentionally contains no tensor, model, tokenizer, quantization,
-//! backend, or runtime semantics. It may interpret bytes only after canonical
-//! vBuf validation and checked generic range construction. Generic vBuf does
-//! not depend on this crate.
+//! This crate consumes generic values that have already been validated by
+//! canonical vBuf. It assigns ML-local roles and relationships; it does not
+//! invent primitive types or override physical validity.
 //!
 //! The base remains a small compositional binary vocabulary: efficient
 //! composition is preferred over maximal base functionality.
 
-use vbuf_layout::CheckedRange;
+pub mod bootstrap;
+pub mod error;
+pub mod region_roles;
 
-/// Minimal boundary smoke helper for future profile code.
-///
-/// This reports the size of a range already validated by a generic container;
-/// it does not parse, reinterpret, or authorize the range.
-pub fn validated_range_len(range: &CheckedRange<'_>) -> usize {
+pub use bootstrap::{Bootstrap, BootstrapEntry, SemanticRegion};
+pub use error::{MlError, MlErrorCode};
+pub use region_roles::RegionRole;
+
+/// Boundary smoke helper for future profile code. It does not parse or
+/// authorize the range.
+pub fn validated_range_len(range: &vbuf_layout::CheckedRange<'_>) -> usize {
     range.bytes().len()
 }

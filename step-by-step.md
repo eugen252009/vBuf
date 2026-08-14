@@ -1062,6 +1062,28 @@ qualification. Building generic packages does not require the descendant.
 
 **Dependencies:** Decisions A–C/G, Step 5A’s select/reject result, and Step 7. Decision H plus Steps 5B–5B.1 and any selected Steps 5C–5E are dependencies only if at least one generic finalized artifact survives; the no-artifact vBuf-ML path must not depend on a finalization envelope.
 
+#### Step 8 implementation recorded
+
+Added the minimal Rust-only vBuf-ML bootstrap in `rust/vbuf-ml/src/` with
+its draft contract in `docs/vbuf-ml/bootstrap.md` and
+`docs/vbuf-ml/spec-0.1-draft.md`. Exactly one opaque canonical v0.6 block with
+profile-local Key-ID `0xF000` is discovered through generic parsing. Its bounded
+little-endian payload maps role IDs to generic Key-ID plus physical occurrence;
+it does not duplicate semantic, physical, width, count, alignment, or offset
+facts already carried by canonical vBuf.
+
+Profile 0.1 defines required `TensorDirectory` and `ModelMetadata` roles and
+optional `TokenizerMetadata`. Unknown optional roles are skipped; unknown
+required roles, duplicate known roles, missing required roles, malformed
+payloads, unsupported versions, and missing references fail deterministically.
+Each resolved role retains its canonical block index and Step 6 checked payload
+range. Generic primitive semantics remain authoritative, including when a role
+references an `f32[]`, opaque bytes, or another valid generic value.
+
+No tensor-directory schema, model metadata schema, tokenizer schema,
+quantization semantics, optional navigation artifact, finalization, or backend
+behavior was added.
+
 ---
 
 ### Step 9 — Derive and specify the tensor directory
