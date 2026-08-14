@@ -1,0 +1,3 @@
+artifact,base_step,data_region_bytes,slots,nano_bytes,blocks,set_bits,continuations,nano_bytes_per_set_bit
+BF16,8,1507825888,188478236,23559780,338,338,0,69703.49112426036
+Q8_0,8,637925480,79740685,9967586,337,337,0,29577.40652818991

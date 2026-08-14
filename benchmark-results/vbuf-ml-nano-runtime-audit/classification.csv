@@ -1,0 +1,11 @@
+structure,current_representation,classification,evidence_or_boundary
+Bootstrap,current bounded role directory; scans canonical blocks by Key-ID/occurrence,NANO_REDUNDANT,bootstrap already names semantic regions; Nano cannot resolve roles
+ModelMetadata,"11 semantic fields, scalar values in referenced blocks",NANO_REDUNDANT,small fixed field set; direct checked ranges are cheaper
+TensorDirectory,variable-size sorted records; 310/311 entries,DIRECT_VIEW_READY_WITH_RUNTIME_INDEX,one region scan can establish borrowed name/dimension records; name lookup remains runtime-local
+TokenizerMetadata,14 role references and control values,NANO_REDUNDANT,small role table directly locates dense arrays
+Token text/offset/type/score,"dense parallel arrays; 151,936 tokens",DIRECT_VIEW_READY,base+ordinal/offset addressing; Nano adds a large sparse bit scan
+Merge IDs,"two dense u32 arrays; 151,387 pairs",DIRECT_VIEW_READY_WITH_RUNTIME_INDEX,direct ordinal pair view; pair→rank index remains runtime work
+Tensor payloads,checked ranges; 310/311 tensors,DIRECT_VIEW_READY,TensorDirectory already resolves exact payload ranges
+Continuation chains,no continuations in qualified Qwen3 artifacts,NANO_ASSISTED,Nano can enumerate physical members; Key-ID/continuation validation remains authoritative
+Layer-major physical scan,GlobalPre + layers + GlobalPost,NANO_ASSISTED,"potential future physical discovery/readiness, not tensor lookup"
+Integrity metadata,not present in qualified artifacts,NANO_REDUNDANT,optional integrity targets remain semantic ranges

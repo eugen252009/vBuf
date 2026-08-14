@@ -1,0 +1,15 @@
+artifact,operation,samples,median_ns,visited_median,bytes_touched_median,result_median
+BF16,canonical_parse,30,43190.0,338.0,4328.0,0.0
+BF16,semantic_parse_all,30,4802485.0,4.0,0.0,0.0
+BF16,sequential_block_traversal,30,760.0,338.0,2704.0,233552781216.0
+BF16,nano_reconstruct,30,856857.5,338.0,23559780.0,0.0
+BF16,nano_setbit_iter_existing,30,8541680.5,338.0,23559780.0,338.0
+BF16,directory_binary_lookup_all_tensors,30,29975.0,311.0,2488.0,311.0
+BF16,dense_ordinal_view_all_tensors,30,120.0,311.0,2488.0,311.0
+Q8_0,canonical_parse,30,34000.0,337.0,4312.0,0.0
+Q8_0,semantic_parse_all,30,4783434.0,4.0,0.0,0.0
+Q8_0,sequential_block_traversal,30,495.0,337.0,2696.0,123955869176.0
+Q8_0,nano_reconstruct,30,253846.0,337.0,9967586.0,0.0
+Q8_0,nano_setbit_iter_existing,30,3622146.0,337.0,9967586.0,337.0
+Q8_0,directory_binary_lookup_all_tensors,30,29405.0,310.0,2480.0,310.0
+Q8_0,dense_ordinal_view_all_tensors,30,110.0,310.0,2480.0,310.0

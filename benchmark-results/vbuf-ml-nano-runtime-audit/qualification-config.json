@@ -1,0 +1,19 @@
+{
+  "purpose": "Nano/direct-view architecture audit only",
+  "native_runtime_implemented": false,
+  "wire_change": false,
+  "operations": [
+    "canonical parse",
+    "semantic parse",
+    "sequential block traversal",
+    "synthetic Nano build/set-bit iteration",
+    "directory binary lookup",
+    "dense ordinal access"
+  ],
+  "no_claims": [
+    "no disk-read equivalence",
+    "no cold-cache result",
+    "no persisted Nano selection",
+    "no runtime index elimination"
+  ]
+}

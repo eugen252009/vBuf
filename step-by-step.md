@@ -1869,6 +1869,23 @@ gap report: `docs/vbuf-ml/step23-native-llama-source.md`.
 No wire-format, tensor-layout, kernel, scheduler, GPU, prefetch, or inference
 optimization was introduced.
 
+#### Step 23A — Nano-backed native-runtime audit
+
+Added a read-only audit of the current benchmark-only Nano reconstruction and
+existing Qwen3 vBuf-ML geometry. No Nano wire artifact or native runtime was
+implemented.
+
+The qualified files use `BaseStep=8`, with 338/337 canonical blocks but a
+hypothetical Nano size of 23.6 MB/10.0 MB. Dense tokenizer arrays are already
+direct-viewable through text offsets, scores/types, and numeric merge IDs;
+Nano is classified redundant for those structures and for individual tensor
+lookup. Nano remains a candidate for future unknown/mixed physical bootstrap,
+continuation enumeration, layer readiness, and residency/prefetch planning.
+
+Release-mode audit evidence is under
+`benchmark-results/vbuf-ml-nano-runtime-audit/`; the detailed report is
+`docs/vbuf-ml/nano-runtime-audit.md`.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision

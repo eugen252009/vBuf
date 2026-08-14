@@ -1,0 +1,11 @@
+artifact,view,logical_entries,wire_bytes,current_validation_work,direct_view,nano
+BF16,token_text,151936,1372760,offset/token UTF-8 validation,DIRECT_VIEW_READY,NANO_REDUNDANT
+BF16,token_offsets,151937,1215496,monotonic bounds + per-token slice validation,DIRECT_VIEW_READY,NANO_REDUNDANT
+BF16,token_types,151936,607744,parallel-array width/value validation,DIRECT_VIEW_READY,NANO_REDUNDANT
+BF16,token_scores,151936,0,optional; absent in qualified artifact,DIRECT_VIEW_READY_IF_PRESENT,NANO_REDUNDANT
+BF16,merge_left_right_ids,302774,1211096,two arrays + per-pair bounds validation,DIRECT_VIEW_READY,NANO_REDUNDANT
+Q8_0,token_text,151936,1372760,offset/token UTF-8 validation,DIRECT_VIEW_READY,NANO_REDUNDANT
+Q8_0,token_offsets,151937,1215496,monotonic bounds + per-token slice validation,DIRECT_VIEW_READY,NANO_REDUNDANT
+Q8_0,token_types,151936,607744,parallel-array width/value validation,DIRECT_VIEW_READY,NANO_REDUNDANT
+Q8_0,token_scores,151936,0,optional; absent in qualified artifact,DIRECT_VIEW_READY_IF_PRESENT,NANO_REDUNDANT
+Q8_0,merge_left_right_ids,302774,1211096,two arrays + per-pair bounds validation,DIRECT_VIEW_READY,NANO_REDUNDANT

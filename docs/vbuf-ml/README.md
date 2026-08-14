@@ -63,6 +63,8 @@ attributes the warm adapter/model-construction overhead without optimization;
 see [`step22a-loader-overhead-attribution.md`](step22a-loader-overhead-attribution.md).
 Step 23 adds a source-neutral llama construction seam and direct vBuf source;
 see [`step23-native-llama-source.md`](step23-native-llama-source.md).
+The Nano/direct-view audit is documented in
+[`nano-runtime-audit.md`](nano-runtime-audit.md).
 Tokenizer execution and chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is

@@ -1,0 +1,5 @@
+artifact,current_operation,classification,median_ns,future_direct_view
+BF16,canonical_parse,DISCOVERY+VALIDATION,43190.0,bounded validation remains
+BF16,semantic_parse_all,DISCOVERY+VALIDATION+MATERIALIZATION,4802485.0,O(regions) wrappers plus required validation; element validation may remain
+Q8_0,canonical_parse,DISCOVERY+VALIDATION,34000.0,bounded validation remains
+Q8_0,semantic_parse_all,DISCOVERY+VALIDATION+MATERIALIZATION,4783434.0,O(regions) wrappers plus required validation; element validation may remain

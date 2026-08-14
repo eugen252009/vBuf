@@ -1,0 +1,3 @@
+artifact,token_text_bytes,offset_bytes,type_bytes,merge_id_bytes,consumer_snapshot_lower_bound_bytes,direct_canonical_view_copy_bytes,direct_wrapper_state,allocation_measurement
+BF16,1372760,1215496,607744,1211096,12321674,0,O(1) region/range handles; no element arrays,estimated from representation; allocator counters not instrumented
+Q8_0,1372760,1215496,607744,1211096,12321621,0,O(1) region/range handles; no element arrays,estimated from representation; allocator counters not instrumented

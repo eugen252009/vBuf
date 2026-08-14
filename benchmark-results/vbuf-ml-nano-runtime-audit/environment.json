@@ -1,0 +1,14 @@
+{
+  "artifacts": [
+    "Qwen3-0.6B-BF16.vbuf",
+    "Qwen3-0.6B-Q8_0.vbuf"
+  ],
+  "runs": 30,
+  "build": "cargo release; in-memory read-only audit",
+  "nano_status": "benchmark-only reconstruction; not v0.6 wire",
+  "wire_changed": false,
+  "filesystem": "mmap; warm process/page cache approximate",
+  "allocators": "not instrumented",
+  "nano_semantics": "one bit per BaseStep slot for canonical physical starts",
+  "step22a_reference": "ConsumerModel ~132 ms; synthesis ~132 ms; ~910600 ABI calls"
+}
