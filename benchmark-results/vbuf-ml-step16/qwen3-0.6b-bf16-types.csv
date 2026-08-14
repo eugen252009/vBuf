@@ -1,0 +1,3 @@
+ggml_type_id,ggml_type,tensor_count,payload_bytes,payload_fraction
+0,F32,113,262144,0.0001743679163034002
+30,BF16,198,1503133696,0.9998256320836966

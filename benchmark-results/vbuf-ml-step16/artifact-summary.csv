@@ -1,0 +1,3 @@
+artifact,filename,file_size,sha256,gguf_version,metadata_kv_count,tensor_count,data_start,alignment,architecture,name,layer_count,embedding_dimension,attention_heads,kv_heads,vocabulary_size
+Q8_0,Qwen3-0.6B-Q8_0.gguf,639446688,9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031,3,28,310,5951136,32,qwen3,Qwen3 0.6B Instruct,28,1024,16,8,151936
+BF16,Qwen3-0.6B-BF16.gguf,1509347552,65a16246f5814dc0587acadcf0328186b17febf6dcaeb1b13efa9243b551d38e,3,36,311,5951712,32,qwen3,Qwen3-0.6B,28,1024,16,8,151936

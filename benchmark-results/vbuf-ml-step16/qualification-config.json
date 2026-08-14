@@ -1,0 +1,15 @@
+{
+  "repository_commit": "7fa00a1d35f1816f48bda4d01d1000f4c6f40b9a",
+  "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+  "platform": "Linux-6.12.101+deb13-amd64-x86_64-with-glibc2.41",
+  "machine": "x86_64",
+  "layouts": [
+    "GGUF_SOURCE_ORDER",
+    "NAME_ORDER",
+    "LAYER_MAJOR",
+    "LAYER_MAJOR_ROLE_ORDER",
+    "PREFIX_FRIENDLY"
+  ],
+  "alignment_policy": "artifact general.alignment, default 32; payloads unchanged",
+  "parser": "scripts/qualify_step16.py"
+}
