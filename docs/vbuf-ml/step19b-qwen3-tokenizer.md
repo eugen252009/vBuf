@@ -28,7 +28,9 @@ The source paths and exact matching lines are machine-recorded in
 
 ## Complete real-artifact inventory
 
-Both Q8_0 and BF16 artifacts have the same inventory:
+Both Q8_0 and BF16 artifacts have the same tokenizer keys and array counts. The
+chat-template source is intentionally compared by exact bytes below; its content
+differs between the two artifacts.
 
 | Key | Type | Count/size | Classification |
 |---|---|---:|---|
@@ -131,8 +133,9 @@ No unrelated payload is scanned at model open.
 ## Parity result
 
 Both artifacts match for vocabulary, token types, merge source and resolved
-ordinal pairs, identities, special IDs, `add_bos`, and chat-template bytes.
-Evidence is in `tokenizer-parity.csv`.
+ordinal pairs, identities, special IDs, and `add_bos`. Their chat-template bytes
+are each preserved exactly but are not identical: Q8_0 is 4,100 bytes and BF16
+is 4,168 bytes. Evidence is in `tokenizer-parity.csv`.
 
 No independent tokenizer implementation was used, so actual token-ID output
 parity is not claimed until the later pinned-consumer adapter. This step proves

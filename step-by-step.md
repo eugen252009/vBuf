@@ -1616,7 +1616,8 @@ and optional exact UTF-8 chat-template bytes. `VocabularyOnly` remains valid.
 No tokenizer execution, BPE implementation, regex/pre-tokenizer code, or chat
 template execution was added.
 
-Both manifests now report:
+Both manifests now report, while preserving each artifact's exact chat-template
+bytes independently:
 
 ```text
 raw_inference_tokenizer_readiness = READY

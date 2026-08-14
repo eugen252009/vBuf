@@ -113,8 +113,9 @@ identity, not a new executable wire field.
 
 ## Chat template
 
-`tokenizer.chat_template` is preserved as exact optional UTF-8 bytes. It is not
-parsed or executed. The pinned `llama_model_chat_template` accessor retrieves
+`tokenizer.chat_template` is preserved as exact optional UTF-8 bytes. The two
+research artifacts contain different template bytes (4,100 versus 4,168 bytes),
+and each is preserved without normalization. It is not parsed or executed. The pinned `llama_model_chat_template` accessor retrieves
 it for chat construction; raw vocabulary loading and raw tokenization do not
 require template rendering.
 
