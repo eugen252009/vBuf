@@ -1,6 +1,6 @@
 # Step 21: pinned llama.cpp consumer adapter
 
-Status: **validated descriptor bridge; full llama runtime seam deferred**.
+Status: **consumer correctness parity passed for BF16 and Q8_0**.
 
 Pinned base:
 
@@ -8,27 +8,28 @@ Pinned base:
 4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c
 ```
 
-## What was implemented
+## Integration seam
 
-Added a validated Rust consumer descriptor:
-
-```text
-rust/vbuf-ml/src/consumer.rs
-```
-
-and a minimal C ABI for tensor, model-metadata, and tokenizer projections:
+The adapter uses the pinned public `llama_model_init_from_user` entry point:
 
 ```text
-rust/vbuf-ml/src/consumer_ffi.rs
+vBuf-ML Rust validation/C ABI
+→ in-memory GGUF-compatible model description
+→ llama_model_init_from_user
+→ existing llama_model / GGML model construction
+→ existing tokenizer, graph, kernels, decode, and sampling paths
 ```
 
-The external-facing C++ wrapper is:
+The GGUF path remains `llama_model_load_from_file`. No downstream
+`is_vbuf` branches were added. The small pinned patch is recorded at
+`patches/llama.cpp/0001-user-metadata-tensor-source.patch`; it only makes the
+existing user-metadata path account for tensor count/bytes, reject absent
+optional tensors, preserve duplicate-tensor fallback, and count user tensors.
 
-```text
-integrations/llama.cpp/vbuf_ml_adapter.{h,cpp}
-```
+## Mapping and ownership
 
-It maps:
+`llama_vbuf_loader.cpp` projects validated vBuf data into the existing GGUF
+metadata API. It maps:
 
 ```text
 CanonicalPrimitive → GGML_TYPE_F32
@@ -36,79 +37,51 @@ BF16               → GGML_TYPE_BF16
 GGML_Q8_0          → GGML_TYPE_Q8_0
 ```
 
-## Validated path
+It maps Qwen3 metadata, vocabulary/token types/scores, numeric merge ranks,
+special IDs, `add_bos`, and tokenizer identities. Merge IDs are reconstructed
+into the pinned runtime's string-keyed BPE map without changing portable
+storage.
+
+The Rust handle owns the mmap. A registry retains it for each returned
+`llama_model *`; callers must use `llama_model_free_vbuf`. Tensor payload
+pointers are checked against runtime GGML tensor byte sizes and remain valid
+until that release. The CPU prototype still allocates llama's ordinary backend
+buffer bookkeeping, but attaches the validated payload pointers from mmap; no
+payload copy, dequantization, Q8_0 repack, or byte reorder was observed.
+
+Q8_0 with absent `output.weight` uses the existing duplicated
+`token_embd.weight` fallback. BF16's explicit `output.weight` is registered
+independently.
+
+## Results
+
+Qualification used CPU-only pinned builds, two threads, the same prompts, and
+the same decode settings for GGUF and vBuf:
 
 ```text
-mmap vBuf
-→ canonical v0.6 validation
-→ Bootstrap
-→ ModelMetadata
-→ TensorDirectory
-→ TokenizerMetadata
-→ checked consumer descriptor
+                         BF16       Q8_0
+metadata parity          PASS       PASS
+tensor/model load        PASS       PASS
+token-ID parity          PASS       PASS
+first-token logits        max diff 0  max diff 0
+greedy 8-token sequence  PASS       PASS
 ```
 
-The bridge exposes semantic tensor names, shapes, representations, and
-payload slices whose lifetime is tied to the owning model handle. It exposes no
-raw target offsets.
+Tokenizer corpus included empty text, ASCII, whitespace/newline, UTF-8, and a
+Qwen-style special-token-looking fragment. Chat-template bytes are retrieved
+through the validated descriptor; rendering was not reimplemented.
 
-Real converted artifacts passed descriptor validation:
+Evidence:
 
 ```text
-Q8_0:  310 tensors
-BF16:  311 tensors
+benchmark-results/vbuf-ml-step21/consumer-metadata-runtime-parity.csv
+benchmark-results/vbuf-ml-step21/tokenizer-token-parity.csv
+benchmark-results/vbuf-ml-step21/logit-parity.csv
+benchmark-results/vbuf-ml-step21/generation-parity.json
+benchmark-results/vbuf-ml-step21/adapter-provenance.json
 ```
 
-Model metadata and tokenizer descriptor values were checked, including Qwen3
-head dimensions, vocabulary count, merge count, `add_bos`, and chat-template
-sizes.
-
-## Pinned llama.cpp inspection
-
-Relevant pinned symbols:
-
-| Location | Symbol | Role |
-|---|---|---|
-| `src/llama.cpp` | `llama_model_load_from_file_impl` | GGUF-oriented model entry |
-| `src/llama-model-loader.cpp` | `llama_model_loader` constructor | owns GGUF metadata/file state |
-| `src/llama-model.cpp` | `llama_model_create` | creates architecture model |
-| `src/llama-model.cpp` | `llama_model_base::load_hparams` | resolves model parameters |
-| `src/llama-model.cpp` | `llama_model_base::load_vocab` | invokes GGUF vocabulary loader |
-| `src/llama-model.cpp` | `llama_model_base::load_tensors` | creates runtime tensors |
-| `src/llama-model-loader.cpp` | `create_tensor` / `load_data_for` | creates and backs GGML tensors |
-| `src/llama-vocab.cpp` | `llama_vocab::impl::load` | tokenizer metadata and BPE construction |
-
-The exact checkout and source mapping are recorded in
-`benchmark-results/vbuf-ml-step21/adapter-provenance.json`.
-
-## Seam finding
-
-The pinned loader is not organized around a public model-source interface.
-`llama_model_loader` directly owns GGUF metadata, `weights_map`, file mappings,
-and GGUF-specific loading behavior. `llama_model_create` and the model classes
-also receive this concrete loader type.
-
-Therefore the smallest correct next llama-side change is an internal pinned
-loader seam, such as a source interface or equivalent second loader
-constructor. Adding vBuf branches throughout model, graph, or kernel code would
-violate the intended architecture and was not done.
-
-The current C ABI/C++ wrapper is intentionally descriptor-only. It does not
-claim to construct a `llama_model`, configure llama's tokenizer runtime, or run
-inference.
-
-## Runtime status
-
-```text
-pinned llama.cpp checkout: PASS
-pinned llama.cpp CPU library build: PASS
-Rust descriptor bridge: PASS
-C++ representation/tokenizer wrapper compile: PASS
-BF16 llama structural load: DEFERRED
-BF16 tokenizer parity: DEFERRED
-BF16 logits parity: DEFERRED
-BF16 generation parity: DEFERRED
-Q8_0 runtime parity: DEFERRED
-```
-
-No inference or performance claim is made.
+No performance claim, GPU claim, layer streaming, or optimization claim is
+made. The runtime convergence point is after `llama_model_init_from_user`:
+subsequent model, GGML, tokenizer execution, graph, kernel, and decode paths
+are shared.

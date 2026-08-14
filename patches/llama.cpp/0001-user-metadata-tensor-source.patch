@@ -1,0 +1,65 @@
+diff --git a/src/llama-model-loader.cpp b/src/llama-model-loader.cpp
+index 51ba05439..2bf753ad9 100644
+--- a/src/llama-model-loader.cpp
++++ b/src/llama-model-loader.cpp
+@@ -690,12 +690,22 @@ llama_model_loader::llama_model_loader(
+             weights_map.emplace(tensor_name, llama_tensor_weight(files.back().get(), 0, metadata, cur));
+         }
+     } else {
++        // User-provided metadata/tensor contexts have no GGUF file mapping.
+         get_key(llm_kv(LLM_KV_GENERAL_ARCHITECTURE), arch_name, false);
+         llm_kv = LLM_KV(llm_arch_from_string(arch_name));
+     }
+
+     n_kv      = gguf_get_n_kv(metadata);
+-    n_tensors = weights_map.size();
++    n_tensors = files.empty() ? gguf_get_n_tensors(metadata) : weights_map.size();
++    if (files.empty()) {
++        for (int64_t i = 0; i < n_tensors; ++i) {
++            n_bytes += gguf_get_tensor_size(metadata, i);
++            const int64_t * ne = gguf_get_tensor_ne(metadata, i);
++            uint64_t elements = 1;
++            for (int dim = 0; dim < GGML_MAX_DIMS; ++dim) elements *= static_cast<uint64_t>(ne[dim]);
++            n_elements += elements;
++        }
++    }
+
+     fver = (enum llama_fver) gguf_get_version(metadata);
+
+@@ -1230,6 +1240,9 @@ struct ggml_tensor * llama_model_loader::create_tensor(
+         }
+         ggml_type type = GGML_TYPE_F32;
+         const int64_t tid = gguf_find_tensor(metadata, tn.str().c_str());
++        if (tid == -1 && (flags & TENSOR_NOT_REQUIRED)) {
++            return nullptr;
++        }
+         if (tid != -1) {
+             type = gguf_get_tensor_type(metadata, tid);
+         }
+@@ -1263,8 +1276,13 @@ struct ggml_tensor * llama_model_loader::create_tensor(
+         ggml_backend_buffer_type_t buft = buft_for_tensor(&t_meta);
+         GGML_ASSERT(buft != nullptr);
+         ggml_context * ctx = ctx_for_buft(buft);
++        if (flags & TENSOR_DUPLICATED) {
++            ggml_tensor * existing = ggml_get_tensor(ctx, tn.str().c_str());
++            if (existing) return existing;
++        }
+         ggml_tensor * ret = ggml_dup_tensor(ctx, &t_meta);
+         ggml_set_name(ret, tn.str().c_str());
++        n_created++;
+         return ret;
+     }
+
+diff --git a/src/llama-model-loader.h b/src/llama-model-loader.h
+index d6b31c231..193d86546 100644
+--- a/src/llama-model-loader.h
++++ b/src/llama-model-loader.h
+@@ -36,6 +36,8 @@ struct llama_model_loader {
+
+         ggml_tensor * tensor;
+
++        llama_tensor_weight(uint16_t idx, ggml_tensor * tensor) : idx(idx), offs(0), tensor(tensor) {}
++
+         llama_tensor_weight(const llama_file * file, uint16_t idx, const struct gguf_context * gguf_ctx, ggml_tensor * tensor) : idx(idx), tensor(tensor) {
+             const int tensor_idx = gguf_find_tensor(gguf_ctx,  ggml_get_name(tensor));
+             if (tensor_idx < 0) {

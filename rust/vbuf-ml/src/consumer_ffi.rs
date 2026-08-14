@@ -90,6 +90,26 @@ pub unsafe extern "C" fn vbuf_ml_consumer_metadata(handle: *const VbufMlConsumer
     })).unwrap_or(VALIDATION_ERROR)
 }
 
+/// # Safety
+/// `handle` and `count` must be valid for the duration of the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_token_count(handle: *const VbufMlConsumerHandle, count: *mut u64) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || count.is_null() { return INVALID_ARGUMENT; }
+        match (*handle).model.tokenizer_count() { Ok(value) => { *count = value; OK }, Err(_) => VALIDATION_ERROR }
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// # Safety
+/// `handle` and `value` must be valid for the duration of the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_token_type(handle: *const VbufMlConsumerHandle, index: u64, value: *mut i32) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || value.is_null() { return INVALID_ARGUMENT; }
+        match (*handle).model.token_type(index) { Ok(Some(result)) => { *value = result as i32; OK }, _ => VALIDATION_ERROR }
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
 /// Copy a token's UTF-8 bytes, including a trailing NUL. The buffer is caller-owned.
 /// # Safety
 /// `handle` and `buffer` must be valid for the duration of the call.
@@ -123,6 +143,39 @@ pub unsafe extern "C" fn vbuf_ml_consumer_merge_pair(handle: *const VbufMlConsum
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
         if handle.is_null() || left.is_null() || right.is_null() { return INVALID_ARGUMENT; }
         match (*handle).model.merge_pair(index) { Ok(Some((l, r))) => { *left = l; *right = r; OK }, _ => VALIDATION_ERROR }
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// Copy the chat template as UTF-8 with a trailing NUL.
+/// # Safety
+/// `handle` and `buffer` must be valid for the duration of the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_chat_template(handle: *const VbufMlConsumerHandle, buffer: *mut c_char, capacity: usize) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || buffer.is_null() { return INVALID_ARGUMENT; }
+        let Ok(Some(template)) = (*handle).model.chat_template() else { return VALIDATION_ERROR; };
+        let bytes = template.as_bytes(); if bytes.len().checked_add(1).is_none_or(|needed| needed > capacity) { return BUFFER_TOO_SMALL; }
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), buffer.cast::<u8>(), bytes.len()); *buffer.add(bytes.len()) = 0; OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// # Safety
+/// `handle` and `value` must be valid for the duration of the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_token_score(handle: *const VbufMlConsumerHandle, index: u64, value: *mut f32) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || value.is_null() { return INVALID_ARGUMENT; }
+        match (*handle).model.token_score(index) { Ok(Some(score)) => { *value = score as f32; OK }, _ => VALIDATION_ERROR }
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// # Safety
+/// `handle` and `value` must be valid for the duration of the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_special_token(handle: *const VbufMlConsumerHandle, kind: u8, value: *mut u64) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || value.is_null() { return INVALID_ARGUMENT; }
+        match (*handle).model.special_token(kind) { Ok(Some(id)) => { *value = id; OK }, _ => VALIDATION_ERROR }
     })).unwrap_or(VALIDATION_ERROR)
 }
 

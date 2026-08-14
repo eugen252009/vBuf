@@ -1665,23 +1665,21 @@ No llama.cpp consumer or inference claim is made.
 #### Step 21 implementation recorded
 
 Pinned llama.cpp checkout `4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c` was
-verified and its CPU library built successfully. Added a validated Rust
-consumer descriptor and minimal C ABI, plus a separated C++ representation
-wrapper under `integrations/llama.cpp/`.
+verified and built with the contained research patch
+`patches/llama.cpp/0001-user-metadata-tensor-source.patch`. Added the validated
+Rust/C ABI and the separated C++ vBuf loader under `integrations/llama.cpp/`.
 
-The bridge passes real Q8_0/BF16 descriptor validation, metadata mapping,
-representation mapping, and checked payload lifetime tests. Inspection found
-that pinned `llama_model_loader` is a concrete GGUF-oriented internal seam; a
-full vBuf `llama_model` construction requires a small pinned internal source
-interface/constructor change. No scattered runtime branches or llama.cpp
-modification were made.
-
-Therefore Step 21 stops at:
+The adapter calls the public `llama_model_init_from_user` seam, then uses the
+existing llama model, GGML, tokenizer, graph, kernel, and decode paths. Real
+BF16 and Q8_0 artifacts pass structural load, metadata parity, tokenizer
+parity, exact first-token logits parity, and deterministic greedy generation.
+Q8_0 absent `output.weight` uses the existing duplicated embedding fallback;
+BF16 explicit output remains independent.
 
 ```text
-descriptor bridge: PASS
-llama_model construction: DEFERRED — pinned loader seam
-runtime tokenizer/logit/generation parity: DEFERRED
+BF16 consumer correctness: PASS
+Q8_0 consumer correctness: PASS
+GPU/performance qualification: DEFERRED
 ```
 
 Evidence and provenance are in `docs/vbuf-ml/step21-llama-consumer.md` and

@@ -54,8 +54,8 @@ metadata gaps. Step 19B qualifies the pinned GPT2/Qwen2 tokenizer path and
 adds the `Gpt2BpeQwen2` storage profile; see
 [`step19b-qwen3-tokenizer.md`](step19b-qwen3-tokenizer.md). Step 20 implements the deterministic manifest-driven writer; see
 [`step20-gguf-conversion.md`](step20-gguf-conversion.md). Step 21 adds the
-validated Rust/C descriptor bridge and records the pinned llama.cpp loader seam;
-full runtime construction remains deferred. See
+validated Rust/C vBuf consumer adapter and proves BF16/Q8_0 CPU parity through
+the pinned llama.cpp/GGML runtime. See
 [`step21-llama-consumer.md`](step21-llama-consumer.md). Tokenizer execution and
 chat-template rendering remain consumer/runtime responsibilities.
 

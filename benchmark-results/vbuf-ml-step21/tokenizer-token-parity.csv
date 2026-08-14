@@ -1,3 +1,3 @@
-artifact,status,reason
-Q8_0,NOT_RUN_PINNED_RUNTIME,llama_model loader seam not yet connected
-BF16,NOT_RUN_PINNED_RUNTIME,llama_model loader seam not yet connected
+artifact,cases,metadata_parity,token_id_parity,runtime
+BF16,5,PASS,PASS,pinned llama.cpp
+Q8_0,5,PASS,PASS,pinned llama.cpp

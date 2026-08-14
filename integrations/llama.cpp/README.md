@@ -1,16 +1,34 @@
-# Step 21 pinned-consumer adapter seam
+# Step 21 pinned llama.cpp vBuf consumer
 
 Pinned base:
 
 ```text
-https://github.com/ggml-org/llama.cpp.git
 4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c
 ```
 
-The pinned checkout is kept external (`/tmp/llama.cpp-step21` during local
-qualification). The C++ wrapper in this directory is intentionally a
-**descriptor-only boundary**. It calls the validated Rust `vbuf-ml` C ABI and
-maps profile representations to:
+The contained adapter uses the pinned public `llama_model_init_from_user`
+source seam. It creates a GGUF-compatible **in-memory model description** from
+validated vBuf-ML descriptors, then calls the ordinary pinned model creation,
+vocabulary, tensor-registration, graph, GGML, and decode paths.
+
+Files:
+
+```text
+llama_vbuf_loader.{h,cpp}       source adapter and ownership wrapper
+vbuf_ml_adapter.{h,cpp}         GGML representation/descriptor bridge
+```
+
+The only pinned llama.cpp patch is:
+
+```text
+patches/llama.cpp/0001-user-metadata-tensor-source.patch
+```
+
+It makes the existing user-metadata path account for tensor inventory/bytes,
+reject absent optional tensors correctly, preserve duplicated-token-embedding
+fallback, and count user tensors. GGUF loading is unchanged.
+
+## Mapping
 
 ```text
 CanonicalPrimitive → GGML_TYPE_F32
@@ -18,53 +36,32 @@ BF16               → GGML_TYPE_BF16
 GGML_Q8_0          → GGML_TYPE_Q8_0
 ```
 
-It does not modify llama.cpp or construct a `llama_model` yet.
+Model metadata, vocabulary, token types/scores, numeric merge ranks, special
+IDs, `add_bos`, and chat-template storage are projected into the existing GGUF
+metadata API. Tensor payloads are checked against runtime-created GGML tensor
+byte sizes and attached directly from the validated vBuf mmap.
 
-## Current seam finding
+## Ownership
 
-The pinned loader is organized around the concrete `llama_model_loader`, which
-owns GGUF metadata, `weights_map`, GGUF mappings, and GGUF-specific tensor data
-loading. The model path is:
+`llama_model_load_vbuf` retains a vBuf consumer handle in an adapter registry
+keyed by `llama_model *`. The handle owns the mmap and must be released with
+`llama_model_free_vbuf`; GGML tensor backing pointers remain valid until then.
 
-```text
-llama_model_load_from_file_impl
-  → llama_model_loader
-  → llama_model_create
-  → load_hparams / load_vocab / load_tensors
-  → llama_model_loader::create_tensor / load_data_for
-```
+## Qualification
 
-The relevant loader internals are not a public source abstraction. A complete
-vBuf runtime load therefore requires a small pinned llama.cpp internal seam
-(new source interface or equivalent loader constructor), not more vBuf parser
-logic. This step deliberately stops before scattering `is_vbuf` branches into
-model, graph, or kernel code.
-
-The Rust bridge nevertheless proves the safe first boundary:
+Pinned CPU build and actual runtime qualification passed for both BF16 and
+Q8_0 vBuf artifacts:
 
 ```text
-mmap vBuf
-→ canonical validation
-→ Bootstrap
-→ ModelMetadata
-→ TensorDirectory
-→ TokenizerMetadata
-→ checked semantic descriptor/payload views
+BF16 structural load: PASS
+Q8_0 structural load: PASS
+BF16 tokenizer token IDs: PASS
+Q8_0 tokenizer token IDs: PASS
+BF16 first-token logits: max abs diff 0
+Q8_0 first-token logits: max abs diff 0
+BF16 greedy generation: PASS
+Q8_0 greedy generation: PASS
 ```
 
-Payload pointers are valid only while the owning adapter handle remains alive.
-No raw target offsets are exposed.
-
-## Qualification status
-
-```text
-pinned llama.cpp checkout: PASS
-pinned llama.cpp CPU library build: PASS
-Rust validated consumer descriptor bridge: PASS
-C++ representation wrapper compile: PASS
-llama_model construction from vBuf: DEFERRED — missing pinned internal loader seam
-BF16 tokenizer/logit/generation parity: NOT RUN
-Q8_0 tokenizer/logit/generation parity: NOT RUN
-```
-
-See `benchmark-results/vbuf-ml-step21/` for provenance and bridge evidence.
+No performance claim is made. See Step-21 evidence for exact commands and
+parity records.

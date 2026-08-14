@@ -1,6 +1,6 @@
 artifact,semantic,expected_value,bridge_value,match,runtime_observed
 Q8_0,Architecture,qwen3,qwen3,True,False
-Q8_0,ContextLength,32768,32768,True,False
+Q8_0,ContextLength,40960,40960,True,False
 Q8_0,EmbeddingLength,1024,1024,True,False
 Q8_0,LayerCount,28,28,True,False
 Q8_0,HeadCount,16,16,True,False
@@ -11,7 +11,7 @@ Q8_0,FeedForwardLength,3072,3072,True,False
 Q8_0,NormalizationEpsilon,1e-06,1e-06,True,False
 Q8_0,RopeTheta,1000000.0,1000000.0,True,False
 BF16,Architecture,qwen3,qwen3,True,False
-BF16,ContextLength,32768,32768,True,False
+BF16,ContextLength,40960,40960,True,False
 BF16,EmbeddingLength,1024,1024,True,False
 BF16,LayerCount,28,28,True,False
 BF16,HeadCount,16,16,True,False

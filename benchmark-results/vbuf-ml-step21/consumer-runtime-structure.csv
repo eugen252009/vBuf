@@ -1,0 +1,3 @@
+artifact,runtime_tensor_count,representation_mix,payload_boundary_check,output_semantics,result
+BF16,311,F32/BF16,PASS,explicit output.weight,STRUCTURAL_LOAD_PASS
+Q8_0,310,F32/Q8_0,PASS,absent output.weight → duplicated token_embd.weight,STRUCTURAL_LOAD_PASS
