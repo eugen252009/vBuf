@@ -50,6 +50,10 @@ The downstream placement and alignment policy is described in
 [`layout-policy.md`](layout-policy.md). It is a deterministic writer policy,
 not a change to canonical BaseStep or a new physical truth table.
 
+Partial loading is specified in [`range-loading.md`](range-loading.md) as a
+runtime-local projection of canonical checked ranges. It does not add portable
+physical read plans or raw offsets.
+
 Optional payload integrity is described in
 [`integrity.md`](integrity.md). Integrity records reference canonical payloads
 by Key-ID and occurrence and are never required for canonical validity.

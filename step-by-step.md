@@ -1428,6 +1428,30 @@ universal cold-I/O claim is made.
 
 **Dependencies:** Steps 6, 8–13.
 
+#### Step 15 implementation recorded
+
+Added `rust/vbuf-ml/src/range_loading.rs`,
+`rust/vbuf-ml/tests/range_loading.rs`, and
+`docs/vbuf-ml/range-loading.md`. The runtime-local partial-loading foundation
+supports semantic tensor selection by name or ordinal, deterministic physical
+range planning, exact/limited-gap coalescing, mmap-backed borrowed access, and
+positioned file reads.
+
+Semantic targets retain caller order and exact canonical payload ranges. The
+physical plan sorts by file offset and may merge duplicate/overlapping ranges
+or explicitly permitted adjacent/gapped ranges. Loaded targets remain exact
+slices within physical read buffers. Empty selections produce zero reads and
+positioned loading never buffers the whole source.
+
+The canonical reader's current behavior was re-audited: it validates the full
+canonical block sequence and structural padding through a borrowed mmap but
+does not scan payload contents. This permits selective payload reads after
+canonical validation without weakening structural safety.
+
+Integrity remains explicit and target-scoped. No Nano, layer semantics,
+portable PhysicalRangeIndex, HTTP, backend API, or wire-format read plan was
+added.
+
 ---
 
 ### Step 16 — Define sharding without changing generic vBuf

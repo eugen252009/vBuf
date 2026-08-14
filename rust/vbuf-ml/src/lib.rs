@@ -16,6 +16,7 @@ pub mod tokenizer;
 pub mod representations;
 pub mod layout;
 pub mod integrity;
+pub mod range_loading;
 
 pub use bootstrap::{Bootstrap, BootstrapEntry, SemanticRegion};
 pub use error::{MlError, MlErrorCode};
@@ -24,6 +25,7 @@ pub use tensor_directory::{TensorDescriptor, TensorDirectory, TensorEntry};
 pub use representations::{representation_contract, validate_tensor_representation, RepresentationContract, TensorRepresentation};
 pub use layout::{canonical_payload_alignment, payload_shift, write_indefinite, write_known_size, LayoutClass, LayoutError, LayoutPlan, PlacementRequest, PlannedBlock};
 pub use integrity::{digest_payload, encode_payload as encode_integrity_payload, IntegrityAlgorithm, IntegrityEntry, IntegrityMetadata, IntegrityRecord};
+pub use range_loading::{execute_plan, select_tensor_names, select_tensor_ordinals, Coalescing, LoadedPlan, LoadedRead, MmapSource, PhysicalRange, PositionedFileSource, PlannedTarget, RangeLoadError, ReadPlan, RangeSource, SelectedTensor};
 pub use metadata::{MetadataEntry, MetadataField, MetadataValue, ModelMetadata, ModelMetadataKey};
 pub use tokenizer::{SpecialToken, TokenizerEntry, TokenizerKind, TokenizerMetadata, TokenizerRole};
 
