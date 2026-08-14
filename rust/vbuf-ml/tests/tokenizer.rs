@@ -2,7 +2,7 @@ use std::io::Cursor;
 use vbuf_core::v06::parse_v06;
 use vbuf_core::writer::{BlockOptions, VBufV06Writer};
 use vbuf_ml::bootstrap::{encode_payload as encode_bootstrap, Bootstrap, BootstrapEntry, BOOTSTRAP_KEY_ID};
-use vbuf_ml::tokenizer::{encode_payload, TokenizerEntry, TokenizerKind};
+use vbuf_ml::tokenizer::{encode_payload, PreTokenizer, TokenizerEntry, TokenizerKind, TokenizerModel};
 use vbuf_ml::{MlErrorCode, SpecialToken, TokenizerMetadata};
 
 fn tokenizer_file(payload: &[u8], pool: &[u8], offsets: &[u64], scores: &[f32], types: &[u8], eos: u32) -> Vec<u8> {
@@ -21,7 +21,29 @@ fn tokenizer_file(payload: &[u8], pool: &[u8], offsets: &[u64], scores: &[f32], 
     writer.write_u8(BlockOptions::array(33), types).unwrap();
     writer.write_u32(BlockOptions::scalar(34), &[0]).unwrap();
     writer.write_u32(BlockOptions::scalar(35), &[eos]).unwrap();
+    writer.write_u32(BlockOptions::array(36), &[0, 1]).unwrap();
+    writer.write_u32(BlockOptions::array(37), &[1, 0]).unwrap();
+    writer.write_u8(BlockOptions::scalar(38), &[1]).unwrap();
+    writer.write_u8(BlockOptions::scalar(39), &[1]).unwrap();
+    writer.write_u8(BlockOptions::scalar(40), &[0]).unwrap();
+    writer.write_opaque(BlockOptions::array(41), b"{{ messages }}").unwrap();
     writer.finish().unwrap().into_inner()
+}
+
+fn gpt2_payload() -> Vec<u8> {
+    encode_payload(TokenizerKind::Gpt2BpeQwen2, &[
+        TokenizerEntry::new(1, true, 30, 0),
+        TokenizerEntry::new(2, true, 31, 0),
+        TokenizerEntry::new(4, false, 33, 0),
+        TokenizerEntry::new(5, false, 34, 0),
+        TokenizerEntry::new(6, false, 35, 0),
+        TokenizerEntry::new(9, true, 36, 0),
+        TokenizerEntry::new(10, true, 37, 0),
+        TokenizerEntry::new(11, true, 38, 0),
+        TokenizerEntry::new(12, true, 39, 0),
+        TokenizerEntry::new(13, true, 40, 0),
+        TokenizerEntry::new(14, false, 41, 0),
+    ]).unwrap()
 }
 
 fn valid_payload() -> Vec<u8> {
@@ -63,6 +85,19 @@ fn tokenizer_views_are_direct_canonical_ranges() {
     assert_eq!(tokenizer.token_type(1), Some(2));
     assert!(tokenizer.specials().contains(&(SpecialToken::Bos, 0)));
     assert!(tokenizer.specials().contains(&(SpecialToken::Eos, 1)));
+}
+
+#[test]
+fn gpt2_qwen2_descriptor_exposes_storage_without_execution() {
+    let tokenizer = parse_tokenizer(&gpt2_payload(), b"helloworld", &[0, 5, 10], &[0.5, -0.25], &[1, 2], 1).unwrap();
+    assert_eq!(tokenizer.kind, TokenizerKind::Gpt2BpeQwen2);
+    assert_eq!(tokenizer.model(), Some(TokenizerModel::Gpt2Bpe));
+    assert_eq!(tokenizer.pre_tokenizer(), Some(PreTokenizer::Qwen2));
+    assert_eq!(tokenizer.add_bos(), Some(false));
+    assert_eq!(tokenizer.merge_count(), 2);
+    assert_eq!(tokenizer.merge_pair(0), Some((0, 1)));
+    assert_eq!(tokenizer.merge_pair(1), Some((1, 0)));
+    assert_eq!(tokenizer.chat_template(), Some("{{ messages }}"));
 }
 
 #[test]

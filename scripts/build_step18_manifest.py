@@ -87,17 +87,23 @@ def tokenizer_plan(artifact) -> list[dict[str, object]]:
         else:
             shape = value
         if key in {"tokenizer.ggml.tokens", "tokenizer.ggml.token_type"}:
-            status, target = "DIRECTLY_REPRESENTED", "VocabularyOnly"
+            status, target = "DIRECTLY_REPRESENTED", "GPT2BpeQwen2 vocabulary"
         elif key == "tokenizer.ggml.merges":
-            status, target = "UNSUPPORTED_REQUIRED", None
-        elif key in {"tokenizer.ggml.model", "tokenizer.ggml.pre", "tokenizer.chat_template"}:
-            status, target = "UNSUPPORTED_REQUIRED", None
+            status, target = "DIRECTLY_REPRESENTED", "GPT2BpeQwen2 MergeLeftIds+MergeRightIds"
+        elif key == "tokenizer.ggml.model":
+            status, target = "DIRECTLY_REPRESENTED", "GPT2BpeQwen2 TokenizerModelIdentity"
+        elif key == "tokenizer.ggml.pre":
+            status, target = "DIRECTLY_REPRESENTED", "GPT2BpeQwen2 PreTokenizerIdentity"
+        elif key == "tokenizer.ggml.add_bos_token":
+            status, target = "DIRECTLY_REPRESENTED", "GPT2BpeQwen2 AddBos"
+        elif key == "tokenizer.chat_template":
+            status, target = "DIRECTLY_REPRESENTED", "GPT2BpeQwen2 ChatTemplate (optional raw target)"
         elif key.endswith("_token_id"):
-            status, target = "DIRECTLY_REPRESENTED", "VocabularyOnly special ID"
+            status, target = "DIRECTLY_REPRESENTED", "GPT2BpeQwen2 special ID"
         elif key == "tokenizer.ggml.scores":
-            status, target = "DIRECTLY_REPRESENTED", "VocabularyOnly optional scores"
+            status, target = "DIRECTLY_REPRESENTED", "GPT2BpeQwen2 optional scores"
         else:
-            status, target = "IGNORE_WITH_REASON", "consumer/default metadata"
+            status, target = "IGNORE_WITH_REASON", "not consumed by pinned first target"
         rows.append({"source_key": key, "meaning": "tokenizer metadata", "source_shape_or_value": shape,
                      "target": target, "status": status})
     return rows
@@ -214,6 +220,8 @@ def build_manifest(root: Path, label: str) -> dict[str, object]:
         "accounting": {"source_tensors": len(artifact.tensors), "copy_bytes": len(plans), "shared_reference": 1 if tied else 0,
                        "derived": len(CONTROL_KEY_IDS) - 1, "reject": 0, "unaccounted": 0},
         "validation": {"manifest_structurally_valid": True, "conversion_readiness": readiness,
+                        "raw_inference_tokenizer_readiness": "READY",
+                        "chat_template_readiness": "READY_FOR_CONSUMER_EXECUTION",
                         "metadata_blockers": metadata_blockers, "tokenizer_blockers": tokenizer_blockers},
     }
     validate_manifest(manifest, artifact)

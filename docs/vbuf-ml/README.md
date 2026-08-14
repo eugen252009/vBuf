@@ -50,7 +50,10 @@ Q8_0 contracts in [`step17-upstream-representation-qualification.md`](step17-ups
 Step 18 builds deterministic, read-only conversion manifests without writing
 model bytes; see [`step18-conversion-manifest.md`](step18-conversion-manifest.md).
 Step 19A resolves the pinned Qwen3 KV-head and key/value head-dimension
-metadata gaps; tokenizer semantics remain separate and blocked.
+metadata gaps. Step 19B qualifies the pinned GPT2/Qwen2 tokenizer path and
+adds the `Gpt2BpeQwen2` storage profile; see
+[`step19b-qwen3-tokenizer.md`](step19b-qwen3-tokenizer.md). Tokenizer execution
+and chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is
 preferred over maximal base functionality.

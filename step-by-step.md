@@ -1600,6 +1600,37 @@ Evidence and provenance are in `docs/vbuf-ml/step19a-qwen3-metadata.md` and
 
 ---
 
+### Step 19B — Qualify pinned Qwen3 tokenizer semantics
+
+#### Step 19B implementation recorded
+
+Pinned llama.cpp loads `gpt2` as BPE, maps `qwen2` to its Qwen2
+pre-tokenizer, preserves vocabulary ordinals, reads merges in source rank order,
+and explicitly applies `tokenizer.ggml.add_bos_token`. The Qwen3 artifacts have
+151,936 tokens and 151,387 valid merges; every merge component resolves against
+the existing vocabulary ordinal namespace.
+
+Added profile-local tokenizer kind `Gpt2BpeQwen2` with GPT2-BPE and Qwen2
+identities, exact ranked merge semantics as two u32 ordinal arrays, `add_bos`,
+and optional exact UTF-8 chat-template bytes. `VocabularyOnly` remains valid.
+No tokenizer execution, BPE implementation, regex/pre-tokenizer code, or chat
+template execution was added.
+
+Both manifests now report:
+
+```text
+raw_inference_tokenizer_readiness = READY
+chat_template_readiness = READY_FOR_CONSUMER_EXECUTION
+conversion_readiness = READY_FOR_CONVERSION
+```
+
+Actual token-ID parity remains a later pinned-consumer adapter qualification;
+Step 19B proves lossless representation of all required source semantics.
+Evidence is in `docs/vbuf-ml/step19b-qwen3-tokenizer.md` and
+`benchmark-results/vbuf-ml-step19b/`.
+
+---
+
 ### Step 19 — Implement deterministic GGUF-to-vBuf-ML conversion
 
 **Class:** ML tooling.

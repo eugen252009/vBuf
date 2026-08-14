@@ -37,9 +37,11 @@ tensors remain future profile work.
 [`metadata.md`](metadata.md) and [`tokenizer.md`](tokenizer.md). They are
 semantic indexes over canonical values. Model profile 0.1 requires architecture,
 context length, embedding length, layer count, and head count. Tokenizer data is
-optional and currently supports only a vocabulary-only direct view with implicit
-token ordinal IDs. Metadata and tokenizer regions contain no trusted physical
-offsets or duplicated primitive descriptors.
+optional. `VocabularyOnly` remains a vocabulary-only direct
+view with implicit token ordinal IDs; profile-local `Gpt2BpeQwen2` additionally
+carries GPT2-BPE/Qwen2 identities, ranked merge ordinal arrays, and `add_bos`
+semantics while leaving execution to a consumer. Metadata and tokenizer regions
+contain no trusted physical offsets or duplicated primitive descriptors.
 
 Tensor representation qualification is specified in
 [`representations.md`](representations.md) and the Step 17 evidence document.

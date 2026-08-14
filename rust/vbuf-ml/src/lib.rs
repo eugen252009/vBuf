@@ -27,7 +27,7 @@ pub use layout::{canonical_payload_alignment, payload_shift, write_indefinite, w
 pub use integrity::{digest_payload, encode_payload as encode_integrity_payload, IntegrityAlgorithm, IntegrityEntry, IntegrityMetadata, IntegrityRecord};
 pub use range_loading::{execute_plan, select_tensor_names, select_tensor_ordinals, Coalescing, LoadedPlan, LoadedRead, MmapSource, PhysicalRange, PositionedFileSource, PlannedTarget, RangeLoadError, ReadPlan, RangeSource, SelectedTensor};
 pub use metadata::{encode_payload as encode_metadata_payload, MetadataEntry, MetadataField, MetadataValue, ModelMetadata, ModelMetadataKey};
-pub use tokenizer::{SpecialToken, TokenizerEntry, TokenizerKind, TokenizerMetadata, TokenizerRole};
+pub use tokenizer::{PreTokenizer, SpecialToken, TokenizerEntry, TokenizerKind, TokenizerMetadata, TokenizerModel, TokenizerRole};
 
 /// Boundary smoke helper for future profile code. It does not parse or
 /// authorize the range.

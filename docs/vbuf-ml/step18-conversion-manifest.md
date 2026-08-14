@@ -199,12 +199,14 @@ tokenizer.ggml.add_bos_token
 tokenizer.chat_template
 ```
 
-The current VocabularyOnly profile can represent vocabulary, token types,
-scores where present, and special IDs. It cannot represent the GPT-2/BPE model,
-pre-tokenizer, merges, or chat template semantics required for a
-consumer-complete llama.cpp path.
+Step 19B adds the profile-local `Gpt2BpeQwen2` tokenizer kind. It represents
+vocabulary, token types, optional scores, special IDs, GPT2-BPE and Qwen2
+identities, ranked numeric merge pairs, `add_bos`, and optional exact chat
+template bytes. Tokenizer execution and chat rendering remain consumer-local.
 
-Both manifests are consequently blocked only by the tokenizer gap.
+Both manifests are now ready for deterministic conversion. Raw tokenizer
+readiness is `READY`; chat-template storage is ready while chat execution is
+`READY_FOR_CONSUMER_EXECUTION`.
 
 ## Read behavior and streaming readiness
 
@@ -227,11 +229,14 @@ separate from source physical order.
 Both artifacts are:
 
 ```text
-BLOCKED_BY_TOKENIZER_GAP
+READY_FOR_CONVERSION
+raw_inference_tokenizer = READY
+chat_template = READY_FOR_CONSUMER_EXECUTION
 ```
 
-They are not called conversion-ready merely because representation geometry is
-complete.
+The manifests are conversion-ready because the pinned raw-tokenizer source
+semantics are now represented; tokenizer and chat execution remain runtime
+responsibilities.
 
 ## Evidence
 
@@ -240,7 +245,8 @@ benchmark-results/vbuf-ml-step18/
 ```
 
 contains deterministic JSON manifests, metadata/tokenizer matrices, accounting
-summaries, and qualification configuration. Running the manifest builder twice
+summaries, and qualification configuration. Step 19B evidence is in
+`benchmark-results/vbuf-ml-step19b/`. Running the manifest builder twice
 produces identical serialized JSON hashes.
 
 No model payloads are emitted.
