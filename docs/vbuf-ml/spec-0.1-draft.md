@@ -49,3 +49,7 @@ pinned first target and authoritative upstream layout revision.
 The downstream placement and alignment policy is described in
 [`layout-policy.md`](layout-policy.md). It is a deterministic writer policy,
 not a change to canonical BaseStep or a new physical truth table.
+
+Optional payload integrity is described in
+[`integrity.md`](integrity.md). Integrity records reference canonical payloads
+by Key-ID and occurrence and are never required for canonical validity.

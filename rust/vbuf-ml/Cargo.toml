@@ -7,3 +7,4 @@ edition = "2024"
 vbuf-core = { path = ".." }
 vbuf-layout = { path = "../vbuf-layout" }
 memmap2 = "0.9"
+sha2 = "0.10"

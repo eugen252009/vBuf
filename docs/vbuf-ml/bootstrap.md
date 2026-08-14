@@ -51,6 +51,7 @@ match the payload length.
 - `1`: `TensorDirectory`, required
 - `2`: `ModelMetadata`, required
 - `3`: `TokenizerMetadata`, optional
+- `4`: `IntegrityMetadata`, optional
 
 These entries identify regions only. Their later schemas belong to later ML
 steps. A referenced block may already carry any valid generic primitive or

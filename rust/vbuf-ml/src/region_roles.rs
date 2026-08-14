@@ -4,6 +4,7 @@ pub enum RegionRole {
     TensorDirectory = 1,
     ModelMetadata = 2,
     TokenizerMetadata = 3,
+    IntegrityMetadata = 4,
 }
 
 impl RegionRole {
@@ -12,6 +13,7 @@ impl RegionRole {
             1 => Some(Self::TensorDirectory),
             2 => Some(Self::ModelMetadata),
             3 => Some(Self::TokenizerMetadata),
+            4 => Some(Self::IntegrityMetadata),
             _ => None,
         }
     }

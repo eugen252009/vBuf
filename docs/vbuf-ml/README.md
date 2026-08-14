@@ -36,7 +36,8 @@ access with file-backed mmap fixtures. Step 12 keeps `CanonicalPrimitive`
 normative while quantized layouts await a pinned first target and upstream
 revision. Step 13 adds only deterministic downstream writer ordering and
 payload-alignment planning; BaseStep remains generic. Runtime-local indexes and future algorithm-specific structures remain
-derived or deferred.
+derived or deferred. Optional SHA-256 payload integrity is a separate semantic
+role and is verified only when a runtime requests it.
 
 The base remains a small compositional vocabulary: efficient composition is
 preferred over maximal base functionality.

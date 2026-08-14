@@ -1370,7 +1370,7 @@ with profile control overhead.
 
 **Existing invariants:** files without integrity information remain valid; normal tensor lookup need not read the integrity section.
 
-**New invariants:** algorithm identifiers and covered byte ranges are explicit; CRC32C is corruption detection only; optional cryptographic digests are suitable for identity/distribution; lazy and eager verification produce the same result.
+**New invariants:** optional SHA-256 payload-only records reference canonical Key-ID plus occurrence; canonical validation remains independent; lazy and eager verification produce the same result; absent integrity remains valid; verification is explicit and target-scoped.
 
 **Tests/qualification:** mutate header, directory, padding and tensor bytes separately; verify coverage rules; measure eager/lazy verification I/O and CPU cost outside inference metrics.
 
@@ -1379,6 +1379,25 @@ with profile control overhead.
 **Expected commit outcome:** optional integrity with measurable cost and no hot-data layout penalty.
 
 **Dependencies:** Step 13 and Decision F.
+
+#### Step 14 implementation recorded
+
+Added `rust/vbuf-ml/src/integrity.rs` and `docs/vbuf-ml/integrity.md`.
+Bootstrap role `IntegrityMetadata` (optional role ID `4`) identifies a bounded
+20-byte-header/40-byte-entry integrity index. Profile 0.1 selects portable
+SHA-256 with fixed 32-byte digests.
+
+Records reference canonical Key-ID plus physical occurrence and cover payload
+bytes only. Canonical headers, padding, offsets, and lengths are not duplicated.
+`IntegrityMetadata::discover` resolves checked canonical ranges without hashing;
+`verify_target` hashes only the requested target. Missing integrity metadata is
+valid, missing target coverage returns `NoIntegrityAvailable`, and mismatches
+return a distinct semantic error.
+
+No whole-file digest, mandatory verification, checksum registry, signatures,
+PKI, Nano, finalization, or backend policy was added. Integrity state remains
+runtime-local. SHA-256 construction/verification cost is documented; no
+universal cold-I/O claim is made.
 
 ---
 
