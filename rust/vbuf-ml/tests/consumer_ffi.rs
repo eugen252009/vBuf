@@ -1,6 +1,6 @@
 use std::ffi::CString;
 use std::path::PathBuf;
-use vbuf_ml::consumer_ffi::{vbuf_ml_consumer_add_bos, vbuf_ml_consumer_close, vbuf_ml_consumer_merge_arrays, vbuf_ml_consumer_merge_count, vbuf_ml_consumer_merge_pair, vbuf_ml_consumer_merge_rank, vbuf_ml_consumer_open, vbuf_ml_consumer_runtime_indexes, vbuf_ml_consumer_tensor_count, vbuf_ml_consumer_tensor_info, vbuf_ml_consumer_token_arrays, vbuf_ml_consumer_token_id, vbuf_ml_consumer_token_text, VbufMlMergeArrays, VbufMlTensorInfo, VbufMlTokenArrays};
+use vbuf_ml::consumer_ffi::{vbuf_ml_consumer_add_bos, vbuf_ml_consumer_close, vbuf_ml_consumer_merge_arrays, vbuf_ml_consumer_merge_count, vbuf_ml_consumer_merge_pair, vbuf_ml_consumer_merge_rank, vbuf_ml_consumer_open, vbuf_ml_consumer_runtime_indexes, vbuf_ml_consumer_tensor_count, vbuf_ml_consumer_tensor_info, vbuf_ml_consumer_tensor_physical_range, vbuf_ml_consumer_token_arrays, vbuf_ml_consumer_token_id, vbuf_ml_consumer_token_text, VbufMlMergeArrays, VbufMlTensorInfo, VbufMlTokenArrays};
 
 #[test]
 fn c_bridge_projects_tokenizer_and_tensor_views() {
@@ -16,6 +16,9 @@ fn c_bridge_projects_tokenizer_and_tensor_views() {
     let mut info = VbufMlTensorInfo { representation: 0, rank: 0, dimensions: [0; 16], payload: std::ptr::null(), payload_len: 0 };
     assert_eq!(unsafe { vbuf_ml_consumer_tensor_info(handle, 0, &mut info, name.as_mut_ptr(), name.len()) }, 0);
     assert!(info.payload_len > 0);
+    let mut physical_offset = 0; let mut physical_length = 0;
+    assert_eq!(unsafe { vbuf_ml_consumer_tensor_physical_range(handle, 0, &mut physical_offset, &mut physical_length) }, 0);
+    assert!(physical_offset > 0 && physical_length == info.payload_len);
     let mut token = vec![0i8; 4097];
     assert_eq!(unsafe { vbuf_ml_consumer_token_text(handle, 0, token.as_mut_ptr(), token.len()) }, 0);
     let mut token_arrays = VbufMlTokenArrays { text: std::ptr::null(), text_len: 0, offsets: std::ptr::null(), offset_count: 0, types: std::ptr::null(), type_bytes: 0, scores: std::ptr::null(), score_bytes: 0, token_count: 0 };

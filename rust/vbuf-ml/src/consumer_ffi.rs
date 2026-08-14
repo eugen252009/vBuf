@@ -120,6 +120,17 @@ pub unsafe extern "C" fn vbuf_ml_consumer_tensor_count(handle: *const VbufMlCons
 /// `handle`, `info`, and `name_buffer` must be valid for the duration of the
 /// call; `name_buffer` must have `name_capacity` bytes.
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_tensor_physical_range(handle: *const VbufMlConsumerHandle, index: u64, offset: *mut u64, length: *mut u64) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || offset.is_null() || length.is_null() { return INVALID_ARGUMENT; }
+        let Some(tensor) = (*handle).model.view.directory.tensors().get(index as usize) else { return VALIDATION_ERROR; };
+        *offset = tensor.range.offset(); *length = tensor.range.length(); OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// # Safety
+/// `handle`, `info`, and `name_buffer` must be valid for the duration of the call.
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vbuf_ml_consumer_tensor_info(handle: *const VbufMlConsumerHandle, index: u64, info: *mut VbufMlTensorInfo, name_buffer: *mut c_char, name_capacity: usize) -> u32 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
         if handle.is_null() || info.is_null() || name_buffer.is_null() { return INVALID_ARGUMENT; }

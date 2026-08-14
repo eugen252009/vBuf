@@ -2,11 +2,17 @@
 
 #include "vbuf_ml_adapter.h"
 
+#include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstring>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <sys/mman.h>
+#include <sys/resource.h>
+#include <unistd.h>
 
 extern "C" {
 struct VbufMlTokenArrays { const uint8_t * text; uint64_t text_len; const uint8_t * offsets; uint64_t offset_count; const uint8_t * types; uint64_t type_bytes; const uint8_t * scores; uint64_t score_bytes; uint64_t token_count; };
@@ -19,6 +25,7 @@ uint32_t vbuf_ml_consumer_architecture(const VbufMlConsumerHandle *, char *, siz
 uint32_t vbuf_ml_consumer_token_arrays(const VbufMlConsumerHandle *, VbufMlTokenArrays *);
 uint32_t vbuf_ml_consumer_merge_arrays(const VbufMlConsumerHandle *, VbufMlMergeArrays *);
 uint32_t vbuf_ml_consumer_tensor_views(const VbufMlConsumerHandle *, const VbufMlTensorView **, uint64_t *);
+uint32_t vbuf_ml_consumer_tensor_physical_range(const VbufMlConsumerHandle *, uint64_t, uint64_t *, uint64_t *);
 uint32_t vbuf_ml_consumer_special_token(const VbufMlConsumerHandle *, uint8_t, uint64_t *);
 uint32_t vbuf_ml_consumer_add_bos(const VbufMlConsumerHandle *, bool *);
 uint32_t vbuf_ml_consumer_chat_template(const VbufMlConsumerHandle *, char *, size_t);
@@ -39,6 +46,8 @@ public:
         architecture_ = architecture;
         if (vbuf_ml_consumer_metadata(handle_, &metadata_) != 0) throw std::runtime_error("vBuf metadata lookup failed");
         if (vbuf_ml_consumer_token_arrays(handle_, &token_arrays_) != 0 || vbuf_ml_consumer_merge_arrays(handle_, &merge_arrays_) != 0 || vbuf_ml_consumer_tensor_views(handle_, &tensors_, &tensor_count_) != 0) throw std::runtime_error("vBuf borrowed source view failed");
+        offsets_.resize(tensor_count_); lengths_.resize(tensor_count_);
+        for (uint64_t i = 0; i < tensor_count_; ++i) if (vbuf_ml_consumer_tensor_physical_range(handle_, i, &offsets_[i], &lengths_[i]) != 0) throw std::runtime_error("vBuf physical tensor range failed");
         token_count_ = token_arrays_.token_count; merge_count_ = merge_arrays_.merge_count;
         for (uint8_t kind = 0; kind < 4; ++kind) vbuf_ml_consumer_special_token(handle_, kind, &special_[kind]);
         vbuf_ml_consumer_add_bos(handle_, &add_bos_);
@@ -104,6 +113,89 @@ public:
     bool merge(uint64_t index, uint64_t & left, uint64_t & right) const override {
         if (index >= merge_count_) return false; uint32_t l = load_le32(merge_arrays_.left + index * 4); uint32_t r = load_le32(merge_arrays_.right + index * 4); left = l; right = r; return true;
     }
+    bool prepare(const char * variant, Step28PreparationResult & result) const {
+        struct Record { std::string name; uint64_t offset, length; const uint8_t * payload; int layer = -1; };
+        struct WorkSpan { Step28PhysicalSpan report; const uint8_t * begin = nullptr; const uint8_t * end = nullptr; };
+        std::vector<Record> records;
+        records.reserve(tensor_count_);
+        for (uint64_t i = 0; i < tensor_count_; ++i) {
+            const auto & view = tensors_[i];
+            Record record{std::string(view.name, view.name_len), offsets_[i], lengths_[i], view.payload};
+            if (record.name.rfind("blk.", 0) == 0) {
+                unsigned layer = 0; if (std::sscanf(record.name.c_str(), "blk.%u.", &layer) != 1) return false;
+                record.layer = static_cast<int>(layer);
+            }
+            if (record.payload == nullptr || record.length == 0 || record.offset + record.length < record.offset) return false;
+            records.push_back(std::move(record));
+        }
+        auto make_span = [](const std::vector<const Record *> & members, const char * role, uint64_t layer_id) {
+            WorkSpan span; span.report.role = role; span.report.layer_id = layer_id;
+            auto first = std::min_element(members.begin(), members.end(), [](auto a, auto b) { return a->offset < b->offset; });
+            auto last = std::max_element(members.begin(), members.end(), [](auto a, auto b) { return a->offset + a->length < b->offset + b->length; });
+            span.report.start_offset = (*first)->offset; span.report.end_offset = (*last)->offset + (*last)->length;
+            span.report.span_bytes = span.report.end_offset - span.report.start_offset;
+            span.begin = (*first)->payload; span.end = (*last)->payload + (*last)->length;
+            for (const Record * record : members) span.report.useful_bytes += record->length;
+            span.report.gap_bytes = span.report.span_bytes - span.report.useful_bytes;
+            span.report.tensor_count = members.size();
+            if (static_cast<uint64_t>(span.end - span.begin) != span.report.span_bytes) return WorkSpan{};
+            return span;
+        };
+        std::vector<WorkSpan> layers;
+        std::vector<WorkSpan> globals;
+        for (uint64_t layer = 0; layer < metadata_.layer_count; ++layer) {
+            std::vector<const Record *> members;
+            for (const auto & record : records) if (record.layer == static_cast<int>(layer)) members.push_back(&record);
+            if (members.empty()) return false;
+            auto span = make_span(members, "layer", layer); if (span.begin == nullptr || span.end == nullptr) return false;
+            layers.push_back(std::move(span));
+        }
+        for (const auto & record : records) { if (record.layer < 0) { auto span = make_span({&record}, "global", UINT64_MAX); if (span.begin == nullptr || span.end == nullptr) return false; globals.push_back(std::move(span)); } }
+        std::sort(layers.begin(), layers.end(), [](const auto & a, const auto & b) { return a.report.start_offset < b.report.start_offset; });
+        std::sort(globals.begin(), globals.end(), [](const auto & a, const auto & b) { return a.report.start_offset < b.report.start_offset; });
+        if (layers.size() != metadata_.layer_count) return false;
+        result.layer_count = layers.size(); result.global_span_count = globals.size(); result.span_count = layers.size() + globals.size();
+        for (const auto & span : layers) { result.covered_bytes += span.report.span_bytes; result.useful_bytes += span.report.useful_bytes; result.gap_bytes += span.report.gap_bytes; result.spans.push_back(span.report); result.layers.push_back({span.report.layer_id, span.report.start_offset, span.report.end_offset, span.report.span_bytes, span.report.useful_bytes, span.report.gap_bytes, span.report.tensor_count, 0, 0, 0}); }
+        for (const auto & span : globals) { result.covered_bytes += span.report.span_bytes; result.useful_bytes += span.report.useful_bytes; result.gap_bytes += span.report.gap_bytes; result.spans.push_back(span.report); }
+        std::vector<WorkSpan> order;
+        if (std::strcmp(variant, "baseline") == 0) return true;
+        if (std::strcmp(variant, "sequential") == 0) {
+            std::vector<const Record *> all; for (const auto & record : records) all.push_back(&record);
+            order.push_back(make_span(all, "whole-payload", UINT64_MAX));
+        } else if (std::strcmp(variant, "layer") == 0) {
+            for (const auto & span : globals) if (span.report.end_offset < layers.front().report.start_offset) order.push_back(span);
+            for (const auto & span : layers) order.push_back(span);
+            for (const auto & span : globals) if (span.report.start_offset > layers.back().report.end_offset) order.push_back(span);
+            for (const auto & span : globals) if (span.report.start_offset >= layers.front().report.start_offset && span.report.end_offset <= layers.back().report.end_offset) order.push_back(span);
+        } else if (std::strcmp(variant, "advisory") == 0) {
+            order = globals; order.insert(order.end(), layers.begin(), layers.end()); std::sort(order.begin(), order.end(), [](const auto & a, const auto & b) { return a.report.start_offset < b.report.start_offset; });
+        } else return false;
+        const auto begin = std::chrono::steady_clock::now(); struct rusage before{}; getrusage(RUSAGE_SELF, &before);
+        volatile uint8_t sink = 0;
+        const long page_size = sysconf(_SC_PAGESIZE); result.page_size = static_cast<uint64_t>(page_size);
+        for (const auto & span : order) {
+            result.prepared_span_bytes += span.report.span_bytes; result.prepared_useful_bytes += span.report.useful_bytes;
+            const auto layer_begin = std::chrono::steady_clock::now(); struct rusage layer_before{}; getrusage(RUSAGE_SELF, &layer_before);
+            const uintptr_t begin_address = reinterpret_cast<uintptr_t>(span.begin) & ~static_cast<uintptr_t>(page_size - 1);
+            const uintptr_t end_address = (reinterpret_cast<uintptr_t>(span.end) + page_size - 1) & ~static_cast<uintptr_t>(page_size - 1);
+            if (std::strcmp(variant, "advisory") == 0) {
+                if (madvise(reinterpret_cast<void *>(begin_address), end_address - begin_address, MADV_WILLNEED) != 0) return false;
+                continue;
+            }
+            for (uintptr_t address = begin_address; address < end_address; address += static_cast<uintptr_t>(page_size)) { sink ^= *reinterpret_cast<volatile const uint8_t *>(address); ++result.pages_touched; ++result.touch_operations; }
+            if (std::strcmp(variant, "layer") == 0 && span.report.layer_id != UINT64_MAX) {
+                struct rusage layer_after{}; getrusage(RUSAGE_SELF, &layer_after);
+                result.layers[span.report.layer_id].prepare_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - layer_begin).count();
+                result.layers[span.report.layer_id].minor_faults = layer_after.ru_minflt - layer_before.ru_minflt; result.layers[span.report.layer_id].major_faults = layer_after.ru_majflt - layer_before.ru_majflt;
+            }
+        }
+        std::atomic_signal_fence(std::memory_order_seq_cst); (void) sink;
+        struct rusage after{}; getrusage(RUSAGE_SELF, &after);
+        result.prepare_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count();
+        result.minor_faults = after.ru_minflt - before.ru_minflt; result.major_faults = after.ru_majflt - before.ru_majflt;
+        return true;
+    }
+
 private:
     VbufMlConsumerHandle * handle_ = nullptr;
     VbufMlModelMetadataInfo metadata_{};
@@ -112,6 +204,7 @@ private:
     VbufMlTokenArrays token_arrays_{};
     VbufMlMergeArrays merge_arrays_{};
     const VbufMlTensorView * tensors_ = nullptr;
+    std::vector<uint64_t> offsets_, lengths_;
     uint64_t token_count_ = 0, merge_count_ = 0, tensor_count_ = 0;
     uint64_t special_[4]{};
     bool add_bos_ = false;
@@ -119,6 +212,11 @@ private:
 
 std::shared_ptr<llama_model_source> make_vbuf_direct_source(const char * path) {
     return std::make_shared<VbufDirectSource>(path);
+}
+
+bool step28_prepare_vbuf_source(llama_model_source * source, const char * variant, Step28PreparationResult & result) {
+    auto * direct = dynamic_cast<VbufDirectSource *>(source);
+    return direct != nullptr && direct->prepare(variant, result);
 }
 
 void set_vbuf_direct_tensor_data(ggml_tensor * tensor, void * userdata) {

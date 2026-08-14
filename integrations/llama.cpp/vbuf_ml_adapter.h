@@ -33,6 +33,8 @@ void vbuf_ml_consumer_close(VbufMlConsumerHandle * handle);
 uint32_t vbuf_ml_consumer_tensor_count(const VbufMlConsumerHandle *, uint64_t * count);
 uint32_t vbuf_ml_consumer_token_count(const VbufMlConsumerHandle *, uint64_t * count);
 uint32_t vbuf_ml_consumer_token_type(const VbufMlConsumerHandle *, uint64_t index, int32_t * value);
+uint32_t vbuf_ml_consumer_tensor_physical_range(const VbufMlConsumerHandle *, uint64_t index,
+                                               uint64_t * offset, uint64_t * length);
 uint32_t vbuf_ml_consumer_tensor_info(const VbufMlConsumerHandle *, uint64_t index,
                                       VbufMlTensorInfo *, char * name, size_t name_capacity);
 uint32_t vbuf_ml_consumer_metadata(const VbufMlConsumerHandle *, VbufMlModelMetadataInfo *);

@@ -213,6 +213,13 @@ extern "C" llama_model * llama_model_load_vbuf_direct(const char * path, llama_m
     } catch (...) { return nullptr; }
 }
 
+extern "C" bool llama_model_step28_prepare_vbuf(llama_model * model, const char * variant, vbuf_llama::Step28PreparationResult * result) {
+    if (!result || !variant) return false;
+    std::lock_guard lock(g_vbuf_models_mutex);
+    auto it = g_direct_models.find(model);
+    return it != g_direct_models.end() && vbuf_llama::step28_prepare_vbuf_source(it->second.get(), variant, *result);
+}
+
 extern "C" void llama_model_free_vbuf_direct(llama_model * model) {
     std::shared_ptr<llama_model_source> source;
     {
