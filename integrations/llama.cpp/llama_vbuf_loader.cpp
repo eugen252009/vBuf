@@ -4,6 +4,7 @@
 #include "ggml.h"
 #include "ggml-cpp.h"
 #include "vbuf_ml_adapter.h"
+#include "vbuf_direct_source.h"
 
 #include <algorithm>
 #include <chrono>
@@ -63,6 +64,7 @@ struct VbufRuntime {
 
 static std::mutex g_vbuf_models_mutex;
 static std::unordered_map<llama_model *, VbufRuntime *> g_vbuf_models;
+static std::unordered_map<llama_model *, std::shared_ptr<llama_model_source>> g_direct_models;
 
 static void set_model_metadata(gguf_context * meta, VbufRuntime & source) {
     auto model_start = step21a_clock::now();
@@ -198,6 +200,27 @@ extern "C" llama_model * llama_model_load_vbuf(const char * path, llama_model_pa
         }
         return model;
     } catch (...) { return nullptr; }
+}
+
+extern "C" llama_model * llama_model_load_vbuf_direct(const char * path, llama_model_params params) {
+    try {
+        auto source = vbuf_llama::make_vbuf_direct_source(path);
+        llama_model * model = llama_model_init_from_source(source, vbuf_llama::set_vbuf_direct_tensor_data, source.get(), params);
+        if (!model) return nullptr;
+        std::lock_guard lock(g_vbuf_models_mutex);
+        g_direct_models.emplace(model, std::move(source));
+        return model;
+    } catch (...) { return nullptr; }
+}
+
+extern "C" void llama_model_free_vbuf_direct(llama_model * model) {
+    std::shared_ptr<llama_model_source> source;
+    {
+        std::lock_guard lock(g_vbuf_models_mutex);
+        auto it = g_direct_models.find(model);
+        if (it != g_direct_models.end()) { source = std::move(it->second); g_direct_models.erase(it); }
+    }
+    llama_model_free(model);
 }
 
 extern "C" void llama_model_free_vbuf(llama_model * model) {

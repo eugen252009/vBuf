@@ -1,0 +1,533 @@
+--- a/src/llama-model-loader.cpp
++++ b/src/llama-model-loader.cpp
+@@ -303,6 +303,11 @@
+
+     template<typename T>
+     bool llama_model_loader::get_arr(const std::string & key, std::vector<T> & result, bool required) {
++        if (source) {
++            if constexpr (std::is_same<T, int32_t>::value) return source_get_i32_array(key, result, required);
++            if (required) throw std::runtime_error(format("unsupported semantic source array: %s", key.c_str()));
++            return false;
++        }
+         const gguf_context * ctx = metadata;
+         const int kid = gguf_find_key(ctx, key.c_str());
+
+@@ -344,6 +349,10 @@
+
+     template<typename T, size_t N_MAX>
+     bool llama_model_loader::get_arr(const std::string & key, std::array<T, N_MAX> & result, bool required) {
++        if (source) {
++            if (required) throw std::runtime_error(format("unsupported semantic source array: %s", key.c_str()));
++            return false;
++        }
+         const gguf_context * ctx = metadata;
+         const int kid = gguf_find_key(ctx, key.c_str());
+
+@@ -403,8 +412,62 @@
+     template bool llama_model_loader::get_arr<std::vector<int32_t>>(enum llm_kv kid, std::vector<int32_t> & result, bool required);
+     template bool llama_model_loader::get_arr<std::array<uint32_t, LLAMA_MAX_LAYERS>>(enum llm_kv kid, std::array<uint32_t, LLAMA_MAX_LAYERS> & result, bool required);
+
++    bool llama_model_loader::source_get_string(const std::string & key, std::string & value, bool required) const {
++        const bool found = source && source->get_string(key, value);
++        if (required && !found) throw std::runtime_error(format("key not found in model: %s", key.c_str()));
++        return found;
++    }
++    bool llama_model_loader::source_get_u32(const std::string & key, uint32_t & value, bool required) const {
++        const bool found = source && source->get_u32(key, value);
++        if (required && !found) throw std::runtime_error(format("key not found in model: %s", key.c_str()));
++        return found;
++    }
++    bool llama_model_loader::source_get_i32(const std::string & key, int32_t & value, bool required) const {
++        const bool found = source && source->get_i32(key, value);
++        if (required && !found) throw std::runtime_error(format("key not found in model: %s", key.c_str()));
++        return found;
++    }
++    bool llama_model_loader::source_get_u64(const std::string & key, uint64_t & value, bool required) const {
++        const bool found = source && source->get_u64(key, value);
++        if (required && !found) throw std::runtime_error(format("key not found in model: %s", key.c_str()));
++        return found;
++    }
++    bool llama_model_loader::source_get_f32(const std::string & key, float & value, bool required) const {
++        const bool found = source && source->get_f32(key, value);
++        if (required && !found) throw std::runtime_error(format("key not found in model: %s", key.c_str()));
++        return found;
++    }
++    bool llama_model_loader::source_get_bool(const std::string & key, bool & value, bool required) const {
++        const bool found = source && source->get_bool(key, value);
++        if (required && !found) throw std::runtime_error(format("key not found in model: %s", key.c_str()));
++        return found;
++    }
++    bool llama_model_loader::source_get_i32_array(const std::string & key, std::vector<int32_t> & value, bool required) const {
++        const bool found = source && source->get_i32_array(key, value);
++        if (required && !found) throw std::runtime_error(format("array key not found in model: %s", key.c_str()));
++        return found;
++    }
++    uint64_t llama_model_loader::source_token_count() const { return source ? source->token_count() : 0; }
++    bool llama_model_loader::source_token(uint64_t i, std::string & text, float & score, int32_t & type) const { return source && source->token(i, text, score, type); }
++    uint64_t llama_model_loader::source_merge_count() const { return source ? source->merge_count() : 0; }
++    bool llama_model_loader::source_merge(uint64_t i, uint64_t & left, uint64_t & right) const { return source && source->merge(i, left, right); }
++
+     template<typename T>
+     bool llama_model_loader::get_key(const std::string & key, T & result, bool required) {
++        if (source) {
++            bool found = false;
++            if constexpr (std::is_same<T, std::string>::value) found = source_get_string(key, result, false);
++            else if constexpr (std::is_same<T, bool>::value) found = source_get_bool(key, result, false);
++            else if constexpr (std::is_same<T, float>::value) found = source_get_f32(key, result, false);
++            else if constexpr (std::is_same<T, uint32_t>::value) found = source_get_u32(key, result, false);
++            else if constexpr (std::is_same<T, int32_t>::value) found = source_get_i32(key, result, false);
++            else if constexpr (std::is_same<T, int>::value) { int32_t v = 0; found = source_get_i32(key, v, false); result = static_cast<int>(v); }
++            else if constexpr (std::is_same<T, uint64_t>::value) found = source_get_u64(key, result, false);
++            else if constexpr (std::is_same<T, uint16_t>::value) { uint32_t v = 0; found = source_get_u32(key, v, false); result = static_cast<uint16_t>(v); }
++            else { static_assert(!sizeof(T), "unsupported semantic source scalar"); }
++            if (required && !found) throw std::runtime_error(format("key not found in model: %s", key.c_str()));
++            return found;
++        }
+         auto it = kv_overrides.find(key);
+
+         const struct llama_model_kv_override * override =
+@@ -444,6 +507,15 @@
+     // get array of n <= N_MAX elements, or a single element repeated n times
+     template<typename T, size_t N_MAX>
+     bool llama_model_loader::get_key_or_arr(const std::string & key, std::array<T, N_MAX> & result, uint32_t n, bool required) {
++        if (source) {
++            if (n > N_MAX) throw std::runtime_error(format("n > N_MAX: %u > %u for key %s", n, (uint32_t) N_MAX, key.c_str()));
++            T value{};
++            if (get_key(key, value, false)) { for (uint32_t i = 0; i < n; ++i) result[i] = value; return true; }
++            std::vector<T> values;
++            if (get_arr(key, values, false) && values.size() == n) { std::copy(values.begin(), values.end(), result.begin()); return true; }
++            if (required) throw std::runtime_error(format("key not found in model: %s", key.c_str()));
++            return false;
++        }
+         const int kid = gguf_find_key(metadata, key.c_str());
+
+         if (kid < 0) {
+@@ -489,6 +561,7 @@
+
+     bool llama_model_loader::get_key_or_arr(enum llm_kv kid, uint32_t & result, bool required) {
+         const std::string key = llm_kv(kid);
++        if (source) return get_key(key, result, required);
+
+         const int id = gguf_find_key(metadata, key.c_str());
+
+@@ -695,8 +768,8 @@
+         llm_kv = LLM_KV(llm_arch_from_string(arch_name));
+     }
+
+-    n_kv      = gguf_get_n_kv(metadata);
+-    n_tensors = files.empty() ? gguf_get_n_tensors(metadata) : weights_map.size();
++    n_kv      = source ? source->metadata_count() : gguf_get_n_kv(metadata);
++    n_tensors = source ? weights_map.size() : (files.empty() ? gguf_get_n_tensors(metadata) : weights_map.size());
+     if (files.empty()) {
+         for (int64_t i = 0; i < n_tensors; ++i) {
+             n_bytes += gguf_get_tensor_size(metadata, i);
+@@ -707,7 +780,7 @@
+         }
+     }
+
+-    fver = (enum llama_fver) gguf_get_version(metadata);
++    fver = source ? GGUF_FILE_VERSION_V3 : (enum llama_fver) gguf_get_version(metadata);
+
+     LLAMA_LOG_INFO("%s: loaded meta data with %d key-value pairs and %d tensors from %s (version %s)\n",
+             __func__, n_kv, n_tensors, fname.empty() ? "(file*)" : fname.c_str(), llama_file_version_name(fver));
+@@ -788,7 +861,7 @@
+
+         LLAMA_LOG_INFO("%s: Dumping metadata keys/values. Note: KV overrides do not apply in this output.\n", __func__);
+
+-        for (int i = 0; i < n_kv; i++) {
++        if (!source) for (int i = 0; i < n_kv; i++) {
+             const char * name           = gguf_get_key(metadata, i);
+             const enum gguf_type type   = gguf_get_kv_type(metadata, i);
+             const std::string type_name =
+@@ -826,6 +899,71 @@
+     this->load_mtp = load_mtp;
+ }
+
++llama_model_loader::llama_model_loader(
++        std::shared_ptr<llama_model_source> source,
++        llama_model_set_tensor_data_t set_tensor_data,
++        void * set_tensor_data_ud,
++        llama_model_params params)
++        : metadata(nullptr), source(std::move(source)), set_tensor_data(set_tensor_data), set_tensor_data_ud(set_tensor_data_ud) {
++    if (!this->source) throw std::runtime_error("semantic model source is null");
++    if (params.kv_overrides != nullptr) {
++        for (const struct llama_model_kv_override * p = params.kv_overrides; p->key[0] != 0; ++p) {
++            kv_overrides.insert({std::string(p->key), *p});
++        }
++    }
++    tensor_buft_overrides = params.tensor_buft_overrides;
++    use_mmap = false;
++    use_direct_io = false;
++    get_key(llm_kv(LLM_KV_GENERAL_ARCHITECTURE), arch_name, true);
++    llm_kv = LLM_KV(llm_arch_from_string(arch_name));
++
++    const uint64_t count = this->source->tensor_count();
++    ggml_init_params init_params = {
++        /*.mem_size   =*/ ggml_tensor_overhead() * (count + 1),
++        /*.mem_buffer =*/ nullptr,
++        /*.no_alloc   =*/ true,
++    };
++    ggml_context * ctx = ggml_init(init_params);
++    if (!ctx) throw std::runtime_error("failed to create semantic source tensor context");
++    contexts.emplace_back(ctx);
++    for (uint64_t i = 0; i < count; ++i) {
++        std::string name;
++        ggml_type type;
++        std::vector<int64_t> dimensions;
++        const uint8_t * payload = nullptr;
++        uint64_t payload_bytes = 0;
++        if (!this->source->tensor(i, name, type, dimensions, payload, payload_bytes) || name.empty() || dimensions.empty() || dimensions.size() > GGML_MAX_DIMS || payload == nullptr) {
++            throw std::runtime_error("invalid semantic source tensor descriptor");
++        }
++        ggml_tensor * tensor = ggml_new_tensor(ctx, type, dimensions.size(), dimensions.data());
++        if (!tensor) throw std::runtime_error("failed to create semantic source tensor metadata");
++        ggml_set_name(tensor, name.c_str());
++        if (!weights_map.emplace(name, llama_tensor_weight(0, tensor)).second) {
++            throw std::runtime_error(format("invalid model: tensor '%s' is duplicated", name.c_str()));
++        }
++        n_elements += ggml_nelements(tensor);
++        n_bytes += payload_bytes;
++    }
++    n_tensors = weights_map.size();
++    n_kv = this->source->metadata_count();
++    fver = GGUF_FILE_VERSION_V3;
++    check_tensors = params.check_tensors;
++    no_alloc = params.no_alloc;
++    load_mtp = params.load_mtp;
++
++    std::map<ggml_type, uint32_t> types;
++    for (const auto & item : weights_map) ++types[item.second.tensor->type];
++    ggml_type dominant = GGML_TYPE_F32;
++    uint32_t dominant_count = 0;
++    for (const auto & item : types) if (item.second > dominant_count) { dominant = item.first; dominant_count = item.second; }
++    switch (dominant) {
++        case GGML_TYPE_BF16: ftype = LLAMA_FTYPE_MOSTLY_BF16; break;
++        case GGML_TYPE_Q8_0: ftype = LLAMA_FTYPE_MOSTLY_Q8_0; break;
++        default: ftype = LLAMA_FTYPE_ALL_F32; break;
++    }
++    ftype = (llama_ftype) (ftype | LLAMA_FTYPE_GUESSED);
++}
++
+ std::string llama_model_loader::get_arch_name() const {
+     return arch_name;
+ }
+@@ -1234,7 +1372,7 @@
+         return buft;
+     };
+
+-    if (files.empty()) {
++    if (files.empty() && !source) {
+         if (flags & TENSOR_SKIP_IF_VIRTUAL) {
+             return nullptr;
+         }
+@@ -1287,7 +1425,14 @@
+     }
+
+     LLAMA_LOG_DEBUG("%s: loading tensor %s\n", __func__, tn.str().c_str());
+-    const struct ggml_tensor * cur = check_tensor_dims(tn.str(), ne, !(flags & TENSOR_NOT_REQUIRED), flags & TENSOR_ALLOW_RESHAPE);
++    const struct ggml_tensor * cur = nullptr;
++    if (source && (flags & TENSOR_DUPLICATED) && tn.tensor == LLM_TENSOR_TOKEN_EMBD) {
++        // Q8_0 Qwen3 omits output.weight; preserve the qualified tied-output
++        // reference without materializing a second source tensor.
++        cur = check_tensor_dims("token_embd.weight", ne, true, flags & TENSOR_ALLOW_RESHAPE);
++    } else {
++        cur = check_tensor_dims(tn.str(), ne, !(flags & TENSOR_NOT_REQUIRED), flags & TENSOR_ALLOW_RESHAPE);
++    }
+     if (cur == NULL) {
+         return NULL;
+     }
+--- a/src/llama-model-loader.h
++++ b/src/llama-model-loader.h
+@@ -6,6 +6,7 @@
+ #include "llama-arch.h"
+ #include "llama-hparams.h"
+ #include "llama-mmap.h"
++#include "llama-model-source.h"
+
+ #include "ggml-cpp.h"
+
+@@ -95,7 +96,8 @@
+     const llama_model_tensor_buft_override * tensor_buft_overrides;
+
+     gguf_context_ptr metadata_ptr;
+-    struct gguf_context * metadata; // either metadata_ptr.get() or externally set
++    struct gguf_context * metadata; // native GGUF metadata; null for semantic sources
++    std::shared_ptr<llama_model_source> source;
+     llama_model_set_tensor_data_t set_tensor_data;
+     void * set_tensor_data_ud;
+     std::vector<ggml_context_ptr> contexts;
+@@ -137,6 +139,25 @@
+         const llama_model_kv_override * param_overrides_p,
+         const llama_model_tensor_buft_override * param_tensor_buft_overrides_p);
+
++    llama_model_loader(
++        std::shared_ptr<llama_model_source> source,
++        llama_model_set_tensor_data_t set_tensor_data,
++        void * set_tensor_data_ud,
++        llama_model_params params);
++
++    bool has_source() const { return source != nullptr; }
++    bool source_get_string(const std::string & key, std::string & value, bool required) const;
++    bool source_get_u32(const std::string & key, uint32_t & value, bool required) const;
++    bool source_get_i32(const std::string & key, int32_t & value, bool required) const;
++    bool source_get_u64(const std::string & key, uint64_t & value, bool required) const;
++    bool source_get_f32(const std::string & key, float & value, bool required) const;
++    bool source_get_bool(const std::string & key, bool & value, bool required) const;
++    bool source_get_i32_array(const std::string & key, std::vector<int32_t> & value, bool required) const;
++    uint64_t source_token_count() const;
++    bool source_token(uint64_t index, std::string & text, float & score, int32_t & type) const;
++    uint64_t source_merge_count() const;
++    bool source_merge(uint64_t index, uint64_t & left, uint64_t & right) const;
++
+     template<typename T>
+     typename std::enable_if<std::is_integral<T>::value, bool>::type
+     get_arr_n(const std::string & key, T & result, bool required = true);
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -1074,8 +1074,8 @@
+ void llama_model_base::load_hparams(llama_model_loader & ml) {
+     const gguf_context * ctx = ml.metadata;
+
+-    // get metadata as string
+-    for (int i = 0; i < gguf_get_n_kv(ctx); i++) {
++    // get metadata as string; semantic sources expose typed lookup directly.
++    if (!ml.has_source()) for (int i = 0; i < gguf_get_n_kv(ctx); i++) {
+         gguf_type type = gguf_get_kv_type(ctx, i);
+         if (type == GGUF_TYPE_ARRAY) {
+             continue;
+@@ -1087,6 +1087,24 @@
+
+     // get general kv
+     ml.get_key(LLM_KV_GENERAL_NAME, name, false);
++    if (ml.has_source()) {
++        std::string chat_template;
++        if (ml.get_key(LLM_KV_TOKENIZER_CHAT_TEMPLATE, chat_template, false)) {
++            gguf_kv[LLM_KV(arch)(LLM_KV_TOKENIZER_CHAT_TEMPLATE)] = std::move(chat_template);
++        }
++        gguf_kv[LLM_KV(arch)(LLM_KV_GENERAL_ARCHITECTURE)] = ml.get_arch_name();
++        const char * scalar_keys[] = {
++            "qwen3.context_length", "qwen3.embedding_length", "qwen3.block_count",
++            "qwen3.feed_forward_length", "qwen3.attention.head_count",
++            "qwen3.attention.head_count_kv", "qwen3.attention.key_length",
++            "qwen3.attention.value_length"};
++        for (const char * key : scalar_keys) { uint32_t value = 0; if (ml.get_key(key, value, false)) gguf_kv[key] = std::to_string(value); }
++        const char * float_keys[] = {"qwen3.attention.layer_norm_rms_epsilon", "qwen3.rope.freq_base"};
++        for (const char * key : float_keys) { float value = 0.0f; if (ml.get_key(key, value, false)) gguf_kv[key] = std::to_string(value); }
++        std::string tokenizer_model, tokenizer_pre;
++        if (ml.get_key(LLM_KV_TOKENIZER_MODEL, tokenizer_model, false)) gguf_kv[LLM_KV(arch)(LLM_KV_TOKENIZER_MODEL)] = tokenizer_model;
++        if (ml.get_key(LLM_KV_TOKENIZER_PRE, tokenizer_pre, false)) gguf_kv[LLM_KV(arch)(LLM_KV_TOKENIZER_PRE)] = tokenizer_pre;
++    }
+
+     // everything past this point is not vocab-related
+     // for CLIP models, we only need to load tensors, no hparams
+--- a/src/llama-vocab.cpp
++++ b/src/llama-vocab.cpp
+@@ -1977,6 +1977,18 @@
+         } else if (tokenizer_model == "gpt2" || tokenizer_model == "hybriddna" || tokenizer_model == "whitespace") {
+             type = LLAMA_VOCAB_TYPE_BPE;
+
++            // Semantic sources provide numeric merge IDs directly; GGUF keeps its existing string path.
++            if (ml.has_source()) {
++                const uint64_t n_merges = ml.source_merge_count();
++                for (uint64_t i = 0; i < n_merges; ++i) {
++                    uint64_t left = 0, right = 0;
++                    std::string first, second; float score = 0.0f; int32_t type = 0;
++                    if (!ml.source_merge(i, left, right) || !ml.source_token(left, first, score, type) || !ml.source_token(right, second, score, type)) {
++                        throw std::runtime_error("invalid semantic source BPE merge");
++                    }
++                    bpe_ranks.emplace(std::make_pair(std::move(first), std::move(second)), i);
++                }
++            } else {
+             // read bpe merges and populate bpe ranks
+             const int merges_keyidx = gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_MERGES).c_str());
+             // Kimi-K2 uses custom tokenization without traditional BPE merges
+@@ -2007,6 +2019,7 @@
+                     bpe_ranks.emplace(std::make_pair(first, second), i);
+                 }
+             }
++            }
+
+             // default special tokens
+             special_bos_id  = 11;
+@@ -2402,15 +2415,15 @@
+         ml.get_key(LLM_KV_TOKENIZER_REMOVE_EXTRA_WS, remove_extra_whitespaces, false);
+     }
+
+-    const int token_idx = gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_LIST).c_str());
+-    if (token_idx == -1) {
+-        throw std::runtime_error("cannot find tokenizer vocab in model file\n");
+-    }
+-
+-    const uint32_t n_tokens = gguf_get_arr_n(ctx, token_idx);
++    int token_idx = -1;
++    const uint32_t n_tokens = ml.has_source() ? ml.source_token_count() : [&]() {
++        token_idx = gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_LIST).c_str());
++        if (token_idx == -1) throw std::runtime_error("cannot find tokenizer vocab in model file\n");
++        return static_cast<uint32_t>(gguf_get_arr_n(ctx, token_idx));
++    }();
+
+     const float * scores = nullptr;
+-    const int score_idx = gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_SCORES).c_str());
++    const int score_idx = ml.has_source() ? -1 : gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_SCORES).c_str());
+     if (score_idx != -1) {
+         const uint32_t n_scores = gguf_get_arr_n(ctx, score_idx);
+         if (n_scores < n_tokens) {
+@@ -2420,7 +2433,7 @@
+     }
+
+     const int * toktypes = nullptr;
+-    const int toktype_idx = gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_TOKEN_TYPE).c_str());
++    const int toktype_idx = ml.has_source() ? -1 : gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_TOKEN_TYPE).c_str());
+     if (toktype_idx != -1) {
+         const uint32_t n_toktypes = gguf_get_arr_n(ctx, toktype_idx);
+         if (n_toktypes < n_tokens) {
+@@ -2432,7 +2445,13 @@
+     id_to_token.resize(n_tokens);
+
+     for (uint32_t i = 0; i < n_tokens; i++) {
+-        std::string word = gguf_get_arr_str(ctx, token_idx, i);
++        std::string word;
++        float source_score = 0.0f; int32_t source_type = 0;
++        if (ml.has_source()) {
++            if (!ml.source_token(i, word, source_score, source_type)) throw std::runtime_error("invalid semantic source token");
++        } else {
++            word = gguf_get_arr_str(ctx, token_idx, i);
++        }
+         if (word.empty()) {
+             LLAMA_LOG_WARN("%s: empty token at index %u\n", __func__, i);
+             word = "[EMPTY_" + std::to_string(i) + "]";
+@@ -2443,11 +2462,11 @@
+
+         auto & token_data = id_to_token[i];
+         token_data.text  = std::move(word);
+-        token_data.score = scores ? scores[i] : 0.0f;
++        token_data.score = ml.has_source() ? source_score : (scores ? scores[i] : 0.0f);
+         token_data.attr  = LLAMA_TOKEN_ATTR_NORMAL;
+
+-        if (toktypes) {  //TODO: remove, required until per token attributes are available from GGUF file
+-            switch(toktypes[i]) {
++        if (ml.has_source() || toktypes) {  // source supplies token attributes directly
++            switch(ml.has_source() ? source_type : toktypes[i]) {
+                 case LLAMA_TOKEN_TYPE_UNKNOWN:      token_data.attr = LLAMA_TOKEN_ATTR_UNKNOWN;      break;
+                 case LLAMA_TOKEN_TYPE_UNUSED:       token_data.attr = LLAMA_TOKEN_ATTR_UNUSED;       break;
+                 case LLAMA_TOKEN_TYPE_NORMAL:       token_data.attr = LLAMA_TOKEN_ATTR_NORMAL;       break;
+@@ -2580,7 +2599,8 @@
+         normalizer_opts.strip_accents = normalizer_opts.lowercase;
+         ml.get_key(LLM_KV_TOKENIZER_NORMALIZER_STRIP_ACCENTS, normalizer_opts.strip_accents, false);
+
+-        // suppress tokens
++        // suppress tokens (optional for semantic sources; GGUF keeps its array path)
++        if (!ml.has_source()) {
+         {
+             const int suppress_idx = gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_SUPPRESS_TOKENS).c_str());
+             if (suppress_idx != -1) {
+@@ -2596,6 +2616,7 @@
+                 }
+             }
+         }
++        }
+
+         // auto-detect special tokens by text
+         // TODO: convert scripts should provide these tokens through the KV metadata LLM_KV_TOKENIZER_...
+--- a/src/llama.cpp
++++ b/src/llama.cpp
+@@ -312,10 +312,12 @@
+ }
+
+ // Returns 0 on success, -1 on error, and -2 on cancellation via llama_progress_callback
+-static std::pair<int, llama_model *> llama_model_load(struct gguf_context * metadata, llama_model_set_tensor_data_t set_tensor_data, void * set_tensor_data_ud,
++static std::pair<int, llama_model *> llama_model_load(std::shared_ptr<llama_model_source> source, struct gguf_context * metadata, llama_model_set_tensor_data_t set_tensor_data, void * set_tensor_data_ud,
+         const std::string & fname, std::vector<std::string> & splits, FILE * file, llama_model_params & params) {
+     try {
+-        llama_model_loader ml(metadata, set_tensor_data, set_tensor_data_ud, fname, splits, file, params.load_mode,
++        llama_model_loader ml = source
++            ? llama_model_loader(std::move(source), set_tensor_data, set_tensor_data_ud, params)
++            : llama_model_loader(metadata, set_tensor_data, set_tensor_data_ud, fname, splits, file, params.load_mode,
+             params.check_tensors, params.no_alloc, params.load_mtp, params.kv_overrides, params.tensor_buft_overrides);
+
+         ml.print_info();
+@@ -422,7 +424,7 @@
+         };
+     }
+
+-    const auto [status, model] = llama_model_load(metadata, set_tensor_data, set_tensor_data_ud, path_model, splits, file, params);
++    const auto [status, model] = llama_model_load(nullptr, metadata, set_tensor_data, set_tensor_data_ud, path_model, splits, file, params);
+     GGML_ASSERT(status <= 0);
+     if (status < 0) {
+         if (status == -1) {
+@@ -452,6 +454,29 @@
+     params.use_extra_bufts = false;
+     return llama_model_load_from_file_impl(metadata, set_tensor_data, set_tensor_data_ud, path_model, splits, /*file*/ nullptr, params);
+ }
++
++struct llama_model * llama_model_init_from_source(
++        std::shared_ptr<llama_model_source> source,
++        llama_model_set_tensor_data_t set_tensor_data,
++        void * set_tensor_data_ud,
++        struct llama_model_params params) {
++    if (!source) return nullptr;
++    ggml_time_init();
++    if (!params.vocab_only && ggml_backend_reg_count() == 0) return nullptr;
++    unsigned cur_percentage = 0;
++    if (params.progress_callback == nullptr) {
++        params.progress_callback_user_data = &cur_percentage;
++        params.progress_callback = [](float progress, void * ctx) {
++            unsigned * current = static_cast<unsigned *>(ctx);
++            *current = std::max(*current, static_cast<unsigned>(100 * progress));
++            return true;
++        };
++    }
++    std::vector<std::string> splits;
++    const auto [status, model] = llama_model_load(std::move(source), nullptr, set_tensor_data, set_tensor_data_ud, "", splits, nullptr, params);
++    if (status < 0) { if (model) llama_model_free(model); return nullptr; }
++    return model;
++}
+ // deprecated
+ struct llama_model * llama_load_model_from_file(
+         const char * path_model,
+--- /dev/null
++++ b/src/llama-model-source.h
+@@ -0,0 +1,43 @@
++#pragma once
++
++#include "llama.h"
++#include "ggml.h"
++
++#include <cstdint>
++#include <memory>
++#include <string>
++#include <vector>
++
++// Source-neutral semantic input to llama model construction.  A source owns
++// the backing storage for the lifetime of the model; the loader retains the
++// shared ownership handle.
++struct llama_model_source {
++    virtual ~llama_model_source() = default;
++
++    virtual int metadata_count() const = 0;
++    virtual bool get_string(const std::string & key, std::string & value) const = 0;
++    virtual bool get_u32(const std::string & key, uint32_t & value) const = 0;
++    virtual bool get_i32(const std::string & key, int32_t & value) const = 0;
++    virtual bool get_u64(const std::string & key, uint64_t & value) const = 0;
++    virtual bool get_f32(const std::string & key, float & value) const = 0;
++    virtual bool get_bool(const std::string & key, bool & value) const = 0;
++    virtual bool get_i32_array(const std::string & key, std::vector<int32_t> & value) const = 0;
++
++    virtual uint64_t tensor_count() const = 0;
++    virtual bool tensor(uint64_t index, std::string & name, ggml_type & type,
++                       std::vector<int64_t> & dimensions, const uint8_t * & payload,
++                       uint64_t & payload_bytes) const = 0;
++
++    virtual uint64_t token_count() const = 0;
++    virtual bool token(uint64_t index, std::string & text, float & score, int32_t & type) const = 0;
++    virtual uint64_t merge_count() const = 0;
++    virtual bool merge(uint64_t index, uint64_t & left, uint64_t & right) const = 0;
++};
++
++// C++ source seam used by integrations.  GGUF continues through the native
++// file loader; non-GGUF sources enter the same llama_model_base builder here.
++LLAMA_API struct llama_model * llama_model_init_from_source(
++        std::shared_ptr<llama_model_source> source,
++        llama_model_set_tensor_data_t set_tensor_data,
++        void * set_tensor_data_ud,
++        struct llama_model_params params);

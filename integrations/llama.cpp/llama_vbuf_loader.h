@@ -12,6 +12,11 @@ extern "C" {
 struct llama_model * llama_model_load_vbuf(const char * path, struct llama_model_params params);
 void llama_model_free_vbuf(struct llama_model * model);
 
+// Direct source-neutral path. The compatibility entry point above remains the
+// Step-21 oracle and is intentionally unchanged.
+struct llama_model * llama_model_load_vbuf_direct(const char * path, struct llama_model_params params);
+void llama_model_free_vbuf_direct(struct llama_model * model);
+
 #ifdef __cplusplus
 }
 #endif

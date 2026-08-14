@@ -41,7 +41,15 @@ def main() -> None:
             if "vbuf_ml" in text or "vbuf-ml" in text:
                 raise SystemExit(f"reverse ML reference in generic source: {path}")
 
-    print("verified vbuf-ml -> vbuf-core/vbuf-layout dependency direction")
+    direct_source = ROOT / "integrations" / "llama.cpp" / "vbuf_direct_source.cpp"
+    if direct_source.exists():
+        text = direct_source.read_text()
+        if "gguf_context" in text or "gguf_set_" in text or "gguf_init" in text:
+            raise SystemExit("direct vBuf source contains GGUF intermediate construction")
+    if not (ROOT / "patches/llama.cpp/0002-source-neutral-model-source.patch").exists():
+        raise SystemExit("missing Step-23 source-neutral llama patch")
+
+    print("verified vbuf-ml -> vbuf-core/vbuf-layout dependency direction and direct-source GGUF guard")
 
 
 if __name__ == "__main__":

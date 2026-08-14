@@ -19,22 +19,22 @@ struct Views<'a> {
 }
 
 #[derive(Clone, Debug)]
-struct TensorSnapshot {
-    name: String,
-    dimensions: Vec<u64>,
-    kind: ConsumerTensorType,
-    offset: u64,
-    length: u64,
+pub(crate) struct TensorSnapshot {
+    pub(crate) name: String,
+    pub(crate) dimensions: Vec<u64>,
+    pub(crate) kind: ConsumerTensorType,
+    pub(crate) offset: u64,
+    pub(crate) length: u64,
 }
 
 #[derive(Clone, Debug)]
-struct Snapshot {
-    tensors: Vec<TensorSnapshot>,
-    metadata: ConsumerModelMetadata,
-    token_text: Vec<String>,
-    token_types: Vec<Option<u64>>,
-    token_scores: Vec<Option<f64>>,
-    merges: Vec<(u64, u64)>,
+pub(crate) struct Snapshot {
+    pub(crate) tensors: Vec<TensorSnapshot>,
+    pub(crate) metadata: ConsumerModelMetadata,
+    pub(crate) token_text: Vec<String>,
+    pub(crate) token_types: Vec<Option<u64>>,
+    pub(crate) token_scores: Vec<Option<f64>>,
+    pub(crate) merges: Vec<(u64, u64)>,
     special_tokens: [Option<u64>; 4],
     add_bos: Option<bool>,
     chat_template: Option<String>,
@@ -42,7 +42,7 @@ struct Snapshot {
 
 #[derive(Debug)]
 pub struct ConsumerModel {
-    mapping: Mmap,
+    pub(crate) mapping: Mmap,
     snapshot: OnceLock<Snapshot>,
 }
 
@@ -106,7 +106,7 @@ impl ConsumerModel {
         Ok(Snapshot { tensors, metadata, token_text, token_types, token_scores, merges, special_tokens, add_bos: views.tokenizer.add_bos(), chat_template: views.tokenizer.chat_template().map(ToOwned::to_owned) })
     }
 
-    fn snapshot(&self) -> Result<&Snapshot, MlError> {
+    pub(crate) fn snapshot(&self) -> Result<&Snapshot, MlError> {
         if self.snapshot.get().is_none() { let _ = self.snapshot.set(self.build_snapshot()?); }
         self.snapshot.get().ok_or_else(|| MlError::new(MlErrorCode::MalformedTensorDirectory, "consumer snapshot is unavailable"))
     }
