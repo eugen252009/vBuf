@@ -1,0 +1,4 @@
+format,operation,count,status
+GGUF,gguf_find_key,NOT_INSTRUMENTED,diagnostic seam not added
+GGUF,gguf_find_tensor,NOT_INSTRUMENTED,diagnostic seam not added
+vBuf,consumer tensor/token calls,see ffi-summary,measured

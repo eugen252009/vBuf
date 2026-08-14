@@ -1,0 +1,3 @@
+artifact,runs,ffi_calls,ffi_string_bytes,tensor_callbacks,payload_attachment_us_median
+BF16,10,910601,3056087,311,56.865
+Q8_0,10,910599,3056006,310,55.68

@@ -1,0 +1,13 @@
+{
+  "purpose": "Step-22A attribution only",
+  "baseline_immutable": "benchmark-results/vbuf-ml-step22",
+  "hypotheses": [
+    "canonical parse",
+    "descriptor/FFI projection",
+    "GGUF-compatible metadata synthesis",
+    "merge reconstruction",
+    "user-source llama path",
+    "tensor bookkeeping"
+  ],
+  "optimization": false
+}

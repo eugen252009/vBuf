@@ -1,0 +1,41 @@
+artifact,format,run,phase,duration_us,note
+BF16,gguf,0,format_control_parse,22130.59,native GGUF metadata/tensor parse; no llama
+BF16,gguf,1,format_control_parse,20732.348,native GGUF metadata/tensor parse; no llama
+BF16,gguf,2,format_control_parse,21333.989,native GGUF metadata/tensor parse; no llama
+BF16,gguf,3,format_control_parse,21509.618,native GGUF metadata/tensor parse; no llama
+BF16,gguf,4,format_control_parse,23538.552,native GGUF metadata/tensor parse; no llama
+BF16,gguf,5,format_control_parse,21233.238,native GGUF metadata/tensor parse; no llama
+BF16,gguf,6,format_control_parse,21387.439,native GGUF metadata/tensor parse; no llama
+BF16,gguf,7,format_control_parse,20675.297,native GGUF metadata/tensor parse; no llama
+BF16,gguf,8,format_control_parse,20492.657,native GGUF metadata/tensor parse; no llama
+BF16,gguf,9,format_control_parse,20545.347,native GGUF metadata/tensor parse; no llama
+BF16,vbuf,0,format_control_parse,38256.729999999996,canonical v0.6 + vBuf-ML parse; no llama
+BF16,vbuf,1,format_control_parse,38193.098999999995,canonical v0.6 + vBuf-ML parse; no llama
+BF16,vbuf,2,format_control_parse,37928.769,canonical v0.6 + vBuf-ML parse; no llama
+BF16,vbuf,3,format_control_parse,37981.699,canonical v0.6 + vBuf-ML parse; no llama
+BF16,vbuf,4,format_control_parse,37945.738,canonical v0.6 + vBuf-ML parse; no llama
+BF16,vbuf,5,format_control_parse,38079.869,canonical v0.6 + vBuf-ML parse; no llama
+BF16,vbuf,6,format_control_parse,38194.93,canonical v0.6 + vBuf-ML parse; no llama
+BF16,vbuf,7,format_control_parse,38163.549000000006,canonical v0.6 + vBuf-ML parse; no llama
+BF16,vbuf,8,format_control_parse,38070.29,canonical v0.6 + vBuf-ML parse; no llama
+BF16,vbuf,9,format_control_parse,38923.601,canonical v0.6 + vBuf-ML parse; no llama
+Q8_0,gguf,0,format_control_parse,20707.848,native GGUF metadata/tensor parse; no llama
+Q8_0,gguf,1,format_control_parse,22067.78,native GGUF metadata/tensor parse; no llama
+Q8_0,gguf,2,format_control_parse,20510.048,native GGUF metadata/tensor parse; no llama
+Q8_0,gguf,3,format_control_parse,20593.568,native GGUF metadata/tensor parse; no llama
+Q8_0,gguf,4,format_control_parse,21279.619,native GGUF metadata/tensor parse; no llama
+Q8_0,gguf,5,format_control_parse,21527.999,native GGUF metadata/tensor parse; no llama
+Q8_0,gguf,6,format_control_parse,21644.829,native GGUF metadata/tensor parse; no llama
+Q8_0,gguf,7,format_control_parse,20582.447,native GGUF metadata/tensor parse; no llama
+Q8_0,gguf,8,format_control_parse,21046.258,native GGUF metadata/tensor parse; no llama
+Q8_0,gguf,9,format_control_parse,20759.288,native GGUF metadata/tensor parse; no llama
+Q8_0,vbuf,0,format_control_parse,38129.57,canonical v0.6 + vBuf-ML parse; no llama
+Q8_0,vbuf,1,format_control_parse,38981.811,canonical v0.6 + vBuf-ML parse; no llama
+Q8_0,vbuf,2,format_control_parse,38214.36,canonical v0.6 + vBuf-ML parse; no llama
+Q8_0,vbuf,3,format_control_parse,38343.34,canonical v0.6 + vBuf-ML parse; no llama
+Q8_0,vbuf,4,format_control_parse,39082.651999999995,canonical v0.6 + vBuf-ML parse; no llama
+Q8_0,vbuf,5,format_control_parse,38259.18,canonical v0.6 + vBuf-ML parse; no llama
+Q8_0,vbuf,6,format_control_parse,37947.739,canonical v0.6 + vBuf-ML parse; no llama
+Q8_0,vbuf,7,format_control_parse,38589.901,canonical v0.6 + vBuf-ML parse; no llama
+Q8_0,vbuf,8,format_control_parse,38563.711,canonical v0.6 + vBuf-ML parse; no llama
+Q8_0,vbuf,9,format_control_parse,39598.673,canonical v0.6 + vBuf-ML parse; no llama

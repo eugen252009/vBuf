@@ -1,0 +1,301 @@
+artifact,format,run,phase,duration_us,source
+BF16,vbuf,0,mmap/open,7.83,rust diagnostic
+BF16,vbuf,0,canonical_v06,846.182,rust diagnostic
+BF16,vbuf,0,bootstrap,19.36,rust diagnostic
+BF16,vbuf,0,ModelMetadata,14.14,rust diagnostic
+BF16,vbuf,0,TensorDirectory,1140.332,rust diagnostic
+BF16,vbuf,0,TokenizerMetadata,36228.886,rust diagnostic
+BF16,vbuf,0,rust_consumer_open_total,130919.846,rust diagnostic
+BF16,vbuf,0,cpp_tensor_inventory,176.73,vbuf adapter trace
+BF16,vbuf,0,gguf_compatible_metadata_synthesis,130567.936,vbuf adapter trace
+BF16,vbuf,0,llama_model_init_from_user,152250.245,vbuf adapter trace
+BF16,vbuf,0,merge_projection,73848.624,vbuf adapter trace
+BF16,vbuf,0,model_metadata_projection,26.72,vbuf adapter trace
+BF16,vbuf,0,rust_consumer_open,131718.748,vbuf adapter trace
+BF16,vbuf,0,tensor_metadata_projection,588.911,vbuf adapter trace
+BF16,vbuf,0,vocabulary_projection,55389.17,vbuf adapter trace
+BF16,vbuf,1,mmap/open,11.14,rust diagnostic
+BF16,vbuf,1,canonical_v06,781.252,rust diagnostic
+BF16,vbuf,1,bootstrap,20.25,rust diagnostic
+BF16,vbuf,1,ModelMetadata,13.46,rust diagnostic
+BF16,vbuf,1,TensorDirectory,1140.602,rust diagnostic
+BF16,vbuf,1,TokenizerMetadata,36226.395,rust diagnostic
+BF16,vbuf,1,rust_consumer_open_total,131672.248,rust diagnostic
+BF16,vbuf,1,cpp_tensor_inventory,174.751,vbuf adapter trace
+BF16,vbuf,1,gguf_compatible_metadata_synthesis,132046.639,vbuf adapter trace
+BF16,vbuf,1,llama_model_init_from_user,149758.951,vbuf adapter trace
+BF16,vbuf,1,merge_projection,75686.457,vbuf adapter trace
+BF16,vbuf,1,model_metadata_projection,25.5,vbuf adapter trace
+BF16,vbuf,1,rust_consumer_open,132148.599,vbuf adapter trace
+BF16,vbuf,1,tensor_metadata_projection,585.931,vbuf adapter trace
+BF16,vbuf,1,vocabulary_projection,55132.859,vbuf adapter trace
+BF16,vbuf,2,mmap/open,8.24,rust diagnostic
+BF16,vbuf,2,canonical_v06,787.572,rust diagnostic
+BF16,vbuf,2,bootstrap,19.52,rust diagnostic
+BF16,vbuf,2,ModelMetadata,14.09,rust diagnostic
+BF16,vbuf,2,TensorDirectory,1134.972,rust diagnostic
+BF16,vbuf,2,TokenizerMetadata,35964.375,rust diagnostic
+BF16,vbuf,2,rust_consumer_open_total,130749.987,rust diagnostic
+BF16,vbuf,2,cpp_tensor_inventory,180.54,vbuf adapter trace
+BF16,vbuf,2,gguf_compatible_metadata_synthesis,134468.254,vbuf adapter trace
+BF16,vbuf,2,llama_model_init_from_user,156945.994,vbuf adapter trace
+BF16,vbuf,2,merge_projection,78330.162,vbuf adapter trace
+BF16,vbuf,2,model_metadata_projection,26.98,vbuf adapter trace
+BF16,vbuf,2,rust_consumer_open,131283.178,vbuf adapter trace
+BF16,vbuf,2,tensor_metadata_projection,598.051,vbuf adapter trace
+BF16,vbuf,2,vocabulary_projection,54676.559,vbuf adapter trace
+BF16,vbuf,3,mmap/open,8.66,rust diagnostic
+BF16,vbuf,3,canonical_v06,766.852,rust diagnostic
+BF16,vbuf,3,bootstrap,17.22,rust diagnostic
+BF16,vbuf,3,ModelMetadata,14.21,rust diagnostic
+BF16,vbuf,3,TensorDirectory,1142.312,rust diagnostic
+BF16,vbuf,3,TokenizerMetadata,36032.445,rust diagnostic
+BF16,vbuf,3,rust_consumer_open_total,133333.771,rust diagnostic
+BF16,vbuf,3,cpp_tensor_inventory,180.11,vbuf adapter trace
+BF16,vbuf,3,gguf_compatible_metadata_synthesis,138413.782,vbuf adapter trace
+BF16,vbuf,3,llama_model_init_from_user,144487.741,vbuf adapter trace
+BF16,vbuf,3,merge_projection,79760.775,vbuf adapter trace
+BF16,vbuf,3,model_metadata_projection,27.21,vbuf adapter trace
+BF16,vbuf,3,rust_consumer_open,131078.738,vbuf adapter trace
+BF16,vbuf,3,tensor_metadata_projection,598.211,vbuf adapter trace
+BF16,vbuf,3,vocabulary_projection,57398.395,vbuf adapter trace
+BF16,vbuf,4,mmap/open,12.74,rust diagnostic
+BF16,vbuf,4,canonical_v06,766.741,rust diagnostic
+BF16,vbuf,4,bootstrap,17.65,rust diagnostic
+BF16,vbuf,4,ModelMetadata,13.59,rust diagnostic
+BF16,vbuf,4,TensorDirectory,1135.013,rust diagnostic
+BF16,vbuf,4,TokenizerMetadata,36000.004,rust diagnostic
+BF16,vbuf,4,rust_consumer_open_total,129684.375,rust diagnostic
+BF16,vbuf,4,cpp_tensor_inventory,180.76,vbuf adapter trace
+BF16,vbuf,4,gguf_compatible_metadata_synthesis,130616.888,vbuf adapter trace
+BF16,vbuf,4,llama_model_init_from_user,148994.37,vbuf adapter trace
+BF16,vbuf,4,merge_projection,73074.013,vbuf adapter trace
+BF16,vbuf,4,model_metadata_projection,26.43,vbuf adapter trace
+BF16,vbuf,4,rust_consumer_open,130996.708,vbuf adapter trace
+BF16,vbuf,4,tensor_metadata_projection,599.091,vbuf adapter trace
+BF16,vbuf,4,vocabulary_projection,56230.282,vbuf adapter trace
+BF16,vbuf,5,mmap/open,7.72,rust diagnostic
+BF16,vbuf,5,canonical_v06,819.271,rust diagnostic
+BF16,vbuf,5,bootstrap,20.92,rust diagnostic
+BF16,vbuf,5,ModelMetadata,13.83,rust diagnostic
+BF16,vbuf,5,TensorDirectory,1132.122,rust diagnostic
+BF16,vbuf,5,TokenizerMetadata,36086.006,rust diagnostic
+BF16,vbuf,5,rust_consumer_open_total,130535.177,rust diagnostic
+BF16,vbuf,5,cpp_tensor_inventory,175.98,vbuf adapter trace
+BF16,vbuf,5,gguf_compatible_metadata_synthesis,135368.036,vbuf adapter trace
+BF16,vbuf,5,llama_model_init_from_user,143157.651,vbuf adapter trace
+BF16,vbuf,5,merge_projection,79441.324,vbuf adapter trace
+BF16,vbuf,5,model_metadata_projection,23.97,vbuf adapter trace
+BF16,vbuf,5,rust_consumer_open,131153.298,vbuf adapter trace
+BF16,vbuf,5,tensor_metadata_projection,600.611,vbuf adapter trace
+BF16,vbuf,5,vocabulary_projection,54695.79,vbuf adapter trace
+BF16,vbuf,6,mmap/open,11.34,rust diagnostic
+BF16,vbuf,6,canonical_v06,754.101,rust diagnostic
+BF16,vbuf,6,bootstrap,21.2,rust diagnostic
+BF16,vbuf,6,ModelMetadata,13.88,rust diagnostic
+BF16,vbuf,6,TensorDirectory,1150.332,rust diagnostic
+BF16,vbuf,6,TokenizerMetadata,36244.077,rust diagnostic
+BF16,vbuf,6,rust_consumer_open_total,132278.52,rust diagnostic
+BF16,vbuf,6,cpp_tensor_inventory,185.221,vbuf adapter trace
+BF16,vbuf,6,gguf_compatible_metadata_synthesis,136783.609,vbuf adapter trace
+BF16,vbuf,6,llama_model_init_from_user,141336.706,vbuf adapter trace
+BF16,vbuf,6,merge_projection,76986.56,vbuf adapter trace
+BF16,vbuf,6,model_metadata_projection,27.49,vbuf adapter trace
+BF16,vbuf,6,rust_consumer_open,132288.29,vbuf adapter trace
+BF16,vbuf,6,tensor_metadata_projection,586.681,vbuf adapter trace
+BF16,vbuf,6,vocabulary_projection,58555.176,vbuf adapter trace
+BF16,vbuf,7,mmap/open,12.07,rust diagnostic
+BF16,vbuf,7,canonical_v06,752.671,rust diagnostic
+BF16,vbuf,7,bootstrap,16.42,rust diagnostic
+BF16,vbuf,7,ModelMetadata,14.82,rust diagnostic
+BF16,vbuf,7,TensorDirectory,1134.713,rust diagnostic
+BF16,vbuf,7,TokenizerMetadata,36232.855,rust diagnostic
+BF16,vbuf,7,rust_consumer_open_total,130787.528,rust diagnostic
+BF16,vbuf,7,cpp_tensor_inventory,179.061,vbuf adapter trace
+BF16,vbuf,7,gguf_compatible_metadata_synthesis,134517.384,vbuf adapter trace
+BF16,vbuf,7,llama_model_init_from_user,158962.89,vbuf adapter trace
+BF16,vbuf,7,merge_projection,77035.18,vbuf adapter trace
+BF16,vbuf,7,model_metadata_projection,27.29,vbuf adapter trace
+BF16,vbuf,7,rust_consumer_open,134645.834,vbuf adapter trace
+BF16,vbuf,7,tensor_metadata_projection,588.621,vbuf adapter trace
+BF16,vbuf,7,vocabulary_projection,56193.522,vbuf adapter trace
+BF16,vbuf,8,mmap/open,8.85,rust diagnostic
+BF16,vbuf,8,canonical_v06,789.462,rust diagnostic
+BF16,vbuf,8,bootstrap,17.93,rust diagnostic
+BF16,vbuf,8,ModelMetadata,13.46,rust diagnostic
+BF16,vbuf,8,TensorDirectory,1138.072,rust diagnostic
+BF16,vbuf,8,TokenizerMetadata,36102.516,rust diagnostic
+BF16,vbuf,8,rust_consumer_open_total,130217.697,rust diagnostic
+BF16,vbuf,8,cpp_tensor_inventory,183.251,vbuf adapter trace
+BF16,vbuf,8,gguf_compatible_metadata_synthesis,139256.163,vbuf adapter trace
+BF16,vbuf,8,llama_model_init_from_user,146171.106,vbuf adapter trace
+BF16,vbuf,8,merge_projection,81906.8,vbuf adapter trace
+BF16,vbuf,8,model_metadata_projection,26.67,vbuf adapter trace
+BF16,vbuf,8,rust_consumer_open,131247.048,vbuf adapter trace
+BF16,vbuf,8,tensor_metadata_projection,589.791,vbuf adapter trace
+BF16,vbuf,8,vocabulary_projection,55936.161,vbuf adapter trace
+BF16,vbuf,9,mmap/open,8.85,rust diagnostic
+BF16,vbuf,9,canonical_v06,899.291,rust diagnostic
+BF16,vbuf,9,bootstrap,22.48,rust diagnostic
+BF16,vbuf,9,ModelMetadata,14.14,rust diagnostic
+BF16,vbuf,9,TensorDirectory,1128.162,rust diagnostic
+BF16,vbuf,9,TokenizerMetadata,36850.678,rust diagnostic
+BF16,vbuf,9,rust_consumer_open_total,131320.719,rust diagnostic
+BF16,vbuf,9,cpp_tensor_inventory,181.33,vbuf adapter trace
+BF16,vbuf,9,gguf_compatible_metadata_synthesis,134835.435,vbuf adapter trace
+BF16,vbuf,9,llama_model_init_from_user,147496.379,vbuf adapter trace
+BF16,vbuf,9,merge_projection,77100.06,vbuf adapter trace
+BF16,vbuf,9,model_metadata_projection,27.19,vbuf adapter trace
+BF16,vbuf,9,rust_consumer_open,131553.52,vbuf adapter trace
+BF16,vbuf,9,tensor_metadata_projection,585.811,vbuf adapter trace
+BF16,vbuf,9,vocabulary_projection,56481.273,vbuf adapter trace
+Q8_0,vbuf,0,mmap/open,8.04,rust diagnostic
+Q8_0,vbuf,0,canonical_v06,916.312,rust diagnostic
+Q8_0,vbuf,0,bootstrap,16.63,rust diagnostic
+Q8_0,vbuf,0,ModelMetadata,13.3,rust diagnostic
+Q8_0,vbuf,0,TensorDirectory,1181.062,rust diagnostic
+Q8_0,vbuf,0,TokenizerMetadata,35994.226,rust diagnostic
+Q8_0,vbuf,0,rust_consumer_open_total,131414.461,rust diagnostic
+Q8_0,vbuf,0,cpp_tensor_inventory,184.051,vbuf adapter trace
+Q8_0,vbuf,0,gguf_compatible_metadata_synthesis,129599.847,vbuf adapter trace
+Q8_0,vbuf,0,llama_model_init_from_user,150986.586,vbuf adapter trace
+Q8_0,vbuf,0,merge_projection,73011.043,vbuf adapter trace
+Q8_0,vbuf,0,model_metadata_projection,27.71,vbuf adapter trace
+Q8_0,vbuf,0,rust_consumer_open,133630.404,vbuf adapter trace
+Q8_0,vbuf,0,tensor_metadata_projection,599.831,vbuf adapter trace
+Q8_0,vbuf,0,vocabulary_projection,55286.081,vbuf adapter trace
+Q8_0,vbuf,1,mmap/open,8.65,rust diagnostic
+Q8_0,vbuf,1,canonical_v06,812.641,rust diagnostic
+Q8_0,vbuf,1,bootstrap,18.871,rust diagnostic
+Q8_0,vbuf,1,ModelMetadata,14.04,rust diagnostic
+Q8_0,vbuf,1,TensorDirectory,1149.541,rust diagnostic
+Q8_0,vbuf,1,TokenizerMetadata,36978.068,rust diagnostic
+Q8_0,vbuf,1,rust_consumer_open_total,130448.039,rust diagnostic
+Q8_0,vbuf,1,cpp_tensor_inventory,185.99,vbuf adapter trace
+Q8_0,vbuf,1,gguf_compatible_metadata_synthesis,131473.101,vbuf adapter trace
+Q8_0,vbuf,1,llama_model_init_from_user,153400.07,vbuf adapter trace
+Q8_0,vbuf,1,merge_projection,74884.767,vbuf adapter trace
+Q8_0,vbuf,1,model_metadata_projection,27.37,vbuf adapter trace
+Q8_0,vbuf,1,rust_consumer_open,133146.135,vbuf adapter trace
+Q8_0,vbuf,1,tensor_metadata_projection,593.201,vbuf adapter trace
+Q8_0,vbuf,1,vocabulary_projection,55339.411,vbuf adapter trace
+Q8_0,vbuf,2,mmap/open,8.95,rust diagnostic
+Q8_0,vbuf,2,canonical_v06,887.572,rust diagnostic
+Q8_0,vbuf,2,bootstrap,19.85,rust diagnostic
+Q8_0,vbuf,2,ModelMetadata,15.52,rust diagnostic
+Q8_0,vbuf,2,TensorDirectory,1159.542,rust diagnostic
+Q8_0,vbuf,2,TokenizerMetadata,36122.926,rust diagnostic
+Q8_0,vbuf,2,rust_consumer_open_total,132581.843,rust diagnostic
+Q8_0,vbuf,2,cpp_tensor_inventory,184.24,vbuf adapter trace
+Q8_0,vbuf,2,gguf_compatible_metadata_synthesis,131429.062,vbuf adapter trace
+Q8_0,vbuf,2,llama_model_init_from_user,148954.922,vbuf adapter trace
+Q8_0,vbuf,2,merge_projection,74091.546,vbuf adapter trace
+Q8_0,vbuf,2,model_metadata_projection,27.14,vbuf adapter trace
+Q8_0,vbuf,2,rust_consumer_open,130298.928,vbuf adapter trace
+Q8_0,vbuf,2,tensor_metadata_projection,595.521,vbuf adapter trace
+Q8_0,vbuf,2,vocabulary_projection,56100.983,vbuf adapter trace
+Q8_0,vbuf,3,mmap/open,10.5,rust diagnostic
+Q8_0,vbuf,3,canonical_v06,832.441,rust diagnostic
+Q8_0,vbuf,3,bootstrap,20.32,rust diagnostic
+Q8_0,vbuf,3,ModelMetadata,14.37,rust diagnostic
+Q8_0,vbuf,3,TensorDirectory,1153.232,rust diagnostic
+Q8_0,vbuf,3,TokenizerMetadata,36312.477,rust diagnostic
+Q8_0,vbuf,3,rust_consumer_open_total,131094.72,rust diagnostic
+Q8_0,vbuf,3,cpp_tensor_inventory,175.21,vbuf adapter trace
+Q8_0,vbuf,3,gguf_compatible_metadata_synthesis,130322.889,vbuf adapter trace
+Q8_0,vbuf,3,llama_model_init_from_user,144924.405,vbuf adapter trace
+Q8_0,vbuf,3,merge_projection,74415.037,vbuf adapter trace
+Q8_0,vbuf,3,model_metadata_projection,27.46,vbuf adapter trace
+Q8_0,vbuf,3,rust_consumer_open,132574.323,vbuf adapter trace
+Q8_0,vbuf,3,tensor_metadata_projection,598.752,vbuf adapter trace
+Q8_0,vbuf,3,vocabulary_projection,54546.88,vbuf adapter trace
+Q8_0,vbuf,4,mmap/open,9.17,rust diagnostic
+Q8_0,vbuf,4,canonical_v06,958.122,rust diagnostic
+Q8_0,vbuf,4,bootstrap,21.44,rust diagnostic
+Q8_0,vbuf,4,ModelMetadata,13.55,rust diagnostic
+Q8_0,vbuf,4,TensorDirectory,1149.102,rust diagnostic
+Q8_0,vbuf,4,TokenizerMetadata,36931.268,rust diagnostic
+Q8_0,vbuf,4,rust_consumer_open_total,135202.058,rust diagnostic
+Q8_0,vbuf,4,cpp_tensor_inventory,182.651,vbuf adapter trace
+Q8_0,vbuf,4,gguf_compatible_metadata_synthesis,130987.93,vbuf adapter trace
+Q8_0,vbuf,4,llama_model_init_from_user,149019.924,vbuf adapter trace
+Q8_0,vbuf,4,merge_projection,74243.966,vbuf adapter trace
+Q8_0,vbuf,4,model_metadata_projection,25.03,vbuf adapter trace
+Q8_0,vbuf,4,rust_consumer_open,131256.21,vbuf adapter trace
+Q8_0,vbuf,4,tensor_metadata_projection,591.151,vbuf adapter trace
+Q8_0,vbuf,4,vocabulary_projection,55425.662,vbuf adapter trace
+Q8_0,vbuf,5,mmap/open,10.13,rust diagnostic
+Q8_0,vbuf,5,canonical_v06,951.992,rust diagnostic
+Q8_0,vbuf,5,bootstrap,19.69,rust diagnostic
+Q8_0,vbuf,5,ModelMetadata,13.78,rust diagnostic
+Q8_0,vbuf,5,TensorDirectory,1155.022,rust diagnostic
+Q8_0,vbuf,5,TokenizerMetadata,36108.566,rust diagnostic
+Q8_0,vbuf,5,rust_consumer_open_total,131173.711,rust diagnostic
+Q8_0,vbuf,5,cpp_tensor_inventory,175.511,vbuf adapter trace
+Q8_0,vbuf,5,gguf_compatible_metadata_synthesis,132232.492,vbuf adapter trace
+Q8_0,vbuf,5,llama_model_init_from_user,143898.844,vbuf adapter trace
+Q8_0,vbuf,5,merge_projection,76345.11,vbuf adapter trace
+Q8_0,vbuf,5,model_metadata_projection,27.79,vbuf adapter trace
+Q8_0,vbuf,5,rust_consumer_open,131219.911,vbuf adapter trace
+Q8_0,vbuf,5,tensor_metadata_projection,609.852,vbuf adapter trace
+Q8_0,vbuf,5,vocabulary_projection,54624.23,vbuf adapter trace
+Q8_0,vbuf,6,mmap/open,10.87,rust diagnostic
+Q8_0,vbuf,6,canonical_v06,760.031,rust diagnostic
+Q8_0,vbuf,6,bootstrap,19.6,rust diagnostic
+Q8_0,vbuf,6,ModelMetadata,13.58,rust diagnostic
+Q8_0,vbuf,6,TensorDirectory,1146.442,rust diagnostic
+Q8_0,vbuf,6,TokenizerMetadata,35997.216,rust diagnostic
+Q8_0,vbuf,6,rust_consumer_open_total,136411.821,rust diagnostic
+Q8_0,vbuf,6,cpp_tensor_inventory,174.97,vbuf adapter trace
+Q8_0,vbuf,6,gguf_compatible_metadata_synthesis,133342.515,vbuf adapter trace
+Q8_0,vbuf,6,llama_model_init_from_user,147327.761,vbuf adapter trace
+Q8_0,vbuf,6,merge_projection,75989.57,vbuf adapter trace
+Q8_0,vbuf,6,model_metadata_projection,29.94,vbuf adapter trace
+Q8_0,vbuf,6,rust_consumer_open,135527.08,vbuf adapter trace
+Q8_0,vbuf,6,tensor_metadata_projection,596.001,vbuf adapter trace
+Q8_0,vbuf,6,vocabulary_projection,56103.933,vbuf adapter trace
+Q8_0,vbuf,7,mmap/open,12.76,rust diagnostic
+Q8_0,vbuf,7,canonical_v06,794.292,rust diagnostic
+Q8_0,vbuf,7,bootstrap,17.97,rust diagnostic
+Q8_0,vbuf,7,ModelMetadata,13.71,rust diagnostic
+Q8_0,vbuf,7,TensorDirectory,1206.402,rust diagnostic
+Q8_0,vbuf,7,TokenizerMetadata,36544.767,rust diagnostic
+Q8_0,vbuf,7,rust_consumer_open_total,131960.492,rust diagnostic
+Q8_0,vbuf,7,cpp_tensor_inventory,190.4,vbuf adapter trace
+Q8_0,vbuf,7,gguf_compatible_metadata_synthesis,132627.364,vbuf adapter trace
+Q8_0,vbuf,7,llama_model_init_from_user,145699.118,vbuf adapter trace
+Q8_0,vbuf,7,merge_projection,74838.408,vbuf adapter trace
+Q8_0,vbuf,7,model_metadata_projection,25.84,vbuf adapter trace
+Q8_0,vbuf,7,rust_consumer_open,133867.006,vbuf adapter trace
+Q8_0,vbuf,7,tensor_metadata_projection,587.111,vbuf adapter trace
+Q8_0,vbuf,7,vocabulary_projection,56528.044,vbuf adapter trace
+Q8_0,vbuf,8,mmap/open,9.54,rust diagnostic
+Q8_0,vbuf,8,canonical_v06,749.992,rust diagnostic
+Q8_0,vbuf,8,bootstrap,20.88,rust diagnostic
+Q8_0,vbuf,8,ModelMetadata,13.49,rust diagnostic
+Q8_0,vbuf,8,TensorDirectory,1177.932,rust diagnostic
+Q8_0,vbuf,8,TokenizerMetadata,36591.877,rust diagnostic
+Q8_0,vbuf,8,rust_consumer_open_total,133730.537,rust diagnostic
+Q8_0,vbuf,8,cpp_tensor_inventory,177.761,vbuf adapter trace
+Q8_0,vbuf,8,gguf_compatible_metadata_synthesis,132289.353,vbuf adapter trace
+Q8_0,vbuf,8,llama_model_init_from_user,159044.723,vbuf adapter trace
+Q8_0,vbuf,8,merge_projection,76525.25,vbuf adapter trace
+Q8_0,vbuf,8,model_metadata_projection,28.06,vbuf adapter trace
+Q8_0,vbuf,8,rust_consumer_open,131561.462,vbuf adapter trace
+Q8_0,vbuf,8,tensor_metadata_projection,590.341,vbuf adapter trace
+Q8_0,vbuf,8,vocabulary_projection,54490.73,vbuf adapter trace
+Q8_0,vbuf,9,mmap/open,8.86,rust diagnostic
+Q8_0,vbuf,9,canonical_v06,828.831,rust diagnostic
+Q8_0,vbuf,9,bootstrap,23.67,rust diagnostic
+Q8_0,vbuf,9,ModelMetadata,16.66,rust diagnostic
+Q8_0,vbuf,9,TensorDirectory,1154.122,rust diagnostic
+Q8_0,vbuf,9,TokenizerMetadata,37566.53,rust diagnostic
+Q8_0,vbuf,9,rust_consumer_open_total,132365.733,rust diagnostic
+Q8_0,vbuf,9,cpp_tensor_inventory,181.2,vbuf adapter trace
+Q8_0,vbuf,9,gguf_compatible_metadata_synthesis,135607.771,vbuf adapter trace
+Q8_0,vbuf,9,llama_model_init_from_user,163267.32,vbuf adapter trace
+Q8_0,vbuf,9,merge_projection,77863.843,vbuf adapter trace
+Q8_0,vbuf,9,model_metadata_projection,26.49,vbuf adapter trace
+Q8_0,vbuf,9,rust_consumer_open,133506.376,vbuf adapter trace
+Q8_0,vbuf,9,tensor_metadata_projection,600.541,vbuf adapter trace
+Q8_0,vbuf,9,vocabulary_projection,56482.295,vbuf adapter trace

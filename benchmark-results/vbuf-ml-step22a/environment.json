@@ -1,0 +1,14 @@
+{
+  "vbuf_commit": "4ca61cf4996f98ab5f4e1562ebcd68725e1137dc",
+  "consumer_checkpoint": "vbuf-ml-0.1-consumer-parity",
+  "consumer_checkpoint_commit": "73a1f36661482037573a789ab90e15039a782ad9",
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "adapter_patch": "patches/llama.cpp/0001-user-metadata-tensor-source.patch",
+  "runs_per_artifact_format": 10,
+  "condition": "warm page cache; attribution runs",
+  "threads": "step21 probe default",
+  "affinity": "not forced",
+  "diagnostic_instrumentation": true,
+  "cold_runs": "not performed",
+  "correctness_gate": "Step-21 evidence PASS"
+}

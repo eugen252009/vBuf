@@ -1,0 +1,6 @@
+stage,input,output,copy_or_allocation,native_gguf_equivalent
+vBuf validation,v06 bytes,validated ranges,no payload copy,GGUF parser equivalent
+consumer snapshot,checked ranges,owned semantic snapshot,owned strings/vectors,GGUF metadata structs
+FFI,semantic snapshot,C ABI scalars/strings,1515635 string bytes observed,native GGUF arrays
+merge projection,numeric ID pairs,string pairs,151387 map entries,GGUF merge strings
+tensor projection,TensorDirectory,GGUF tensor metadata,311/310 metadata entries,GGUF tensor directory

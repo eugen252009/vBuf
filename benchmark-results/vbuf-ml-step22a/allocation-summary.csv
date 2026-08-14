@@ -1,0 +1,5 @@
+artifact,format,allocation_counter,copy_payload_bytes,owned_string_bytes,status
+BF16,vbuf,NOT_INSTRUMENTED,0,3056087,adapter trace only
+Q8_0,vbuf,NOT_INSTRUMENTED,0,3056006,adapter trace only
+BF16,gguf,NOT_INSTRUMENTED,NOT_INSTRUMENTED,NOT_INSTRUMENTED,native path
+Q8_0,gguf,NOT_INSTRUMENTED,NOT_INSTRUMENTED,NOT_INSTRUMENTED,native path
