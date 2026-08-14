@@ -32,7 +32,7 @@ The following remain outside generic vBuf:
 - runtime execution or scheduling behavior;
 - profile-specific integrity policy.
 
-A generic directory, if selected, may map a generic numeric ID/kind to a validated range. It may not contain tensor metadata. Nano, if selected, maps candidate physical starts and never resolves Key-ID or profile meaning.
+A generic directory, if selected, may map a generic numeric ID/kind to a validated range. It may not contain tensor metadata. Nano, if selected, represents candidate canonical physical extent topology: `1` starts a new extent and `0` starts no new extent. Consecutive set bits (or the final set bit and indexed-region end) provide candidate physical span bounds, never canonical payload length. Nano never resolves Key-ID or profile meaning, and canonical headers/ranges remain authoritative.
 
 ## Open gates
 

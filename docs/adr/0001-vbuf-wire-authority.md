@@ -1,6 +1,6 @@
 # ADR 0001: vBuf wire authority and compatibility direction
 
-- **Status:** Accepted for execution; BaseStep subdecision remains blocking
+- **Status:** Accepted
 - **Scope:** Generic vBuf BASE
 - **Related plan decisions:** A, C, G
 
@@ -21,7 +21,9 @@ Treating those bytes as an unambiguous parent contract would make independent de
 2. Current v0.5-style bytes are legacy evidence and may remain readable only where their interpretation is safe and unambiguous.
 3. New canonical writing for this implementation path targets v0.6; byte-compatible new v0.5 writing is not required by vBuf-ML.
 4. vBuf-ML remains blocked until v0.6 is specified and validated.
-5. This ADR does **not** select the v0.6 BaseStep encoding or legal values. Decision G must be resolved before the Step 3 wire contract.
+5. v0.6 encodes the canonical geometry as `BaseStep = 1 << BaseShift` with legal `BaseShift` values 3 through 8 inclusive (8–256 bytes). Out-of-range shifts are rejected before offset derivation or view construction.
+6. `data_region_start` and every canonical block start are BaseStep-aligned. The next block starts at checked `align_up(previous_block_end, BaseStep)`; no final tail padding is required.
+7. Stricter payload alignment is an orthogonal power-of-two multiple of BaseStep and cannot redefine block-start or Nano geometry.
 
 ## Invariants
 
@@ -29,6 +31,7 @@ Treating those bytes as an unambiguous parent contract would make independent de
 - Legacy bytes are never relabeled as v0.6 merely because one offset happens to align.
 - Sizes, offsets, alignment arithmetic, and platform conversions are checked.
 - BaseStep is selected from generic physical-layout requirements, never downstream ML convenience.
+- Optional Nano geometry, if later selected, derives from BaseStep and has no independent quantum.
 - Optional derived artifacts cannot repair or redefine an incompatible canonical stream.
 
 ## Consequences

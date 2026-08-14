@@ -53,7 +53,7 @@ Initial placement guidance:
 | explicit portable primitive encodings | BASE | required for all interoperable vBuf users |
 | checked `u64` ranges and skippable framing | BASE | safety, large files and forward compatibility are universal |
 | optional finalized-file envelope | BASE candidate in Steps 5A–5B | justified only if at least one generic derived artifact survives qualification |
-| optional Nano-Index | BASE candidate in Steps 5A/5C | generic physical enumeration/inspection and hypothesized consumer-side parallel partitioning; retained only with measured benefit |
+| optional Nano-Index | BASE candidate in Steps 5A/5C | generic physical extent topology/enumeration and hypothesized consumer-side parallel partitioning; retained only with measured benefit |
 | optional rank/select checkpoints | BASE candidate in Steps 5A/5E | generic ordinal navigation; depends on a retained Nano-Index and measured benefit |
 | optional direct block/region directory | BASE candidate in Steps 5A/5D | generic columns and descendants both need non-linear logical lookup |
 | checked arithmetic and mmap/range source helpers | INFRA | reusable implementation behavior, not necessarily wire semantics |
@@ -92,12 +92,14 @@ The Nano-Index is an existing generic vBuf architectural proposal, not an ML fea
 - `spec/spec_0.4-alpha.md` carries the concept forward for homogeneous blocks and claims POPCNT can find the Nth column/key. Its header instead has a `u32 DataLen` and no defined `HasIndex`, Nano-Index offset, encoded length, or finalization record.
 - Neither `spec/spec_0.5-alpha.md` nor the Rust, TypeScript or C v0.5-style implementation writes or reads a Nano-Index.
 - Current implementations advance zero padding and subsequent anchors on 8-byte boundaries (`curr += 8`, tail alignment to 8), while the historical Nano-Index literally describes a 16-byte slot grid.
-- The corrected/current design intent is broader and was not stated by those historical drafts: the Nano slot is exactly the file’s canonical `BaseStep`. Historical one-bit-per-16-byte behavior is therefore the `BaseStep = 16` instance, not a permanent Nano-specific quantum.
+- The corrected/current design intent is broader and was not stated precisely by those historical drafts: the Nano slot is exactly the file’s canonical `BaseStep`, and the bitmap describes physical extent segmentation. Historical one-bit-per-16-byte behavior is the `BaseStep = 16` instance, not a permanent Nano-specific quantum. The stronger extent-topology interpretation supplied for v0.6 qualification is recorded as current design intent, not retroactively attributed to the old text.
 
-What the historical idea can soundly guarantee, if corrected and validated:
+What the idea can soundly guarantee, if corrected and validated:
 
-- compact enumeration of candidate physical block starts;
-- cheap sequential bit scanning and block-counting;
+- compact topology of candidate canonical physical extents: `1` begins an extent and `0` begins no new extent;
+- compact enumeration of candidate physical block/extent starts;
+- candidate upper span boundaries from the next set bit or indexed-region end;
+- cheap sequential bit scanning and block/extent counting;
 - a structural cross-check against canonical block parsing;
 - optional inspection/debug information that a reader can leave untouched;
 - a possible bounded starting point for recovery attempts, never proof that candidate bytes are a valid block.
@@ -106,7 +108,8 @@ What a raw Nano-Index cannot guarantee:
 
 - constant-time selection of the Nth set bit without an auxiliary rank/select structure;
 - direct lookup by Key-ID, because it contains no Key-ID-to-bit mapping;
-- distinction between continuation and padding when both are `0`;
+- the byte-level meaning of a `0` slot: it may cover continuation data, payload, or padding belonging to the active physical extent;
+- canonical payload length or processing cost from the Nano-derived physical span;
 - validity of any marked header without canonical header/range validation;
 - tensor or other domain-semantic lookup.
 
@@ -119,7 +122,7 @@ nano_bytes = ceil(slot_count / 8)
 slot(i)    = indexed_region_start + i * B
 ```
 
-`nano[i] == 1` iff a canonical block starts at `slot(i)`. The asymptotic storage ratio is one bit per `B` bytes, or `1/(8*B)` of the indexed region:
+`nano[i] == 1` iff a new candidate canonical block/physical extent starts at `slot(i)`. For a non-empty valid topology the first indexed slot is set. A `0` means only that no new extent starts at that slot; it does not identify payload or any domain meaning. The asymptotic storage ratio is one bit per `B` bytes, or `1/(8*B)` of the indexed region:
 
 | BaseStep | Asymptotic Nano overhead |
 |---:|---:|
@@ -132,7 +135,9 @@ slot(i)    = indexed_region_start + i * B
 
 The v0.2 statement `DataLen / 128` is only the asymptotic `BaseStep = 16` case and is incomplete for fewer than eight slots or a partial final Nano byte. v0.6 must define indexed-region start/length, require checked ceiling arithmetic, require unused final Nano-byte bits to be zero, and state whether a valid indexed region may end in a partial final BaseStep. The recommended candidate is a BaseStep-aligned region start with a permitted partial final slot; no block start is representable except `start + i*B`, and the final candidate still requires a complete canonical header/range.
 
-Padding and continuation may share `0` only because the index answers “is this a candidate start?” It cannot answer “what occupies this slot?” Canonical headers/counts remain the source of truth. Duplicate Key-IDs do not affect the raw bit vector; they matter only to a separate logical lookup policy.
+For consecutive set-slot ordinals `s_i` and `s_(i+1)`, Nano proposes physical extent `[start + s_i*B, start + s_(i+1)*B)`; the final proposed extent ends at the indexed-region end. Consecutive `1` bits therefore describe adjacent BaseStep extents, while a long run of `0` slots remains part of one physical extent. These are topology bounds, not canonical payload bounds: they may include payload, internal/alignment padding, or representation-defined continuation. Canonical headers/counts/ranges remain the source of truth, and ignored-Nano parsing must produce the same block sequence. Duplicate Key-IDs do not affect the bitmap; they matter only to a separate logical lookup policy.
+
+Variable/composite representations may use multiple canonical physical blocks rather than forcing one semantic object into one block. A string representation is one possible downstream example, but Nano records only each new physical extent and intervening continuation slots; it does not know that extents belong to a string or to one higher-level object.
 
 ---
 
@@ -175,7 +180,7 @@ There is independent, non-ML evidence for a generic direct-navigation primitive:
 - **B1:** vBuf-ML uses ordinary generic byte/blob blocks and defines all navigation inside one opaque profile manifest. This protects the base but makes every descendant reinvent safe range directories and leaves generic readers with linear scans.
 - **B2:** add only a generic profile/application identifier to the base header. This identifies semantics but does not solve direct navigation.
 - **B3, candidate to qualify rather than preselect:** define an optional generic finalized-file region/block directory. A base entry contains only domain-neutral facts such as numeric Key-ID/kind, flags, direct `u64` offset, `u64` byte length, required alignment, and enough framing to skip unknown optional entries. The directory knows nothing about tensors, metadata or models. Streaming files can omit it or finalize one later. A profile-local bootstrap block still owns profile magic/version and semantic mapping.
-- **B4:** restore a corrected raw Nano-Index, optionally with simple checkpoints, and determine whether its physical navigation plus canonical headers meets enough generic needs to avoid B3.
+- **B4:** restore a corrected raw Nano-Index as physical extent topology, optionally with simple checkpoints, and determine whether extent starts/spans plus canonical headers meet enough generic needs to avoid B3.
 
 **Decision required:** approve qualification of B1–B4 in Step 5A, not B3 itself. Freeze no directory until Nano-only, directory-only and coexistence designs have been measured against generic workloads. Profile names, tensor names, typed model metadata, shapes and quantization remain excluded in every result.
 
@@ -229,7 +234,7 @@ There is independent, non-ML evidence for a generic direct-navigation primitive:
 
 ### Decision G — canonical `BaseStep` and derived Nano geometry
 
-**Execution status:** unresolved blocker for Step 3. Step 2 may preserve legacy evidence, but no v0.6 wire contract may be frozen until the legal BaseStep encoding/set is selected.
+**Execution status:** resolved for v0.6. `BaseStep = 1 << BaseShift`, with legal `BaseShift` values 3 through 8 inclusive (8–256 bytes). Values outside that range are rejected before offset derivation or view construction.
 
 **Observed contradiction:** historical Nano drafts literally use 16-byte slots; v0.5 says `BaseStep = 16 << AShift`; current Rust/TypeScript readers derive alignment as `1 << AShift`; current writers/readers can place block anchors on an 8-byte boundary. The repository therefore has no single interoperable definition of the base physical geometry.
 
@@ -279,7 +284,7 @@ No descendant may select or override BaseStep through Nano metadata. BaseStep re
 
 **Recommended first-principles resolution:** qualify and choose the legal v0.6 BaseStep encoding/set from generic block-header size, portable alignment and generic canonical-layout requirements before Step 3 is frozen. Independent base-layout measurements may inform that prerequisite decision, but Nano results may not. Step 5A then measures padding/index trade-offs among the already legal BaseSteps and may inform writer defaults—not redefine the wire-legal set. Do not restore 16-byte starts merely to preserve history, and do not preserve 8-byte starts merely to preserve current implementation behavior.
 
-**Decision required:** select and normatively encode the generic v0.6 BaseStep before Step 5A can qualify Nano. If selected BaseStep makes any current legacy block start unrepresentable, classify that file as legacy-v0.5 and require canonical conversion before adding v0.6 finalized artifacts.
+**Recorded decision:** v0.6 uses the absolute exponent above; `data_region_start` and every block start lie on that BaseStep grid, the next block uses checked `align_up(previous_block_end, BaseStep)`, and the final block needs no tail padding. Stricter payload alignment is encoded orthogonally as a power-of-two multiple of BaseStep and never changes Nano geometry. Legacy bytes are not reclassified as v0.6 merely because their implementation interpretation happens to match.
 
 ### Decision H — locating optional finalized-file artifacts
 
@@ -310,7 +315,7 @@ No descendant may select or override BaseStep through Nano metadata. BaseStep re
 
 **Evidence:** historical specs define Nano bit meaning but no validation/trust model, block-count commitment, index checksum or behavior when bits disagree with headers. The candidate region directory creates the same general completeness problem unless its target contract and validation policy are explicit.
 
-**Why it matters:** bounds-checking and validating each selected Nano `1` or directory range prevents unsafe access, but cannot reveal an omitted entry elsewhere. A malformed derived artifact could otherwise return incomplete results while appearing structurally safe.
+**Why it matters:** bounds-checking and validating each selected Nano `1` or directory range prevents unsafe access, but cannot reveal an omitted entry elsewhere. In topology terms, a missing Nano bit can falsely merge canonical extents and an extra bit can falsely split one; neither candidate span may authorize access. A malformed derived artifact could otherwise return incomplete or false partitions while appearing structurally safe.
 
 **Possible interpretations:**
 
@@ -363,7 +368,7 @@ Generic vBuf finalized file
 
 None of the three finalized artifacts above is assumed mandatory or assumed to coexist. Step 5A must compare them and may reject one or all. The canonical block representation remains sufficient and authoritative. If Nano survives, its slot geometry is derived solely from the canonical file BaseStep shown above.
 
-If selected, the Nano-Index answers only where candidate physical block starts occur. If selected, the generic region directory provides direct, bounds-checkable access by generic numeric identity. It does not know that one region is a tokenizer or that another contains tensors. vBuf-ML assigns profile-local numeric roles after validating its bootstrap. Tensor identity, shape, representation and direct tensor offsets remain in the vBuf-ML tensor directory because those are downstream semantics.
+If selected, the Nano-Index answers only where candidate physical extents start and where the next candidate topology boundary lies; it does not provide canonical payload length or identity. If selected, the generic region directory provides direct, bounds-checkable access by generic numeric identity. It does not know that one region is a tokenizer or that another contains tensors. vBuf-ML assigns profile-local numeric roles after validating its bootstrap. Tensor identity, shape, representation and direct tensor offsets remain in the vBuf-ML tensor directory because those are downstream semantics.
 
 Generic block/index/directory fields remain generic. Key-ID values select regions or blocks; they are not tensor IDs and carry no model semantics in vBuf. Generic applications can use the same structures for telemetry columns, records, BumpArena-like descendants or other random-access payloads.
 
@@ -531,15 +536,15 @@ The exact generic finalized-file artifacts are outputs of BASE qualification/spe
 
 **Class:** BASE design/benchmark; no production wire-format implementation.
 
-**Goal:** determine from first principles whether raw Nano bits, Nano bits plus simple checkpoints, a generic region directory, or a smaller combination materially improves generic vBuf consumption, including the hypothesis that Nano slices provide useful physical work partitions for parallel CPU consumers.
+**Goal:** determine from first principles whether Nano physical-extent topology, Nano plus simple checkpoints, a generic region directory, or a smaller combination materially improves generic vBuf consumption, including whether complete Nano-derived extents provide useful work partitions for parallel CPU consumers.
 
 **Rationale and questions answered:**
 
 | Structure | Question it can answer | Question it cannot answer alone |
 |---|---|---|
 | canonical block stream | “What does the authoritative next header say?” | direct physical or key lookup without scanning |
-| raw Nano-Index | “Which canonical BaseStep slots are candidate block starts?” | “Where is Key-ID X?” and true O(1) Nth selection |
-| Nano + checkpoints | “In which bounded slot range is the Nth block start?” | “Where is Key-ID X?” |
+| raw Nano-Index | “Where do candidate canonical physical extents start, and where is the next candidate extent boundary?” | “Where is Key-ID X?”, canonical payload length, and true O(1) Nth selection |
+| Nano + checkpoints | “In which bounded slot range are the Nth extent start and its next boundary?” | “Where is Key-ID X?” |
 | generic region directory | “What validated range is associated with generic ID/kind X?” | what that ID means to a profile |
 | vBuf-ML tensor directory | “Where is tensor X, and what are its shape/representation semantics?” | generic physical structure enumeration |
 
@@ -547,7 +552,7 @@ The three design possibilities must remain open:
 
 1. Nano-Index and region directory independently survive and coexist.
 2. an extended Nano-Index meets actual generic navigation needs, reducing/eliminating the directory;
-3. Nano remains physical-only while a directory is independently justified for logical lookup.
+3. Nano remains physical extent topology only while a directory is independently justified for logical lookup.
 
 A fourth valid result is that one or both generic artifacts fail qualification and are omitted.
 
@@ -565,7 +570,7 @@ A fourth valid result is that one or both generic artifacts fail qualification a
 
 **Existing invariants:** canonical blocks alone remain sufficient; optional indexes are derived; a reader can ignore every artifact; no artifact changes payload bytes; streaming/unfinished files require none.
 
-**New qualification invariants:** generated Nano bits are derived only from a successfully parsed canonical stream; Nano reads the already validated file BaseStep and has no independent quantum; Step 5A treats the Step 3 legal BaseStep set as an input and cannot redefine it; `slot(i) = indexed_region_start + i*BaseStep`; a marked bit is a candidate until header/range validation succeeds; indexed-region start/length and partial-final-slot policy are explicit; unused bits in the final Nano byte are zero; all slot/index arithmetic is checked; benchmark corpora and query distributions are deterministic and recorded.
+**New qualification invariants:** generated Nano bits are derived only from a successfully parsed canonical stream; Nano reads the already validated file BaseStep and has no independent quantum; Step 5A treats the Step 3 legal BaseStep set as an input and cannot redefine it; `slot(i) = indexed_region_start + i*BaseStep`; for a non-empty topology the first valid extent start is set; each later `1` is a candidate BaseStep-aligned canonical extent start; `0` creates no new extent and carries no payload/domain meaning; consecutive set bits propose adjacent extent bounds; long zero runs remain one proposed physical extent until the next set bit or indexed-region end; every marked start and Nano-derived upper span remain subordinate to canonical header/range validation; indexed-region start/length and partial-final-slot policy are explicit; unused bits in the final Nano byte are zero; all slot/index arithmetic is checked; benchmark corpora and query distributions are deterministic and recorded.
 
 **Rank/select candidates to measure, not assume:**
 
@@ -576,11 +581,11 @@ A fourth valid result is that one or both generic artifacts fail qualification a
 - Sparse “every Hth block” hints may be prototyped only with an explicit `8 * ceil(block_count/H)` byte formula plus framing. Their overhead is block-density-dependent and must not be advertised as a fixed percentage.
 - A candidate generic directory must disclose the exact target contract (for example whole canonical block versus validated payload range), entry width, and lookup algorithm. A provisional sorted 32-byte entry may be measured with binary search (`O(log region_count)`), but neither that contract, width nor algorithm is a wire decision; a hash table must not be substituted silently.
 
-Step 5A must compare fixed-slot, fixed-physical-span and empirically chosen checkpoint rules. Checkpoint lookup still includes checkpoint search (`O(log checkpoint_count)` with binary search unless a different validated rule is selected), bounded Nano word scan, and in-word select. No prototype may be labeled constant-time without a proved bound independent of file size. Formulas above are exact for candidate arrays but exclude common finalization/artifact framing not yet chosen by Decision H; every report must add exact framing bytes.
+Step 5A must compare fixed-slot, fixed-physical-span and empirically chosen checkpoint rules. It must benchmark Nth extent start, Nth start plus next extent boundary, sequential extent enumeration, and parallel extent-range construction. Checkpoint lookup still includes checkpoint search (`O(log checkpoint_count)` with binary search unless a different validated rule is selected), bounded Nano word scan, and in-word select. No prototype may be labeled constant-time without a proved bound independent of file size. Formulas above are exact for candidate arrays but exclude common finalization/artifact framing not yet chosen by Decision H; every report must add exact framing bytes.
 
 #### Parallel work-partition hypothesis
 
-**Hypothesis, not a format guarantee:** because Nano marks canonical starts over BaseStep geometry, a consumer may divide Nano into independently enumerable slices and reduce serial boundary discovery or coordination for generic block-parallel work. Nano exposes boundaries only; the consumer owns scheduling, worker count, affinity, NUMA policy, queues, aggregation, and cost estimation.
+**Hypothesis, not a format guarantee:** because Nano marks physical extent starts over BaseStep geometry, a consumer may divide Nano into independently enumerable set-bit ranges, pair each start with the next set bit/indexed-region end, and reduce serial start/end discovery or coordination for generic extent-parallel work. Nano exposes candidate topology bounds only; canonical validation still determines the actual block/payload range, and the consumer owns scheduling, worker count, affinity, NUMA policy, queues, aggregation, and cost estimation.
 
 **Current status:** `POSSIBLE BUT NOT YET JUSTIFIED`. No repository benchmark currently demonstrates an end-to-end parallel benefit. Change this label only from validated raw evidence produced by this step.
 
@@ -598,18 +603,18 @@ The BaseStep=64/page-size correspondence is only a benchmark candidate. The base
 
 **Candidate consumer partition strategies:**
 
-1. **Physical Nano-range partitioning:** assign disjoint contiguous slot/Nano-word ranges. Ownership is determined solely by the start bit’s slot; a block extending through later worker ranges remains owned by the worker containing its start. Measure trivial setup/no shared iterator against block-density and work imbalance.
-2. **Block-count-balanced partitioning:** compute total/prefix POPCNT and assign approximate block-ordinal ranges. Test raw prefix scanning, selected checkpoints/sparse hints, and one-time serial prefix construction. Equal set-bit count is not equal work.
-3. **Byte/work-balanced partitioning:** use physical span, validated payload bytes, or a consumer-supplied deterministic cost estimate, then snap boundaries deterministically to canonical starts exposed by Nano. Account for header parsing or other preprocessing needed to obtain costs.
+1. **Physical Nano-range partitioning:** assign disjoint contiguous slot/Nano-word ranges. Ownership is determined solely by the start bit’s slot; pair each owned start with the next set bit (which may lie in the next slice) or indexed-region end. A physical extent crossing worker slice boundaries remains owned by the start-owning worker. Measure boundary handoff/lookahead plus trivial setup/no shared iterator against density and work imbalance.
+2. **Extent-count-balanced partitioning:** compute total/prefix POPCNT and assign approximate set-bit ordinal ranges. Test raw prefix scanning, selected checkpoints/sparse hints, and one-time serial prefix construction. Equal set-bit/extent count is not equal work.
+3. **Byte/work-balanced partitioning:** use Nano-derived physical extent span, validated payload bytes, or a consumer-supplied deterministic cost estimate, then snap boundaries deterministically to candidate canonical extent starts. Account for canonical header parsing or other preprocessing needed to obtain costs; physical extent span is not payload length.
 4. **Dynamic work queue control:** not a Nano design, but required as a consumer-side comparison so static Nano partitioning is not credited for benefits a queue achieves more simply.
 
 **Equivalent benchmark paths:**
 
 - A: canonical serial scan and workload;
 - B: canonical parallel processing after prior serial canonical boundary discovery;
-- C: Nano physical-range partitioning;
-- D: Nano block-count-balanced partitioning;
-- E: Nano plus each selected checkpoint/hint policy for block-balanced boundaries;
+- C: Nano physical-range partitioning with start-plus-next-boundary extent construction;
+- D: Nano extent-count-balanced partitioning;
+- E: Nano plus each selected checkpoint/hint policy for extent-balanced boundaries;
 - F: Nano-guided byte/work-balanced partitioning where the workload supplies a meaningful cost;
 - G: validated dynamic-queue control using the same discovered block set and same per-block work;
 - H: region-directory-assisted partitioning only when the selected directory target contract enumerates the identical generic blocks/ranges; otherwise it is not an equivalent competitor.
@@ -627,26 +632,26 @@ Use dense small blocks, sparse large blocks, mixed/uniform/highly skewed sizes, 
 
 **Parallel correctness invariants/tests:**
 
-- on a valid or fully conformance-checked Nano, each canonical block is owned exactly once: none duplicated or skipped;
+- on a valid or fully conformance-checked Nano, each canonical block/extent start is owned exactly once: none duplicated or skipped;
 - physical slice boundaries have deterministic half-open slot ranges and cannot split start ownership;
-- empty slices and worker counts greater than block count are valid;
-- a block spanning multiple physical partitions belongs only to the start-owning worker;
-- block-balanced boundaries resolve to canonical starts; byte/work boundaries snap deterministically to a canonical start with a specified tie rule;
-- each set bit remains a candidate until canonical header/range validation succeeds;
-- malformed Nano never authorizes unsafe access, and malformed canonical structure produces the same failure class as the serial validator;
+- empty slices and worker counts greater than extent count are valid;
+- a physical extent spanning multiple worker slices belongs only to the start-owning worker, with its candidate upper bound supplied by the next set bit or indexed-region end;
+- extent-balanced boundaries resolve to canonical starts; byte/work boundaries snap deterministically to a candidate canonical start with a specified tie rule;
+- each set bit and each next-set-bit-derived span remain candidates until canonical header/range validation succeeds; a Nano span never expands the canonical valid data range;
+- malformed/missing bits cannot safely merge canonical blocks, extra bits cannot authorize fake headers, and malformed canonical structure produces the same failure class as the serial validator;
 - because an unverified Nano can omit entries under Decision I, “no skipped blocks” is established by full conformance comparison in qualification/validator paths, not assumed by a fast path;
 - worker count does not change observable validation results or deterministic aggregation;
 - parallel consumers cannot alter BaseStep, Nano geometry, artifact semantics, or canonical bytes.
 
-**Parallel metrics:** total wall time and CPU time; speedup and scaling efficiency at 1/2/4/8/... workers where hardware permits; blocks and payload bytes per worker; block-count, byte-count, and measured-time imbalance; synchronization/queue overhead; partition-boundary discovery time; Nano/checkpoint and canonical pages touched; major/minor faults; cache/RSS effects; finalization/index construction cost; exact artifact bytes; and complete padding-plus-artifact structural cost.
+**Parallel metrics:** total wall time and CPU time; speedup and scaling efficiency at 1/2/4/8/... workers where hardware permits; extents/blocks, Nano-derived physical span, and validated payload bytes per worker; extent-count, byte-count, and measured-time imbalance; synchronization/queue overhead; partition-boundary discovery time; Nano/checkpoint and canonical pages touched; major/minor faults; cache/RSS effects; finalization/index construction cost; exact artifact bytes; and complete padding-plus-artifact structural cost.
 
 **Promotion criterion:** parallel partitioning becomes an additional generic Nano justification only if multiple generic workloads/corpora show reproducible end-to-end benefit over canonical parallel boundary discovery and appropriate dynamic-queue controls, without changing validation, bytes processed, or cache methodology. Checkpoints gain a second justification only if they materially reduce real partition setup/end-to-end time across more than one workload while still passing existing storage/complexity criteria.
 
 **Explicit rejection criteria:** record `NOT USEFUL ENOUGH TO MATTER` if gains disappear after including Nano construction/finalization, partition discovery, canonical validation, thread/queue overhead, page-cache controls, or padding/artifact cost; if skew makes static slicing consistently inferior; or if benefit exists only for one synthetic partition query. Record `POSSIBLE BUT NOT YET JUSTIFIED` when correctness is demonstrated but evidence is narrow/noisy. Use `SUPPORTED BY EVIDENCE` only with reproducible scoped results and preserved raw reports. None of these outcomes adds scheduler semantics to vBuf or scheduling metadata to Nano/region directories.
 
-**Tests:** property-test bit generation against canonical enumeration for every surviving BaseStep; represent the same logical block topology under different legal BaseSteps; verify every bit maps to `indexed_region_start + i*BaseStep`; reject a stream with an unrepresentable block start; correct first/last slot and partial final slot handling; fewer than eight slots; partial final Nano byte; no blocks; all-start bits; one huge block; checked huge-region arithmetic; malformed/contradictory BaseStep/index metadata rejected before pointer construction; Rust/C/TypeScript geometry parity; Nano-ignored parsing equality; candidate/header consistency; duplicate Key-IDs leave Nano bits unchanged; corrupted-header recovery uses later set bits only as validated candidates; run the parallel ownership/aggregation properties above across partition strategies and worker counts.
+**Tests:** property-test bit generation against canonical enumeration for every surviving BaseStep; represent the same logical block/extent topology under different legal BaseSteps; verify every bit maps to `indexed_region_start + i*BaseStep`; require the first bit for every non-empty topology; verify every later `1` is a representable canonical start; verify `0` creates no extent; consecutive `1` bits produce adjacent candidate extents; long zero runs produce one candidate extent through the next set bit/end; derive first/last/Nth start-plus-next-boundary spans; reject a stream with an unrepresentable block start; correct first/last slot and partial final slot handling; fewer than eight slots; partial final Nano byte; no blocks; all-start bits; one huge extent; padding inside an extent creates no false start; checked huge-region arithmetic; malformed/contradictory BaseStep/index metadata rejected before pointer construction; missing bits cannot authorize merged-block access; extra bits cannot authorize fake headers; Rust/C/TypeScript geometry parity; Nano-ignored parsing yields the same authoritative block sequence; candidate/header/span consistency; duplicate Key-IDs leave Nano bits unchanged; corrupted-header recovery uses later set bits only as validated candidates; run the parallel extent ownership/aggregation properties above across partition strategies and worker counts.
 
-**Benchmark/qualification requirements:** compare only equivalent operations: canonical scan versus Nano for physical enumeration/count; raw Nano versus Nano+checkpoints for Nth physical start; canonical Key-ID/range scan versus region directory for logical lookup. A Nano-assisted Key-ID scan is a separately labeled combined path that includes header inspection/map construction; Nano alone is never reported as answering a Key-ID query. Test every legal representative BaseStep surviving base qualification—at minimum 8, 16, 32 and 64 bytes if accepted. Corpora: small/large files, high block count, one/few large contiguous blocks, mixed small/large blocks, and equivalent topologies across BaseSteps. Operations: sequential enumeration, total block count, Nth-block lookup, random block ordinal access, random Key-ID lookup, consistency validation, and separately labeled corruption-diagnostic candidate scanning. Environments: cold/warm mmap with validated cache methodology. Metrics: wall time, cycles where reliable, faults, bytes/pages touched, RSS/cache footprint, block density, exact Nano/checkpoint/directory bytes, construction/finalization cost, validation time, and padding waste caused by BaseStep. Report combined structural cost as `padding waste + Nano bytes + checkpoint bytes + region-directory bytes + other finalized-artifact bytes`; omit only structures absent from that candidate. Do not optimize Nano percentage in isolation. Use balanced order, repeated independent runs and raw samples.
+**Benchmark/qualification requirements:** compare only equivalent operations: canonical scan versus Nano for physical enumeration/count; raw Nano versus Nano+checkpoints for Nth physical start; canonical Key-ID/range scan versus region directory for logical lookup. A Nano-assisted Key-ID scan is a separately labeled combined path that includes header inspection/map construction; Nano alone is never reported as answering a Key-ID query. Test every legal representative BaseStep surviving base qualification—at minimum 8, 16, 32 and 64 bytes if accepted. Corpora: small/large files, high block count, one/few large contiguous blocks, mixed small/large blocks, and equivalent topologies across BaseSteps. Operations: sequential extent enumeration, total extent/block count, Nth extent start, Nth start plus next boundary, random extent/block ordinal access, parallel extent-range construction, random Key-ID lookup, consistency validation, and separately labeled corruption-diagnostic candidate scanning. Environments: cold/warm mmap with validated cache methodology. Metrics: wall time, cycles where reliable, faults, bytes/pages touched, RSS/cache footprint, block density, exact Nano/checkpoint/directory bytes, construction/finalization cost, validation time, and padding waste caused by BaseStep. Report combined structural cost as `padding waste + Nano bytes + checkpoint bytes + region-directory bytes + other finalized-artifact bytes`; omit only structures absent from that candidate. Do not optimize Nano percentage in isolation. Use balanced order, repeated independent runs and raw samples.
 
 **Non-goals/architectural boundaries:** no ML fixture is required to justify a result; no tensor names/shapes/types; no corruption “recovery” claim; no production parser changes; no sophisticated succinct structure beyond the small checkpoint candidates.
 
@@ -730,7 +735,7 @@ Use dense small blocks, sparse large blocks, mixed/uniform/highly skewed sizes, 
 
 **Class:** BASE, conditional on Step 5A selecting it.
 
-**Goal:** generate, discover and consume a corrected one-bit-per-canonical-BaseStep structural map while keeping canonical parsing authoritative.
+**Goal:** generate, discover and consume a corrected one-bit-per-canonical-BaseStep physical extent-topology map while keeping canonical parsing authoritative.
 
 **Rationale:** restore the historical generic structural-map benefit only if Step 5A demonstrates that bit scanning saves enough reader work to justify its bytes and consistency surface.
 
@@ -746,15 +751,15 @@ Use dense small blocks, sparse large blocks, mixed/uniform/highly skewed sizes, 
 
 **Existing invariants:** files without Nano remain valid; ignoring Nano yields identical blocks; streaming writers can emit blocks without retaining the whole index in memory.
 
-**New invariants:** `B` comes only from the validated base header; one bit maps exactly `indexed_region_start + i*B`; Nano has no independent slot quantum; every canonical block start in the indexed region is representable; `slot_count=ceil(region_size/B)` and `nano_bytes=ceil(slot_count/8)` use checked arithmetic; partial-final-slot and indexed-region-boundary rules match Step 5B; tail bits are zero; generation uses writer-known starts or canonical re-scan; readers validate BaseStep/location/length before pointer construction or bit access; marked starts are cross-checked before use; mismatch never authorizes unsafe access.
+**New invariants:** `B` comes only from the validated base header; one bit maps exactly `indexed_region_start + i*B`; Nano has no independent slot quantum; every canonical block/extent start in the indexed region is representable and set; a non-empty topology begins with a set first slot; `0` means only “no new extent starts”; consecutive set bits or set-bit-plus-region-end derive candidate physical extent spans that never override canonical payload/range validation; `slot_count=ceil(region_size/B)` and `nano_bytes=ceil(slot_count/8)` use checked arithmetic; partial-final-slot and indexed-region-boundary rules match Step 5B; tail bits are zero; generation uses writer-known starts or canonical re-scan; readers validate BaseStep/location/length before pointer construction or bit access; marked starts and derived spans are cross-checked before use; mismatch never authorizes unsafe access.
 
-**Tests:** all Step 5A structural edge cases; the same topology under each legal representative BaseStep; exact first/last/partial slot mapping; malformed/truncated index; contradictory BaseStep metadata; flipped `1` and `0`; impossible/unrepresentable start; bit marking padding; huge checked and >4-GiB sparse regions; final-byte unused bits; Rust/TS/C geometry and byte identity; index-ignored canonical equality.
+**Tests:** all Step 5A structural/extent edge cases; the same topology under each legal representative BaseStep; required first start; exact first/last/partial slot mapping; consecutive starts, long continuation runs, and Nth start-plus-next-boundary; malformed/truncated index; contradictory BaseStep metadata; missing and extra starts; impossible/unrepresentable start; padding inside an extent creates no start; derived spans cannot authorize bytes outside canonical ranges; huge checked and >4-GiB sparse regions; final-byte unused bits; Rust/TS/C geometry and byte identity; index-ignored canonical sequence equality.
 
-**Benchmark/qualification:** rerun accepted Step 5A benchmarks against production code for every surviving representative BaseStep and report generation/finalization cost, cold/warm enumeration benefit, page touches, exact artifact bytes, block density and combined padding-plus-index structural cost.
+**Benchmark/qualification:** rerun accepted Step 5A benchmarks against production code for every surviving representative BaseStep and report generation/finalization cost, cold/warm extent enumeration, Nth start-plus-next-boundary, parallel extent-range construction, page touches, exact artifact bytes, extent density and combined padding-plus-index structural cost.
 
 **Non-goals/architectural boundaries:** no Key-ID lookup table, profile semantics, tensor knowledge, automatic repair or promise that every `1` is valid without parsing.
 
-**Downstream impact:** generic consumers may enumerate candidate block starts cheaply. If and only if Step 5A supports the parallel hypothesis, consumers may also treat disjoint Nano slices as deterministic candidate work boundaries; vBuf still defines no scheduler. Profiles may use ordinal physical navigation but cannot derive semantic lookup from Nano alone.
+**Downstream impact:** generic consumers may enumerate candidate extent starts and topology spans cheaply. If and only if Step 5A supports the parallel hypothesis, consumers may also treat disjoint set-bit ordinal ranges as deterministic candidate extent work boundaries; vBuf still defines no scheduler. Profiles may use ordinal physical navigation but cannot derive canonical payload length or semantic lookup from Nano alone.
 
 **Migration/version implications:** written only after canonical v0.6 BaseStep is unambiguously decoded; never silently append Nano to legacy bytes whose starts or alignment violate that declared geometry.
 
@@ -770,7 +775,7 @@ Use dense small blocks, sparse large blocks, mixed/uniform/highly skewed sizes, 
 
 **Goal:** provide direct generic numeric ID/kind-to-range navigation only if Nano/checkpoints cannot meet that requirement and benchmarks justify the additional structure.
 
-**Rationale:** Nano records physical starts but contains no generic identity-to-range mapping; a directory is separate and is justified only by consumers that actually need logical lookup.
+**Rationale:** Nano records physical extent topology and candidate spans but contains no generic identity/kind-to-validated-range mapping; a directory is separate and is justified only by consumers that actually need logical lookup. Step 5A must nevertheless measure whether cheap extent spans reduce the directory's incremental value.
 
 **Files/modules likely changed:**
 
@@ -805,7 +810,7 @@ Use dense small blocks, sparse large blocks, mixed/uniform/highly skewed sizes, 
 
 **Class:** BASE, conditional optimization.
 
-**Goal:** bound Nth-block navigation without introducing a complex succinct-data-structure subsystem.
+**Goal:** bound Nth physical extent navigation—including `select(i)` plus `select(i+1)` candidate span construction—without introducing a complex succinct-data-structure subsystem.
 
 **Rationale:** raw bit-vector select is linear in index words in the worst case; sparse cumulative counts may provide a simple measured bound without replacing vBuf with a sophisticated index library.
 
@@ -822,9 +827,9 @@ Use dense small blocks, sparse large blocks, mixed/uniform/highly skewed sizes, 
 
 **New invariants:** the selected checkpoint rule states whether it is slot-count-based, physical-span-based, or an empirically versioned policy; any slot interval is derived deterministically from BaseStep where needed; interval/count width are fixed/versioned; cumulative counts are monotonic and exactly match preceding Nano bits; size is checked from slot count; lookup documents checkpoint-search and maximum Nano-word bounds for each legal BaseStep; very large files cannot overflow cumulative `u64` counts; checkpoints cannot override or redefine BaseStep.
 
-**Tests:** first/last/exact-boundary Nth values across accepted BaseSteps; block-count-balanced worker boundaries resolve to the same ordinals as canonical enumeration; fixed-span rounding when span/BaseStep is not integral; malformed/non-monotonic counts; BaseStep/interval/count mismatch; large sparse synthetic files; cross-check every result against raw Nano and canonical enumeration.
+**Tests:** first/last/exact-boundary Nth extent starts and next-boundary pairs across accepted BaseSteps; final extent uses indexed-region end; extent-count-balanced worker boundaries resolve to the same ordinals as canonical enumeration; fixed-span rounding when span/BaseStep is not integral; malformed/non-monotonic counts; BaseStep/interval/count mismatch; large sparse synthetic files; cross-check every result against raw Nano topology and canonical enumeration.
 
-**Benchmark/qualification:** only policy/interval combinations surviving Step 5A may be implemented. Re-measure exact overhead, physical coverage, cold/warm Nth lookup, sequential regression, cache effects, and block-balanced partition-boundary/end-to-end workload time for each representative BaseStep. Compare against one-time raw POPCNT prefix construction, sparse hints, and dynamic-queue controls. Keep checkpoints only if benefit exceeds raw Nano for declared workloads without hiding added BaseStep padding cost; a win in one synthetic partition operation is insufficient.
+**Benchmark/qualification:** only policy/interval combinations surviving Step 5A may be implemented. Re-measure exact overhead, physical coverage, cold/warm Nth start lookup, Nth start-plus-next-boundary, sequential extent enumeration, parallel extent-range construction, cache effects, and extent-balanced partition-boundary/end-to-end workload time for each representative BaseStep. Compare against one-time raw POPCNT prefix construction, sparse hints, and dynamic-queue controls. Keep checkpoints only if benefit exceeds raw Nano for declared workloads without hiding added BaseStep padding cost; a win in one synthetic partition operation is insufficient.
 
 **Non-goals/architectural boundaries:** no Elias–Fano, wavelet trees or other sophisticated succinct structures without a new evidence-driven ADR; no Key-ID or ML semantics.
 
