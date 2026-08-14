@@ -21,6 +21,7 @@ struct Step28LayerPreparation {
 
 struct Step28PhysicalSpan {
     std::string role;
+    std::string label;
     uint64_t layer_id = UINT64_MAX;
     uint64_t start_offset = 0;
     uint64_t end_offset = 0;

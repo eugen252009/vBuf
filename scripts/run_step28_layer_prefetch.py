@@ -83,13 +83,13 @@ def main():
  plan=next(r for r in warm if r["model"]=="32B" and r["variant"]==VARIANTS[0])["preparation"]
  spans=plan["spans"]
  with (out/"layer-span-plan.csv").open("w",newline="") as f:
-  fields=["layer_id","start_offset","end_offset","span_bytes","useful_bytes","gap_bytes","tensor_count","coverage_amplification"]
+  fields=["label","layer_id","start_offset","end_offset","span_bytes","useful_bytes","gap_bytes","tensor_count","coverage_amplification"]
   w=csv.DictWriter(f,fieldnames=fields,lineterminator="\n"); w.writeheader()
   for s in spans:
    if s["role"]=="layer":
     x={k:s[k] for k in fields[:-1]}; x["coverage_amplification"]=s["span_bytes"]/s["useful_bytes"]; w.writerow(x)
  with (out/"global-span-plan.csv").open("w",newline="") as f:
-  fields=["role","layer_id","start_offset","end_offset","span_bytes","useful_bytes","gap_bytes","tensor_count"]
+  fields=["role","label","layer_id","start_offset","end_offset","span_bytes","useful_bytes","gap_bytes","tensor_count"]
   w=csv.DictWriter(f,fieldnames=fields,lineterminator="\n"); w.writeheader(); w.writerows([s for s in spans if s["role"]=="global"])
  # Phase table and resource boundary tables.
  phase_rows=[]

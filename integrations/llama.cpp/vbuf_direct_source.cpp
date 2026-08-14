@@ -129,7 +129,7 @@ public:
             records.push_back(std::move(record));
         }
         auto make_span = [](const std::vector<const Record *> & members, const char * role, uint64_t layer_id) {
-            WorkSpan span; span.report.role = role; span.report.layer_id = layer_id;
+            WorkSpan span; span.report.role = role; span.report.layer_id = layer_id; span.report.label = members.size() == 1 ? (*members.begin())->name : role;
             auto first = std::min_element(members.begin(), members.end(), [](auto a, auto b) { return a->offset < b->offset; });
             auto last = std::max_element(members.begin(), members.end(), [](auto a, auto b) { return a->offset + a->length < b->offset + b->length; });
             span.report.start_offset = (*first)->offset; span.report.end_offset = (*last)->offset + (*last)->length;
