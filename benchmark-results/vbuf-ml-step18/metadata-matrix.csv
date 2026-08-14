@@ -1,0 +1,25 @@
+artifact,source_key,consumer_semantic,target,status,source_value
+Q8_0,general.architecture,architecture,Architecture,DIRECTLY_REPRESENTED,qwen3
+Q8_0,qwen3.context_length,context length,ContextLength,DIRECTLY_REPRESENTED,40960
+Q8_0,qwen3.embedding_length,embedding length,EmbeddingLength,DIRECTLY_REPRESENTED,1024
+Q8_0,qwen3.block_count,layer count,LayerCount,DIRECTLY_REPRESENTED,28
+Q8_0,qwen3.attention.head_count,attention head count,HeadCount,DIRECTLY_REPRESENTED,16
+Q8_0,qwen3.attention.head_count_kv,KV head count,KVHeadCount,MISSING,8
+Q8_0,qwen3.attention.key_length,key head dimension,KeyHeadDimension,MISSING,128
+Q8_0,qwen3.attention.value_length,value head dimension,ValueHeadDimension,MISSING,128
+Q8_0,qwen3.feed_forward_length,feed-forward length,FeedForwardLength,DIRECTLY_REPRESENTED,3072
+Q8_0,qwen3.attention.layer_norm_rms_epsilon,RMS normalization epsilon,NormalizationEpsilon,DIRECTLY_REPRESENTED,9.999999974752427e-07
+Q8_0,qwen3.rope.freq_base,RoPE base,RopeTheta,DIRECTLY_REPRESENTED,1000000.0
+Q8_0,tokenizer.ggml.tokens,vocabulary size,VocabularySize,DERIVABLE,151936
+BF16,general.architecture,architecture,Architecture,DIRECTLY_REPRESENTED,qwen3
+BF16,qwen3.context_length,context length,ContextLength,DIRECTLY_REPRESENTED,40960
+BF16,qwen3.embedding_length,embedding length,EmbeddingLength,DIRECTLY_REPRESENTED,1024
+BF16,qwen3.block_count,layer count,LayerCount,DIRECTLY_REPRESENTED,28
+BF16,qwen3.attention.head_count,attention head count,HeadCount,DIRECTLY_REPRESENTED,16
+BF16,qwen3.attention.head_count_kv,KV head count,KVHeadCount,MISSING,8
+BF16,qwen3.attention.key_length,key head dimension,KeyHeadDimension,MISSING,128
+BF16,qwen3.attention.value_length,value head dimension,ValueHeadDimension,MISSING,128
+BF16,qwen3.feed_forward_length,feed-forward length,FeedForwardLength,DIRECTLY_REPRESENTED,3072
+BF16,qwen3.attention.layer_norm_rms_epsilon,RMS normalization epsilon,NormalizationEpsilon,DIRECTLY_REPRESENTED,9.999999974752427e-07
+BF16,qwen3.rope.freq_base,RoPE base,RopeTheta,DIRECTLY_REPRESENTED,1000000.0
+BF16,tokenizer.ggml.tokens,vocabulary size,VocabularySize,DERIVABLE,151936

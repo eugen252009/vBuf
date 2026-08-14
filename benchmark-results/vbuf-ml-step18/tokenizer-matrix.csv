@@ -1,0 +1,21 @@
+artifact,source_key,meaning,source_shape_or_value,target,status
+Q8_0,tokenizer.chat_template,tokenizer metadata,string[4100],,UNSUPPORTED_REQUIRED
+Q8_0,tokenizer.ggml.add_bos_token,tokenizer metadata,False,consumer/default metadata,IGNORE_WITH_REASON
+Q8_0,tokenizer.ggml.bos_token_id,tokenizer metadata,151643,VocabularyOnly special ID,DIRECTLY_REPRESENTED
+Q8_0,tokenizer.ggml.eos_token_id,tokenizer metadata,151645,VocabularyOnly special ID,DIRECTLY_REPRESENTED
+Q8_0,tokenizer.ggml.merges,tokenizer metadata,array[151387],,UNSUPPORTED_REQUIRED
+Q8_0,tokenizer.ggml.model,tokenizer metadata,gpt2,,UNSUPPORTED_REQUIRED
+Q8_0,tokenizer.ggml.padding_token_id,tokenizer metadata,151643,VocabularyOnly special ID,DIRECTLY_REPRESENTED
+Q8_0,tokenizer.ggml.pre,tokenizer metadata,qwen2,,UNSUPPORTED_REQUIRED
+Q8_0,tokenizer.ggml.token_type,tokenizer metadata,array[151936],VocabularyOnly,DIRECTLY_REPRESENTED
+Q8_0,tokenizer.ggml.tokens,tokenizer metadata,array[151936],VocabularyOnly,DIRECTLY_REPRESENTED
+BF16,tokenizer.chat_template,tokenizer metadata,string[4168],,UNSUPPORTED_REQUIRED
+BF16,tokenizer.ggml.add_bos_token,tokenizer metadata,False,consumer/default metadata,IGNORE_WITH_REASON
+BF16,tokenizer.ggml.bos_token_id,tokenizer metadata,151643,VocabularyOnly special ID,DIRECTLY_REPRESENTED
+BF16,tokenizer.ggml.eos_token_id,tokenizer metadata,151645,VocabularyOnly special ID,DIRECTLY_REPRESENTED
+BF16,tokenizer.ggml.merges,tokenizer metadata,array[151387],,UNSUPPORTED_REQUIRED
+BF16,tokenizer.ggml.model,tokenizer metadata,gpt2,,UNSUPPORTED_REQUIRED
+BF16,tokenizer.ggml.padding_token_id,tokenizer metadata,151643,VocabularyOnly special ID,DIRECTLY_REPRESENTED
+BF16,tokenizer.ggml.pre,tokenizer metadata,qwen2,,UNSUPPORTED_REQUIRED
+BF16,tokenizer.ggml.token_type,tokenizer metadata,array[151936],VocabularyOnly,DIRECTLY_REPRESENTED
+BF16,tokenizer.ggml.tokens,tokenizer metadata,array[151936],VocabularyOnly,DIRECTLY_REPRESENTED

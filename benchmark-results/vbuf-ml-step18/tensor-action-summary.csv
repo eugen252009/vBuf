@@ -1,0 +1,3 @@
+artifact,source_tensors,copy_bytes,shared_reference,derived,reject,unaccounted,readiness
+Q8_0,310,310,1,3,0,0,BLOCKED_BY_METADATA_GAP;BLOCKED_BY_TOKENIZER_GAP
+BF16,311,311,0,3,0,0,BLOCKED_BY_METADATA_GAP;BLOCKED_BY_TOKENIZER_GAP
