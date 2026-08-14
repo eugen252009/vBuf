@@ -52,10 +52,12 @@ model bytes; see [`step18-conversion-manifest.md`](step18-conversion-manifest.md
 Step 19A resolves the pinned Qwen3 KV-head and key/value head-dimension
 metadata gaps. Step 19B qualifies the pinned GPT2/Qwen2 tokenizer path and
 adds the `Gpt2BpeQwen2` storage profile; see
-[`step19b-qwen3-tokenizer.md`](step19b-qwen3-tokenizer.md). Step 20 implements
-the deterministic manifest-driven writer; see
-[`step20-gguf-conversion.md`](step20-gguf-conversion.md). Tokenizer execution
-and chat-template rendering remain consumer/runtime responsibilities.
+[`step19b-qwen3-tokenizer.md`](step19b-qwen3-tokenizer.md). Step 20 implements the deterministic manifest-driven writer; see
+[`step20-gguf-conversion.md`](step20-gguf-conversion.md). Step 21 adds the
+validated Rust/C descriptor bridge and records the pinned llama.cpp loader seam;
+full runtime construction remains deferred. See
+[`step21-llama-consumer.md`](step21-llama-consumer.md). Tokenizer execution and
+chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is
 preferred over maximal base functionality.

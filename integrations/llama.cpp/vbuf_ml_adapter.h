@@ -1,0 +1,68 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "ggml.h"
+
+extern "C" {
+struct VbufMlConsumerHandle;
+struct VbufMlTensorInfo {
+    uint8_t representation;
+    uint8_t rank;
+    uint64_t dimensions[16];
+    const uint8_t * payload;
+    uint64_t payload_len;
+};
+struct VbufMlModelMetadataInfo {
+    uint64_t context_length;
+    uint64_t embedding_length;
+    uint64_t layer_count;
+    uint64_t head_count;
+    uint64_t kv_head_count;
+    uint64_t key_head_dimension;
+    uint64_t value_head_dimension;
+    uint64_t feed_forward_length;
+    double normalization_epsilon;
+    double rope_theta;
+};
+VbufMlConsumerHandle * vbuf_ml_consumer_open(const char * path);
+void vbuf_ml_consumer_close(VbufMlConsumerHandle * handle);
+uint32_t vbuf_ml_consumer_tensor_count(const VbufMlConsumerHandle *, uint64_t * count);
+uint32_t vbuf_ml_consumer_tensor_info(const VbufMlConsumerHandle *, uint64_t index,
+                                      VbufMlTensorInfo *, char * name, size_t name_capacity);
+uint32_t vbuf_ml_consumer_metadata(const VbufMlConsumerHandle *, VbufMlModelMetadataInfo *);
+}
+
+namespace vbuf_llama {
+
+struct TensorDescriptor {
+    std::string name;
+    std::vector<uint64_t> dimensions;
+    ggml_type type;
+    const uint8_t * payload;
+    uint64_t payload_bytes;
+};
+
+// Descriptor-only first seam. It owns the Rust mapping handle, so payload
+// pointers remain valid until this object is destroyed. It intentionally does
+// not reach into llama_model_loader or construct a parallel runtime.
+class VbufMlAdapter {
+public:
+    explicit VbufMlAdapter(const char * path);
+    ~VbufMlAdapter();
+    VbufMlAdapter(const VbufMlAdapter &) = delete;
+    VbufMlAdapter & operator=(const VbufMlAdapter &) = delete;
+
+    bool valid() const { return handle_ != nullptr; }
+    uint64_t tensor_count() const;
+    bool tensor(uint64_t index, TensorDescriptor & out) const;
+    bool metadata(VbufMlModelMetadataInfo & out) const;
+
+private:
+    VbufMlConsumerHandle * handle_ = nullptr;
+};
+
+} // namespace vbuf_llama

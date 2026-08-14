@@ -17,6 +17,8 @@ pub mod representations;
 pub mod layout;
 pub mod integrity;
 pub mod range_loading;
+pub mod consumer;
+pub mod consumer_ffi;
 
 pub use bootstrap::{Bootstrap, BootstrapEntry, SemanticRegion};
 pub use error::{MlError, MlErrorCode};
@@ -28,6 +30,7 @@ pub use integrity::{digest_payload, encode_payload as encode_integrity_payload, 
 pub use range_loading::{execute_plan, select_tensor_names, select_tensor_ordinals, Coalescing, LoadedPlan, LoadedRead, MmapSource, PhysicalRange, PositionedFileSource, PlannedTarget, RangeLoadError, ReadPlan, RangeSource, SelectedTensor};
 pub use metadata::{encode_payload as encode_metadata_payload, MetadataEntry, MetadataField, MetadataValue, ModelMetadata, ModelMetadataKey};
 pub use tokenizer::{PreTokenizer, SpecialToken, TokenizerEntry, TokenizerKind, TokenizerMetadata, TokenizerModel, TokenizerRole};
+pub use consumer::{ConsumerModel, ConsumerModelMetadata, ConsumerTensorType};
 
 /// Boundary smoke helper for future profile code. It does not parse or
 /// authorize the range.

@@ -1662,6 +1662,33 @@ No llama.cpp consumer or inference claim is made.
 
 ### Step 21 — Prototype a llama.cpp loader adapter
 
+#### Step 21 implementation recorded
+
+Pinned llama.cpp checkout `4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c` was
+verified and its CPU library built successfully. Added a validated Rust
+consumer descriptor and minimal C ABI, plus a separated C++ representation
+wrapper under `integrations/llama.cpp/`.
+
+The bridge passes real Q8_0/BF16 descriptor validation, metadata mapping,
+representation mapping, and checked payload lifetime tests. Inspection found
+that pinned `llama_model_loader` is a concrete GGUF-oriented internal seam; a
+full vBuf `llama_model` construction requires a small pinned internal source
+interface/constructor change. No scattered runtime branches or llama.cpp
+modification were made.
+
+Therefore Step 21 stops at:
+
+```text
+descriptor bridge: PASS
+llama_model construction: DEFERRED — pinned loader seam
+runtime tokenizer/logit/generation parity: DEFERRED
+```
+
+Evidence and provenance are in `docs/vbuf-ml/step21-llama-consumer.md` and
+`benchmark-results/vbuf-ml-step21/`.
+
+---
+
 **Class:** ML runtime integration, kept outside generic vBuf.
 
 **Goal:** determine whether vBuf-ML can construct the same runtime tensor objects and use the same kernels without repacking.
