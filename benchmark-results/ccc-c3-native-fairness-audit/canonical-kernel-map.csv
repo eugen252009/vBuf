@@ -1,0 +1,7 @@
+format,weight_type,activation_input_type,activation_prep_func,native_vec_dot_func,simd_impl,prep_required,previously_timed
+Q2_K,block_q2_K,block_q8_K,quantize_row_q8_K,ggml_vec_dot_q2_K_q8_K,AVX2/FMA/SSSE3,YES,NO (Row dequant used)
+Q3_K,block_q3_K,block_q8_K,quantize_row_q8_K,ggml_vec_dot_q3_K_q8_K,AVX2/FMA/SSSE3,YES,NO (Row dequant used)
+Q4_0,block_q4_0,block_q8_0,quantize_row_q8_0,ggml_vec_dot_q4_0_q8_0,AVX2/FMA,YES,NO (Row dequant used)
+Q4_K,block_q4_K,block_q8_K,quantize_row_q8_K,ggml_vec_dot_q4_K_q8_K,AVX2/FMA,YES,NO (Row dequant used)
+Q8_0,block_q8_0,block_q8_0,quantize_row_q8_0,ggml_vec_dot_q8_0_q8_0,AVX2/FMA,YES,NO (Row dequant used)
+C3-A AVX2,packed_3bit,FP32,None,c3_matvec_avx2,AVX2/FMA3,NO,YES

@@ -1,0 +1,4 @@
+Model name: AMD Ryzen 7 5800X 8-Core Processor
+Architecture: x86_64
+CPU(s): 16 (8 cores, 2 threads/core)
+SIMD Capabilities: AVX2, FMA3, BMI1, BMI2, SSSE3, SSE4.2

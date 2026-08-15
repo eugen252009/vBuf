@@ -1,0 +1,5 @@
+strategy,physical_bpw,unpack_only_mweights_s,dot_mweights_s,slowdown_vs_byte_c3,notes
+Byte C3 (8 bpw),8.0,N/A,1387.86,1.000,No unpacking overhead
+Scalar Packed C3,3.0,2585.48,1388.84,0.999297,3-byte 24-bit bitshift
+BMI2 Bit-Extract C3,3.0,2585.48,860.776,1.61234,64-bit uint64 bit-field extract
+AVX2 Gather C3,3.0,2585.48,1512.83,0.917394,256-bit SIMD gather + FMA3

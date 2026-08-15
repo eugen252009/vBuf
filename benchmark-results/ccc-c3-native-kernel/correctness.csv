@@ -1,0 +1,7 @@
+variant,max_abs_err,status
+Dense FP32 Ref,0.000000,PASSED
+Byte Unpacked C3,2.16961e-05,PASSED
+Scalar Packed C3,2.16961e-05,PASSED
+BMI2 Packed C3,2.16961e-05,PASSED
+AVX2 Packed C3,4.35114e-06,PASSED
+AVX2 Unrolled C3,2.74181e-06,PASSED

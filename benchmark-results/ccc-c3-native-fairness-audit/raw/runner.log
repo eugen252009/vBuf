@@ -1,0 +1,54 @@
+=== CCC C3 NATIVE BENCHMARK FAIRNESS AUDIT ===
+Evaluation Date: 2026-08-15
+Host CPU: AMD Ryzen 7 5800X 8-Core Processor (Zen 3)
+Pinned llama.cpp Commit: 4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c
+
+--- Matrix Dimensions ---
+Rows: 1024 | Cols: 5120 | Total Weights: 5242880
+
+=== 1. ACTIVATION PREPARATION BENCHMARK ===
+FP32 -> Q8_K Activation Prep: 5.683691 us (900.823106 Mvals/s, 4.218364 cyc/val)
+FP32 -> Q8_0 Activation Prep: 0.984421 us (5201.027853 Mvals/s, 0.730625 cyc/val)
+
+=== 2. PREPARED-INPUT KERNEL-ONLY BENCHMARK (Definition A) ===
+PREPARED-INPUT KERNEL-ONLY SUMMARY:
+Candidate            | True bpw | Latency (us) | Mw/s     | Phys GB/s | Cycles/w
+---------------------+----------+--------------+----------+-----------+---------
+Canonical Q2_K       |   2.6250 |       135.91 | 38574.73 |     12.66 |    0.099
+Canonical Q3_K       |   3.4375 |       211.27 | 24816.47 |     10.66 |    0.153
+Canonical Q4_0       |   4.5000 |       285.08 | 18390.69 |     10.34 |    0.207
+Canonical Q4_K       |   4.5000 |       179.49 | 29209.83 |     16.43 |    0.130
+Canonical Q8_0       |   8.5000 |       215.34 | 24346.97 |     25.87 |    0.156
+AVX2 Packed C3       |   3.0000 |      4375.84 |  1198.14 |      0.45 |    3.172
+
+=== 3. END-TO-END REQUIRED MATVEC BENCHMARK (Definition B - Primary Fairness) ===
+END-TO-END REQUIRED MATVEC SUMMARY (FP32 Input Boundary):
+Candidate            | True bpw | Real Rel L2 | Total Latency (us) | Mw/s     | Phys GB/s | Cycles/w | vs C3
+---------------------+----------+-------------+--------------------+----------+-----------+----------+------
+Canonical Q2_K       |   2.6250 |    0.304933 |             150.87 | 34751.26 |     11.40 |    0.109 | 0.03x
+Canonical Q3_K       |   3.4375 |    0.156915 |             235.12 | 22298.38 |      9.58 |    0.170 | 0.05x
+Canonical Q4_0       |   4.5000 |    0.089498 |             276.98 | 18929.01 |     10.65 |    0.201 | 0.06x
+Canonical Q4_K       |   4.5000 |    0.073452 |             174.68 | 30014.55 |     16.88 |    0.127 | 0.04x
+Canonical Q8_0       |   8.5000 |    0.000000 |             238.26 | 22005.16 |     23.38 |    0.173 | 0.05x
+AVX2 Packed C3       |   3.0000 |    0.211157 |            4350.49 |  1205.12 |      0.45 |    3.153 | 1.00x
+
+=== 4. ACTIVATION QUANTIZATION AMORTIZATION BENCHMARK ===
+Reuse N | Q2_K Total us | Q3_K Total us | Q4_K Total us | C3 Total us | C3 Speedup vs Q3_K
+--------+---------------+---------------+---------------+-------------+-------------------
+      1 |        141.60 |        216.95 |        185.17 |     4350.49 |               0.05x (Q3_K faster)
+      2 |        138.76 |        214.11 |        182.33 |     4350.49 |               0.05x (Q3_K faster)
+      3 |        137.81 |        213.16 |        181.38 |     4350.49 |               0.05x (Q3_K faster)
+      4 |        137.34 |        212.69 |        180.91 |     4350.49 |               0.05x (Q3_K faster)
+      8 |        136.63 |        211.98 |        180.20 |     4350.49 |               0.05x (Q3_K faster)
+
+=== 5. WORKING-SET CACHE SENSITIVITY EXPERIMENT ===
+Cols Sweep | Matrix Bytes | Byte-C3 us | Packed-C3 us | Q3_K Kernel us | Packed vs Byte Ratio
+-----------+--------------+------------+--------------+----------------+---------------------
+        64 |        24576 B |      42.53 |        54.00 |           0.00 |                1.270x
+       256 |        98304 B |     198.25 |       223.87 |          22.58 |                1.129x
+       512 |       196608 B |     373.19 |       424.71 |          25.83 |                1.138x
+      1024 |       393216 B |     756.13 |       764.37 |          42.74 |                1.011x
+      2048 |       786432 B |    1513.93 |      1734.36 |          82.78 |                1.146x
+      5120 |      1966080 B |    3864.02 |      4091.58 |         194.57 |                1.059x
+
+=== BENCHMARK FAIRNESS AUDIT COMPLETE ===

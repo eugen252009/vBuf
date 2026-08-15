@@ -1,0 +1,7 @@
+candidate,true_bpw,latency_us,mweights_sec
+Canonical Q2_K,2.625,135.91,38574.73
+Canonical Q3_K,3.4375,211.27,24816.47
+Canonical Q4_0,4.5,285.08,18390.69
+Canonical Q4_K,4.5,179.49,29209.83
+Canonical Q8_0,8.5,215.34,24346.97
+AVX2 Packed C3,3.0,4375.84,1198.14

@@ -1,0 +1,84 @@
+=== CCC C3 HARD GATE BENCHMARK INITIALIZING ===
+Timestamp: 2026-08-15 10:23:00
+GGUF Model Path: /home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.gguf
+Loading Q8_0 reference weights for blk.32.attn_k.weight...
+Tensor Info: blk.32.attn_k.weight
+GGML Shape: [5120, 1024] | Element Count: 5,242,880
+GGML Type: Q8_0 (ID 8) | Payload Bytes: 5,570,560 B
+Absolute File Range: 18238388864 to 18243959424
+Source true bpw: 8.5000 bpw
+Weight Stats: min=-0.590080, max=0.396536, mean=-7.949784e-08, NaNs=0
+
+=== SPLITTING WEIGHTS (70/15/15 Deterministic Hash Split) ===
+Fit elements: 3,670,017 (70.0%)
+Val elements: 786,430 (15.0%)
+Test elements: 786,433 (15.0%)
+
+--- Running Canonical Q2_K Control ---
+Running canonical bridge command: /home/eugen/projekte/vBuf_3/c/canonical_bridge Q2_K /tmp/input_weights_Q2_K.bin /tmp/recon_weights_Q2_K.bin
+[CANONICAL BRIDGE] Read 5242880 weights for format Q2_K
+[CANONICAL BRIDGE] Format Q2_K: total_bytes=1720320 -> True bpw=2.625
+
+--- Running Canonical Q3_K Control ---
+Running canonical bridge command: /home/eugen/projekte/vBuf_3/c/canonical_bridge Q3_K /tmp/input_weights_Q3_K.bin /tmp/recon_weights_Q3_K.bin
+[CANONICAL BRIDGE] Read 5242880 weights for format Q3_K
+[CANONICAL BRIDGE] Format Q3_K: total_bytes=2252800 -> True bpw=3.4375
+
+--- Running Canonical Q4_0 Control ---
+Running canonical bridge command: /home/eugen/projekte/vBuf_3/c/canonical_bridge Q4_0 /tmp/input_weights_Q4_0.bin /tmp/recon_weights_Q4_0.bin
+[CANONICAL BRIDGE] Read 5242880 weights for format Q4_0
+[CANONICAL BRIDGE] Format Q4_0: total_bytes=2949120 -> True bpw=4.5
+
+--- Running Canonical Q4_K Control ---
+Running canonical bridge command: /home/eugen/projekte/vBuf_3/c/canonical_bridge Q4_K /tmp/input_weights_Q4_K.bin /tmp/recon_weights_Q4_K.bin
+[CANONICAL BRIDGE] Read 5242880 weights for format Q4_K
+[CANONICAL BRIDGE] Format Q4_K: total_bytes=2949120 -> True bpw=4.5
+
+=== FITTING CCC C3 CANDIDATES ===
+Fitting C3-A Learned (Free 8-state Lloyd-Max codebook)...
+Lloyd-Max 8-state centroids: [-0.052953 -0.03182  -0.0175   -0.005477  0.00584   0.017731  0.031971
+  0.052935]
+Lloyd-Max fit time: 4602.95 ms
+
+Optimizing C3-A Geometric (Mirrored 8 non-zero levels)...
+Best Geometric parameters selected on Validation: gamma=1.25, R=0.062496 (p99)
+C3-A Geometric 8-state levels: [-0.052889 -0.03473  -0.01834  -0.004645  0.004645  0.01834   0.03473
+  0.052889]
+Geometric fit time: 673.96 ms
+
+=== LEARNED-VS-GEOMETRIC LEVEL ANALYSIS ===
+Learned 8 levels:   [-0.052953 -0.03182  -0.0175   -0.005477  0.00584   0.017731  0.031971
+  0.052935]
+Geometric 8 levels: [-0.052889 -0.03473  -0.01834  -0.004645  0.004645  0.01834   0.03473
+  0.052889]
+Power curve fit directly to learned codebook levels:
+  Best-fit gamma: 1.0300
+  Normalized level RMS deviation: 0.066265
+  Normalized max level deviation: 0.128498
+Diagnostic Conclusion: Learned 8-level codebook IS strongly power-like with gamma ≈ 1.03!
+
+=== GLOBAL-GAMMA DIAGNOSTIC ===
+Fixed gamma=1.25: Test RMSE=0.004905
+Fixed gamma=1.30: Test RMSE=0.004914
+Fixed gamma=1.35: Test RMSE=0.004933
+
+=== LOADING REAL HIDDEN-STATE ACTIVATIONS ===
+Loaded real activation dataset: 182 vectors x 5120 dimension.
+Matrix shape (5120, 1024), activation dim 5120. W_mat will be evaluated as (1024, 5120).
+Functional Validation Activations: 91 vectors
+Functional TEST Activations: 91 vectors (UNTOUCHED UNTIL NOW)
+
+=== EVALUATING UNTOUCHED TEST METRICS ===
+
+=== GEOMETRY PENALTY ASSESSMENT ===
+Weight RMSE Geometry Penalty: 1.0223 (+2.23%)
+Functional W*x Geometry Penalty: 1.0243 (+2.43%)
+Geometry Classification: EXCELLENT_APPROXIMATION
+
+=== WRITING IMMUTABLE BENCHMARK ARTIFACTS ===
+Saved /home/eugen/projekte/vBuf_3/benchmark-results/vbuf-ml-step31-ccc-hard-gate/hard-gate-results.json
+Saved /home/eugen/projekte/vBuf_3/benchmark-results/vbuf-ml-step31-ccc-hard-gate/hard-gate-results.csv
+Saved /home/eugen/projekte/vBuf_3/benchmark-results/vbuf-ml-step31-ccc-hard-gate/learned-vs-geometric.csv
+Saved /home/eugen/projekte/vBuf_3/benchmark-results/vbuf-ml-step31-ccc-hard-gate/hard-gate-report.md
+
+=== ALL HARD GATE BENCHMARK ARTIFACTS WRITTEN SUCCESSFULLY ===
