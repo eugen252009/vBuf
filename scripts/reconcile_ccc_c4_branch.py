@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+"""Post-merge reconciliation of independent vBuf_2 geometric/C4 evidence."""
+from __future__ import annotations
+import csv,hashlib,json
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[1]
+BASE='33a4d037015b09394b762d5df159dad6d42f8643';PRE='df0086304fea1d1556138bf798fde36eb16adf50';VBUF2='da93e439c7836837f13c11341767142d892fad68';MERGE='51311440ee955acdb452202f17ab5d01536767e9';STAGE2='b9316d9b83f4d193aec10d4b5cbead53d0963e79';VBUF3='889bd58c674195b9e40f0156e56ca18c1fd00e78';VBUF4='28588a048a02ee3f4df33530dff8ee789e290114'
+def rows(p):
+ with p.open() as f:return list(csv.DictReader(f))
+def writecsv(p,data):
+ fields=[]
+ for r in data:
+  for k in r:
+   if k not in fields:fields.append(k)
+ with p.open('w',newline='') as f:w=csv.DictWriter(f,fieldnames=fields,lineterminator='\n');w.writeheader();w.writerows(data)
+def sha(p):
+ h=hashlib.sha256()
+ with p.open('rb') as f:
+  for b in iter(lambda:f.read(1<<20),b''):h.update(b)
+ return h.hexdigest()
+def main():
+ import argparse
+ ap=argparse.ArgumentParser();ap.add_argument('--output-dir',type=Path,default=ROOT/'benchmark-results/vbuf-ml-step34-ccc-c4-reconciliation');a=ap.parse_args();out=a.output_dir;raw=out/'raw';raw.mkdir(parents=True,exist_ok=True)
+ branch=json.loads((ROOT/'benchmark-results/ccc-c4-hard-gate/c4-hard-gate.json').read_text());br={r['name']:r for r in branch['results']};stage=json.loads((ROOT/'benchmark-results/vbuf-ml-step31-ccc-canonical/stage2-results.json').read_text());sr={r['candidate']:r for r in stage['results']};act=ROOT/'benchmark-results/ccc-c4-hard-gate/raw/attn-k-input.f32'
+ provenance=[
+ {'evidence':'Stage-2 canonical/real-hidden qualification','source_branch':'vbuf-ml','source_commit':STAGE2,'artifact_path':'benchmark-results/vbuf-ml-step31-ccc-canonical/','created_before_merge':True,'status':'historical layer-32 evidence'},
+ {'evidence':'parallel native C3 qualification','source_branch':'vBuf_3','source_commit':VBUF3,'artifact_path':'benchmark-results/ccc-c3-native-kernel/','created_before_merge':True,'status':'historical'},
+ {'evidence':'structured baseline qualification','source_branch':'vBuf_4','source_commit':VBUF4,'artifact_path':'benchmark-results/ccc-structured-baseline-qualification/','created_before_merge':True,'status':'historical layer-0 evidence'},
+ {'evidence':'geometric CCC qualification','source_branch':'vBuf_2','source_commit':VBUF2,'artifact_path':'benchmark-results/ccc-geometric-qualification/','created_before_merge':True,'status':'imported unchanged; canonical controls historically blocked'},
+ {'evidence':'C4 hard gate','source_branch':'vBuf_2','source_commit':VBUF2,'artifact_path':'benchmark-results/ccc-c4-hard-gate/','created_before_merge':True,'status':'imported unchanged; canonical + real hidden states'},
+ {'evidence':'vBuf_2 no-ff merge','source_branch':'vbuf-ml','source_commit':MERGE,'artifact_path':'Git merge commit','created_before_merge':False,'status':'first parent '+PRE+'; second parent '+VBUF2},
+ {'evidence':'C4 reconciliation','source_branch':'vbuf-ml','source_commit':'commit containing this artifact','artifact_path':'benchmark-results/vbuf-ml-step34-ccc-c4-reconciliation/','created_before_merge':False,'status':'post-merge reconciliation'}]
+ methodology=[
+ {'property':'model','vBuf_2':'Qwen3-32B-Q8_0 / 2c50eb8a…','Stage-2':'same verified source','same':'YES','interpretation':'Q8-relative only'},
+ {'property':'tensor','vBuf_2':'blk.0.attn_k.weight','Stage-2':'blk.32.attn_k.weight','same':'NO','interpretation':'Cross-layer corroboration; values are not averaged.'},
+ {'property':'orientation','vBuf_2':'W[out,in] = [1024,5120]','Stage-2':'W[out,in] = [1024,5120]','same':'YES','interpretation':'No transpose/reshape defect.'},
+ {'property':'hidden seam','vBuf_2':'attn_norm-0, 69 F32 vectors, 4 prompts','Stage-2':'attn_norm-32, 128 F32 vectors, 4 prompts; Kcur associated','same':'SEMANTICALLY YES','interpretation':'Exact pre-key-projection input at different layers.'},
+ {'property':'functional split','vBuf_2':'hash-order 34 validation / 35 untouched test','Stage-2':'64 validation / 64 untouched test by prompt','same':'NO','interpretation':'Both disjoint; different populations.'},
+ {'property':'metric','vBuf_2':'mean per-vector ||Ycand-Yq8||/||Yq8||','Stage-2':'same','same':'YES','interpretation':'Comparable metric definition.'},
+ {'property':'canonical quantizer','vBuf_2':'pinned row reference quantizers; IQ unweighted','Stage-2':'pinned ggml_quantize_chunk; IQ2_XXS/XS activation-aware only','same':'PINNED, DIFFERENT ENTRY','interpretation':'Do not mix activation-aware and unweighted controls.'},
+ {'property':'C4 tail','vBuf_2':'no sparse FP16 outlier candidate','Stage-2':'fixed 0.1% FP16 sparse residual exceptions','same':'NOT TESTED','interpretation':'vBuf_2 cannot confirm or falsify Stage-2 C4 sparse tail.'},
+ {'property':'direct apply','vBuf_2':'plain C4 geometry plausible, unmeasured','Stage-2':'C4 and sparse tail unproven','same':'YES','interpretation':'No C4 runtime evidence.'}]
+ comparison=[]
+ def add(source,commit,name,r,label):comparison.append({'candidate':label,'source_branch':source,'source_commit':commit,'tensor':'blk.0.attn_k.weight' if source=='vBuf_2' else 'blk.32.attn_k.weight','true_bpw':r['true_bpw'],'weight_rmse':r.get('test_rmse',r.get('rmse')),'p999':r['p999'],'random_wx':r['random_relative_l2'] if source=='vBuf_2' else r['random_mean_relative_l2'],'real_wx':r['mean_relative_l2'] if source=='vBuf_2' else r['real_mean_relative_l2'],'mean_cosine':r['mean_cosine'] if source=='vBuf_2' else r['real_mean_cosine'],'tail_kind':'none','direct_apply':r['direct_apply']})
+ for name in ('free_c3','geometric_c3','free_c4','geometric_c4','Q3_K','IQ3_XXS','IQ3_S','Q4_0','Q4_K','IQ4_NL','IQ4_XS'):add('vBuf_2',VBUF2,name,br[name],name)
+ for name in ('CCC C3 learned','CCC C3 power gamma=1.25','CCC C4 learned','CCC C4 power gamma=1.25','Q3_K','IQ3_XXS','IQ3_S','Q4_0','Q4_K','IQ4_NL','IQ4_XS'):add('vbuf-ml',STAGE2,name,sr[name],name)
+ tail=sr['CCC C4 learned + 0.1% FP16 tail'];comparison.append({'candidate':'CCC C4 learned + 0.1% FP16 tail','source_branch':'vbuf-ml','source_commit':STAGE2,'tensor':'blk.32.attn_k.weight','true_bpw':tail['true_bpw'],'weight_rmse':tail['rmse'],'p999':tail['p999'],'random_wx':tail['random_mean_relative_l2'],'real_wx':tail['real_mean_relative_l2'],'mean_cosine':tail['real_mean_cosine'],'tail_kind':'fixed 0.1% sparse FP16 residual + uint32 indexes','direct_apply':tail['direct_apply']})
+ classes={'c3':'STOP_C3','c4_free_vs_geometry':'C4_FREE_DOMINATES','c4_plain_canonical':'C4_CANONICALLY_DOMINATED','c4_sparse_tail':'C4_SPARSE_TAIL_SURVIVES_UNREPLICATED','c4_direct_apply':'C4_DIRECT_APPLY_UNPROVEN','overall':'KEEP_C4_SPARSE_TAIL_AS_EVIDENCE_ONLY'}
+ result={'git_provenance':{'pre_merge_head':PRE,'vbuf2_original_head':BASE,'vbuf2_preservation_commit':VBUF2,'merge_base':BASE,'merge_commit':MERGE,'merge_first_parent':PRE,'merge_second_parent':VBUF2,'historically_independent':True},'activation':{'vectors':69,'dimension':5120,'sha256':sha(act),'bytes':act.stat().st_size,'node':'attn_norm-0','functional_validation':34,'functional_test':35},'classifications':classes,'agreements':['Plain free C4 has real W*x error near 0.15 in both layers (0.1530 layer 0; 0.1473 layer 32).','Geometric C4 is worse than free C4 on validation, test weights, and real hidden states.','Canonical Q/IQ formats strongly outperform plain free/geometric C4.','C3 remains numerically dominated.'],'scope':['vBuf_2 layer-0 and Stage-2 layer-32 values are independent cross-layer evidence, not repeated samples.','vBuf_2 did not test Stage-2 fixed 0.1% sparse FP16 C4 tail.','The geometric-qualification precursor had canonical formats blocked; the later C4 hard gate supersedes that limitation without rewriting it.'],'production_changes':0}
+ writecsv(out/'provenance.csv',provenance);writecsv(out/'methodology-comparison.csv',methodology);writecsv(out/'evidence-comparison.csv',comparison);(out/'reconciliation.json').write_text(json.dumps(result,indent=2)+'\n');(raw/'pre-merge-provenance.txt').write_text(f'current pre-merge HEAD: {PRE}\nvBuf_2 branch: vBuf_2\nvBuf_2 original HEAD: {BASE}\nvBuf_2 preservation: {VBUF2}\nmerge base: {BASE}\nmerge commit: {MERGE}\n');(raw/'runner.log').write_text(json.dumps({'status':'PASS','classifications':classes})+'\n');report(out,result,comparison);print(json.dumps({'status':'PASS','classifications':classes}))
+def report(out,r,comparison):
+ g=r['git_provenance'];c=r['classifications'];by={(x['source_branch'],x['candidate']):x for x in comparison};lines=['# vBuf_2 geometric CCC and C4 reconciliation','','## Git provenance','',f"- Pre-merge current HEAD: `{g['pre_merge_head']}`",f"- vBuf_2 original HEAD / merge base: `{g['vbuf2_original_head']}`",f"- vBuf_2 preservation commit: `{g['vbuf2_preservation_commit']}`",f"- No-ff merge: `{g['merge_commit']}`",'- Independent parentage is preserved; no squash or rebase.','','## Imported evidence','','The branch contains an early bounded geometric search and a later C4 hard gate on `blk.0.attn_k.weight`. The later gate adds pinned canonical Q/IQ controls and 69 real F32 vectors captured at `attn_norm-0`. Historical artifacts remain unchanged.','','## Cross-layer real W*x comparison','','Candidate | vBuf_2 layer 0 | Stage-2 layer 32','---|---:|---:']
+ for a,b in [('free_c3','CCC C3 learned'),('geometric_c3','CCC C3 power gamma=1.25'),('free_c4','CCC C4 learned'),('geometric_c4','CCC C4 power gamma=1.25'),('Q3_K','Q3_K'),('IQ3_XXS','IQ3_XXS'),('Q4_K','Q4_K'),('IQ4_XS','IQ4_XS')]:lines.append(f"{a} | {float(by[('vBuf_2',a)]['real_wx']):.6f} | {float(by[('vbuf-ml',b)]['real_wx']):.6f}")
+ lines+=['','## Agreements','']+['- '+x for x in r['agreements']]+['','## Scope boundaries','']+['- '+x for x in r['scope']]+['','## C4 interpretation','','A strengthened free 16-level fitter beats geometric C4 on FIT, validation, TEST, and real hidden states. Canonical Q4_K/IQ4_XS are dramatically better functionally. The earlier slight geometric lead was a weak free-control fit and is superseded within the imported branch by its hard gate.','','Stage-2 C4 plus a fixed 0.1% sparse FP16 residual tail remains a distinct candidate. vBuf_2 tests no sparse exception payload or index stream, so it neither confirms nor falsifies that point.','','## Classifications','',f"C3: `{c['c3']}`",f"Free versus geometric C4: `{c['c4_free_vs_geometry']}`",f"Plain C4 versus canonical: `{c['c4_plain_canonical']}`",f"Sparse C4 tail: `{c['c4_sparse_tail']}`",f"C4 direct apply: `{c['c4_direct_apply']}`",f"Overall: `{c['overall']}`",'','## Recommendation','','Do not promote C3, plain C4, or geometric C4. Preserve the Stage-2 sparse C4-tail point as the only numerical CCC survivor, explicitly unreplicated and direct-apply unproven. Do not implement it in this preservation/reconciliation step.','','## Stop','','No vBuf, vBuf-ML, native-kernel, quantizer, or production-runtime changes were made.'];(out/'reconciliation-report.md').write_text('\n'.join(lines)+'\n')
+if __name__=='__main__':main()

@@ -1,0 +1,8 @@
+evidence,source_branch,source_commit,artifact_path,created_before_merge,status
+Stage-2 canonical/real-hidden qualification,vbuf-ml,b9316d9b83f4d193aec10d4b5cbead53d0963e79,benchmark-results/vbuf-ml-step31-ccc-canonical/,True,historical layer-32 evidence
+parallel native C3 qualification,vBuf_3,889bd58c674195b9e40f0156e56ca18c1fd00e78,benchmark-results/ccc-c3-native-kernel/,True,historical
+structured baseline qualification,vBuf_4,28588a048a02ee3f4df33530dff8ee789e290114,benchmark-results/ccc-structured-baseline-qualification/,True,historical layer-0 evidence
+geometric CCC qualification,vBuf_2,da93e439c7836837f13c11341767142d892fad68,benchmark-results/ccc-geometric-qualification/,True,imported unchanged; canonical controls historically blocked
+C4 hard gate,vBuf_2,da93e439c7836837f13c11341767142d892fad68,benchmark-results/ccc-c4-hard-gate/,True,imported unchanged; canonical + real hidden states
+vBuf_2 no-ff merge,vbuf-ml,51311440ee955acdb452202f17ab5d01536767e9,Git merge commit,False,first parent df0086304fea1d1556138bf798fde36eb16adf50; second parent da93e439c7836837f13c11341767142d892fad68
+C4 reconciliation,vbuf-ml,commit containing this artifact,benchmark-results/vbuf-ml-step34-ccc-c4-reconciliation/,False,post-merge reconciliation

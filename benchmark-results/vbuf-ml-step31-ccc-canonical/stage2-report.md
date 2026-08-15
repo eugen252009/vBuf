@@ -198,3 +198,45 @@ STOP_C3
 
 Full second-lineage provenance:
 `../vbuf-ml-step33-ccc-structured-reconciliation/reconciliation-report.md`.
+
+---
+
+## Post-merge addendum — independent geometric/C4 branch
+
+A third independent lineage was preserved at
+`da93e439c7836837f13c11341767142d892fad68` and merged without squashing by
+`51311440ee955acdb452202f17ab5d01536767e9`. It also branched from `33a4d03`,
+prior to Stage-2 and the other branch disclosures.
+
+Its final hard gate uses the correct `W[out,in] = (1024,5120)` orientation,
+pinned canonical Q3/Q4/IQ controls, and 69 real F32 inputs captured from the
+exact layer-0 `attn_norm-0` key-projection input. Thirty-four vectors were used
+for functional validation and 35 remained untouched for functional test.
+
+The layer-0 results independently agree with Stage-2 layer 32:
+
+- free learned C4 real W*x is approximately 0.1530 versus Stage-2 0.1473;
+- geometric C4 is worse, approximately 0.1997 versus Stage-2 0.1634;
+- Q4_K/IQ4_XS are dramatically better than plain free/geometric C4;
+- C3 remains inferior to canonical IQ/K controls.
+
+The branch strengthens the free C4 control and concludes
+`C4_FREE_DOMINATES` and `C4_CANONICALLY_DOMINATED`. It does not test the
+Stage-2 fixed 0.1% sparse FP16 residual tail: its "tail" experiments are
+alphabet-state variants, not sparse indexed exceptions. The Stage-2 sparse
+C4-tail point therefore remains visible but independently unreplicated and
+`DIRECT_APPLY_UNPROVEN`.
+
+Additional combined classification:
+
+```text
+STOP_C3
+C4_FREE_DOMINATES
+C4_CANONICALLY_DOMINATED
+C4_SPARSE_TAIL_SURVIVES_UNREPLICATED
+C4_DIRECT_APPLY_UNPROVEN
+KEEP_C4_SPARSE_TAIL_AS_EVIDENCE_ONLY
+```
+
+Full third-lineage provenance:
+`../vbuf-ml-step34-ccc-c4-reconciliation/reconciliation-report.md`.

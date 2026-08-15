@@ -1,0 +1,41 @@
+{
+  "git_provenance": {
+    "pre_merge_head": "df0086304fea1d1556138bf798fde36eb16adf50",
+    "vbuf2_original_head": "33a4d037015b09394b762d5df159dad6d42f8643",
+    "vbuf2_preservation_commit": "da93e439c7836837f13c11341767142d892fad68",
+    "merge_base": "33a4d037015b09394b762d5df159dad6d42f8643",
+    "merge_commit": "51311440ee955acdb452202f17ab5d01536767e9",
+    "merge_first_parent": "df0086304fea1d1556138bf798fde36eb16adf50",
+    "merge_second_parent": "da93e439c7836837f13c11341767142d892fad68",
+    "historically_independent": true
+  },
+  "activation": {
+    "vectors": 69,
+    "dimension": 5120,
+    "sha256": "329d15683ef88cf6fc8fc3acb2ae6392371b1599f91e1ce7f2edb79e4ed49b8f",
+    "bytes": 1413120,
+    "node": "attn_norm-0",
+    "functional_validation": 34,
+    "functional_test": 35
+  },
+  "classifications": {
+    "c3": "STOP_C3",
+    "c4_free_vs_geometry": "C4_FREE_DOMINATES",
+    "c4_plain_canonical": "C4_CANONICALLY_DOMINATED",
+    "c4_sparse_tail": "C4_SPARSE_TAIL_SURVIVES_UNREPLICATED",
+    "c4_direct_apply": "C4_DIRECT_APPLY_UNPROVEN",
+    "overall": "KEEP_C4_SPARSE_TAIL_AS_EVIDENCE_ONLY"
+  },
+  "agreements": [
+    "Plain free C4 has real W*x error near 0.15 in both layers (0.1530 layer 0; 0.1473 layer 32).",
+    "Geometric C4 is worse than free C4 on validation, test weights, and real hidden states.",
+    "Canonical Q/IQ formats strongly outperform plain free/geometric C4.",
+    "C3 remains numerically dominated."
+  ],
+  "scope": [
+    "vBuf_2 layer-0 and Stage-2 layer-32 values are independent cross-layer evidence, not repeated samples.",
+    "vBuf_2 did not test Stage-2 fixed 0.1% sparse FP16 C4 tail.",
+    "The geometric-qualification precursor had canonical formats blocked; the later C4 hard gate supersedes that limitation without rewriting it."
+  ],
+  "production_changes": 0
+}

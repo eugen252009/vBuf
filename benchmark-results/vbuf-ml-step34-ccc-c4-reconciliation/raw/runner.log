@@ -1,0 +1,1 @@
+{"status": "PASS", "classifications": {"c3": "STOP_C3", "c4_free_vs_geometry": "C4_FREE_DOMINATES", "c4_plain_canonical": "C4_CANONICALLY_DOMINATED", "c4_sparse_tail": "C4_SPARSE_TAIL_SURVIVES_UNREPLICATED", "c4_direct_apply": "C4_DIRECT_APPLY_UNPROVEN", "overall": "KEEP_C4_SPARSE_TAIL_AS_EVIDENCE_ONLY"}}

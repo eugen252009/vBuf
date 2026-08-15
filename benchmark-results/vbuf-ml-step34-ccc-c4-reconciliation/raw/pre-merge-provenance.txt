@@ -1,0 +1,6 @@
+current pre-merge HEAD: df0086304fea1d1556138bf798fde36eb16adf50
+vBuf_2 branch: vBuf_2
+vBuf_2 original HEAD: 33a4d037015b09394b762d5df159dad6d42f8643
+vBuf_2 preservation: da93e439c7836837f13c11341767142d892fad68
+merge base: 33a4d037015b09394b762d5df159dad6d42f8643
+merge commit: 51311440ee955acdb452202f17ab5d01536767e9

@@ -1,0 +1,10 @@
+property,vBuf_2,Stage-2,same,interpretation
+model,Qwen3-32B-Q8_0 / 2c50eb8a…,same verified source,YES,Q8-relative only
+tensor,blk.0.attn_k.weight,blk.32.attn_k.weight,NO,Cross-layer corroboration; values are not averaged.
+orientation,"W[out,in] = [1024,5120]","W[out,in] = [1024,5120]",YES,No transpose/reshape defect.
+hidden seam,"attn_norm-0, 69 F32 vectors, 4 prompts","attn_norm-32, 128 F32 vectors, 4 prompts; Kcur associated",SEMANTICALLY YES,Exact pre-key-projection input at different layers.
+functional split,hash-order 34 validation / 35 untouched test,64 validation / 64 untouched test by prompt,NO,Both disjoint; different populations.
+metric,mean per-vector ||Ycand-Yq8||/||Yq8||,same,YES,Comparable metric definition.
+canonical quantizer,pinned row reference quantizers; IQ unweighted,pinned ggml_quantize_chunk; IQ2_XXS/XS activation-aware only,"PINNED, DIFFERENT ENTRY",Do not mix activation-aware and unweighted controls.
+C4 tail,no sparse FP16 outlier candidate,fixed 0.1% FP16 sparse residual exceptions,NOT TESTED,vBuf_2 cannot confirm or falsify Stage-2 C4 sparse tail.
+direct apply,"plain C4 geometry plausible, unmeasured",C4 and sparse tail unproven,YES,No C4 runtime evidence.
