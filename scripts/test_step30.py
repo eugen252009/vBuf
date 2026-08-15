@@ -1,34 +1,31 @@
 #!/usr/bin/env python3
-import csv, json, unittest
+import csv,json,math,unittest
 from pathlib import Path
 OUT=Path(__file__).resolve().parents[1]/"benchmark-results/vbuf-ml-step30-reparameterization"
+FAMILIES=22;BOUNDARIES=7
 class Step30Tests(unittest.TestCase):
- def test_provenance_and_scope(self):
-  p=json.loads((OUT/"artifact-provenance.json").read_text());self.assertTrue(all(x["immutable"] for x in p.values()));self.assertEqual(len(p),2)
-  m=json.loads((OUT/"manifest.json").read_text());self.assertFalse(m["full_model_copy_runtime"]);self.assertEqual(m["candidate_count"],21)
- def test_dof_accounting(self):
-  with (OUT/"degrees-of-freedom.csv").open() as f: rows=list(csv.DictReader(f))
-  self.assertTrue(all(int(r["stored_bytes"])>0 and float(r["effective_bits_per_original_weight"])>0 for r in rows))
-  self.assertTrue(all(r["full_runtime_dense_copy"]=="False" for r in rows))
-  self.assertTrue(any(r["candidate"]=="svd-r16" for r in rows))
- def test_functional_validation_and_classes(self):
-  with (OUT/"action-validation.csv").open() as f: rows=list(csv.DictReader(f))
-  self.assertTrue(all(r["reconstruction_class"] in ("EXACT","NUMERICALLY_EQUIVALENT","LOSSY") for r in rows))
-  self.assertTrue(any(r["candidate"]=="q8-reference" and float(r["action_relative_error"])==0 for r in rows))
-  self.assertTrue(all(float(r["action_relative_error"])>=0 for r in rows))
- def test_discovery_is_explicit(self):
-  s=json.loads((OUT/"search-summary.json").read_text());self.assertFalse(s["butterfly_tested"]);self.assertFalse(s["canonical_artifacts_changed"]);self.assertEqual(s["real_hidden_state_validation"],"unavailable; random action probes used")
- def test_required_files(self):
-  for name in ("manifest.json","environment.json","artifact-provenance.json","candidate-results.csv","degrees-of-freedom.csv","action-validation.csv","search-summary.json","algorithm-applicability.csv","tensor-baseline.csv","qkv-joint-results.csv","gate-up-joint-results.csv","attention-joint-results.csv","mlp-joint-results.csv","whole-layer-results.csv","whole-layer-pareto.csv","whole-layer-residual-analysis.csv","whole-layer-hybrids.csv","shared-compute.csv","optional-cross-layer.csv","structured-matrix-summary.json"):
+ def rows(self,name):
+  with (OUT/name).open() as f:return list(csv.DictReader(f))
+ def test_provenance_is_immutable(self):
+  p=json.loads((OUT/"artifact-provenance.json").read_text());self.assertEqual(len(p),2);self.assertTrue(all(x["immutable"] for x in p.values()))
+ def test_status_is_partial(self):
+  s=json.loads((OUT/"structured-matrix-summary.json").read_text());self.assertTrue(s["status"].startswith("PARTIAL"));self.assertEqual(s["joint_representation_classification"],"F — inconclusive");self.assertEqual(s["family_count"],22);self.assertEqual(len(s["tensor_families_missing"]),5)
+ def test_complete_applicability_dimensions_and_exact_family(self):
+  rows=self.rows("algorithm-applicability.csv");self.assertEqual(len(rows),FAMILIES*BOUNDARIES);self.assertEqual(len({r["algorithm"] for r in rows}),22);self.assertIn("Exact / Numerically Equivalent Reparameterization",{r["algorithm"] for r in rows});self.assertTrue(all(r["status"].startswith(("TESTED","NOT TESTED","INAPPLICABLE")) for r in rows))
+ def test_tested_tensor_rows_have_execution_evidence(self):
+  screen={r["family"]:r for r in self.rows("tensor-breadth-screen.csv")};matrix=self.rows("algorithm-applicability.csv")
+  for r in matrix:
+   if r["boundary"]=="Tensor" and r["status"].startswith("TESTED"):
+    self.assertIn(r["algorithm"],screen);e=screen[r["algorithm"]];self.assertGreater(int(e["serialized_bytes"]),0);self.assertGreaterEqual(float(e["action_relative_error"]),0);self.assertGreater(float(e["compact_apply_median_ms"]),0);self.assertEqual(int(e["serialized_bytes"]),sum(int(e[k]) for k in ("factor","indexes","permutations","scales","residual","payload","metadata_bytes","padding_bytes","partition_descriptor_bytes")))
+ def test_all_five_memory_wall_scenarios_and_units(self):
+  rows=self.rows("whole-layer-results.csv");self.assertEqual([float(r["storage_bandwidth_GBps"]) for r in rows],[1.4,3.2,8.0,16.0,32.0])
+  for r in rows:
+   expected=int(r["layer_bytes"])/(float(r["storage_bandwidth_GBps"])*1e9)*1000;self.assertTrue(math.isclose(float(r["storage_time_ms"]),expected,rel_tol=1e-12));self.assertEqual(r["model"],"32B")
+ def test_joint_pilots_are_narrowly_labeled_and_measured(self):
+  expected={"qkv-joint-results.csv":1.4,"gate-up-joint-results.csv":8/7}
+  for name,gain in expected.items():
+   r=self.rows(name)[0];self.assertIn("raw factor-array pilot",r["storage_label"]);self.assertTrue(math.isclose(float(r["raw_factor_byte_reduction"]),gain,rel_tol=1e-12));self.assertGreater(float(r["joint_compact_apply_median_ms"]),0);self.assertGreater(float(r["shared_transform_median_ms"]),0);self.assertEqual(r["real_hidden_state_validation"],"NOT TESTED")
+ def test_required_evidence(self):
+  for name in ("algorithm-applicability.csv","tensor-baseline.csv","tensor-breadth-screen.csv","tensor-residual-diagnostics.csv","qkv-joint-results.csv","gate-up-joint-results.csv","attention-joint-results.csv","mlp-joint-results.csv","whole-layer-results.csv","whole-layer-pareto.csv","whole-layer-residual-analysis.csv","whole-layer-hybrids.csv","shared-compute.csv","optional-cross-layer.csv","structured-matrix-summary.json","tensor-screen-summary.json"):
    self.assertTrue((OUT/name).exists(),name)
- def test_complete_applicability_matrix(self):
-  with (OUT/"algorithm-applicability.csv").open() as f: rows=list(csv.DictReader(f))
-  self.assertEqual(len(rows),21*7)
-  self.assertTrue(all(r["status"].startswith(("TESTED","NOT TESTED","INAPPLICABLE")) for r in rows))
-  self.assertTrue(any(r["algorithm"]=="Generalized Butterfly" and r["boundary"]=="Whole Layer" for r in rows))
- def test_joint_group_accounting(self):
-  for name in ("qkv-joint-results.csv","gate-up-joint-results.csv"):
-   with (OUT/name).open() as f: row=next(csv.DictReader(f))
-   self.assertGreater(float(row["independent_compact_bytes"]),float(row["joint_compact_bytes"]))
-   self.assertGreater(float(row["storage_gain"]),1.0)
 if __name__=="__main__":unittest.main()

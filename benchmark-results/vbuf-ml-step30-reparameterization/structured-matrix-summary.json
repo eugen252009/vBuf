@@ -1,52 +1,44 @@
 {
-  "status": "bounded matrix qualification",
-  "families": [
-    "Low Rank",
-    "Sparse",
-    "Low Rank + Sparse",
-    "Kronecker",
-    "Tensor Train",
-    "Butterfly",
-    "Generalized Butterfly",
-    "Toeplitz",
-    "Circulant",
-    "Low Displacement Rank",
-    "Codebook",
-    "Vector Quantization",
-    "Block Affine",
-    "Sign / Magnitude",
+  "status": "PARTIAL \u2014 tensor breadth screen and shared-input low-rank pilots only",
+  "family_count": 22,
+  "boundary_count": 7,
+  "matrix_cells": 154,
+  "tensor_families_tested": [
+    "Block Dictionary",
+    "Blockwise Affine / Shared Scale",
+    "Circulant / Block-Circulant",
+    "Exact / Numerically Equivalent Reparameterization",
     "Exponent / Mantissa",
-    "Generator Function",
     "Fourier Basis",
-    "Hadamard",
-    "Structured Orthogonal",
+    "Generator Function",
+    "Hadamard / Walsh",
+    "Kronecker",
+    "Low Rank",
+    "Low Rank + Sparse",
     "Polynomial / Matrix Function",
-    "Block Dictionary"
+    "Scalar Codebook",
+    "Sign / Magnitude",
+    "Sparse",
+    "Toeplitz",
+    "Vector Quantization"
   ],
-  "boundaries": [
-    "Tensor",
-    "QKV",
-    "Attention",
-    "Gate/Up",
-    "MLP",
-    "Whole Layer",
-    "Cross Layer"
+  "tensor_families_missing": [
+    "Tensor Train / MPO",
+    "Butterfly",
+    "Generalized / Deformable Butterfly",
+    "Low Displacement Rank",
+    "Structured Orthogonal"
   ],
-  "tested_real_group_boundaries": [
-    "QKV",
-    "Gate/Up"
+  "deeper_phases_missing": [
+    "functionally useful group candidate",
+    "complete attention",
+    "complete MLP",
+    "whole layer",
+    "whole-layer residuals/hybrids",
+    "real hidden states",
+    "cross layer"
   ],
-  "whole_layer_status": "NOT TESTED \u2014 complete nonlinear evaluator unavailable",
-  "cross_layer_status": "NOT TESTED \u2014 conditional phase",
-  "shared_compute_tested": true,
-  "canonical_layer_bytes_step29": 518104064,
-  "bandwidth_scenarios_GBps": [
-    1.4,
-    3.2,
-    8,
-    16,
-    32
-  ],
-  "no_illegal_concatenation": true,
-  "canonical_artifacts_changed": false
+  "joint_representation_classification": "F \u2014 inconclusive",
+  "canonical_artifacts_changed": false,
+  "memory_wall_context": "32B canonical control only; no transfer from 0.6B pilots"
 }

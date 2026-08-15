@@ -2057,6 +2057,10 @@ See `docs/vbuf-ml/step29-layer-io.md` and
 
 #### Step 30 — Reconstructable weight reparameterization qualification
 
+**Status: PARTIAL — tensor breadth screening and shared-input low-rank pilots only.**
+The previous completion claim is invalid; Step 30 is reopened and Step 31 has
+not started.
+
 Tested bounded research-only reparameterizations on selected real Qwen3 Q8_0
 tensors: plain low-rank factors, row-centered factors, row/column scaling with
 a low-rank core, and column permutations with a low-rank core. All auxiliary
@@ -2075,15 +2079,17 @@ BaseShift, runtime, Nano, or Nested-vBuf changes were made.
 See `docs/vbuf-ml/step30-reparameterization.md` and
 `benchmark-results/vbuf-ml-step30-reparameterization/`.
 
-The corrected full structured matrix, including explicit applicability status
-for all requested families at tensor, shared-input group, attention, MLP,
-whole-layer, and cross-layer boundaries, is in
-`docs/vbuf-ml/step30-structured-matrix.md`.
+The corrected matrix contains 22 families × 7 boundaries. Seventeen families
+have qualifying real-tensor coarse-screen rows; Tensor Train/MPO, Butterfly,
+Generalized/Deformable Butterfly, genuine Low Displacement Rank, and
+Structured Orthogonal remain untested. Deeper group/layer phases remain gated.
+See `docs/vbuf-ml/step30-structured-matrix.md`.
 
-The bounded real group tests found rank-16 joint low-rank storage gains of
-1.40x for QKV and 1.14x for gate/up versus independent rank-16 factors, but
-with approximately 0.955 and 0.975 action error respectively. No whole-layer
-candidate was qualified.
+The bounded 0.6B group pilots found rank-16 joint low-rank **raw factor-array**
+byte reductions of 1.40x for QKV and 1.14x for gate/up, with approximately
+0.955 and 0.975 random-probe action error. These are not serialized storage
+gains. Classification: **F — inconclusive**. No whole-layer candidate was
+qualified.
 
 ---
 

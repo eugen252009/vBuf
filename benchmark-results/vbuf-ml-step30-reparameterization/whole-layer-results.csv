@@ -1,3 +1,6 @@
-status,reason,canonical_layer_bytes,measured_compute_ms,storage_bandwidth_GBps,storage_time_ms
-NOT TESTED,complete nonlinear layer evaluator unavailable; Step-29 layer compute remains the authority,518104064,16.15,1.4,370074.3
-NOT TESTED,simulation only; no compact whole-layer bytes claimed,518104064,16.15,32,16190.8
+status,model,representation,layer_bytes,storage_bandwidth_GBps,storage_time_ms,compute_time_ms,nonoverlap_ms,ideal_overlap_ms,transfer_note
+CANONICAL CONTROL — simulation only,32B,canonical Q8 layer control,518104064,1.4,370.07433142857144,16.15,386.2243314285714,370.07433142857144,Step-29 32B host-local context; not combined with 0.6B compression pilots
+CANONICAL CONTROL — simulation only,32B,canonical Q8 layer control,518104064,3.2,161.90752,16.15,178.05752,161.90752,Step-29 32B host-local context; not combined with 0.6B compression pilots
+CANONICAL CONTROL — simulation only,32B,canonical Q8 layer control,518104064,8.0,64.763008,16.15,80.91300799999999,64.763008,Step-29 32B host-local context; not combined with 0.6B compression pilots
+CANONICAL CONTROL — simulation only,32B,canonical Q8 layer control,518104064,16.0,32.381504,16.15,48.531504,32.381504,Step-29 32B host-local context; not combined with 0.6B compression pilots
+CANONICAL CONTROL — simulation only,32B,canonical Q8 layer control,518104064,32.0,16.190752,16.15,32.340751999999995,16.190752,Step-29 32B host-local context; not combined with 0.6B compression pilots

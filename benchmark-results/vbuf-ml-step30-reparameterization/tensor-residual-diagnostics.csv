@@ -1,0 +1,4 @@
+candidate,residual_frobenius,top16_singular_energy_fraction,near_zero_fraction,top1pct_magnitude_energy_fraction,histogram_entropy_bits,rounded_block_repeat_fraction,top1pct_spectral_energy_fraction,cross_tensor_residual_correlation
+Scalar Codebook:scalar-k16,4.859744071960449,0.30530041456222534,0.025541305541992188,0.46863308548927307,2.761626303935036,0.0,0.0563613660633564,NOT MEASURED — single-tensor screen
+Exponent / Mantissa:block32-int8,5.469203472137451,0.13426777720451355,0.49225711822509766,0.4519510269165039,1.195626034042729,0.5288543701171875,0.05619785934686661,NOT MEASURED — single-tensor screen
+Exact / Numerically Equivalent Reparameterization:column-permutation-fp32,0.0,0.0,1.0,0.0,-0.0,0.9999847412109375,0.0,NOT MEASURED — single-tensor screen

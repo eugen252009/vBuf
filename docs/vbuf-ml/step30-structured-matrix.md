@@ -1,13 +1,16 @@
 # Step 30 addendum — structured algorithm matrix
 
-This addendum records the corrected tensor/group/layer search boundary. The
+Status: **PARTIAL — tensor breadth screening and shared-input low-rank pilots only**.
+
+The previous completion claim and `B` classification are invalid. This
+addendum records the corrected tensor/group/layer search boundary. The
 full applicability ledger is in:
 
 ```text
 benchmark-results/vbuf-ml-step30-reparameterization/algorithm-applicability.csv
 ```
 
-Every one of the 21 requested algorithm families is represented at every one
+Every one of the 22 requested algorithm families is represented at every one
 of the seven boundaries. Unimplemented families are explicitly marked `NOT
 TESTED` with a reason; no family is silently dropped.
 
@@ -43,21 +46,35 @@ Hadamard
 Structured Orthogonal
 Polynomial / Matrix Function
 Block Dictionary
+Exact / Numerically Equivalent Reparameterization
 ```
 
 ## TENSOR-LEVEL WINNERS
 
-The prior tensor-level qualification remains the only tensor-level numerical
-winner search. Low-rank factors achieved very low storage but unacceptable
-action error at the tested ranks. The remaining families are retained in the
-matrix and were not silently treated as low-rank substitutes.
+A real 0.6B layer-0 `attn_k` tensor was screened with 17 implemented families.
+Each `TESTED` row has deterministic 64-byte-aligned experimental serialization
+accounting, random-probe action error, direct compact apply timing, temporary
+memory, bytes touched, and writer fit time.
+
+Five tensor families remain missing:
+
+```text
+Tensor Train / MPO
+Butterfly
+Generalized / Deformable Butterfly
+Low Displacement Rank
+Structured Orthogonal
+```
+
+This incompleteness is recorded in `structured-matrix-summary.json`; no winner
+is promoted to inference because real hidden-state validation is absent.
 
 ## QKV JOINT SEARCH
 
 Q, K, and V consume the same input and were safely stacked along their output
 partition using the 0.6B layer-0 tensors.
 
-| Representation | Independent bytes | Joint bytes | Storage gain | Action error |
+| Representation | Independent raw factor bytes | Joint raw factor bytes | Raw-factor reduction | Action error |
 |---|---:|---:|---:|---:|
 | rank-16 low rank | 458,752 | 327,680 | 1.40x | 0.955 |
 
@@ -68,7 +85,7 @@ not runtime-qualified.
 
 Gate and up consume the same input and were jointly stacked.
 
-| Representation | Independent bytes | Joint bytes | Storage gain | Action error |
+| Representation | Independent raw factor bytes | Joint raw factor bytes | Raw-factor reduction | Action error |
 |---|---:|---:|---:|---:|
 | rank-16 low rank | 524,288 | 458,752 | 1.14x | 0.975 |
 
@@ -127,29 +144,34 @@ without reconstructing dense matrices.
 Measured at rank 16:
 
 ```text
-QKV:     1.40x versus independent factors
-Gate/Up: 1.14x versus independent factors
+QKV:     1.40x raw-factor byte reduction
+Gate/Up: 1.14x raw-factor byte reduction
 ```
 
-These are storage gains over the tested low-rank candidates, not gains over
-canonical Q8 storage. Both candidates have poor action preservation.
+These are explicitly **factor-array estimates**, not canonical serialized
+storage gains and not gains over canonical Q8. Experimental metadata, padding,
+and partition descriptors are reported separately. Both candidates have poor
+action preservation.
 
 ## COMPUTE SHARING GAIN
 
-Shared compute was structurally identified as one common input projection, but
-no production runtime was changed and no authoritative end-to-end compute
-speedup was claimed.
+The research harness now measures dense apply, one shared `Vx`, role-specific
+`Uz`, total joint compact apply, independent compact apply, temporary bytes,
+and representation/input/output bytes touched. These NumPy measurements are
+0.6B random-probe controls, not llama runtime or hidden-state results.
 
 ## BEST INDEPENDENT REPRESENTATION
 
-Within the prior bounded tensor search, plain rank-16 low rank was the simplest
-compact direct representation. It remained highly lossy.
+No inference-qualified independent winner exists. Scalar codebook and
+block-exponent candidates entered residual diagnostics, while low-rank and
+other highly compact structures had poor action preservation. None has real
+hidden-state evidence.
 
 ## BEST GROUPED REPRESENTATION
 
-Rank-16 joint QKV low rank had the best measured group storage gain: 1.40x
-relative to independent rank-16 factors. Its action error was approximately
-0.955 on random probes.
+The rank-16 QKV pilot had a 1.40x **raw-factor byte reduction** relative to
+independent rank-16 factor arrays. This is not a serialized storage-gain claim,
+and its approximately 0.955 random-probe action error prevents promotion.
 
 ## BEST WHOLE-LAYER REPRESENTATION
 
@@ -207,8 +229,18 @@ canonical useful layer bytes: approximately 518,104,064
 resident layer compute:       approximately 16.15 ms median
 ```
 
-Storage times were recorded for 1.4, 3.2, 8, 16, and 32 GB/s in
-`whole-layer-results.csv`. These are simulation controls, not overlap claims.
+Correct decimal-GB/s canonical controls are recorded for all five scenarios:
+
+```text
+1.4 GB/s: 370.074 ms
+3.2 GB/s: 161.908 ms
+8 GB/s:    64.763 ms
+16 GB/s:   32.382 ms
+32 GB/s:   16.191 ms
+```
+
+They use only the Step-29 32B context and are not combined with 0.6B compact
+pilots. These are simulation controls, not overlap claims.
 
 ## CROSS-LAYER RESULT
 
@@ -228,7 +260,7 @@ None. No whole-layer hybrid was emitted.
 ## JOINT-REPRESENTATION CLASSIFICATION
 
 ```text
-B — meaningful group-level structure, but not a qualified whole-layer result
+F — inconclusive
 ```
 
 The group result is specifically bounded: QKV and gate/up share-input low-rank

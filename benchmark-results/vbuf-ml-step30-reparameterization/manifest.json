@@ -1,5 +1,6 @@
 {
   "step": 30,
+  "status": "PARTIAL — initial reparameterization pilot; see structured-matrix-summary.json",
   "classification": "research-only; no artifact emission",
   "tensor_count": 3,
   "candidate_count": 21,

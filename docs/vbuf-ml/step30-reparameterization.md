@@ -1,7 +1,9 @@
 # Step 30 — reconstructable weight reparameterization qualification
 
-Status: **complete as a bounded research qualification; no artifact or runtime
-change**.
+Status: **PARTIAL — tensor breadth screening and shared-input low-rank pilots only**.
+
+The former completion claim was invalidated by the full structured-matrix
+audit. Step 30 is reopened; Step 31 has not started.
 
 Step 30 tests whether useful mathematical action can be represented with fewer
 stored degrees of freedom than the qualified Q8_0 tensors, without preserving

@@ -76,8 +76,8 @@ loader scaling and first-use attribution is documented in
 prefetch and wave-readiness qualification is documented in
 [`step28-layer-prefetch.md`](step28-layer-prefetch.md). Step 29 host-relative
 layer compute and bulk-I/O qualification is documented in
-[`step29-layer-io.md`](step29-layer-io.md). Step 30 reconstructable weight
-reparameterization qualification is documented in
+[`step29-layer-io.md`](step29-layer-io.md). Reopened, **PARTIAL** Step 30
+reconstructable-weight research is documented in
 [`step30-reparameterization.md`](step30-reparameterization.md). The corrected
 full tensor/group/layer algorithm matrix is documented in
 [`step30-structured-matrix.md`](step30-structured-matrix.md).
