@@ -1,0 +1,8 @@
+bytes_per_block,columns,deterministic,metadata,name,native_kernel,payload_bytes,quantizer,rows,status,true_bpw,type,values_per_block
+18,5120,True,fp16 scale + packed nibbles,Q4_0,CPU GGML type traits available,2949120,quantize_row_q4_0_ref,1024,TESTED,4.5,Q4_0,32
+144,5120,True,two fp16 super-scales + 6-bit scale/min metadata + packed nibbles,Q4_K,CPU GGML type traits available,2949120,quantize_row_q4_K_ref,1024,TESTED,4.5,Q4_K,256
+18,5120,True,unweighted reference IQ quantizer; fp16 scale + nonlinear packed nibbles,IQ4_NL,CPU GGML type traits available,2949120,quantize_row_iq4_nl_ref,1024,TESTED,4.5,IQ4_NL,32
+136,5120,True,unweighted reference IQ quantizer; no importance matrix,IQ4_XS,CPU GGML type traits available,2785280,quantize_row_iq4_xs_ref,1024,TESTED,4.25,IQ4_XS,256
+110,5120,True,fp16 super-scale + 6-bit scales + low/high quant bits,Q3_K,CPU GGML type traits available,2252800,quantize_row_q3_K_ref,1024,TESTED,3.4375,Q3_K,256
+98,5120,True,unweighted reference IQ quantizer; no importance matrix,IQ3_XXS,CPU GGML type traits available,2007040,quantize_row_iq3_xxs_ref,1024,TESTED,3.0625,IQ3_XXS,256
+110,5120,True,unweighted reference IQ quantizer; no importance matrix,IQ3_S,CPU GGML type traits available,2252800,quantize_row_iq3_s_ref,1024,TESTED,3.4375,IQ3_S,256
