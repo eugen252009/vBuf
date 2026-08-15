@@ -1,0 +1,3 @@
+status,reason,canonical_layer_bytes,measured_compute_ms,storage_bandwidth_GBps,storage_time_ms
+NOT TESTED,complete nonlinear layer evaluator unavailable; Step-29 layer compute remains the authority,518104064,16.15,1.4,370074.3
+NOT TESTED,simulation only; no compact whole-layer bytes claimed,518104064,16.15,32,16190.8

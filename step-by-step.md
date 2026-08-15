@@ -2075,6 +2075,16 @@ BaseShift, runtime, Nano, or Nested-vBuf changes were made.
 See `docs/vbuf-ml/step30-reparameterization.md` and
 `benchmark-results/vbuf-ml-step30-reparameterization/`.
 
+The corrected full structured matrix, including explicit applicability status
+for all requested families at tensor, shared-input group, attention, MLP,
+whole-layer, and cross-layer boundaries, is in
+`docs/vbuf-ml/step30-structured-matrix.md`.
+
+The bounded real group tests found rank-16 joint low-rank storage gains of
+1.40x for QKV and 1.14x for gate/up versus independent rank-16 factors, but
+with approximately 0.955 and 0.975 action error respectively. No whole-layer
+candidate was qualified.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision

@@ -1,0 +1,148 @@
+algorithm,boundary,status
+Low Rank,Tensor,TESTED — tensor candidates and shared-input joint stack
+Low Rank,QKV,TESTED — tensor candidates and shared-input joint stack
+Low Rank,Attention,NOT TESTED — incompatible input domains prevent one joint operator; role-wise extension deferred
+Low Rank,Gate/Up,TESTED — tensor candidates and shared-input joint stack
+Low Rank,MLP,NOT TESTED — incompatible input domains prevent one joint operator; role-wise extension deferred
+Low Rank,Whole Layer,NOT TESTED — nonlinear layer objective and complete-layer hook not implemented
+Low Rank,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Sparse,Tensor,NOT TESTED — bounded implementation used low-rank family first; no direct candidate emitted
+Sparse,QKV,NOT TESTED — no bounded evaluator at this boundary
+Sparse,Attention,NOT TESTED — no bounded evaluator at this boundary
+Sparse,Gate/Up,NOT TESTED — no bounded evaluator at this boundary
+Sparse,MLP,NOT TESTED — no bounded evaluator at this boundary
+Sparse,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Sparse,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Low Rank + Sparse,Tensor,NOT TESTED — residual screening deferred until pure-family shortlist
+Low Rank + Sparse,QKV,NOT TESTED — no bounded evaluator at this boundary
+Low Rank + Sparse,Attention,NOT TESTED — no bounded evaluator at this boundary
+Low Rank + Sparse,Gate/Up,NOT TESTED — no bounded evaluator at this boundary
+Low Rank + Sparse,MLP,NOT TESTED — no bounded evaluator at this boundary
+Low Rank + Sparse,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Low Rank + Sparse,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Kronecker,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Kronecker,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Kronecker,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Kronecker,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Kronecker,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Kronecker,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Kronecker,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Tensor Train,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Tensor Train,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Tensor Train,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Tensor Train,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Tensor Train,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Tensor Train,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Tensor Train,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Butterfly,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Butterfly,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Butterfly,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Butterfly,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Butterfly,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Butterfly,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Butterfly,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Generalized Butterfly,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Generalized Butterfly,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Generalized Butterfly,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Generalized Butterfly,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Generalized Butterfly,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Generalized Butterfly,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Generalized Butterfly,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Toeplitz,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Toeplitz,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Toeplitz,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Toeplitz,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Toeplitz,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Toeplitz,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Toeplitz,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Circulant,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Circulant,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Circulant,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Circulant,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Circulant,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Circulant,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Circulant,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Low Displacement Rank,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Low Displacement Rank,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Low Displacement Rank,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Low Displacement Rank,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Low Displacement Rank,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Low Displacement Rank,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Low Displacement Rank,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Codebook,Tensor,NOT TESTED — bounded implementation used low-rank family first; no direct candidate emitted
+Codebook,QKV,NOT TESTED — no bounded evaluator at this boundary
+Codebook,Attention,NOT TESTED — no bounded evaluator at this boundary
+Codebook,Gate/Up,NOT TESTED — no bounded evaluator at this boundary
+Codebook,MLP,NOT TESTED — no bounded evaluator at this boundary
+Codebook,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Codebook,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Vector Quantization,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Vector Quantization,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Vector Quantization,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Vector Quantization,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Vector Quantization,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Vector Quantization,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Vector Quantization,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Block Affine,Tensor,NOT TESTED — bounded implementation used low-rank family first; no direct candidate emitted
+Block Affine,QKV,NOT TESTED — no bounded evaluator at this boundary
+Block Affine,Attention,NOT TESTED — no bounded evaluator at this boundary
+Block Affine,Gate/Up,NOT TESTED — no bounded evaluator at this boundary
+Block Affine,MLP,NOT TESTED — no bounded evaluator at this boundary
+Block Affine,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Block Affine,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Sign / Magnitude,Tensor,NOT TESTED — bounded implementation used low-rank family first; no direct candidate emitted
+Sign / Magnitude,QKV,NOT TESTED — no bounded evaluator at this boundary
+Sign / Magnitude,Attention,NOT TESTED — no bounded evaluator at this boundary
+Sign / Magnitude,Gate/Up,NOT TESTED — no bounded evaluator at this boundary
+Sign / Magnitude,MLP,NOT TESTED — no bounded evaluator at this boundary
+Sign / Magnitude,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Sign / Magnitude,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Exponent / Mantissa,Tensor,NOT TESTED — bounded implementation used low-rank family first; no direct candidate emitted
+Exponent / Mantissa,QKV,NOT TESTED — no bounded evaluator at this boundary
+Exponent / Mantissa,Attention,NOT TESTED — no bounded evaluator at this boundary
+Exponent / Mantissa,Gate/Up,NOT TESTED — no bounded evaluator at this boundary
+Exponent / Mantissa,MLP,NOT TESTED — no bounded evaluator at this boundary
+Exponent / Mantissa,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Exponent / Mantissa,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Generator Function,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Generator Function,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Generator Function,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Generator Function,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Generator Function,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Generator Function,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Generator Function,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Fourier Basis,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Fourier Basis,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Fourier Basis,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Fourier Basis,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Fourier Basis,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Fourier Basis,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Fourier Basis,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Hadamard,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Hadamard,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Hadamard,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Hadamard,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Hadamard,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Hadamard,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Hadamard,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Structured Orthogonal,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Structured Orthogonal,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Structured Orthogonal,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Structured Orthogonal,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Structured Orthogonal,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Structured Orthogonal,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Structured Orthogonal,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Polynomial / Matrix Function,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Polynomial / Matrix Function,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Polynomial / Matrix Function,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Polynomial / Matrix Function,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Polynomial / Matrix Function,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Polynomial / Matrix Function,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Polynomial / Matrix Function,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner
+Block Dictionary,Tensor,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Block Dictionary,QKV,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Block Dictionary,Attention,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Block Dictionary,Gate/Up,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Block Dictionary,MLP,NOT TESTED — no bounded direct evaluator implemented; family retained in matrix for future screening
+Block Dictionary,Whole Layer,NOT TESTED — complete-layer direct evaluator not implemented; nonlinear boundaries retained
+Block Dictionary,Cross Layer,NOT TESTED — optional adjacent-layer phase not justified before layer winner

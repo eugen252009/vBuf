@@ -1,0 +1,8 @@
+model,layer,tensor,shape,canonical_q8_bytes,weights,effective_bits_per_weight
+0.6B,0,blk.0.attn_k.weight,1024x1024,1114112,1048576,8.5
+0.6B,0,blk.0.attn_output.weight,2048x1024,2228224,2097152,8.5
+0.6B,0,blk.0.attn_q.weight,1024x2048,2228224,2097152,8.5
+0.6B,0,blk.0.attn_v.weight,1024x1024,1114112,1048576,8.5
+0.6B,0,blk.0.ffn_down.weight,3072x1024,3342336,3145728,8.5
+0.6B,0,blk.0.ffn_gate.weight,1024x3072,3342336,3145728,8.5
+0.6B,0,blk.0.ffn_up.weight,1024x3072,3342336,3145728,8.5

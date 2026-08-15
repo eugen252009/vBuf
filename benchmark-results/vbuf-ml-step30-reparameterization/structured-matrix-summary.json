@@ -1,0 +1,52 @@
+{
+  "status": "bounded matrix qualification",
+  "families": [
+    "Low Rank",
+    "Sparse",
+    "Low Rank + Sparse",
+    "Kronecker",
+    "Tensor Train",
+    "Butterfly",
+    "Generalized Butterfly",
+    "Toeplitz",
+    "Circulant",
+    "Low Displacement Rank",
+    "Codebook",
+    "Vector Quantization",
+    "Block Affine",
+    "Sign / Magnitude",
+    "Exponent / Mantissa",
+    "Generator Function",
+    "Fourier Basis",
+    "Hadamard",
+    "Structured Orthogonal",
+    "Polynomial / Matrix Function",
+    "Block Dictionary"
+  ],
+  "boundaries": [
+    "Tensor",
+    "QKV",
+    "Attention",
+    "Gate/Up",
+    "MLP",
+    "Whole Layer",
+    "Cross Layer"
+  ],
+  "tested_real_group_boundaries": [
+    "QKV",
+    "Gate/Up"
+  ],
+  "whole_layer_status": "NOT TESTED \u2014 complete nonlinear evaluator unavailable",
+  "cross_layer_status": "NOT TESTED \u2014 conditional phase",
+  "shared_compute_tested": true,
+  "canonical_layer_bytes_step29": 518104064,
+  "bandwidth_scenarios_GBps": [
+    1.4,
+    3.2,
+    8,
+    16,
+    32
+  ],
+  "no_illegal_concatenation": true,
+  "canonical_artifacts_changed": false
+}

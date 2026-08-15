@@ -78,7 +78,9 @@ prefetch and wave-readiness qualification is documented in
 layer compute and bulk-I/O qualification is documented in
 [`step29-layer-io.md`](step29-layer-io.md). Step 30 reconstructable weight
 reparameterization qualification is documented in
-[`step30-reparameterization.md`](step30-reparameterization.md).
+[`step30-reparameterization.md`](step30-reparameterization.md). The corrected
+full tensor/group/layer algorithm matrix is documented in
+[`step30-structured-matrix.md`](step30-structured-matrix.md).
 Tokenizer execution and chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is

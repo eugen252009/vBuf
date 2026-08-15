@@ -19,6 +19,16 @@ class Step30Tests(unittest.TestCase):
  def test_discovery_is_explicit(self):
   s=json.loads((OUT/"search-summary.json").read_text());self.assertFalse(s["butterfly_tested"]);self.assertFalse(s["canonical_artifacts_changed"]);self.assertEqual(s["real_hidden_state_validation"],"unavailable; random action probes used")
  def test_required_files(self):
-  for name in ("manifest.json","environment.json","artifact-provenance.json","candidate-results.csv","degrees-of-freedom.csv","action-validation.csv","search-summary.json"):
+  for name in ("manifest.json","environment.json","artifact-provenance.json","candidate-results.csv","degrees-of-freedom.csv","action-validation.csv","search-summary.json","algorithm-applicability.csv","tensor-baseline.csv","qkv-joint-results.csv","gate-up-joint-results.csv","attention-joint-results.csv","mlp-joint-results.csv","whole-layer-results.csv","whole-layer-pareto.csv","whole-layer-residual-analysis.csv","whole-layer-hybrids.csv","shared-compute.csv","optional-cross-layer.csv","structured-matrix-summary.json"):
    self.assertTrue((OUT/name).exists(),name)
+ def test_complete_applicability_matrix(self):
+  with (OUT/"algorithm-applicability.csv").open() as f: rows=list(csv.DictReader(f))
+  self.assertEqual(len(rows),21*7)
+  self.assertTrue(all(r["status"].startswith(("TESTED","NOT TESTED","INAPPLICABLE")) for r in rows))
+  self.assertTrue(any(r["algorithm"]=="Generalized Butterfly" and r["boundary"]=="Whole Layer" for r in rows))
+ def test_joint_group_accounting(self):
+  for name in ("qkv-joint-results.csv","gate-up-joint-results.csv"):
+   with (OUT/name).open() as f: row=next(csv.DictReader(f))
+   self.assertGreater(float(row["independent_compact_bytes"]),float(row["joint_compact_bytes"]))
+   self.assertGreater(float(row["storage_gain"]),1.0)
 if __name__=="__main__":unittest.main()

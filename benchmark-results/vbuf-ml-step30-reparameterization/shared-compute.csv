@@ -1,0 +1,4 @@
+boundary,shared_input_transform_cost,role_specific_cost,total_joint_cost,status
+QKV,one Vx,one U projection with q/k/v partitions,measured in qkv-joint-results.csv,TESTED
+Gate/Up,one Vx,one U projection with gate/up partitions,measured in gate-up-joint-results.csv,TESTED
+Whole Layer,n/a,n/a,n/a,NOT TESTED — nonlinear domains

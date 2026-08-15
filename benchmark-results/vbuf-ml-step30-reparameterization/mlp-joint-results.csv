@@ -1,0 +1,2 @@
+group,model,rank,members,canonical_bytes,independent_compact_bytes,joint_compact_bytes,storage_gain,matrix_relative_error,action_relative_error,fit_ms,shared_input_transform,direct_compute_note,group_status
+Gate/Up,0.6B,16,blk.0.ffn_gate.weight;blk.0.ffn_up.weight,6684672.0,524288,458752,1.1428571428571428,0.9735039472579956,0.9746610522270203,7.913155001006089,none; shared stacked factor application,one Vx and one U projection; output partitions restored by row ranges,Gate/Up joint tested; full MLP not tested

@@ -1,0 +1,2 @@
+group,model,rank,members,canonical_bytes,independent_compact_bytes,joint_compact_bytes,storage_gain,matrix_relative_error,action_relative_error,fit_ms,shared_input_transform,direct_compute_note
+QKV,0.6B,16,blk.0.attn_q.weight;blk.0.attn_k.weight;blk.0.attn_v.weight,4456448.0,458752,327680,1.4,0.9432618618011475,0.9547173976898193,70.42692699906183,none; shared stacked factor application,one Vx and one U projection; output partitions restored by row ranges
