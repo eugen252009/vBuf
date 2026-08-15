@@ -1,0 +1,3 @@
+dataset,vectors,input_dimension,dtype,selection,used_for,raw_sha256,native_kcur_sha256
+functional_validation,64,5120,F32,first 2 prompts / 64 vectors,IQ importance matrix only; no final scoring,58425b8101f8aa29b882b2e0fb87ea31e4f079f07f958c15bd8b816096f1ca24,
+functional_test,64,5120,F32,last 2 prompts / 64 vectors,untouched final real W*x scoring,58425b8101f8aa29b882b2e0fb87ea31e4f079f07f958c15bd8b816096f1ca24,674901ffe20dc8b0861ee8baad18a19635557371f621cd4b5eacf1055ec78c70

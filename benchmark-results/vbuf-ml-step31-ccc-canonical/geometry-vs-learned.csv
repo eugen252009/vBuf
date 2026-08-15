@@ -1,0 +1,3 @@
+bits,learned_candidate,geometric_candidate,gamma,scale,normalized_level_set_distance,geometry_penalty_rmse,geometry_penalty_wx,gate_rmse_pass,gate_wx_pass
+3,CCC C3 learned,CCC C3 power gamma=1.25,1.25,0.052958548069000216,0.03274245526363675,1.0184756025856785,1.061765258959997,True,True
+4,CCC C4 learned,CCC C4 power gamma=1.25,1.25,0.06201171875,0.13395034768048247,1.0084115478496947,1.1092056441948588,True,True

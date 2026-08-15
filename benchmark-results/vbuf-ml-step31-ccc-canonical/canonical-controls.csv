@@ -1,0 +1,12 @@
+format,status,block_size,bytes_per_block,row_size,rows,cols,block_count,serialized_bytes,true_bpw,requires_imatrix,imatrix,quantizer,dequantizer,activation_aware
+Q2_K,TESTED,256,84,1680,1024,5120,20480,1720320,2.625,False,none,ggml_quantize_chunk,ggml_type_traits.to_float,False
+Q3_K,TESTED,256,110,2200,1024,5120,20480,2252800,3.4375,False,none,ggml_quantize_chunk,ggml_type_traits.to_float,False
+Q4_0,TESTED,32,18,2880,1024,5120,163840,2949120,4.5,False,none,ggml_quantize_chunk,ggml_type_traits.to_float,False
+Q4_K,TESTED,256,144,2880,1024,5120,20480,2949120,4.5,False,none,ggml_quantize_chunk,ggml_type_traits.to_float,False
+IQ2_S,TESTED,256,82,1640,1024,5120,20480,1679360,2.5625,False,none,ggml_quantize_chunk,ggml_type_traits.to_float,False
+IQ3_XXS,TESTED,256,98,1960,1024,5120,20480,2007040,3.0625,False,none,ggml_quantize_chunk,ggml_type_traits.to_float,False
+IQ3_S,TESTED,256,110,2200,1024,5120,20480,2252800,3.4375,False,none,ggml_quantize_chunk,ggml_type_traits.to_float,False
+IQ4_NL,TESTED,32,18,2880,1024,5120,163840,2949120,4.5,False,none,ggml_quantize_chunk,ggml_type_traits.to_float,False
+IQ4_XS,TESTED,256,136,2720,1024,5120,20480,2785280,4.25,False,none,ggml_quantize_chunk,ggml_type_traits.to_float,False
+IQ2_XXS,TESTED,256,66,1320,1024,5120,20480,1351680,2.0625,True,functional-validation mean-square activation,ggml_quantize_chunk,ggml_type_traits.to_float,True
+IQ2_XS,TESTED,256,74,1480,1024,5120,20480,1515520,2.3125,True,functional-validation mean-square activation,ggml_quantize_chunk,ggml_type_traits.to_float,True

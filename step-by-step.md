@@ -2110,6 +2110,15 @@ helped only C2 modestly. Canonical GGML comparators, native direct apply, and
 real hidden states remain blockers, so the assessment is **PARTIAL**. See
 `benchmark-results/vbuf-ml-step30-ccc-assessment/representation-assessment.md`.
 
+CCC Stage-2 used pinned canonical GGML quantizers and 128 real F32 activation
+vectors captured at the exact layer-32 key-projection input. Learned C2 remains
+a low-rate Pareto niche but has much worse real W*x error than activation-aware
+IQ2 controls at slightly higher rates; learned C3/C4 are dominated. A fixed
+C4+0.1% tail remains Pareto. Bounded power alphabets stayed within 1.25x of
+learned C3/C4 but those operating points are dominated. Classification:
+**CCC_LOW_BIT_NICHE_INTERESTING**, not ready for a native-kernel gate. See
+`benchmark-results/vbuf-ml-step31-ccc-canonical/stage2-report.md`.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision

@@ -1,0 +1,12 @@
+{
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "model_source": "src/models/qwen3.cpp: attn_norm callback immediately precedes build_qkv(..., cur, ...)",
+  "matrix_source": "src/llama-graph.cpp: separate-QKV Kcur = build_lora_mm(layer.wk, cur, ...)",
+  "captured_input_node": "attn_norm-32",
+  "captured_output_node": "first Kcur-32 after the input node",
+  "association": {
+    "relative_l2_vs_native_kcur": 0.004278863780200481,
+    "correlation_vs_native_kcur": 0.9999908426735256,
+    "max_abs_vs_native_kcur": 0.018035680055618286
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "capture_point": "attn_norm-32 output",
+  "target_tensor": "blk.32.attn_k.weight",
+  "k_output_point": "Kcur-32 before k_norm/RoPE",
+  "prompts": 4,
+  "vectors": 128,
+  "input_dimension": 5120,
+  "output_dimension": 1024,
+  "dtype": "F32",
+  "prompt_vectors": [
+    32,
+    32,
+    32,
+    32
+  ]
+}

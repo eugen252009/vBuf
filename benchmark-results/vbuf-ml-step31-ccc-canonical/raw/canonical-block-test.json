@@ -1,0 +1,14 @@
+{
+  "format": "Q2_K",
+  "input_weights": 256,
+  "expected_blocks": 1,
+  "observed_blocks": 1,
+  "expected_bytes": 84,
+  "observed_bytes": 84,
+  "deterministic_bytes": true,
+  "quantized_sha256": "a5b4a8c1fcb15c63b16e5991c11807a4affd2d2b9bbee25ba02016479cfb0799",
+  "dequantized_float_bytes": 1024,
+  "tail_255_returncode": 3,
+  "tail_255_error": "row tail is not a complete canonical block",
+  "tail_policy": "reject incomplete canonical block"
+}

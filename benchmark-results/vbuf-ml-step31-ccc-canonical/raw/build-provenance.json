@@ -1,0 +1,14 @@
+{
+  "llama_cpp_repository": "https://github.com/ggml-org/llama.cpp.git",
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "research_patches": [
+    "patches/llama.cpp/0001-user-metadata-tensor-source.patch",
+    "patches/llama.cpp/0002-source-neutral-model-source.patch"
+  ],
+  "capture_source": "integrations/llama.cpp/step31_hidden_capture.cpp",
+  "canonical_quantizer_source": "integrations/llama.cpp/step31_canonical_quantize.cpp",
+  "canonical_quantizer_api": "ggml_quantize_chunk",
+  "canonical_dequantizer_api": "ggml_get_type_traits(type)->to_float",
+  "cpu_only": true,
+  "production_runtime_modified": false
+}
