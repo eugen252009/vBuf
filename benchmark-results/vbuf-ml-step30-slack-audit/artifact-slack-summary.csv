@@ -1,0 +1,3 @@
+artifact,logical_payload_bytes,physical_artifact_bytes,alignment_slack_bytes,slack_percent_artifact,median_slack_per_block,p95_slack_per_block,max_slack_per_block,total_weight_count,free_bits_per_weight,blocks_slack_0,blocks_slack_1-3,blocks_slack_4-7,blocks_slack_8-15,blocks_slack_16-31,blocks_slack_32-63,blocks_slack_64-127,blocks_slack_>=128
+0.6B,637921125,637925504,43,6.740598977525752e-06,0,0.0,7,596049920,5.771328683342496e-07,328,2,7,0,0,0,0,0
+32B,34816187796,34816197376,44,1.263779600190649e-07,0.0,0.0,7,32762123264,1.074411438976509e-08,725,1,8,0,0,0,0,0

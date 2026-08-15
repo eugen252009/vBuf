@@ -1,0 +1,2 @@
+candidate,additional_bytes_touched,correction_decode_ms,temporary_bytes,additional_branches,status
+all,0,0,0,0,no valid correction object; no runtime path measured

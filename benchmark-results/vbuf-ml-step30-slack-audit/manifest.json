@@ -1,0 +1,23 @@
+{
+  "audit": "Step-30 alignment slack",
+  "status": "COMPLETE",
+  "artifacts": {
+    "0.6B": {
+      "gguf_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+      "vbuf_sha256": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998",
+      "vbuf_bytes": 637925504,
+      "base_shift": 3,
+      "base_step": 8
+    },
+    "32B": {
+      "gguf_sha256": "2c50eb8aad05047dbf24fa014eb621adf552e14176cabe0c5db4ef38c91e2169",
+      "vbuf_sha256": "84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d",
+      "vbuf_bytes": 34816197376,
+      "base_shift": 3,
+      "base_step": 8
+    }
+  },
+  "generic_vbuf_changes": 0,
+  "vbuf_ml_canonical_changes": 0,
+  "base_shift_changes": 0
+}

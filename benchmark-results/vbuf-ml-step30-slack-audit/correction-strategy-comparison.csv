@@ -1,0 +1,6 @@
+strategy,status,available_bytes,minimum_object_bytes,reason
+sparse scalar exception,NOT APPLICABLE,0,6,selected tensor extent has zero existing alignment slack
+packed low-bit correction,NOT APPLICABLE,0,1,selected tensor extent has zero existing alignment slack
+tiny correction codebook,NOT APPLICABLE,0,9,selected tensor extent has zero existing alignment slack
+block residual correction,NOT APPLICABLE,0,8,selected tensor extent has zero existing alignment slack
+vector residual refinement,NOT APPLICABLE,0,8,selected tensor extent has zero existing alignment slack

@@ -1,0 +1,57 @@
+{
+  "status": "PARTIAL \u2014 scalar matrix-objective sweep complete; vector/adaptive/real-hidden-state objectives not repeated",
+  "best_splits": {
+    "4": {
+      "primary_bits": 2,
+      "correction_bits": 2,
+      "nominal_total_bits": 4,
+      "primary_index_bytes": 262144,
+      "correction_index_bytes": 262144,
+      "primary_table_bytes": 16,
+      "correction_table_bytes": 64,
+      "metadata_bytes": 128,
+      "padding_bytes": 48,
+      "serialized_bytes": 524544,
+      "true_bits_per_weight": 4.001953125,
+      "matrix_relative_error": 0.13219255208969116,
+      "action_relative_error": 0.12804605066776276,
+      "candidate": "conditional scalar codebook",
+      "slack_augmentation_bytes": 0
+    },
+    "6": {
+      "primary_bits": 3,
+      "correction_bits": 3,
+      "nominal_total_bits": 6,
+      "primary_index_bytes": 393216,
+      "correction_index_bytes": 393216,
+      "primary_table_bytes": 32,
+      "correction_table_bytes": 256,
+      "metadata_bytes": 128,
+      "padding_bytes": 32,
+      "serialized_bytes": 786880,
+      "true_bits_per_weight": 6.00341796875,
+      "matrix_relative_error": 0.041622623801231384,
+      "action_relative_error": 0.04384022206068039,
+      "candidate": "conditional scalar codebook",
+      "slack_augmentation_bytes": 0
+    },
+    "8": {
+      "primary_bits": 3,
+      "correction_bits": 5,
+      "nominal_total_bits": 8,
+      "primary_index_bytes": 393216,
+      "correction_index_bytes": 655360,
+      "primary_table_bytes": 32,
+      "correction_table_bytes": 1024,
+      "metadata_bytes": 128,
+      "padding_bytes": 32,
+      "serialized_bytes": 1049792,
+      "true_bits_per_weight": 8.00927734375,
+      "matrix_relative_error": 0.017228249460458755,
+      "action_relative_error": 0.01805076189339161,
+      "candidate": "conditional scalar codebook",
+      "slack_augmentation_bytes": 0
+    }
+  },
+  "slack_augmentation": 0
+}

@@ -1,0 +1,14 @@
+{
+  "baseline_artifact_byte_length": 637925504,
+  "slack_aware_artifact_byte_length": 637925504,
+  "byte_length_equal": true,
+  "original_extent_boundaries_unchanged": true,
+  "subsequent_offsets_unchanged": true,
+  "base_shift_unchanged": true,
+  "nano_unchanged": true,
+  "nested_semantics_unchanged": true,
+  "generic_vbuf_baseline_behavior": "accept canonical zero padding",
+  "generic_vbuf_mutated_behavior": "reject nonzero canonical padding",
+  "generic_vbuf_behavior_unchanged": false,
+  "free_correction_claim_valid": false
+}

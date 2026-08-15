@@ -1,0 +1,8 @@
+primary_bits,correction_bits,fixed_extent_bytes,existing_alignment_slack_bytes,capacity_created_by_primary_shrink_bytes,note
+1,7,1049792,0,0,"shrinking a paid primary changes representation allocation, not pre-existing alignment slack"
+2,6,1049792,0,0,"shrinking a paid primary changes representation allocation, not pre-existing alignment slack"
+3,5,1049792,0,0,"shrinking a paid primary changes representation allocation, not pre-existing alignment slack"
+4,4,1049792,0,0,"shrinking a paid primary changes representation allocation, not pre-existing alignment slack"
+5,3,1049856,0,0,"shrinking a paid primary changes representation allocation, not pre-existing alignment slack"
+6,2,1049984,0,0,"shrinking a paid primary changes representation allocation, not pre-existing alignment slack"
+7,1,1050240,0,0,"shrinking a paid primary changes representation allocation, not pre-existing alignment slack"

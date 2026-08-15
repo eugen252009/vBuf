@@ -2094,6 +2094,13 @@ byte reductions of 1.40x for QKV and 1.14x for gate/up, with approximately
 gains. Classification: **F — inconclusive**. No whole-layer candidate was
 qualified.
 
+The alignment-slack audit found only 43 bytes in the 0.6B artifact and 44
+bytes in the 32B artifact, all in small control regions; every tensor and layer
+has zero local slack. Canonical padding must remain zero, so usable correction
+capacity is zero. Decision: **E — no meaningful opportunity**. A separate paid
+scalar-budget sweep found 2+2 best at four bits, 3+3 at six bits, and 3+5 best
+at eight bits. See `docs/vbuf-ml/step30-slack-audit.md`.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision

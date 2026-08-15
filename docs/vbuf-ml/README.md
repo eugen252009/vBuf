@@ -82,7 +82,9 @@ reconstructable-weight research is documented in
 full tensor/group/layer algorithm matrix is documented in
 [`step30-structured-matrix.md`](step30-structured-matrix.md), with the 22-family
 completion and residual-quantization continuation in
-[`step30-continuation.md`](step30-continuation.md).
+[`step30-continuation.md`](step30-continuation.md). The downstream-only
+alignment-slack audit is documented in
+[`step30-slack-audit.md`](step30-slack-audit.md).
 Tokenizer execution and chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is

@@ -1,0 +1,4 @@
+extent_budget_bytes,best_primary_bits,best_correction_bits,action_relative_error,existing_alignment_slack_used,physical_growth_bytes
+524544,2,2,0.12804605066776276,0,0
+786880,3,3,0.04384022206068039,0,0
+1049792,3,5,0.01805076189339161,0,0

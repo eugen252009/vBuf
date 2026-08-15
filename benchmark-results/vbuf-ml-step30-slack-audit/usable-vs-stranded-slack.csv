@@ -1,0 +1,19 @@
+artifact,tensor_name,existing_slack_bytes,usable_slack_bytes,stranded_slack_bytes,reason
+0.6B,Metadata.Architecture,3,0,3,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+0.6B,TensorDirectory,3,0,3,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+0.6B,TokenizerControl,4,0,4,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+0.6B,MergeLeftIds,4,0,4,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+0.6B,MergeRightIds,4,0,4,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+0.6B,TokenizerModelIdentity,7,0,7,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+0.6B,PreTokenizerIdentity,7,0,7,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+0.6B,AddBos,7,0,7,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+0.6B,ChatTemplate,4,0,4,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+32B,Metadata.Architecture,3,0,3,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+32B,TensorDirectory,4,0,4,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+32B,TokenizerControl,4,0,4,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+32B,MergeLeftIds,4,0,4,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+32B,MergeRightIds,4,0,4,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+32B,TokenizerModelIdentity,7,0,7,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+32B,PreTokenizerIdentity,7,0,7,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+32B,AddBos,7,0,7,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject
+32B,ChatTemplate,4,0,4,canonical v0.6 padding must be zero; representation-local nonzero bytes would make generic validation reject

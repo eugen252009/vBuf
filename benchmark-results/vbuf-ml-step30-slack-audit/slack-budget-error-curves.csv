@@ -1,0 +1,29 @@
+candidate,slack_fraction,local_available_slack_bytes,used_slack_bytes,baseline_action_error,corrected_action_error,action_error_reduction,relative_error_reduction,error_reduction_per_slack_byte,effective_extra_bits_per_weight,physical_artifact_growth_bytes
+Conditional Hierarchical 4+4,0.25,0,0,0.0183772761374712,0.0183772761374712,0,0,0,0,0
+Conditional Hierarchical 4+4,0.5,0,0,0.0183772761374712,0.0183772761374712,0,0,0,0,0
+Conditional Hierarchical 4+4,0.75,0,0,0.0183772761374712,0.0183772761374712,0,0,0,0,0
+Conditional Hierarchical 4+4,1.0,0,0,0.0183772761374712,0.0183772761374712,0,0,0,0,0
+Sign + Magnitude + Residual,0.25,0,0,0.018864624202251434,0.018864624202251434,0,0,0,0,0
+Sign + Magnitude + Residual,0.5,0,0,0.018864624202251434,0.018864624202251434,0,0,0,0,0
+Sign + Magnitude + Residual,0.75,0,0,0.018864624202251434,0.018864624202251434,0,0,0,0,0
+Sign + Magnitude + Residual,1.0,0,0,0.018864624202251434,0.018864624202251434,0,0,0,0,0
+Vector Prototype + Residual width 2,0.25,0,0,0.116010881960392,0.116010881960392,0,0,0,0,0
+Vector Prototype + Residual width 2,0.5,0,0,0.116010881960392,0.116010881960392,0,0,0,0,0
+Vector Prototype + Residual width 2,0.75,0,0,0.116010881960392,0.116010881960392,0,0,0,0,0
+Vector Prototype + Residual width 2,1.0,0,0,0.116010881960392,0.116010881960392,0,0,0,0,0
+Vector Prototype + Residual width 4,0.25,0,0,0.34511399269104004,0.34511399269104004,0,0,0,0,0
+Vector Prototype + Residual width 4,0.5,0,0,0.34511399269104004,0.34511399269104004,0,0,0,0,0
+Vector Prototype + Residual width 4,0.75,0,0,0.34511399269104004,0.34511399269104004,0,0,0,0,0
+Vector Prototype + Residual width 4,1.0,0,0,0.34511399269104004,0.34511399269104004,0,0,0,0,0
+Vector Prototype + Residual width 8,0.25,0,0,0.5934554934501648,0.5934554934501648,0,0,0,0,0
+Vector Prototype + Residual width 8,0.5,0,0,0.5934554934501648,0.5934554934501648,0,0,0,0,0
+Vector Prototype + Residual width 8,0.75,0,0,0.5934554934501648,0.5934554934501648,0,0,0,0,0
+Vector Prototype + Residual width 8,1.0,0,0,0.5934554934501648,0.5934554934501648,0,0,0,0,0
+Flat Scalar Codebook,0.25,0,0,0.14988026022911072,0.14988026022911072,0,0,0,0,0
+Flat Scalar Codebook,0.5,0,0,0.14988026022911072,0.14988026022911072,0,0,0,0,0
+Flat Scalar Codebook,0.75,0,0,0.14988026022911072,0.14988026022911072,0,0,0,0,0
+Flat Scalar Codebook,1.0,0,0,0.14988026022911072,0.14988026022911072,0,0,0,0,0
+Q8_0 control,0.25,0,0,0.0,0.0,0,0,0,0,0
+Q8_0 control,0.5,0,0,0.0,0.0,0,0,0,0,0
+Q8_0 control,0.75,0,0,0.0,0.0,0,0,0,0,0
+Q8_0 control,1.0,0,0,0.0,0.0,0,0,0,0,0

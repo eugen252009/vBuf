@@ -1,0 +1,2 @@
+status,reason
+NOT TESTED,zero local slack and no real hidden states; global matrix-objective sweep only
