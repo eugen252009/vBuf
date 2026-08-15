@@ -1,0 +1,16 @@
+{
+  "step": 30,
+  "classification": "research-only; no artifact emission",
+  "tensor_count": 3,
+  "candidate_count": 21,
+  "rank_set": [
+    8,
+    16,
+    32
+  ],
+  "validation_levels": [
+    "matrix reconstruction",
+    "random action preservation"
+  ],
+  "full_model_copy_runtime": false
+}

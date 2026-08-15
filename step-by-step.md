@@ -2055,6 +2055,26 @@ were unchanged.
 See `docs/vbuf-ml/step29-layer-io.md` and
 `benchmark-results/vbuf-ml-step29-layer-io/`.
 
+#### Step 30 — Reconstructable weight reparameterization qualification
+
+Tested bounded research-only reparameterizations on selected real Qwen3 Q8_0
+tensors: plain low-rank factors, row-centered factors, row/column scaling with
+a low-rank core, and column permutations with a low-rank core. All auxiliary
+parameters were counted.
+
+For the selected 32B attention-output tensor, rank-16 factors used roughly
+0.163 bits per original weight but retained only approximately 2.3% of the
+random-probe action signal (approximately 97.7% relative action error). Scaling
+and permutation variants did not materially improve this result. The Q8_0
+reference remained exact at 8.5 bits/weight.
+
+This is a lossy research result, not a model-compression qualification. No
+real hidden-state hook was available, no candidate was emitted, and no wire,
+BaseShift, runtime, Nano, or Nested-vBuf changes were made.
+
+See `docs/vbuf-ml/step30-reparameterization.md` and
+`benchmark-results/vbuf-ml-step30-reparameterization/`.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision

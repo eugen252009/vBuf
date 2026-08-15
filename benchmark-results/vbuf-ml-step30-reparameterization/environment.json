@@ -1,0 +1,10 @@
+{
+  "host": "debian",
+  "python": "3.13.5",
+  "numpy": "2.5.1",
+  "seed": 3029,
+  "cpu_only": true,
+  "wire_changes": false,
+  "base_shift": 3,
+  "base_step": 8
+}

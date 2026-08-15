@@ -1,0 +1,53 @@
+{
+  "seed": 3029,
+  "selected_tensors": [
+    {
+      "model": "0.6B",
+      "tensor": "blk.0.attn_output.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "q8_bytes": 2228224,
+      "weights": 2097152
+    },
+    {
+      "model": "0.6B",
+      "tensor": "blk.0.ffn_down.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "q8_bytes": 3342336,
+      "weights": 3145728
+    },
+    {
+      "model": "32B",
+      "tensor": "blk.0.attn_output.weight",
+      "shape": [
+        5120,
+        8192
+      ],
+      "q8_bytes": 44564480,
+      "weights": 41943040
+    }
+  ],
+  "reparameterization_search": [
+    "plain low-rank SVD factors",
+    "row-centered low-rank",
+    "diagonal row/column scaling plus low-rank core",
+    "column permutation plus low-rank core"
+  ],
+  "information_relocation": [
+    "row means",
+    "row/column scales",
+    "column permutation"
+  ],
+  "butterfly_tested": false,
+  "butterfly_reason": "Not selected for this bounded direct-application qualification; low-rank and scaling reparameterizations were tested instead.",
+  "real_hidden_state_validation": "unavailable; random action probes used",
+  "runtime_dense_copy": false,
+  "canonical_artifacts_changed": false,
+  "writer_side_cost": "randomized SVD fitting measured separately; fitting is offline-only",
+  "discovery": "plain low-rank factors had the simplest direct application; diagonal scaling and permutations were comparators, not assumed wins"
+}
