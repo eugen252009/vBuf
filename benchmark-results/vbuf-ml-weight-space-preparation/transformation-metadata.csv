@@ -1,0 +1,12 @@
+transform,family,fixed_decoder_constants_bytes,global_model_metadata_bytes,per_tensor_metadata_bytes,per_block_metadata_bytes,per_segment_metadata_bytes,transformation_alignment_bytes,transformation_total_bytes,transformation_metadata_bpw,optimizer,runtime_placement
+identity,identity,0,0,0,0,0,0,0,0.0,fixed,LAYOUT_ONLY
+statistic_sort,permutation,0,0,8320,0,0,0,8320,0.0126953125,"lexsort(column RMS, mean, ordinal)",FOLDABLE_INTO_MODEL_CONVERSION
+shape_cluster,permutation,0,0,8320,0,0,0,8320,0.0126953125,deterministic 160-cluster normalized-shape k-means; 6 iterations,FOLDABLE_INTO_MODEL_CONVERSION
+codec_aware_order,permutation,0,0,8320,0,0,0,8320,0.0126953125,64 deterministic local swaps; 26 accepted; seed 1347568976,FOLDABLE_INTO_MODEL_CONVERSION
+random_permutation_control,permutation_control,0,0,8320,0,0,0,8320,0.0126953125,deterministic RNG seed 1347568976,FOLDABLE_INTO_MODEL_CONVERSION
+signed_shape_cluster,signed_permutation,0,0,8960,0,0,0,8960,0.013671875,shape cluster plus sign(column mean),FOLDABLE_INTO_MODEL_CONVERSION
+power2_column_equalization,diagonal_scaling,0,0,2560,0,0,0,2560,0.00390625,"round(log2(column RMS/global RMS)), exponents [-4,4]",FOLDABLE_INTO_ADJACENT_WEIGHTS
+fp16_column_equalization,diagonal_scaling,0,0,10240,0,0,0,10240,0.015625,FP16 column RMS/global RMS,FOLDABLE_INTO_ADJACENT_WEIGHTS
+hadamard8,fixed_orthogonal,0,0,0,0,0,0,0,0.0,universal normalized Walsh-Hadamard,EXPENSIVE_RUNTIME_ACTIVATION_TRANSFORM
+hadamard16,fixed_orthogonal,0,0,0,0,0,0,0,0.0,universal normalized Walsh-Hadamard,EXPENSIVE_RUNTIME_ACTIVATION_TRANSFORM
+hadamard32,fixed_orthogonal,0,0,0,0,0,0,0,0.0,universal normalized Walsh-Hadamard,EXPENSIVE_RUNTIME_ACTIVATION_TRANSFORM

@@ -1,0 +1,74 @@
+encoded G0_HASH_SIGN_L8 complete tensor in 0.627605s
+encoded G0_HASH_SIGN_L16 complete tensor in 0.320000s
+encoded G0_HASH_SIGN_L32 complete tensor in 0.186428s
+encoded G0_HASH_SIGN_L64 complete tensor in 0.089411s
+encoded G0_HASH_SIGN_L128 complete tensor in 0.039448s
+encoded G0_HASH_SIGN_L256 complete tensor in 0.013010s
+encoded G1_HASH_AFFINE_L8 complete tensor in 0.250294s
+encoded G1_HASH_AFFINE_L16 complete tensor in 0.151988s
+encoded G1_HASH_AFFINE_L32 complete tensor in 0.069168s
+encoded G1_HASH_AFFINE_L64 complete tensor in 0.044978s
+encoded G1_HASH_AFFINE_L128 complete tensor in 0.032029s
+encoded G1_HASH_AFFINE_L256 complete tensor in 0.028722s
+encoded G2_CENTER_DENSE_L8 complete tensor in 0.190734s
+encoded G2_CENTER_DENSE_L16 complete tensor in 0.146147s
+encoded G2_CENTER_DENSE_L32 complete tensor in 0.046832s
+encoded G2_CENTER_DENSE_L64 complete tensor in 0.019199s
+encoded G2_CENTER_DENSE_L128 complete tensor in 0.024877s
+encoded G2_CENTER_DENSE_L256 complete tensor in 0.028371s
+encoded G3_RECURRENCE_L8 complete tensor in 0.219750s
+encoded G3_RECURRENCE_L16 complete tensor in 0.110664s
+encoded G3_RECURRENCE_L32 complete tensor in 0.061145s
+encoded G3_RECURRENCE_L64 complete tensor in 0.055664s
+encoded G3_RECURRENCE_L128 complete tensor in 0.024855s
+encoded G3_RECURRENCE_L256 complete tensor in 0.013530s
+encoded G4_TINY_BASIS_L8 complete tensor in 0.189968s
+encoded G4_TINY_BASIS_L16 complete tensor in 0.097602s
+encoded G4_TINY_BASIS_L32 complete tensor in 0.059982s
+encoded G4_TINY_BASIS_L64 complete tensor in 0.047670s
+encoded G4_TINY_BASIS_L128 complete tensor in 0.029599s
+encoded G4_TINY_BASIS_L256 complete tensor in 0.014916s
+$ g++ -O2 -std=c++17 -I/tmp/ccc-llama-pinned/ggml/include -I/tmp/ccc-llama-pinned/ggml/src /home/eugen/projekte/vBuf/integrations/llama.cpp/step31_canonical_quantize.cpp -L/tmp/ccc-llama-pinned/build/bin -lggml -lggml-cpu -lggml-base -Wl,-rpath,/tmp/ccc-llama-pinned/build/bin -o /tmp/opencode/implicit-weight-0copdgrk/canonical-quantize
+$ /tmp/opencode/implicit-weight-0copdgrk/canonical-quantize /tmp/opencode/implicit-weight-0copdgrk/oracle.f32 /tmp/opencode/implicit-weight-0copdgrk/imatrix.f32 /tmp/opencode/implicit-weight-0copdgrk 1024 5120 IQ2_XS
+{"format":"IQ2_XS","status":"TESTED","block_size":256,"bytes_per_block":74,"row_size":1480,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":1515520,"true_bpw":2.312500000,"requires_imatrix":true,"imatrix":"functional-validation mean-square activation","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/implicit-weight-0copdgrk/canonical-quantize /tmp/opencode/implicit-weight-0copdgrk/oracle.f32 - /tmp/opencode/implicit-weight-0copdgrk 1024 5120 IQ3_XXS
+{"format":"IQ3_XXS","status":"TESTED","block_size":256,"bytes_per_block":98,"row_size":1960,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2007040,"true_bpw":3.062500000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/implicit-weight-0copdgrk/canonical-quantize /tmp/opencode/implicit-weight-0copdgrk/oracle.f32 - /tmp/opencode/implicit-weight-0copdgrk 1024 5120 Q3_K
+{"format":"Q3_K","status":"TESTED","block_size":256,"bytes_per_block":110,"row_size":2200,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2252800,"true_bpw":3.437500000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/implicit-weight-0copdgrk/canonical-quantize /tmp/opencode/implicit-weight-0copdgrk/oracle.f32 - /tmp/opencode/implicit-weight-0copdgrk 1024 5120 IQ4_XS
+{"format":"IQ4_XS","status":"TESTED","block_size":256,"bytes_per_block":136,"row_size":2720,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2785280,"true_bpw":4.250000000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/implicit-weight-0copdgrk/canonical-quantize /tmp/opencode/implicit-weight-0copdgrk/oracle.f32 - /tmp/opencode/implicit-weight-0copdgrk 1024 5120 Q4_K
+{"format":"Q4_K","status":"TESTED","block_size":256,"bytes_per_block":144,"row_size":2880,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2949120,"true_bpw":4.500000000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ g++ -O3 -march=native -std=c++17 /home/eugen/projekte/vBuf/research/implicit_weight_bench.cpp -o /tmp/opencode/implicit-bench-0tbx5ewf/implicit-weight-bench
+$ /tmp/opencode/implicit-bench-0tbx5ewf/implicit-weight-bench
+generator,length,generated_weights_per_second,cycles_per_weight,generated_GB_per_s,integer_ops_per_weight,fp_ops_per_weight,lut_accesses_per_weight,branches_per_weight,state_words,reconstruction_class,vectorization
+G0_HASH_SIGN,8,2647117035.241845608,1.586431503,10.588468141,9.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G0_HASH_SIGN,16,3745723629.569960594,1.121080399,14.982894518,9.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G0_HASH_SIGN,32,4910052117.233338356,0.855279922,19.640208469,9.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G0_HASH_SIGN,64,4458925629.894536018,0.941581964,17.835702520,9.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G0_HASH_SIGN,128,4652463483.332238197,0.902686715,18.609853933,9.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G0_HASH_SIGN,256,4090929783.923806190,1.026594758,16.363719136,9.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G1_HASH_AFFINE,8,775615269.452219367,5.414422989,3.102461078,9.0,2.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G1_HASH_AFFINE,16,829873272.459266067,5.060863495,3.319493090,9.0,2.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G1_HASH_AFFINE,32,847628670.972539902,4.954819679,3.390514684,9.0,2.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G1_HASH_AFFINE,64,854842072.546252131,4.912952900,3.419368290,9.0,2.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G1_HASH_AFFINE,128,825719921.593791723,5.086308002,3.302879686,9.0,2.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G1_HASH_AFFINE,256,835140686.689658046,5.029020309,3.340562747,9.0,2.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G2_CENTER_DENSE,8,712775394.479161024,5.892230988,2.851101578,13.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G2_CENTER_DENSE,16,745446247.161680102,5.634020805,2.981784989,13.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G2_CENTER_DENSE,32,760739129.464824200,5.520747185,3.042956518,13.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G2_CENTER_DENSE,64,731600359.215207100,5.740550280,2.926401437,13.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G2_CENTER_DENSE,128,754484361.751188874,5.566609383,3.017937447,13.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G2_CENTER_DENSE,256,766151473.690077424,5.481824398,3.064605895,13.0,1.0,0.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G3_RECURRENCE,8,816439414.230632663,5.144056320,3.265757657,6.0,2.0,0.0,0,1,SMALL_TILE_GENERATABLE,loop-carried state; SIMD across segments
+G3_RECURRENCE,16,826569708.435563207,5.080970764,3.306278834,6.0,2.0,0.0,0,1,SMALL_TILE_GENERATABLE,loop-carried state; SIMD across segments
+G3_RECURRENCE,32,789318438.866128564,5.320595503,3.157273755,6.0,2.0,0.0,0,1,SMALL_TILE_GENERATABLE,loop-carried state; SIMD across segments
+G3_RECURRENCE,64,740086815.384396911,5.674315453,2.960347262,6.0,2.0,0.0,0,1,SMALL_TILE_GENERATABLE,loop-carried state; SIMD across segments
+G3_RECURRENCE,128,704844133.018008232,5.958273053,2.819376532,6.0,2.0,0.0,0,1,SMALL_TILE_GENERATABLE,loop-carried state; SIMD across segments
+G3_RECURRENCE,256,698881420.882576227,6.009354830,2.795525684,6.0,2.0,0.0,0,1,SMALL_TILE_GENERATABLE,loop-carried state; SIMD across segments
+G4_TINY_BASIS,8,420698384.932185590,9.983219147,1.682793540,79.0,9.0,8.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G4_TINY_BASIS,16,530893375.376433611,7.911008835,2.123573502,79.0,9.0,8.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G4_TINY_BASIS,32,637589484.457944632,6.586983204,2.550357938,79.0,9.0,8.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G4_TINY_BASIS,64,687031902.325362325,6.113005400,2.748127609,79.0,9.0,8.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G4_TINY_BASIS,128,723519368.179116249,5.804622173,2.894077473,79.0,9.0,8.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments
+G4_TINY_BASIS,256,734070927.218922496,5.721450627,2.936283709,79.0,9.0,8.0,0,0,SMALL_TILE_GENERATABLE,SIMD-friendly across weights/segments

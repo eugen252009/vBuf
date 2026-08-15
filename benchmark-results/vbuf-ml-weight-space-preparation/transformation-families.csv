@@ -1,0 +1,12 @@
+transform,family,definition,parameter_count,metadata_bytes,optimizer,runtime_placement
+identity,identity,T=I,0,0,fixed,LAYOUT_ONLY
+statistic_sort,permutation,x'=P x; W'=W P^T,5120,8320,"lexsort(column RMS, mean, ordinal)",FOLDABLE_INTO_MODEL_CONVERSION
+shape_cluster,permutation,x'=P x; W'=W P^T,5120,8320,deterministic 160-cluster normalized-shape k-means; 6 iterations,FOLDABLE_INTO_MODEL_CONVERSION
+codec_aware_order,permutation,x'=P x; W'=W P^T,5120,8320,64 deterministic local swaps; 26 accepted; seed 1347568976,FOLDABLE_INTO_MODEL_CONVERSION
+random_permutation_control,permutation_control,deterministic random P control,5120,8320,deterministic RNG seed 1347568976,FOLDABLE_INTO_MODEL_CONVERSION
+signed_shape_cluster,signed_permutation,x'=S P x; W'=W P^T S,5120,8960,shape cluster plus sign(column mean),FOLDABLE_INTO_MODEL_CONVERSION
+power2_column_equalization,diagonal_scaling,x'=D x; W'=W D^-1,5120,2560,"round(log2(column RMS/global RMS)), exponents [-4,4]",FOLDABLE_INTO_ADJACENT_WEIGHTS
+fp16_column_equalization,diagonal_scaling,x'=D x; W'=W D^-1,5120,10240,FP16 column RMS/global RMS,FOLDABLE_INTO_ADJACENT_WEIGHTS
+hadamard8,fixed_orthogonal,blockwise normalized H; x'=H x; W'=W H^T,0,0,universal normalized Walsh-Hadamard,EXPENSIVE_RUNTIME_ACTIVATION_TRANSFORM
+hadamard16,fixed_orthogonal,blockwise normalized H; x'=H x; W'=W H^T,0,0,universal normalized Walsh-Hadamard,EXPENSIVE_RUNTIME_ACTIVATION_TRANSFORM
+hadamard32,fixed_orthogonal,blockwise normalized H; x'=H x; W'=W H^T,0,0,universal normalized Walsh-Hadamard,EXPENSIVE_RUNTIME_ACTIVATION_TRANSFORM

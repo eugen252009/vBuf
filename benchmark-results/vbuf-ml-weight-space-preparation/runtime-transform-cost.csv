@@ -1,0 +1,12 @@
+cycles_per_element,cycles_per_vector,g_elements_per_second,temporary_bytes,memory_read_bytes_per_vector,memory_write_bytes_per_vector,in_place,vectorization,block_size,transform,family,runtime_placement,operations_per_element,explicit_fallback_bytes_per_vector
+0.0,0.0,0.0,0,0,0,YES,none,0,identity,identity,LAYOUT_ONLY,0 if folded/layout,0
+1.633404645,8363.031784058,2.571300139,20480.0,20480.0,20480.0,NO,AVX2 gather,0.0,statistic_sort,permutation,FOLDABLE_INTO_MODEL_CONVERSION,0 if folded/layout,40960.0
+1.633404645,8363.031784058,2.571300139,20480.0,20480.0,20480.0,NO,AVX2 gather,0.0,shape_cluster,permutation,FOLDABLE_INTO_MODEL_CONVERSION,0 if folded/layout,40960.0
+1.633404645,8363.031784058,2.571300139,20480.0,20480.0,20480.0,NO,AVX2 gather,0.0,codec_aware_order,permutation,FOLDABLE_INTO_MODEL_CONVERSION,0 if folded/layout,40960.0
+1.633404645,8363.031784058,2.571300139,20480.0,20480.0,20480.0,NO,AVX2 gather,0.0,random_permutation_control,permutation_control,FOLDABLE_INTO_MODEL_CONVERSION,0 if folded/layout,40960.0
+1.869603351,9572.369155884,2.246453301,20480.0,20480.0,20480.0,NO,AVX2 gather+multiply,0.0,signed_shape_cluster,signed_permutation,FOLDABLE_INTO_MODEL_CONVERSION,0 if folded/layout,40960.0
+0.560687084,2870.71787262,7.490681974,0.0,20480.0,20480.0,YES if alias-safe implementation,AVX2 multiply,0.0,power2_column_equalization,diagonal_scaling,FOLDABLE_INTO_ADJACENT_WEIGHTS,0 if folded/layout,40960.0
+0.560687084,2870.71787262,7.490681974,0.0,20480.0,20480.0,YES if alias-safe implementation,AVX2 multiply,0.0,fp16_column_equalization,diagonal_scaling,FOLDABLE_INTO_ADJACENT_WEIGHTS,0 if folded/layout,40960.0
+9.06420629,46408.736206055,0.463360103,20480.0,20480.0,20480.0,YES with staged implementation,scalar butterfly reference; SIMD-friendly butterflies,8.0,hadamard8,fixed_orthogonal,EXPENSIVE_RUNTIME_ACTIVATION_TRANSFORM,3 add/sub stages,40960.0
+7.988124105,40899.195419312,0.525779273,20480.0,20480.0,20480.0,YES with staged implementation,scalar butterfly reference; SIMD-friendly butterflies,16.0,hadamard16,fixed_orthogonal,EXPENSIVE_RUNTIME_ACTIVATION_TRANSFORM,4 add/sub stages,40960.0
+7.471863207,38255.939620972,0.562107261,20480.0,20480.0,20480.0,YES with staged implementation,scalar butterfly reference; SIMD-friendly butterflies,32.0,hadamard32,fixed_orthogonal,EXPENSIVE_RUNTIME_ACTIVATION_TRANSFORM,5 add/sub stages,40960.0

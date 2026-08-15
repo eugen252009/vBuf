@@ -1,0 +1,9 @@
+python3 scripts/qualify_implicit_weight_feasibility.py --output-dir /home/eugen/projekte/vBuf/benchmark-results/vbuf-ml-implicit-weight-feasibility
+g++ -O2 -std=c++17 -I/tmp/ccc-llama-pinned/ggml/include -I/tmp/ccc-llama-pinned/ggml/src /home/eugen/projekte/vBuf/integrations/llama.cpp/step31_canonical_quantize.cpp -L/tmp/ccc-llama-pinned/build/bin -lggml -lggml-cpu -lggml-base -Wl,-rpath,/tmp/ccc-llama-pinned/build/bin -o /tmp/opencode/implicit-weight-0copdgrk/canonical-quantize
+/tmp/opencode/implicit-weight-0copdgrk/canonical-quantize /tmp/opencode/implicit-weight-0copdgrk/oracle.f32 /tmp/opencode/implicit-weight-0copdgrk/imatrix.f32 /tmp/opencode/implicit-weight-0copdgrk 1024 5120 IQ2_XS
+/tmp/opencode/implicit-weight-0copdgrk/canonical-quantize /tmp/opencode/implicit-weight-0copdgrk/oracle.f32 - /tmp/opencode/implicit-weight-0copdgrk 1024 5120 IQ3_XXS
+/tmp/opencode/implicit-weight-0copdgrk/canonical-quantize /tmp/opencode/implicit-weight-0copdgrk/oracle.f32 - /tmp/opencode/implicit-weight-0copdgrk 1024 5120 Q3_K
+/tmp/opencode/implicit-weight-0copdgrk/canonical-quantize /tmp/opencode/implicit-weight-0copdgrk/oracle.f32 - /tmp/opencode/implicit-weight-0copdgrk 1024 5120 IQ4_XS
+/tmp/opencode/implicit-weight-0copdgrk/canonical-quantize /tmp/opencode/implicit-weight-0copdgrk/oracle.f32 - /tmp/opencode/implicit-weight-0copdgrk 1024 5120 Q4_K
+g++ -O3 -march=native -std=c++17 /home/eugen/projekte/vBuf/research/implicit_weight_bench.cpp -o /tmp/opencode/implicit-bench-0tbx5ewf/implicit-weight-bench
+/tmp/opencode/implicit-bench-0tbx5ewf/implicit-weight-bench

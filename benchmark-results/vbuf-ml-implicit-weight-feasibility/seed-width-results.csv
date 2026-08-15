@@ -1,0 +1,5 @@
+seed_width_bits,logical_search_space,seeds_evaluated_per_segment,search_method,sample_segments,sample_weights,length,descriptor_bits_per_segment,descriptor_bpw_excluding_global,rmse_before_fp16_scale,search_seconds,stopping_condition
+8,256,256,exhaustive,1024,32768,32,24,0.75,0.021236764267086983,0.0007125090014596935,exactly 256 deterministic seeds
+16,65536,65536,exhaustive,1024,32768,32,32,1.0,0.018058443441987038,0.14775833299972874,exactly 65536 deterministic seeds
+24,16777216,65536,deterministic bounded,1024,32768,32,40,1.25,0.01804015412926674,0.17045903300095233,exactly 65536 deterministic seeds
+32,4294967296,65536,deterministic bounded,1024,32768,32,48,1.5,0.018070222809910774,0.15857966899966414,exactly 65536 deterministic seeds

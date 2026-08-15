@@ -1,0 +1,5 @@
+family,forward_operations,mapping,traceability_class,reverse,memory_passes
+M0_LCG_JUMP,jump-ahead x=A_n*seed+B_n; one vector mul+add,signed high16 to FP32,PARTIALLY_INVERTIBLE,modular inverse of odd A_n; high16 target leaves bounded low-bit ambiguity,1
+M1_LANE_AFFINE,lane=seed+position+i*C; each round x=x*A+B+i*D,signed high16 to FP32,PARTIALLY_INVERTIBLE,reverse odd affine rounds with modular inverses,1
+M2_AFFINE_XOR,"lane affine; each round affine, xorshift-right, odd multiply",signed high16 to FP32,PARTIALLY_INVERTIBLE,"inverse multiply, unxorshift-right, inverse affine",1
+M3_FLOAT_AFFINE,lane seed/position affine; each round FP32 FMA,direct FP32 then scale,CHEAPLY_PROJECTABLE,closed-form reverse affine projection with clipping,1

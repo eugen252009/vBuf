@@ -1,0 +1,23 @@
+python3 scripts/qualify_weight_space_preparation.py --output-dir /home/eugen/projekte/vBuf/benchmark-results/vbuf-ml-weight-space-preparation
+g++ -O2 -std=c++17 -I/tmp/ccc-llama-pinned/ggml/include -I/tmp/ccc-llama-pinned/ggml/src /home/eugen/projekte/vBuf/integrations/llama.cpp/step31_canonical_quantize.cpp -L/tmp/ccc-llama-pinned/build/bin -lggml -lggml-cpu -lggml-base -Wl,-rpath,/tmp/ccc-llama-pinned/build/bin -o /tmp/opencode/weight-preparation-koi463qy/canonical-quantize
+/tmp/opencode/weight-preparation-koi463qy/canonical-quantize /tmp/opencode/weight-preparation-koi463qy/weights.f32 /tmp/opencode/weight-preparation-koi463qy/imatrix.f32 /tmp/opencode/weight-preparation-koi463qy 1024 5120 IQ2_XS
+/tmp/opencode/weight-preparation-koi463qy/canonical-quantize /tmp/opencode/weight-preparation-koi463qy/weights.f32 - /tmp/opencode/weight-preparation-koi463qy 1024 5120 IQ3_XXS
+/tmp/opencode/weight-preparation-koi463qy/canonical-quantize /tmp/opencode/weight-preparation-koi463qy/weights.f32 - /tmp/opencode/weight-preparation-koi463qy 1024 5120 Q3_K
+/tmp/opencode/weight-preparation-koi463qy/canonical-quantize /tmp/opencode/weight-preparation-koi463qy/weights.f32 - /tmp/opencode/weight-preparation-koi463qy 1024 5120 Q4_K
+g++ -O2 -std=c++17 -I/tmp/ccc-llama-pinned/ggml/include -I/tmp/ccc-llama-pinned/ggml/src /home/eugen/projekte/vBuf/integrations/llama.cpp/step31_canonical_quantize.cpp -L/tmp/ccc-llama-pinned/build/bin -lggml -lggml-cpu -lggml-base -Wl,-rpath,/tmp/ccc-llama-pinned/build/bin -o /tmp/opencode/weight-preparation-chrykt67/canonical-quantize
+/tmp/opencode/weight-preparation-chrykt67/canonical-quantize /tmp/opencode/weight-preparation-chrykt67/weights.f32 /tmp/opencode/weight-preparation-chrykt67/imatrix.f32 /tmp/opencode/weight-preparation-chrykt67 1024 5120 IQ2_XS
+/tmp/opencode/weight-preparation-chrykt67/canonical-quantize /tmp/opencode/weight-preparation-chrykt67/weights.f32 - /tmp/opencode/weight-preparation-chrykt67 1024 5120 IQ3_XXS
+/tmp/opencode/weight-preparation-chrykt67/canonical-quantize /tmp/opencode/weight-preparation-chrykt67/weights.f32 - /tmp/opencode/weight-preparation-chrykt67 1024 5120 Q3_K
+/tmp/opencode/weight-preparation-chrykt67/canonical-quantize /tmp/opencode/weight-preparation-chrykt67/weights.f32 - /tmp/opencode/weight-preparation-chrykt67 1024 5120 Q4_K
+g++ -O2 -std=c++17 -I/tmp/ccc-llama-pinned/ggml/include -I/tmp/ccc-llama-pinned/ggml/src /home/eugen/projekte/vBuf/integrations/llama.cpp/step31_canonical_quantize.cpp -L/tmp/ccc-llama-pinned/build/bin -lggml -lggml-cpu -lggml-base -Wl,-rpath,/tmp/ccc-llama-pinned/build/bin -o /tmp/opencode/weight-preparation-hx6xj27h/canonical-quantize
+/tmp/opencode/weight-preparation-hx6xj27h/canonical-quantize /tmp/opencode/weight-preparation-hx6xj27h/weights.f32 /tmp/opencode/weight-preparation-hx6xj27h/imatrix.f32 /tmp/opencode/weight-preparation-hx6xj27h 1024 5120 IQ2_XS
+/tmp/opencode/weight-preparation-hx6xj27h/canonical-quantize /tmp/opencode/weight-preparation-hx6xj27h/weights.f32 - /tmp/opencode/weight-preparation-hx6xj27h 1024 5120 IQ3_XXS
+/tmp/opencode/weight-preparation-hx6xj27h/canonical-quantize /tmp/opencode/weight-preparation-hx6xj27h/weights.f32 - /tmp/opencode/weight-preparation-hx6xj27h 1024 5120 Q3_K
+/tmp/opencode/weight-preparation-hx6xj27h/canonical-quantize /tmp/opencode/weight-preparation-hx6xj27h/weights.f32 - /tmp/opencode/weight-preparation-hx6xj27h 1024 5120 Q4_K
+g++ -O2 -std=c++17 -I/tmp/ccc-llama-pinned/ggml/include -I/tmp/ccc-llama-pinned/ggml/src /home/eugen/projekte/vBuf/integrations/llama.cpp/step31_canonical_quantize.cpp -L/tmp/ccc-llama-pinned/build/bin -lggml -lggml-cpu -lggml-base -Wl,-rpath,/tmp/ccc-llama-pinned/build/bin -o /tmp/opencode/weight-preparation-v1x6qmr6/canonical-quantize
+/tmp/opencode/weight-preparation-v1x6qmr6/canonical-quantize /tmp/opencode/weight-preparation-v1x6qmr6/weights.f32 /tmp/opencode/weight-preparation-v1x6qmr6/imatrix.f32 /tmp/opencode/weight-preparation-v1x6qmr6 1024 5120 IQ2_XS
+/tmp/opencode/weight-preparation-v1x6qmr6/canonical-quantize /tmp/opencode/weight-preparation-v1x6qmr6/weights.f32 - /tmp/opencode/weight-preparation-v1x6qmr6 1024 5120 IQ3_XXS
+/tmp/opencode/weight-preparation-v1x6qmr6/canonical-quantize /tmp/opencode/weight-preparation-v1x6qmr6/weights.f32 - /tmp/opencode/weight-preparation-v1x6qmr6 1024 5120 Q3_K
+/tmp/opencode/weight-preparation-v1x6qmr6/canonical-quantize /tmp/opencode/weight-preparation-v1x6qmr6/weights.f32 - /tmp/opencode/weight-preparation-v1x6qmr6 1024 5120 Q4_K
+g++ -O3 -march=znver3 -mavx2 -mfma -std=c++17 /home/eugen/projekte/vBuf/research/weight_space_transform_bench.cpp -o /tmp/opencode/weight-transform-bench-pszyrkrb/transform-bench
+/tmp/opencode/weight-transform-bench-pszyrkrb/transform-bench

@@ -1,0 +1,165 @@
+{
+  "fixed_length_complete_tensor_searches": 30,
+  "fixed_seed_count": 256,
+  "encoder_hardware": "AMD Ryzen 7 5800X CPU; NumPy matrix multiplication",
+  "seed_width_screen": [
+    {
+      "seed_width_bits": 8,
+      "logical_search_space": 256,
+      "seeds_evaluated_per_segment": 256,
+      "search_method": "exhaustive",
+      "sample_segments": 1024,
+      "sample_weights": 32768,
+      "length": 32,
+      "descriptor_bits_per_segment": 24,
+      "descriptor_bpw_excluding_global": 0.75,
+      "rmse_before_fp16_scale": 0.021236764267086983,
+      "search_seconds": 0.0007125090014596935,
+      "stopping_condition": "exactly 256 deterministic seeds"
+    },
+    {
+      "seed_width_bits": 16,
+      "logical_search_space": 65536,
+      "seeds_evaluated_per_segment": 65536,
+      "search_method": "exhaustive",
+      "sample_segments": 1024,
+      "sample_weights": 32768,
+      "length": 32,
+      "descriptor_bits_per_segment": 32,
+      "descriptor_bpw_excluding_global": 1.0,
+      "rmse_before_fp16_scale": 0.018058443441987038,
+      "search_seconds": 0.14775833299972874,
+      "stopping_condition": "exactly 65536 deterministic seeds"
+    },
+    {
+      "seed_width_bits": 24,
+      "logical_search_space": 16777216,
+      "seeds_evaluated_per_segment": 65536,
+      "search_method": "deterministic bounded",
+      "sample_segments": 1024,
+      "sample_weights": 32768,
+      "length": 32,
+      "descriptor_bits_per_segment": 40,
+      "descriptor_bpw_excluding_global": 1.25,
+      "rmse_before_fp16_scale": 0.01804015412926674,
+      "search_seconds": 0.17045903300095233,
+      "stopping_condition": "exactly 65536 deterministic seeds"
+    },
+    {
+      "seed_width_bits": 32,
+      "logical_search_space": 4294967296,
+      "seeds_evaluated_per_segment": 65536,
+      "search_method": "deterministic bounded",
+      "sample_segments": 1024,
+      "sample_weights": 32768,
+      "length": 32,
+      "descriptor_bits_per_segment": 48,
+      "descriptor_bpw_excluding_global": 1.5,
+      "rmse_before_fp16_scale": 0.018070222809910774,
+      "search_seconds": 0.15857966899966414,
+      "stopping_condition": "exactly 65536 deterministic seeds"
+    }
+  ],
+  "position_context_screen": [
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 8,
+      "position_context": "local_index_only",
+      "sample_segments": 4096,
+      "rmse_before_fp16_scale": 0.014165675797561783,
+      "search_seconds": 0.0
+    },
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 8,
+      "position_context": "tensor_id+segment_ordinal+local_index",
+      "sample_segments": 4096,
+      "rmse_before_fp16_scale": 0.014202439434091491,
+      "search_seconds": 0.1668715420000808
+    },
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 16,
+      "position_context": "local_index_only",
+      "sample_segments": 2048,
+      "rmse_before_fp16_scale": 0.018083166711958594,
+      "search_seconds": 0.0
+    },
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 16,
+      "position_context": "tensor_id+segment_ordinal+local_index",
+      "sample_segments": 2048,
+      "rmse_before_fp16_scale": 0.018105267497119323,
+      "search_seconds": 0.10615930200037837
+    },
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 32,
+      "position_context": "local_index_only",
+      "sample_segments": 1024,
+      "rmse_before_fp16_scale": 0.021236764690213496,
+      "search_seconds": 0.0
+    },
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 32,
+      "position_context": "tensor_id+segment_ordinal+local_index",
+      "sample_segments": 1024,
+      "rmse_before_fp16_scale": 0.021214791557764928,
+      "search_seconds": 0.07811171200046374
+    },
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 64,
+      "position_context": "local_index_only",
+      "sample_segments": 512,
+      "rmse_before_fp16_scale": 0.02295577939589327,
+      "search_seconds": 0.0
+    },
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 64,
+      "position_context": "tensor_id+segment_ordinal+local_index",
+      "sample_segments": 512,
+      "rmse_before_fp16_scale": 0.02296456389880259,
+      "search_seconds": 0.06319708500086563
+    },
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 128,
+      "position_context": "local_index_only",
+      "sample_segments": 256,
+      "rmse_before_fp16_scale": 0.0238275652960408,
+      "search_seconds": 0.0
+    },
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 128,
+      "position_context": "tensor_id+segment_ordinal+local_index",
+      "sample_segments": 256,
+      "rmse_before_fp16_scale": 0.023800891057650035,
+      "search_seconds": 0.05521296200095094
+    },
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 256,
+      "position_context": "local_index_only",
+      "sample_segments": 128,
+      "rmse_before_fp16_scale": 0.024264583748303526,
+      "search_seconds": 0.0
+    },
+    {
+      "generator": "G0_HASH_SIGN",
+      "length": 256,
+      "position_context": "tensor_id+segment_ordinal+local_index",
+      "sample_segments": 128,
+      "rmse_before_fp16_scale": 0.024269907627416078,
+      "search_seconds": 0.04937669399987499
+    }
+  ],
+  "selection_rule": "minimum FUNCTIONAL_VALIDATION mean relative L2 among fixed points at true bpw <= 2; FUNCTIONAL_TEST excluded",
+  "selected": "G2_CENTER_DENSE_L16",
+  "functional_test_read_after_selection": true,
+  "elapsed_seconds": 71.60128493299999
+}

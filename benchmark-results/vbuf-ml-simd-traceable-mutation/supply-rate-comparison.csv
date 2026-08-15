@@ -1,0 +1,2 @@
+required_rate_gweights_s,available_storage_rate_gweights_s,available_generation_rate_gweights_s,storage_supply_coverage,generation_supply_coverage,prior_0.0450_interpretation,prior_0.0225_interpretation
+30.18974817456611,1.3262156263529412,2.686853118,0.043929337160560855,0.08899885823703516,"median layer compute time / median measured preparation time; dimensionless SUPPLY_COVERAGE proxy, not lookahead horizon","compute time / modeled serial transport-plus-generation time; dimensionless coverage proxy, not a horizon and not reused as a primary metric"

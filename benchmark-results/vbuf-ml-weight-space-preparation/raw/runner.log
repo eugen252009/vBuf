@@ -1,0 +1,111 @@
+encoded identity G2_CENTER_DENSE L16: val=0.550524 bpw=1.500122
+encoded identity G2_CENTER_DENSE L32: val=0.748886 bpw=0.750122
+encoded identity G2_CENTER_DENSE L64: val=0.864372 bpw=0.375122
+encoded identity M2_AFFINE_XOR_MIXED L16: val=0.602412 bpw=3.187793
+encoded identity M2_AFFINE_XOR_MIXED L32: val=0.782485 bpw=1.594043
+encoded identity M2_AFFINE_XOR_MIXED L64: val=0.884368 bpw=0.797168
+encoded statistic_sort G2_CENTER_DENSE L16: val=0.569489 bpw=1.512817
+encoded statistic_sort G2_CENTER_DENSE L32: val=0.734982 bpw=0.762817
+encoded statistic_sort G2_CENTER_DENSE L64: val=0.855929 bpw=0.387817
+encoded statistic_sort M2_AFFINE_XOR_MIXED L16: val=0.569797 bpw=3.200488
+encoded statistic_sort M2_AFFINE_XOR_MIXED L32: val=0.768239 bpw=1.606738
+encoded statistic_sort M2_AFFINE_XOR_MIXED L64: val=0.883575 bpw=0.809863
+encoded shape_cluster G2_CENTER_DENSE L16: val=0.532871 bpw=1.512817
+encoded shape_cluster G2_CENTER_DENSE L32: val=0.722938 bpw=0.762817
+encoded shape_cluster G2_CENTER_DENSE L64: val=0.855406 bpw=0.387817
+encoded shape_cluster M2_AFFINE_XOR_MIXED L16: val=0.570878 bpw=3.200488
+encoded shape_cluster M2_AFFINE_XOR_MIXED L32: val=0.771403 bpw=1.606738
+encoded shape_cluster M2_AFFINE_XOR_MIXED L64: val=0.883149 bpw=0.809863
+encoded codec_aware_order G2_CENTER_DENSE L16: val=0.540314 bpw=1.512817
+encoded codec_aware_order G2_CENTER_DENSE L32: val=0.721583 bpw=0.762817
+encoded codec_aware_order G2_CENTER_DENSE L64: val=0.855088 bpw=0.387817
+encoded codec_aware_order M2_AFFINE_XOR_MIXED L16: val=0.573292 bpw=3.200488
+encoded codec_aware_order M2_AFFINE_XOR_MIXED L32: val=0.771406 bpw=1.606738
+encoded codec_aware_order M2_AFFINE_XOR_MIXED L64: val=0.881941 bpw=0.809863
+encoded random_permutation_control G2_CENTER_DENSE L16: val=0.551728 bpw=1.512817
+encoded random_permutation_control G2_CENTER_DENSE L32: val=0.750849 bpw=0.762817
+encoded random_permutation_control G2_CENTER_DENSE L64: val=0.871288 bpw=0.387817
+encoded random_permutation_control M2_AFFINE_XOR_MIXED L16: val=0.605367 bpw=3.200488
+encoded random_permutation_control M2_AFFINE_XOR_MIXED L32: val=0.784034 bpw=1.606738
+encoded random_permutation_control M2_AFFINE_XOR_MIXED L64: val=0.885095 bpw=0.809863
+encoded signed_shape_cluster G2_CENTER_DENSE L16: val=0.538305 bpw=1.513794
+encoded signed_shape_cluster G2_CENTER_DENSE L32: val=0.750979 bpw=0.763794
+encoded signed_shape_cluster G2_CENTER_DENSE L64: val=0.858861 bpw=0.388794
+encoded signed_shape_cluster M2_AFFINE_XOR_MIXED L16: val=0.567117 bpw=3.201465
+encoded signed_shape_cluster M2_AFFINE_XOR_MIXED L32: val=0.769960 bpw=1.607715
+encoded signed_shape_cluster M2_AFFINE_XOR_MIXED L64: val=0.882528 bpw=0.810840
+encoded power2_column_equalization G2_CENTER_DENSE L16: val=0.553708 bpw=1.504028
+encoded power2_column_equalization G2_CENTER_DENSE L32: val=0.746157 bpw=0.754028
+encoded power2_column_equalization G2_CENTER_DENSE L64: val=0.862784 bpw=0.379028
+encoded power2_column_equalization M2_AFFINE_XOR_MIXED L16: val=0.586587 bpw=3.191699
+encoded power2_column_equalization M2_AFFINE_XOR_MIXED L32: val=0.773495 bpw=1.597949
+encoded power2_column_equalization M2_AFFINE_XOR_MIXED L64: val=0.882017 bpw=0.801074
+encoded fp16_column_equalization G2_CENTER_DENSE L16: val=0.552401 bpw=1.515747
+encoded fp16_column_equalization G2_CENTER_DENSE L32: val=0.746846 bpw=0.765747
+encoded fp16_column_equalization G2_CENTER_DENSE L64: val=0.863175 bpw=0.390747
+encoded fp16_column_equalization M2_AFFINE_XOR_MIXED L16: val=0.588383 bpw=3.203418
+encoded fp16_column_equalization M2_AFFINE_XOR_MIXED L32: val=0.775742 bpw=1.609668
+encoded fp16_column_equalization M2_AFFINE_XOR_MIXED L64: val=0.882771 bpw=0.812793
+encoded hadamard8 G2_CENTER_DENSE L16: val=0.547831 bpw=1.500122
+encoded hadamard8 G2_CENTER_DENSE L32: val=0.750109 bpw=0.750122
+encoded hadamard8 G2_CENTER_DENSE L64: val=0.865480 bpw=0.375122
+encoded hadamard8 M2_AFFINE_XOR_MIXED L16: val=0.569390 bpw=3.187793
+encoded hadamard8 M2_AFFINE_XOR_MIXED L32: val=0.768872 bpw=1.594043
+encoded hadamard8 M2_AFFINE_XOR_MIXED L64: val=0.882399 bpw=0.797168
+encoded hadamard16 G2_CENTER_DENSE L16: val=0.557280 bpw=1.500122
+encoded hadamard16 G2_CENTER_DENSE L32: val=0.755339 bpw=0.750122
+encoded hadamard16 G2_CENTER_DENSE L64: val=0.869791 bpw=0.375122
+encoded hadamard16 M2_AFFINE_XOR_MIXED L16: val=0.567915 bpw=3.187793
+encoded hadamard16 M2_AFFINE_XOR_MIXED L32: val=0.769090 bpw=1.594043
+encoded hadamard16 M2_AFFINE_XOR_MIXED L64: val=0.880243 bpw=0.797168
+encoded hadamard32 G2_CENTER_DENSE L16: val=0.554703 bpw=1.500122
+encoded hadamard32 G2_CENTER_DENSE L32: val=0.750693 bpw=0.750122
+encoded hadamard32 G2_CENTER_DENSE L64: val=0.865228 bpw=0.375122
+encoded hadamard32 M2_AFFINE_XOR_MIXED L16: val=0.569757 bpw=3.187793
+encoded hadamard32 M2_AFFINE_XOR_MIXED L32: val=0.765142 bpw=1.594043
+encoded hadamard32 M2_AFFINE_XOR_MIXED L64: val=0.877359 bpw=0.797168
+$ g++ -O2 -std=c++17 -I/tmp/ccc-llama-pinned/ggml/include -I/tmp/ccc-llama-pinned/ggml/src /home/eugen/projekte/vBuf/integrations/llama.cpp/step31_canonical_quantize.cpp -L/tmp/ccc-llama-pinned/build/bin -lggml -lggml-cpu -lggml-base -Wl,-rpath,/tmp/ccc-llama-pinned/build/bin -o /tmp/opencode/weight-preparation-koi463qy/canonical-quantize
+$ /tmp/opencode/weight-preparation-koi463qy/canonical-quantize /tmp/opencode/weight-preparation-koi463qy/weights.f32 /tmp/opencode/weight-preparation-koi463qy/imatrix.f32 /tmp/opencode/weight-preparation-koi463qy 1024 5120 IQ2_XS
+{"format":"IQ2_XS","status":"TESTED","block_size":256,"bytes_per_block":74,"row_size":1480,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":1515520,"true_bpw":2.312500000,"requires_imatrix":true,"imatrix":"functional-validation mean-square activation","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-koi463qy/canonical-quantize /tmp/opencode/weight-preparation-koi463qy/weights.f32 - /tmp/opencode/weight-preparation-koi463qy 1024 5120 IQ3_XXS
+{"format":"IQ3_XXS","status":"TESTED","block_size":256,"bytes_per_block":98,"row_size":1960,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2007040,"true_bpw":3.062500000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-koi463qy/canonical-quantize /tmp/opencode/weight-preparation-koi463qy/weights.f32 - /tmp/opencode/weight-preparation-koi463qy 1024 5120 Q3_K
+{"format":"Q3_K","status":"TESTED","block_size":256,"bytes_per_block":110,"row_size":2200,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2252800,"true_bpw":3.437500000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-koi463qy/canonical-quantize /tmp/opencode/weight-preparation-koi463qy/weights.f32 - /tmp/opencode/weight-preparation-koi463qy 1024 5120 Q4_K
+{"format":"Q4_K","status":"TESTED","block_size":256,"bytes_per_block":144,"row_size":2880,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2949120,"true_bpw":4.500000000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ g++ -O2 -std=c++17 -I/tmp/ccc-llama-pinned/ggml/include -I/tmp/ccc-llama-pinned/ggml/src /home/eugen/projekte/vBuf/integrations/llama.cpp/step31_canonical_quantize.cpp -L/tmp/ccc-llama-pinned/build/bin -lggml -lggml-cpu -lggml-base -Wl,-rpath,/tmp/ccc-llama-pinned/build/bin -o /tmp/opencode/weight-preparation-chrykt67/canonical-quantize
+$ /tmp/opencode/weight-preparation-chrykt67/canonical-quantize /tmp/opencode/weight-preparation-chrykt67/weights.f32 /tmp/opencode/weight-preparation-chrykt67/imatrix.f32 /tmp/opencode/weight-preparation-chrykt67 1024 5120 IQ2_XS
+{"format":"IQ2_XS","status":"TESTED","block_size":256,"bytes_per_block":74,"row_size":1480,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":1515520,"true_bpw":2.312500000,"requires_imatrix":true,"imatrix":"functional-validation mean-square activation","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-chrykt67/canonical-quantize /tmp/opencode/weight-preparation-chrykt67/weights.f32 - /tmp/opencode/weight-preparation-chrykt67 1024 5120 IQ3_XXS
+{"format":"IQ3_XXS","status":"TESTED","block_size":256,"bytes_per_block":98,"row_size":1960,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2007040,"true_bpw":3.062500000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-chrykt67/canonical-quantize /tmp/opencode/weight-preparation-chrykt67/weights.f32 - /tmp/opencode/weight-preparation-chrykt67 1024 5120 Q3_K
+{"format":"Q3_K","status":"TESTED","block_size":256,"bytes_per_block":110,"row_size":2200,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2252800,"true_bpw":3.437500000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-chrykt67/canonical-quantize /tmp/opencode/weight-preparation-chrykt67/weights.f32 - /tmp/opencode/weight-preparation-chrykt67 1024 5120 Q4_K
+{"format":"Q4_K","status":"TESTED","block_size":256,"bytes_per_block":144,"row_size":2880,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2949120,"true_bpw":4.500000000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ g++ -O2 -std=c++17 -I/tmp/ccc-llama-pinned/ggml/include -I/tmp/ccc-llama-pinned/ggml/src /home/eugen/projekte/vBuf/integrations/llama.cpp/step31_canonical_quantize.cpp -L/tmp/ccc-llama-pinned/build/bin -lggml -lggml-cpu -lggml-base -Wl,-rpath,/tmp/ccc-llama-pinned/build/bin -o /tmp/opencode/weight-preparation-hx6xj27h/canonical-quantize
+$ /tmp/opencode/weight-preparation-hx6xj27h/canonical-quantize /tmp/opencode/weight-preparation-hx6xj27h/weights.f32 /tmp/opencode/weight-preparation-hx6xj27h/imatrix.f32 /tmp/opencode/weight-preparation-hx6xj27h 1024 5120 IQ2_XS
+{"format":"IQ2_XS","status":"TESTED","block_size":256,"bytes_per_block":74,"row_size":1480,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":1515520,"true_bpw":2.312500000,"requires_imatrix":true,"imatrix":"functional-validation mean-square activation","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-hx6xj27h/canonical-quantize /tmp/opencode/weight-preparation-hx6xj27h/weights.f32 - /tmp/opencode/weight-preparation-hx6xj27h 1024 5120 IQ3_XXS
+{"format":"IQ3_XXS","status":"TESTED","block_size":256,"bytes_per_block":98,"row_size":1960,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2007040,"true_bpw":3.062500000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-hx6xj27h/canonical-quantize /tmp/opencode/weight-preparation-hx6xj27h/weights.f32 - /tmp/opencode/weight-preparation-hx6xj27h 1024 5120 Q3_K
+{"format":"Q3_K","status":"TESTED","block_size":256,"bytes_per_block":110,"row_size":2200,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2252800,"true_bpw":3.437500000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-hx6xj27h/canonical-quantize /tmp/opencode/weight-preparation-hx6xj27h/weights.f32 - /tmp/opencode/weight-preparation-hx6xj27h 1024 5120 Q4_K
+{"format":"Q4_K","status":"TESTED","block_size":256,"bytes_per_block":144,"row_size":2880,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2949120,"true_bpw":4.500000000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ g++ -O2 -std=c++17 -I/tmp/ccc-llama-pinned/ggml/include -I/tmp/ccc-llama-pinned/ggml/src /home/eugen/projekte/vBuf/integrations/llama.cpp/step31_canonical_quantize.cpp -L/tmp/ccc-llama-pinned/build/bin -lggml -lggml-cpu -lggml-base -Wl,-rpath,/tmp/ccc-llama-pinned/build/bin -o /tmp/opencode/weight-preparation-v1x6qmr6/canonical-quantize
+$ /tmp/opencode/weight-preparation-v1x6qmr6/canonical-quantize /tmp/opencode/weight-preparation-v1x6qmr6/weights.f32 /tmp/opencode/weight-preparation-v1x6qmr6/imatrix.f32 /tmp/opencode/weight-preparation-v1x6qmr6 1024 5120 IQ2_XS
+{"format":"IQ2_XS","status":"TESTED","block_size":256,"bytes_per_block":74,"row_size":1480,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":1515520,"true_bpw":2.312500000,"requires_imatrix":true,"imatrix":"functional-validation mean-square activation","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-v1x6qmr6/canonical-quantize /tmp/opencode/weight-preparation-v1x6qmr6/weights.f32 - /tmp/opencode/weight-preparation-v1x6qmr6 1024 5120 IQ3_XXS
+{"format":"IQ3_XXS","status":"TESTED","block_size":256,"bytes_per_block":98,"row_size":1960,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2007040,"true_bpw":3.062500000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-v1x6qmr6/canonical-quantize /tmp/opencode/weight-preparation-v1x6qmr6/weights.f32 - /tmp/opencode/weight-preparation-v1x6qmr6 1024 5120 Q3_K
+{"format":"Q3_K","status":"TESTED","block_size":256,"bytes_per_block":110,"row_size":2200,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2252800,"true_bpw":3.437500000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ /tmp/opencode/weight-preparation-v1x6qmr6/canonical-quantize /tmp/opencode/weight-preparation-v1x6qmr6/weights.f32 - /tmp/opencode/weight-preparation-v1x6qmr6 1024 5120 Q4_K
+{"format":"Q4_K","status":"TESTED","block_size":256,"bytes_per_block":144,"row_size":2880,"rows":1024,"cols":5120,"block_count":20480,"serialized_bytes":2949120,"true_bpw":4.500000000,"requires_imatrix":false,"imatrix":"none","quantizer":"ggml_quantize_chunk","dequantizer":"ggml_type_traits.to_float"}
+$ g++ -O3 -march=znver3 -mavx2 -mfma -std=c++17 /home/eugen/projekte/vBuf/research/weight_space_transform_bench.cpp -o /tmp/opencode/weight-transform-bench-pszyrkrb/transform-bench
+$ /tmp/opencode/weight-transform-bench-pszyrkrb/transform-bench
+transform,block_size,cycles_per_element,cycles_per_vector,g_elements_per_second,temporary_bytes,memory_read_bytes_per_vector,memory_write_bytes_per_vector,in_place,vectorization
+permutation,0,1.633404645,8363.031784058,2.571300139,20480,20480,20480,NO,AVX2 gather
+signed_permutation,0,1.869603351,9572.369155884,2.246453301,20480,20480,20480,NO,AVX2 gather+multiply
+diagonal_scale,0,0.560687084,2870.717872620,7.490681974,0,20480,20480,YES if alias-safe implementation,AVX2 multiply
+hadamard,8,9.064206290,46408.736206055,0.463360103,20480,20480,20480,YES with staged implementation,scalar butterfly reference; SIMD-friendly butterflies
+hadamard,16,7.988124105,40899.195419312,0.525779273,20480,20480,20480,YES with staged implementation,scalar butterfly reference; SIMD-friendly butterflies
+hadamard,32,7.471863207,38255.939620972,0.562107261,20480,20480,20480,YES with staged implementation,scalar butterfly reference; SIMD-friendly butterflies

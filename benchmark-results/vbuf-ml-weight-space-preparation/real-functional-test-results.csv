@@ -1,0 +1,2 @@
+status,reason,functional_test_vectors_used
+NOT_REACHED,no Stage-1 candidate reduced real validation relative-L2 by >=30%; FUNCTIONAL_TEST remained unopened,0

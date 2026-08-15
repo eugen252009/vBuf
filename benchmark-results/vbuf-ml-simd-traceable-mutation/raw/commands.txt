@@ -1,0 +1,6 @@
+python3 scripts/qualify_simd_traceable_mutation.py --output-dir /home/eugen/projekte/vBuf/benchmark-results/vbuf-ml-simd-traceable-mutation
+g++ -O3 -march=znver3 -mavx2 -mfma -fno-omit-frame-pointer -std=c++17 /home/eugen/projekte/vBuf/research/simd_traceable_mutation_bench.cpp -o /tmp/opencode/simd-mutation-8n1xirnc/simd-traceable-bench
+/tmp/opencode/simd-mutation-8n1xirnc/simd-traceable-bench self-test
+/tmp/opencode/simd-mutation-8n1xirnc/simd-traceable-bench throughput
+/tmp/opencode/simd-mutation-8n1xirnc/simd-traceable-bench dot
+objdump -d -C /tmp/opencode/simd-mutation-8n1xirnc/simd-traceable-bench
