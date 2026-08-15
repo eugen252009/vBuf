@@ -240,3 +240,6 @@ KEEP_C4_SPARSE_TAIL_AS_EVIDENCE_ONLY
 
 Full third-lineage provenance:
 `../vbuf-ml-step34-ccc-c4-reconciliation/reconciliation-report.md`.
+
+**FINAL CCC STATUS:** see
+[`../../docs/vbuf-ml/ccc_research_conclusion.md`](../../docs/vbuf-ml/ccc_research_conclusion.md).

@@ -84,11 +84,15 @@ full tensor/group/layer algorithm matrix is documented in
 completion and residual-quantization continuation in
 [`step30-continuation.md`](step30-continuation.md). The downstream-only
 alignment-slack audit is documented in
-[`step30-slack-audit.md`](step30-slack-audit.md). The bounded Qwen3-32B
-Contextual Correction Code assessment is recorded in
-[`../../benchmark-results/vbuf-ml-step30-ccc-assessment/representation-assessment.md`](../../benchmark-results/vbuf-ml-step30-ccc-assessment/representation-assessment.md). CCC Stage-2 canonical-quantizer and real-hidden-state evidence is in
-[`../../benchmark-results/vbuf-ml-step31-ccc-canonical/stage2-report.md`](../../benchmark-results/vbuf-ml-step31-ccc-canonical/stage2-report.md). Independent-branch reconciliations are recorded in
-[`../../benchmark-results/vbuf-ml-step32-ccc-reconciliation/reconciliation-report.md`](../../benchmark-results/vbuf-ml-step32-ccc-reconciliation/reconciliation-report.md) and
+[`step30-slack-audit.md`](step30-slack-audit.md). CCC research is **CLOSED / REJECTED**. The canonical decision and reopening
+boundary are in [`ccc_research_conclusion.md`](ccc_research_conclusion.md); this
+is the first document to read before any CCC-related proposal. Historical
+Stage-1 evidence remains in
+[`../../benchmark-results/vbuf-ml-step30-ccc-assessment/representation-assessment.md`](../../benchmark-results/vbuf-ml-step30-ccc-assessment/representation-assessment.md),
+Stage-2 canonical/real-activation evidence remains in
+[`../../benchmark-results/vbuf-ml-step31-ccc-canonical/stage2-report.md`](../../benchmark-results/vbuf-ml-step31-ccc-canonical/stage2-report.md), and the
+independent-lineage reconciliations remain in
+[`../../benchmark-results/vbuf-ml-step32-ccc-reconciliation/reconciliation-report.md`](../../benchmark-results/vbuf-ml-step32-ccc-reconciliation/reconciliation-report.md),
 [`../../benchmark-results/vbuf-ml-step33-ccc-structured-reconciliation/reconciliation-report.md`](../../benchmark-results/vbuf-ml-step33-ccc-structured-reconciliation/reconciliation-report.md), and
 [`../../benchmark-results/vbuf-ml-step34-ccc-c4-reconciliation/reconciliation-report.md`](../../benchmark-results/vbuf-ml-step34-ccc-c4-reconciliation/reconciliation-report.md).
 Tokenizer execution and chat-template rendering remain consumer/runtime responsibilities.

@@ -2115,9 +2115,26 @@ vectors captured at the exact layer-32 key-projection input. Learned C2 remains
 a low-rate Pareto niche but has much worse real W*x error than activation-aware
 IQ2 controls at slightly higher rates; learned C3/C4 are dominated. A fixed
 C4+0.1% tail remains Pareto. Bounded power alphabets stayed within 1.25x of
-learned C3/C4 but those operating points are dominated. Classification:
-**CCC_LOW_BIT_NICHE_INTERESTING**, not ready for a native-kernel gate. See
+learned C3/C4 but those operating points are dominated. Classification at that
+historical stage: **CCC_LOW_BIT_NICHE_INTERESTING**, not ready for a native-kernel
+gate. See
 `benchmark-results/vbuf-ml-step31-ccc-canonical/stage2-report.md`.
+
+#### Final CCC research closure
+
+**Status: CLOSED / REJECTED.** Four independently developed lineages were
+preserved with real no-ff merges and reconciled without rewriting their
+historical findings. Strong canonical and free-codebook controls reject the
+contextual baseline, geometric-alphabet advantage, C3 numerical point, plain C4
+point, and claimed C3 runtime advantage. Packed sub-byte direct compute remains
+a positive systems result independent of CCC. The Stage-2 fixed 0.1% sparse C4
+residual tail remains unreplicated evidence only and is not implementation or
+CCC-continuation authorization.
+
+Canonical final classification: **CCC_DIRECTION_REJECTED** and
+**CCC_RESEARCH_REMAINS_CLOSED**. See
+`docs/vbuf-ml/ccc_research_conclusion.md`. Latest reconciliation before closure:
+`59673a1`.
 
 ---
 
