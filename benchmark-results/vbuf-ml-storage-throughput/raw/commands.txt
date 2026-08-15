@@ -1,0 +1,10 @@
+{"command": "dd if=/home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.vbuf of=/dev/null bs=1M iflag=fullblock", "kind": "dd"}
+{"command": "dd if=/home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.vbuf of=/dev/null bs=4M iflag=fullblock", "kind": "dd"}
+{"command": "dd if=/home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.vbuf of=/dev/null bs=8M iflag=fullblock", "kind": "dd"}
+{"command": "dd if=/home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.vbuf of=/dev/null bs=16M iflag=fullblock", "kind": "dd"}
+{"command": "dd if=/home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.vbuf of=/dev/null bs=32M iflag=fullblock", "kind": "dd"}
+{"command": "dd if=/home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.vbuf of=/dev/null bs=64M iflag=fullblock", "kind": "dd"}
+{"block_size": "4M", "kind": "dd-direct"}
+{"block_size": "32M", "kind": "dd-direct"}
+{"kind": "payload", "payload_bytes": 34811753496, "payload_end": 34816197376, "payload_start": 4443880}
+sync; sudo -n sh -c 'echo 3 > /proc/sys/vm/drop_caches'  # NOT_AVAILABLE: sudo password required

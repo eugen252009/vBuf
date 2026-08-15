@@ -1,0 +1,17 @@
+{
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "artifacts": {
+    "0.6B": {
+      "path": "research-models/Qwen3-0.6B-Q8_0.vbuf",
+      "bytes": 637925504,
+      "sha256": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998",
+      "immutable": true
+    },
+    "32B": {
+      "path": "research-models/Qwen3-32B-Q8_0.vbuf",
+      "bytes": 34816197376,
+      "sha256": "84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d",
+      "immutable": true
+    }
+  }
+}

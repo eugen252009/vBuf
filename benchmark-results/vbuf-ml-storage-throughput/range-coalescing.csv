@@ -1,0 +1,2 @@
+coalesced_ranges,gap_bytes,note,payload_bytes,source_spans
+1,0,whole payload envelope; tensor plan remains separately auditable,34811753496,707

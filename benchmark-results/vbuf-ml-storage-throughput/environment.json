@@ -1,0 +1,9 @@
+{
+  "kernel": "6.12.101+deb13-amd64",
+  "page_size": 4096,
+  "meminfo": "MemTotal:       65727312 kB\nMemFree:        22006292 kB\nMemAvailable:   57427040 kB\nBuffers:           71940 kB\nCached:         36226124 kB\nSwapCached:       464292 kB\nActive:          5700364 kB\nInactive:       36981708 kB\nActive(anon):    4947552 kB\nInactive(anon):  1637876 kB\nActive(file):     752812 kB\nInactive(file): 35343832 kB\nUnevictable:        6184 kB\nMlocked:            6184 kB\nSwapTotal:      25182204 kB\nSwapFree:       21432700 kB\nZswap:                 0 kB\nZswapped:              0 kB\nDirty:             27272 kB\nWriteback:             0 kB\nAnonPages:       6333792 kB\nMapped:          1210264 kB\nShmem:            196332 kB\nKReclaimable:     175404 kB\nSlab:             405992 kB\nSReclaimable:     175404 kB\nSUnreclaim:       230588 kB\nKernelStack:       25760 kB\nPageTables:        92852 kB\nSecPageTables:     10500 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:    58045860 kB\nCommitted_AS:   30721612 kB\nVmallocTotal:   34359738367 kB\nVmallocUsed:      146440 kB\nVmallocChunk:          0 kB\nPercpu:            14336 kB\nHardwareCorrupted:     0 kB\nAnonHugePages:    911360 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:         0 kB\nFilePmdMapped:         0 kB\nUnaccepted:            0 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\nDirectMap4k:    19515320 kB\nDirectMap2M:    47470592 kB\nDirectMap1G:           0 kB\n",
+  "cache_eviction": "POSIX_FADV_DONTNEED",
+  "true_drop_caches_verified": false,
+  "true_drop_caches_attempt": "sudo password required",
+  "filesystem": "ext2/ext3"
+}

@@ -1,0 +1,13 @@
+model,strategy,param,sample,cache,first_token_ms,output_match
+0.6B,s0,0,0,cold,631.058,True
+0.6B,s1,0,0,cold,89.93700000000001,True
+0.6B,s2,0,0,cold,468.87,True
+0.6B,s3,4,0,cold,306.64799999999997,True
+0.6B,s4,2,0,cold,467.73199999999997,True
+0.6B,s5,0,0,cold,56.41999999999996,True
+32B,s0,0,0,cold,39580.558,True
+32B,s1,0,0,cold,3972.488000000001,True
+32B,s2,0,0,cold,27070.17,True
+32B,s3,4,0,cold,24530.002,True
+32B,s4,2,0,cold,26170.068,True
+32B,s5,0,0,cold,2057.618999999999,True

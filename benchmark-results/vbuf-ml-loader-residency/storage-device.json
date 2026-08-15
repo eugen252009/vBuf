@@ -1,0 +1,5 @@
+{
+  "device": "host filesystem",
+  "measurement": "see device-sequential-baseline.csv",
+  "gpu_upload": "NOT_APPLICABLE"
+}

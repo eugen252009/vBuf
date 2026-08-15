@@ -1,0 +1,12 @@
+chunk_bytes,first_range,forward_fraction,last_range,sampled_ranges,variant,workers
+262144,"[{""offset"": 4443880, ""bytes"": 262144}]",1.0,"[{""offset"": 34816118504, ""bytes"": 78872}]",32,single_sequential,1
+1048576,"[{""offset"": 4443880, ""bytes"": 1048576}]",1.0,"[{""offset"": 34816118504, ""bytes"": 78872}]",32,single_sequential,1
+4194304,"[{""offset"": 4443880, ""bytes"": 4194304}]",1.0,"[{""offset"": 34812972776, ""bytes"": 3224600}]",32,single_sequential,1
+8388608,"[{""offset"": 4443880, ""bytes"": 8388608}]",1.0,"[{""offset"": 34808778472, ""bytes"": 7418904}]",32,single_sequential,1
+16777216,"[{""offset"": 4443880, ""bytes"": 16777216}]",1.0,"[{""offset"": 34800389864, ""bytes"": 15807512}]",32,single_sequential,1
+33554432,"[{""offset"": 4443880, ""bytes"": 33554432}]",1.0,"[{""offset"": 34800389864, ""bytes"": 15807512}]",32,single_sequential,1
+67108864,"[{""offset"": 4443880, ""bytes"": 67108864}]",1.0,"[{""offset"": 34766835432, ""bytes"": 49361944}]",32,single_sequential,1
+16777216,"[{""offset"": 4443880, ""bytes"": 16777216}]",1.0,"[{""offset"": 34800389864, ""bytes"": 15807512}]",32,worker_sweep,1
+16777216,"[{""offset"": 4443880, ""bytes"": 16777216}]",1.0,"[{""offset"": 34800389864, ""bytes"": 15807512}]",32,worker_sweep,2
+16777216,"[{""offset"": 4443880, ""bytes"": 16777216}]",1.0,"[{""offset"": 34800389864, ""bytes"": 15807512}]",32,worker_sweep,4
+16777216,"[{""offset"": 4443880, ""bytes"": 16777216}]",1.0,"[{""offset"": 34800389864, ""bytes"": 15807512}]",32,worker_sweep,8

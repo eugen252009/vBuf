@@ -1,0 +1,184 @@
+{
+  "storage_ceiling": "STORAGE_BASELINE_NOT_REPRODUCED",
+  "existing_loader": "EXISTING_LOADER_NEAR_DEVICE_LIMIT",
+  "root_cause": "ROOT_CAUSE_NOT_ISOLATED",
+  "best_isolated_strategy": "MULTIWORKER_READER",
+  "end_to_end": "HORIZON_PREFETCH_BEST",
+  "final": "LOADER_HAS_MINOR_HEADROOM",
+  "recommendation": "KEEP_CURRENT_LOADER",
+  "best_dd": {
+    "block_size": "1M",
+    "direct": false,
+    "status": "PASS",
+    "elapsed_ms": 25622.16210600309,
+    "bytes": 34816197376,
+    "GBps": 1.3588313598188817
+  },
+  "best_reader": {
+    "label": "worker",
+    "path": "/home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.vbuf",
+    "range_start": 4443880,
+    "range_bytes": 34811753496,
+    "chunk_bytes": 16777216,
+    "workers": 4,
+    "destination": "discard",
+    "elapsed_ms": 24697.027,
+    "successful_bytes": 34811753496,
+    "requests": 2075,
+    "short_reads": 0,
+    "errors": 0,
+    "throughput_GBps": 1.409552,
+    "before_read_bytes": 0,
+    "after_read_bytes": 34811760640,
+    "physical_read_bytes": 34811760640,
+    "before_syscr": 11,
+    "after_syscr": 2090,
+    "syscalls": 2079,
+    "voluntary_cs": 4,
+    "involuntary_cs": 0,
+    "first_ranges": [
+      {
+        "offset": 4443880,
+        "bytes": 16777216
+      },
+      {
+        "offset": 21221096,
+        "bytes": 16777216
+      },
+      {
+        "offset": 37998312,
+        "bytes": 16777216
+      },
+      {
+        "offset": 54775528,
+        "bytes": 16777216
+      },
+      {
+        "offset": 71552744,
+        "bytes": 16777216
+      },
+      {
+        "offset": 88329960,
+        "bytes": 16777216
+      },
+      {
+        "offset": 105107176,
+        "bytes": 16777216
+      },
+      {
+        "offset": 121884392,
+        "bytes": 16777216
+      },
+      {
+        "offset": 138661608,
+        "bytes": 16777216
+      },
+      {
+        "offset": 155438824,
+        "bytes": 16777216
+      },
+      {
+        "offset": 172216040,
+        "bytes": 16777216
+      },
+      {
+        "offset": 188993256,
+        "bytes": 16777216
+      },
+      {
+        "offset": 205770472,
+        "bytes": 16777216
+      },
+      {
+        "offset": 222547688,
+        "bytes": 16777216
+      },
+      {
+        "offset": 239324904,
+        "bytes": 16777216
+      },
+      {
+        "offset": 256102120,
+        "bytes": 16777216
+      }
+    ],
+    "last_ranges": [
+      {
+        "offset": 34548731624,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34565508840,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34582286056,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34599063272,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34615840488,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34632617704,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34649394920,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34666172136,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34682949352,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34699726568,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34716503784,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34733281000,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34750058216,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34766835432,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34783612648,
+        "bytes": 16777216
+      },
+      {
+        "offset": 34800389864,
+        "bytes": 15807512
+      }
+    ],
+    "variant": "worker_sweep",
+    "wall_ms_outer": 24698.59574399743
+  },
+  "payload": {
+    "path": "/home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.vbuf",
+    "size_bytes": 34816197376,
+    "payload_start": 4443880,
+    "payload_end": 34816197376,
+    "payload_bytes": 34811753496,
+    "sha256": "84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d",
+    "tensor_count": 707
+  },
+  "main_answer": "The claimed 3.2 GB/s cold baseline was not reproduced in this run; full physical reads measured substantially lower for both dd and exact-range readers, so a 2.2x loader gap cannot yet be attributed to vBuf software."
+}

@@ -1,0 +1,2 @@
+cap_wait_ms,cap_wait_events,gate_wait_ms,loader_bytes,loader_ms,output_match,param,strategy,throughput_GBps
+0.0,0,22246.906,34811753496,25286.154,True,2,s4,1.376708

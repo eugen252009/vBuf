@@ -1,0 +1,12 @@
+{"cache": "cold", "mechanism": "", "model": "0.6B", "param": "", "strategy": "s0"}
+{"cache": "cold", "mechanism": "pread", "model": "0.6B", "param": "", "strategy": "s1"}
+{"cache": "cold", "mechanism": "pread", "model": "0.6B", "param": "", "strategy": "s2"}
+{"cache": "cold", "mechanism": "", "model": "0.6B", "param": 4, "strategy": "s3"}
+{"cache": "cold", "mechanism": "", "model": "0.6B", "param": 2, "strategy": "s4"}
+{"cache": "cold", "mechanism": "", "model": "0.6B", "param": "", "strategy": "s5"}
+{"cache": "cold", "mechanism": "", "model": "32B", "param": "", "strategy": "s0"}
+{"cache": "cold", "mechanism": "pread", "model": "32B", "param": "", "strategy": "s1"}
+{"cache": "cold", "mechanism": "pread", "model": "32B", "param": "", "strategy": "s2"}
+{"cache": "cold", "mechanism": "", "model": "32B", "param": 4, "strategy": "s3"}
+{"cache": "cold", "mechanism": "", "model": "32B", "param": 2, "strategy": "s4"}
+{"cache": "cold", "mechanism": "", "model": "32B", "param": "", "strategy": "s5"}

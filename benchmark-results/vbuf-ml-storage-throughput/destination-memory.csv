@@ -1,0 +1,2 @@
+variant,chunk_bytes,workers,destination,successful_bytes,physical_read_bytes,throughput_GBps,requests,errors,short_reads
+single_sequential_ram_destination,33554432,1,ram,34811753496,34811834368,1.084712,1038,0,0

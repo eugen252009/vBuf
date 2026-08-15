@@ -1,0 +1,9 @@
+{
+  "path": "/home/eugen/projekte/vBuf/research-models/Qwen3-32B-Q8_0.vbuf",
+  "size_bytes": 34816197376,
+  "payload_start": 4443880,
+  "payload_end": 34816197376,
+  "payload_bytes": 34811753496,
+  "sha256": "84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d",
+  "tensor_count": 707
+}

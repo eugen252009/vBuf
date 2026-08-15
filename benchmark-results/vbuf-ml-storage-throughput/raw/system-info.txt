@@ -1,0 +1,56 @@
+Linux-6.12.101+deb13-amd64-x86_64-with-glibc2.41
+MemTotal:       65727312 kB
+MemFree:        22006292 kB
+MemAvailable:   57427040 kB
+Buffers:           71940 kB
+Cached:         36226124 kB
+SwapCached:       464292 kB
+Active:          5700364 kB
+Inactive:       36981708 kB
+Active(anon):    4947552 kB
+Inactive(anon):  1637876 kB
+Active(file):     752812 kB
+Inactive(file): 35343832 kB
+Unevictable:        6184 kB
+Mlocked:            6184 kB
+SwapTotal:      25182204 kB
+SwapFree:       21432700 kB
+Zswap:                 0 kB
+Zswapped:              0 kB
+Dirty:             27272 kB
+Writeback:             0 kB
+AnonPages:       6333792 kB
+Mapped:          1210264 kB
+Shmem:            196332 kB
+KReclaimable:     175404 kB
+Slab:             405992 kB
+SReclaimable:     175404 kB
+SUnreclaim:       230588 kB
+KernelStack:       25760 kB
+PageTables:        92852 kB
+SecPageTables:     10500 kB
+NFS_Unstable:          0 kB
+Bounce:                0 kB
+WritebackTmp:          0 kB
+CommitLimit:    58045860 kB
+Committed_AS:   30721612 kB
+VmallocTotal:   34359738367 kB
+VmallocUsed:      146440 kB
+VmallocChunk:          0 kB
+Percpu:            14336 kB
+HardwareCorrupted:     0 kB
+AnonHugePages:    911360 kB
+ShmemHugePages:        0 kB
+ShmemPmdMapped:        0 kB
+FileHugePages:         0 kB
+FilePmdMapped:         0 kB
+Unaccepted:            0 kB
+HugePages_Total:       0
+HugePages_Free:        0
+HugePages_Rsvd:        0
+HugePages_Surp:        0
+Hugepagesize:       2048 kB
+Hugetlb:               0 kB
+DirectMap4k:    19515320 kB
+DirectMap2M:    47470592 kB
+DirectMap1G:           0 kB
