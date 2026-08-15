@@ -1,0 +1,6 @@
+python3 scripts/qualify_lut_predictive_correction.py --output-dir /home/eugen/projekte/vBuf/benchmark-results/vbuf-ml-lut-predictive-correction
+g++ -O2 -std=c++17 -I/tmp/ccc-llama-pinned/ggml/include -I/tmp/ccc-llama-pinned/ggml/src /home/eugen/projekte/vBuf/integrations/llama.cpp/step31_canonical_quantize.cpp -L/tmp/ccc-llama-pinned/build/bin -lggml -lggml-cpu -lggml-base -Wl,-rpath,/tmp/ccc-llama-pinned/build/bin -o /tmp/opencode/lut-canonical-yfw0u7rk/canonical-quantize
+/tmp/opencode/lut-canonical-yfw0u7rk/canonical-quantize /tmp/opencode/lut-canonical-yfw0u7rk/weights.f32 - /tmp/opencode/lut-canonical-yfw0u7rk 1024 5120 Q2_K
+/tmp/opencode/lut-canonical-yfw0u7rk/canonical-quantize /tmp/opencode/lut-canonical-yfw0u7rk/weights.f32 /tmp/opencode/lut-canonical-yfw0u7rk/uniform-imatrix.f32 /tmp/opencode/lut-canonical-yfw0u7rk 1024 5120 IQ2_XS
+/tmp/opencode/lut-canonical-yfw0u7rk/canonical-quantize /tmp/opencode/lut-canonical-yfw0u7rk/weights.f32 - /tmp/opencode/lut-canonical-yfw0u7rk 1024 5120 Q3_K
+/tmp/opencode/lut-canonical-yfw0u7rk/canonical-quantize /tmp/opencode/lut-canonical-yfw0u7rk/weights.f32 - /tmp/opencode/lut-canonical-yfw0u7rk 1024 5120 IQ3_XXS
