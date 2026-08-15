@@ -155,3 +155,46 @@ STOP_C3
 
 Full provenance and localization evidence:
 `../vbuf-ml-step32-ccc-reconciliation/reconciliation-report.md`.
+
+---
+
+## Post-merge addendum — independent structured-baseline branch
+
+A second independent research lineage became available at preservation commit
+`28588a048a02ee3f4df33530dff8ee789e290114` and was merged without squashing by
+`53afb10b26af6a57a8a4ff6bf7c80728c850f39e`. It branched from `33a4d03`, before
+Stage-2 and before either reconciliation. Its historical artifacts remain
+unchanged.
+
+This branch tested 111 structured-baseline and residual-alphabet candidates on
+`blk.0.attn_k.weight`. Unlike the defective parallel hard-gate evaluator, it
+uses the correct GGML mapping `flat.reshape(1024, 5120)`.
+
+It independently confirms that contextual prediction is not the source of the
+low-bit signal:
+
+- global/tensor anchors are effectively tied with zero;
+- row, column, and row+column predictors do not reduce residual RMS;
+- predictor metadata generally worsens the result;
+- exact separated row+column algebra is implementable but empirically vacuous;
+- no structured-baseline kernel was qualified;
+- zero-state power alphabets trail free Lloyd-Max, while a no-zero mid-riser
+  control is the stronger three-bit scalar form.
+
+The branch uses three Gaussian W*x probes on layer 0, not real hidden states,
+and therefore does not supersede Stage-2 layer-32 functional evidence. Its
+findings strengthen the combined rejection of the structured/contextual CCC
+premise without changing the original Stage-2 classification retroactively.
+
+Combined additional classification:
+
+```text
+STRUCTURED_BASELINE_REJECTED
+GEOMETRY_APPROXIMATES_LEARNED
+C3_NUMERICALLY_DOMINATED
+C3_DIRECT_APPLY_FEASIBILITY_CONFIRMED
+STOP_C3
+```
+
+Full second-lineage provenance:
+`../vbuf-ml-step33-ccc-structured-reconciliation/reconciliation-report.md`.

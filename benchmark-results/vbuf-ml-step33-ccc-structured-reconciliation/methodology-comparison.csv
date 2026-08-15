@@ -1,0 +1,9 @@
+property,vBuf_4,existing_evidence,same,interpretation
+model,Qwen3-32B-Q8_0.gguf / 2c50eb8a…,same verified Q8_0 source,YES,Q8-relative; no BF16 claim
+tensor,blk.0.attn_k.weight,Stage-1 includes same tensor; Stage-2 uses blk.32.attn_k.weight,PARTIAL,Direct anchor comparison is with Stage-1 blk.0; Stage-2 is cross-layer corroboration only.
+orientation,"GGML [5120,1024] -> reshape(1024,5120)","correct W[out,in] invariant",YES,No vBuf_3 reshape bug.
+representation split,splitmix64 50/25/25 over all coordinates,Stage-1 position hash 70/15/15 sampled; Stage-2 70/15/15,NO,"Independent methodology; conclusions compared, not averaged."
+canonical quantizer,pinned llama-quantize on minimal F32 GGUF,Stage-2 ggml_quantize_chunk on Q8 reconstruction,PINNED DIFFERENT ENTRY,Same pinned llama.cpp; different tensors prevent byte comparison.
+canonical dequantizer,NumPy ports checked against pinned C to 5e-10,pinned type-trait to_float,NUMERICALLY EQUIVALENT CLAIM,"No discrepancy observed, but not a shared-byte test."
+functional inputs,3 deterministic Gaussian probes,Stage-2 64 real hidden-state test vectors,NO,vBuf_4 functional evidence is secondary and not relabeled real.
+direct apply,structured algebra verified 1.4e-15; no kernel,packed plain C3 direct apply confirmed on vBuf_3,DIFFERENT REPRESENTATION,No structured-baseline kernel qualification.

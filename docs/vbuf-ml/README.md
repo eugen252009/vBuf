@@ -87,7 +87,9 @@ alignment-slack audit is documented in
 [`step30-slack-audit.md`](step30-slack-audit.md). The bounded Qwen3-32B
 Contextual Correction Code assessment is recorded in
 [`../../benchmark-results/vbuf-ml-step30-ccc-assessment/representation-assessment.md`](../../benchmark-results/vbuf-ml-step30-ccc-assessment/representation-assessment.md). CCC Stage-2 canonical-quantizer and real-hidden-state evidence is in
-[`../../benchmark-results/vbuf-ml-step31-ccc-canonical/stage2-report.md`](../../benchmark-results/vbuf-ml-step31-ccc-canonical/stage2-report.md).
+[`../../benchmark-results/vbuf-ml-step31-ccc-canonical/stage2-report.md`](../../benchmark-results/vbuf-ml-step31-ccc-canonical/stage2-report.md). Independent-branch reconciliations are recorded in
+[`../../benchmark-results/vbuf-ml-step32-ccc-reconciliation/reconciliation-report.md`](../../benchmark-results/vbuf-ml-step32-ccc-reconciliation/reconciliation-report.md) and
+[`../../benchmark-results/vbuf-ml-step33-ccc-structured-reconciliation/reconciliation-report.md`](../../benchmark-results/vbuf-ml-step33-ccc-structured-reconciliation/reconciliation-report.md).
 Tokenizer execution and chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is

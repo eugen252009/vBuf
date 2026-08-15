@@ -1,0 +1,168 @@
+{
+  "git_provenance": {
+    "pre_merge_head": "1ea629b8fabf882065472604065e68dee5e51ea0",
+    "vbuf4_original_head": "33a4d037015b09394b762d5df159dad6d42f8643",
+    "vbuf4_preservation_commit": "28588a048a02ee3f4df33530dff8ee789e290114",
+    "merge_base": "33a4d037015b09394b762d5df159dad6d42f8643",
+    "merge_commit": "53afb10b26af6a57a8a4ff6bf7c80728c850f39e",
+    "merge_first_parent": "1ea629b8fabf882065472604065e68dee5e51ea0",
+    "merge_second_parent": "28588a048a02ee3f4df33530dff8ee789e290114",
+    "historically_independent": true
+  },
+  "source_summary": {
+    "tensor": {
+      "name": "blk.0.attn_k.weight",
+      "gguf_shape": [
+        5120,
+        1024
+      ],
+      "ne0_inner": 5120,
+      "ne1_outer": 1024,
+      "rows": 1024,
+      "columns": 5120,
+      "elements": 5242880,
+      "ggml_type": "Q8_0",
+      "payload_bytes": 5570560
+    },
+    "split": {
+      "fit": 2620378,
+      "val": 1310161,
+      "test": 1312341,
+      "method": "deterministic splitmix64(row,col) \u2014 every row contributes FIT samples"
+    },
+    "n_candidates": 111,
+    "best_by_rmse_below_3_1bpw": [
+      {
+        "candidate": "B4_G4_nozero",
+        "true_bpw": 3.0312515258789063,
+        "weight_rmse": 0.005224953239825145,
+        "p99_9": 0.026820576069085535
+      },
+      {
+        "candidate": "B5_G4_nozero",
+        "true_bpw": 3.0375076293945313,
+        "weight_rmse": 0.0052252000252754295,
+        "p99_9": 0.02683770275406132
+      },
+      {
+        "candidate": "B3_G4_nozero",
+        "true_bpw": 3.0062515258789064,
+        "weight_rmse": 0.005225364585770352,
+        "p99_9": 0.026663775010847785
+      },
+      {
+        "candidate": "B0_G4_nozero",
+        "true_bpw": 3.0000015258789063,
+        "weight_rmse": 0.005225402282378497,
+        "p99_9": 0.026586055755615234
+      },
+      {
+        "candidate": "B2_G4_nozero",
+        "true_bpw": 3.0000076293945312,
+        "weight_rmse": 0.005225402282378497,
+        "p99_9": 0.026586055755615234
+      },
+      {
+        "candidate": "B1_G4_nozero",
+        "true_bpw": 3.0000076293945312,
+        "weight_rmse": 0.005225544513789905,
+        "p99_9": 0.026586055755615234
+      }
+    ],
+    "best_by_rmse_below_3_7bpw": [
+      {
+        "candidate": "canonical_Q3_K",
+        "true_bpw": 3.4375,
+        "weight_rmse": 0.004048477587608102,
+        "p99_9": 0.01506805419921875
+      },
+      {
+        "candidate": "simplified_uniform_Q3",
+        "true_bpw": 3.5,
+        "weight_rmse": 0.005135721881157018,
+        "p99_9": 0.02307271957397461
+      },
+      {
+        "candidate": "B4_G4_nozero",
+        "true_bpw": 3.0312515258789063,
+        "weight_rmse": 0.005224953239825145,
+        "p99_9": 0.026820576069085535
+      },
+      {
+        "candidate": "B5_G4_nozero",
+        "true_bpw": 3.0375076293945313,
+        "weight_rmse": 0.0052252000252754295,
+        "p99_9": 0.02683770275406132
+      },
+      {
+        "candidate": "B3_G4_nozero",
+        "true_bpw": 3.0062515258789064,
+        "weight_rmse": 0.005225364585770352,
+        "p99_9": 0.026663775010847785
+      },
+      {
+        "candidate": "B0_G4_nozero",
+        "true_bpw": 3.0000015258789063,
+        "weight_rmse": 0.005225402282378497,
+        "p99_9": 0.026586055755615234
+      },
+      {
+        "candidate": "B2_G4_nozero",
+        "true_bpw": 3.0000076293945312,
+        "weight_rmse": 0.005225402282378497,
+        "p99_9": 0.026586055755615234
+      },
+      {
+        "candidate": "B1_G4_nozero",
+        "true_bpw": 3.0000076293945312,
+        "weight_rmse": 0.005225544513789905,
+        "p99_9": 0.026586055755615234
+      }
+    ],
+    "canonical": {
+      "canonical_Q8_0": {
+        "true_bpw": 8.5,
+        "weight_rmse": 0.0,
+        "p99_9": 0.0
+      },
+      "canonical_Q4_0": {
+        "true_bpw": 4.5,
+        "weight_rmse": 0.0023316050234601675,
+        "p99_9": 0.0092926025390625
+      },
+      "canonical_Q2_K": {
+        "true_bpw": 2.625,
+        "weight_rmse": 0.007911154277194512,
+        "p99_9": 0.02838134765625
+      },
+      "canonical_Q3_K": {
+        "true_bpw": 3.4375,
+        "weight_rmse": 0.004048477587608102,
+        "p99_9": 0.01506805419921875
+      }
+    },
+    "separation_invariant_max_rel_diff": 1.4433955627039166e-15,
+    "direct_apply": "DIRECT_APPLY_UNPROVEN \u2014 algebraic separation verified numerically; no kernel measured"
+  },
+  "classifications": {
+    "structured_baseline": "STRUCTURED_BASELINE_REJECTED",
+    "geometry": "GEOMETRY_APPROXIMATES_LEARNED",
+    "c3_numerical_rate_quality": "C3_NUMERICALLY_DOMINATED",
+    "c3_direct_apply": "C3_DIRECT_APPLY_FEASIBILITY_CONFIRMED",
+    "combined_direction": "STOP_C3"
+  },
+  "agreements": [
+    "vBuf_4 and Stage-1 independently find zero/tensor anchors tied and row/column anchors non-beneficial on blk.0.attn_k.weight.",
+    "vBuf_4 and Stage-2 both place plain learned/geometric C3 near approximately 0.20 action/relative error.",
+    "No evidence supports contextual prediction as the source of low-bit accuracy.",
+    "No production representation is justified."
+  ],
+  "distinctions": [
+    "vBuf_4 evaluates blk.0, while Stage-2 real hidden states evaluate blk.32.",
+    "vBuf_4 uses Gaussian probes only; it does not supersede real-hidden-state evidence.",
+    "vBuf_4 G2/G3 include an exact zero state; its G4 no-zero control is the closer analogue to Stage-2/parallel mid-riser C3.",
+    "vBuf_4 predates IQ controls; Stage-2 IQ2_XS remains decisive for numerical domination."
+  ],
+  "c4_tail_preserved": "Stage-2 C4+0.1% tail remains 4.0481 bpw / 0.0556 real W*x / direct apply unproven",
+  "production_changes": 0
+}

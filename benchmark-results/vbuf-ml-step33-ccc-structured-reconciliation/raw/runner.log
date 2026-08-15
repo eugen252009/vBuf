@@ -1,0 +1,1 @@
+{"status": "PASS", "classifications": {"structured_baseline": "STRUCTURED_BASELINE_REJECTED", "geometry": "GEOMETRY_APPROXIMATES_LEARNED", "c3_numerical_rate_quality": "C3_NUMERICALLY_DOMINATED", "c3_direct_apply": "C3_DIRECT_APPLY_FEASIBILITY_CONFIRMED", "combined_direction": "STOP_C3"}}

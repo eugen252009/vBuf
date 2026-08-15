@@ -1,0 +1,8 @@
+evidence,source_branch,source_commit,artifact_path,created_before_vbuf4_merge,status
+Stage-1 49-tensor CCC assessment,vbuf-ml,b9043fb,benchmark-results/vbuf-ml-step30-ccc-assessment/,True,historical
+Stage-2 canonical and hidden-state qualification,vbuf-ml,b9316d9b83f4d193aec10d4b5cbead53d0963e79,benchmark-results/vbuf-ml-step31-ccc-canonical/,True,historical
+parallel C3/native qualification,vBuf_3,889bd58c674195b9e40f0156e56ca18c1fd00e78,benchmark-results/vbuf-ml-step31-ccc-hard-gate/; benchmark-results/ccc-c3-native-*,True,merged independently
+structured CCC baseline qualification,vBuf_4,28588a048a02ee3f4df33530dff8ee789e290114,benchmark-results/ccc-structured-baseline-qualification/,True,imported unchanged
+structured concept audit,vBuf_4,28588a048a02ee3f4df33530dff8ee789e290114,docs/vbuf-ml/ccc_concept_audit.md,True,imported unchanged
+vBuf_4 no-ff merge,vbuf-ml,53afb10b26af6a57a8a4ff6bf7c80728c850f39e,Git merge commit,False,first parent 1ea629b8fabf882065472604065e68dee5e51ea0; second parent 28588a048a02ee3f4df33530dff8ee789e290114
+structured-branch reconciliation,vbuf-ml,commit containing this artifact,benchmark-results/vbuf-ml-step33-ccc-structured-reconciliation/,False,post-merge reconciliation
