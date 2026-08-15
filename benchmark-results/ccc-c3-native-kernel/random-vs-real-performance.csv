@@ -1,0 +1,3 @@
+probe_type,avx2_c3_latency_us,q3k_latency_us,ratio
+Gaussian Random,3465.61,6744.4,1.0
+Real Hidden State,3468.2,6749.1,1.001

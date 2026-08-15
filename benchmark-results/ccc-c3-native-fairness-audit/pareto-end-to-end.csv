@@ -1,0 +1,7 @@
+candidate,true_bpw,real_wx_rel_l2,latency_us,status
+Canonical Q2_K,2.625,0.304933,150.87,PARETO
+Canonical Q3_K,3.4375,0.156915,235.12,PARETO
+Canonical Q4_0,4.5,0.089498,276.98,CONTROL
+Canonical Q4_K,4.5,0.073452,174.68,PARETO
+Canonical Q8_0,8.5,0.0,238.26,CONTROL
+AVX2 Packed C3,3.0,0.211157,4350.49,PARETO

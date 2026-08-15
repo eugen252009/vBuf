@@ -1,0 +1,219 @@
+{
+  "tensor_info": {
+    "name": "blk.32.attn_k.weight",
+    "shape": [
+      5120,
+      1024
+    ],
+    "type": 8,
+    "offset": 18232414208,
+    "absolute_start": 18238388864,
+    "elements": 5242880,
+    "payload_size": 5570560
+  },
+  "fitted_parameters": {
+    "best_gamma": 1.25,
+    "best_R": 0.062496185302734375,
+    "scale_name": "p99",
+    "learned_gamma_fit": 1.03,
+    "learned_gamma_rms": 0.06626504838997928
+  },
+  "geometry_penalties": {
+    "weight_penalty": 1.0222832330581793,
+    "functional_penalty": 1.0243419550715034,
+    "classification": "EXCELLENT_APPROXIMATION"
+  },
+  "fixed_gamma_diagnostic": {
+    "gamma_1.25": {
+      "rmse": 0.004904893714039098,
+      "penalty_pct": 2.090762795355383
+    },
+    "gamma_1.30": {
+      "rmse": 0.0049142527610156065,
+      "penalty_pct": 2.2855625811559532
+    },
+    "gamma_1.35": {
+      "rmse": 0.004932774462997671,
+      "penalty_pct": 2.6710744380601836
+    }
+  },
+  "blocked_canonical_formats": {
+    "IQ2_XXS": {
+      "true_bpw": 2.0625,
+      "status": "BLOCKED",
+      "reason": "Requires prompt importance matrix (imatrix) dataset at quantization time; llama.cpp asserts missing quant_weights without imatrix."
+    },
+    "IQ3_S": {
+      "true_bpw": 3.4375,
+      "status": "BLOCKED",
+      "reason": "Requires prompt importance matrix (imatrix) dataset at quantization time; llama.cpp asserts missing quant_weights without imatrix."
+    },
+    "IQ3_XXS": {
+      "true_bpw": 3.0625,
+      "status": "BLOCKED",
+      "reason": "Requires prompt importance matrix (imatrix) dataset at quantization time; llama.cpp asserts missing quant_weights without imatrix."
+    }
+  },
+  "candidate_results": [
+    {
+      "candidate": "Q8_0 Reference",
+      "type": "Reference",
+      "true_bpw": 8.5,
+      "weight_rmse": 0.0,
+      "weight_rel_l2": 0.0,
+      "weight_p99": 0.0,
+      "weight_p999": 0.0,
+      "weight_max_err": 0.0,
+      "real_wx_mean_rel_l2": 0.0,
+      "real_wx_med_rel_l2": 0.0,
+      "real_wx_p95_rel_l2": 0.0,
+      "real_wx_worst_rel_l2": 0.0,
+      "real_wx_mean_cos": 1.0,
+      "real_wx_med_cos": 1.0,
+      "real_wx_min_cos": 0.9999998807907104,
+      "rand_wx_mean_rel_l2": 0.0,
+      "real_to_rand_ratio": 1.0,
+      "pareto": "PARETO"
+    },
+    {
+      "candidate": "Block Q3 Symmetric",
+      "type": "Simplified Baseline",
+      "true_bpw": 3.5,
+      "weight_rmse": 0.010732969269156456,
+      "weight_rel_l2": 0.4625745713710785,
+      "weight_p99": 0.02494943141937256,
+      "weight_p999": 0.03404540941119194,
+      "weight_max_err": 0.09707498550415039,
+      "real_wx_mean_rel_l2": 0.47545212507247925,
+      "real_wx_med_rel_l2": 0.4748227894306183,
+      "real_wx_p95_rel_l2": 0.504429042339325,
+      "real_wx_worst_rel_l2": 0.5462528467178345,
+      "real_wx_mean_cos": 0.9002951979637146,
+      "real_wx_med_cos": 0.9000332951545715,
+      "real_wx_min_cos": 0.8656120896339417,
+      "rand_wx_mean_rel_l2": 0.4635656177997589,
+      "real_to_rand_ratio": 1.025641477314771,
+      "pareto": "DOMINATED"
+    },
+    {
+      "candidate": "Canonical Q2_K",
+      "type": "Canonical",
+      "true_bpw": 2.625,
+      "weight_rmse": 0.00697257649153471,
+      "weight_rel_l2": 0.3005073666572571,
+      "weight_p99": 0.01760244369506836,
+      "weight_p999": 0.02389143779873848,
+      "weight_max_err": 0.05271339416503906,
+      "real_wx_mean_rel_l2": 0.30493324995040894,
+      "real_wx_med_rel_l2": 0.30246609449386597,
+      "real_wx_p95_rel_l2": 0.32179975509643555,
+      "real_wx_worst_rel_l2": 0.3316788077354431,
+      "real_wx_mean_cos": 0.9553898572921753,
+      "real_wx_med_cos": 0.9559940695762634,
+      "real_wx_min_cos": 0.9475931525230408,
+      "rand_wx_mean_rel_l2": 0.3015221059322357,
+      "real_to_rand_ratio": 1.011313081034728,
+      "pareto": "PARETO"
+    },
+    {
+      "candidate": "Canonical Q3_K",
+      "type": "Canonical",
+      "true_bpw": 3.4375,
+      "weight_rmse": 0.003573054913431406,
+      "weight_rel_l2": 0.15399320423603058,
+      "weight_p99": 0.008684329688549042,
+      "weight_p999": 0.012047626078128815,
+      "weight_max_err": 0.032382965087890625,
+      "real_wx_mean_rel_l2": 0.15691466629505157,
+      "real_wx_med_rel_l2": 0.15636339783668518,
+      "real_wx_p95_rel_l2": 0.16647472977638245,
+      "real_wx_worst_rel_l2": 0.17117048799991608,
+      "real_wx_mean_cos": 0.9877941608428955,
+      "real_wx_med_cos": 0.9878357648849487,
+      "real_wx_min_cos": 0.9855546951293945,
+      "rand_wx_mean_rel_l2": 0.15442709624767303,
+      "real_to_rand_ratio": 1.0161083780490758,
+      "pareto": "PARETO"
+    },
+    {
+      "candidate": "Canonical Q4_0",
+      "type": "Canonical",
+      "true_bpw": 4.5,
+      "weight_rmse": 0.002060794271528721,
+      "weight_rel_l2": 0.08881708234548569,
+      "weight_p99": 0.004850311204791069,
+      "weight_p999": 0.006946563720703125,
+      "weight_max_err": 0.02323150634765625,
+      "real_wx_mean_rel_l2": 0.08949847519397736,
+      "real_wx_med_rel_l2": 0.08961685746908188,
+      "real_wx_p95_rel_l2": 0.09322931617498398,
+      "real_wx_worst_rel_l2": 0.0958390012383461,
+      "real_wx_mean_cos": 0.9960110783576965,
+      "real_wx_med_cos": 0.9960089325904846,
+      "real_wx_min_cos": 0.9954400658607483,
+      "rand_wx_mean_rel_l2": 0.08884045481681824,
+      "real_to_rand_ratio": 1.0074067650657115,
+      "pareto": "PARETO"
+    },
+    {
+      "candidate": "Canonical Q4_K",
+      "type": "Canonical",
+      "true_bpw": 4.5,
+      "weight_rmse": 0.0016894186846911907,
+      "weight_rel_l2": 0.07281136512756348,
+      "weight_p99": 0.0039033889770507812,
+      "weight_p999": 0.0051344032399356365,
+      "weight_max_err": 0.017864227294921875,
+      "real_wx_mean_rel_l2": 0.07345215231180191,
+      "real_wx_med_rel_l2": 0.0737876445055008,
+      "real_wx_p95_rel_l2": 0.07763942331075668,
+      "real_wx_worst_rel_l2": 0.07855208963155746,
+      "real_wx_mean_cos": 0.9973025321960449,
+      "real_wx_med_cos": 0.9972823858261108,
+      "real_wx_min_cos": 0.9969118237495422,
+      "rand_wx_mean_rel_l2": 0.0729278177022934,
+      "real_to_rand_ratio": 1.0071897751232453,
+      "pareto": "PARETO"
+    },
+    {
+      "candidate": "C3-A Learned (Lloyd-Max)",
+      "type": "Learned Control",
+      "true_bpw": 3.0,
+      "weight_rmse": 0.004680076277863467,
+      "weight_rel_l2": 0.20170412901648022,
+      "weight_p99": 0.010436870157718658,
+      "weight_p999": 0.03346351906657219,
+      "weight_max_err": 0.26342159509658813,
+      "real_wx_mean_rel_l2": 0.20613873414400638,
+      "real_wx_med_rel_l2": 0.20576068239978917,
+      "real_wx_p95_rel_l2": 0.21816776094179033,
+      "real_wx_worst_rel_l2": 0.22463667711415905,
+      "real_wx_mean_cos": 0.9785276396148036,
+      "real_wx_med_cos": 0.9786060206023645,
+      "real_wx_min_cos": 0.9744450484400033,
+      "rand_wx_mean_rel_l2": 0.20336857393518026,
+      "real_to_rand_ratio": 1.013621377950504,
+      "pareto": "PARETO"
+    },
+    {
+      "candidate": "C3-A Geometric (Best)",
+      "type": "Geometric CCC",
+      "true_bpw": 3.0,
+      "weight_rmse": 0.004784363508293154,
+      "weight_rel_l2": 0.20619874913215147,
+      "weight_p99": 0.009317923781221968,
+      "weight_p999": 0.03352793812448583,
+      "weight_max_err": 0.2634678757160386,
+      "real_wx_mean_rel_l2": 0.21115655394903635,
+      "real_wx_med_rel_l2": 0.21061655205330143,
+      "real_wx_p95_rel_l2": 0.22199767656087208,
+      "real_wx_worst_rel_l2": 0.23083908876454573,
+      "real_wx_mean_cos": 0.9774700432111701,
+      "real_wx_med_cos": 0.9775871366894213,
+      "real_wx_min_cos": 0.972994543955855,
+      "rand_wx_mean_rel_l2": 0.2080393880857327,
+      "real_to_rand_ratio": 1.0149835369733884,
+      "pareto": "DOMINATED"
+    }
+  ]
+}

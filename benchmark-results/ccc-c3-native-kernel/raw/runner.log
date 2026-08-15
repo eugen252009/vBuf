@@ -1,0 +1,52 @@
+=== CCC C3 NATIVE KERNEL HARD GATE BENCHMARK ===
+Evaluation Date: 2026-08-15
+Host CPU: AMD Ryzen 7 5800X 8-Core Processor (Zen 3)
+
+--- Matrix Dimensions ---
+Rows: 1024 | Cols: 5120 | Total Weights: 5242880
+
+Precomputed 8-Level C3 Reconstruction Table:
+  Code 0: 0.004645
+  Code 1: 0.018340
+  Code 2: 0.034730
+  Code 3: 0.052889
+  Code 4: -0.004645
+  Code 5: -0.018340
+  Code 6: -0.034730
+  Code 7: -0.052889
+Physical Packed Matrix Bytes: 1966080 B | True bpw: 3.000008
+
+=== GATE A: CORRECTNESS VERIFICATION ===
+3-Bit Bitstream Pack/Unpack Roundtrip Test: PASSED [EXACT]
+Variant A (Dense FP32 Ref):        Max Err = 0.000000
+Variant B (Byte Unpacked C3):       Max Err = 0.000022
+Variant C.1 (Scalar Packed C3):     Max Err = 0.000022
+Variant C.2 (BMI2 Packed C3):       Max Err = 0.000022
+Variant C.3 (AVX2 Packed C3):       Max Err = 0.000004
+Variant C.4 (AVX2 Unrolled C3):     Max Err = 0.000003
+
+=== ABLATION BENCHMARK (PACK_ONLY vs BYTE_C3_DOT vs PACKED_C3_DOT) ===
+PACK_ONLY Standalone Unpack Speed: 2027.815400 us/matrix (2585.481893 Mweights/s)
+
+=== MATVEC PERFORMANCE SUMMARY TABLE ===
+Variant                       | Latency (us) | Throughput (Mw/s) | Phys GB/s | Cycles/w
+------------------------------+--------------+-------------------+-----------+---------
+Dense FP32 Reference           |      3950.77 |           1327.05 |      0.50 |    2.863
+Byte Unpacked C3 (8 bpw)       |      3777.67 |           1387.86 |      0.52 |    2.738
+Scalar Packed C3 (3 bpw)       |      3775.01 |           1388.84 |      0.52 |    2.736
+BMI2 Packed C3 (3 bpw)         |      6090.87 |            860.78 |      0.32 |    4.415
+AVX2 Packed C3 (3 bpw)         |      3465.61 |           1512.83 |      0.57 |    2.512
+AVX2 Unrolled C3 (3 bpw)       |      6571.40 |            797.83 |      0.30 |    4.763
+Canonical Q2_K                 |      7358.34 |            712.51 |      0.23 |    5.333
+Canonical Q3_K                 |      6744.40 |            777.37 |      0.33 |    4.888
+Canonical Q4_0                 |      4991.33 |           1050.40 |      0.59 |    3.618
+Canonical Q4_K                 |      4650.16 |           1127.46 |      0.63 |    3.370
+Canonical Q8_0                 |      4727.60 |           1108.99 |      1.18 |    3.427
+
+=== GATE B: UNPACKING TAX ASSESSMENT ===
+Byte-C3 MatVec Baseline (8 bpw):    3777.667700 us
+Scalar Packed C3 (3 bpw):          3775.013255 us | Unpack Tax: 0.999297x
+AVX2 Packed C3 (3 bpw):            3465.609360 us | Unpack Tax: 0.917394x
+Unpacking Tax Classification: EXCELLENT (<= 1.10x)
+
+=== NATIVE KERNEL BENCHMARK COMPLETE ===
