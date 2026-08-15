@@ -1,0 +1,9 @@
+field,successful_gguf,vbuf
+source_bytes,68812800,68812800
+source_block_bytes,84,84
+source_type,GGML_TYPE_Q2_K,GGML_TYPE_Q2_K
+runtime_type,GGML_TYPE_Q2_K,GGML_TYPE_Q2_K
+runtime_block_size,256,256
+runtime_type_size,84,84
+runtime_nbytes,68812800,68812800
+copy_or_transform,no,no

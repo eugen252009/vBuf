@@ -1,0 +1,8 @@
+{
+  "vbuf_commit": "e62f9fec6c7728eb868d5d8d2baa44f23d7d2080",
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "compiler": "Debian c++ 14.2.0-19",
+  "architecture": "x86_64",
+  "source_sha256": "9d3bc4a5bc25b7acb8bc31436745bd8cfaf94509fd1322bb36ab155b0daf1616",
+  "vbuf_sha256": "780a55b77d2730705a93622338d9747149624d72e558e26182176868210fafcc"
+}

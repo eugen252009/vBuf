@@ -23,3 +23,15 @@ BF16,qwen3.feed_forward_length,feed-forward length,FeedForwardLength,DIRECTLY_RE
 BF16,qwen3.attention.layer_norm_rms_epsilon,RMS normalization epsilon,NormalizationEpsilon,DIRECTLY_REPRESENTED,9.999999974752427e-07
 BF16,qwen3.rope.freq_base,RoPE base,RopeTheta,DIRECTLY_REPRESENTED,1000000.0
 BF16,tokenizer.ggml.tokens,vocabulary size,VocabularySize,DERIVABLE,151936
+DEEPSEEK_IQ1_S,general.architecture,architecture,Architecture,DIRECTLY_REPRESENTED,deepseek2
+DEEPSEEK_IQ1_S,deepseek2.context_length,context length,ContextLength,DIRECTLY_REPRESENTED,163840
+DEEPSEEK_IQ1_S,deepseek2.embedding_length,embedding length,EmbeddingLength,DIRECTLY_REPRESENTED,2048
+DEEPSEEK_IQ1_S,deepseek2.block_count,layer count,LayerCount,DIRECTLY_REPRESENTED,27
+DEEPSEEK_IQ1_S,deepseek2.attention.head_count,attention head count,HeadCount,DIRECTLY_REPRESENTED,16
+DEEPSEEK_IQ1_S,deepseek2.attention.head_count_kv,KV head count,KVHeadCount,DIRECTLY_REPRESENTED,16
+DEEPSEEK_IQ1_S,deepseek2.attention.key_length,key head dimension,KeyHeadDimension,DIRECTLY_REPRESENTED,192
+DEEPSEEK_IQ1_S,deepseek2.attention.value_length,value head dimension,ValueHeadDimension,DIRECTLY_REPRESENTED,128
+DEEPSEEK_IQ1_S,deepseek2.feed_forward_length,feed-forward length,FeedForwardLength,DIRECTLY_REPRESENTED,10944
+DEEPSEEK_IQ1_S,deepseek2.attention.layer_norm_rms_epsilon,RMS normalization epsilon,NormalizationEpsilon,DIRECTLY_REPRESENTED,9.999999974752427e-07
+DEEPSEEK_IQ1_S,deepseek2.rope.freq_base,RoPE base,RopeTheta,DIRECTLY_REPRESENTED,10000.0
+DEEPSEEK_IQ1_S,tokenizer.ggml.tokens,vocabulary size,VocabularySize,DERIVABLE,102400

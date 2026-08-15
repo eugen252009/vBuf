@@ -129,6 +129,7 @@
       "target": "VocabularySize"
     }
   ],
+  "moe_plan": null,
   "output_decision": null,
   "payload_evidence": {
     "selected_source_payload_sha256": {

@@ -1,0 +1,12 @@
+{
+  "conversion": "CONVERSION_PARITY_CONFIRMED",
+  "source_representation": "CURRENT_Q2_K_WITH_ALTERNATE_STORAGE",
+  "successful_gguf_behavior": "GGUF_DIRECT_84_BYTE_Q2_K",
+  "correct_vbuf_fix": "FIX_SOURCE_TYPE_MAPPING",
+  "final_runtime": "DEEPSEEK_VBUF_INFERENCE_PASS",
+  "tensor_count": 377,
+  "q2k_source_bytes": 68812800,
+  "q2k_block_elements": 256,
+  "q2k_block_bytes": 84,
+  "vbuf_decode": {"tokens": 3, "decode": 0}
+}

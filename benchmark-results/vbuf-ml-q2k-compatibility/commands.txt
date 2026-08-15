@@ -1,0 +1,8 @@
+cd /tmp/ccc-llama-pinned
+python3 -c 'from gguf import GGUFReader; r=GGUFReader("/home/eugen/projekte/vBuf/research-models/DeepSeek-V2-Lite.IQ1_S.gguf"); t=next(x for x in r.tensors if x.name=="token_embd.weight"); print(t.tensor_type.name, t.n_bytes, t.n_bytes // (2048*102400//256))'
+cd /home/eugen/projekte/vBuf
+python3 scripts/build_step18_manifest.py --root /home/eugen/projekte/vBuf
+cargo build --release --manifest-path rust/Cargo.toml -p vbuf-ml
+python3 scripts/convert_gguf_to_vbuf_ml.py research-models/DeepSeek-V2-Lite.IQ1_S.gguf benchmark-results/vbuf-ml-step18/deepseek-v2-lite-iq1-s-manifest.json research-models/DeepSeek-V2-Lite.IQ1_S.vbuf --integrity none --evidence-dir benchmark-results/vbuf-ml-step20-deepseek
+env LD_LIBRARY_PATH=rust/target/release rust/target/release/vbuf-ml-diagnose research-models/DeepSeek-V2-Lite.IQ1_S.vbuf
+env LD_LIBRARY_PATH=/tmp/ccc-llama-pinned/build/bin:rust/target/release timeout 240 /tmp/opencode/deepseek_vbuf_smoke research-models/DeepSeek-V2-Lite.IQ1_S.vbuf

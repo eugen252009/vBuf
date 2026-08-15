@@ -58,6 +58,68 @@ def expected_bytes(type_name: str, shape: tuple[int, ...]) -> int:
         for dimension in shape[1:]:
             rows = checked_mul(rows, dimension)
         return checked_mul(checked_mul(rows, shape[0] // 32), 34)
+    if type_name == "Q4_0":
+        if not shape or shape[0] % 32:
+            raise ValueError("Q4_0 innermost row is not divisible by 32")
+        rows = 1
+        for dimension in shape[1:]: rows = checked_mul(rows, dimension)
+        return checked_mul(checked_mul(rows, shape[0] // 32), 18)
+    if type_name == "Q2_K":
+        if not shape or shape[0] % 256:
+            raise ValueError("Q2_K innermost row is not divisible by 256")
+        rows = 1
+        for dimension in shape[1:]: rows = checked_mul(rows, dimension)
+        return checked_mul(checked_mul(rows, shape[0] // 256), 84)
+    if type_name == "IQ1_S":
+        if not shape or shape[0] % 256:
+            raise ValueError("IQ1_S innermost row is not divisible by 256")
+        rows = 1
+        for dimension in shape[1:]: rows = checked_mul(rows, dimension)
+        return checked_mul(checked_mul(rows, shape[0] // 256), 50)
+    if type_name in {"Q4_K", "Q4_K_S", "Q4_K_M"}:
+        if not shape or shape[0] % 256:
+            raise ValueError("Q4_K innermost row is not divisible by 256")
+        rows = 1
+        for dimension in shape[1:]: rows = checked_mul(rows, dimension)
+        return checked_mul(checked_mul(rows, shape[0] // 256), 144)
+    if type_name in {"Q3_K", "Q3_K_S", "Q3_K_M"}:
+        if not shape or shape[0] % 256:
+            raise ValueError("Q3_K innermost row is not divisible by 256")
+        rows = 1
+        for dimension in shape[1:]: rows = checked_mul(rows, dimension)
+        return checked_mul(checked_mul(rows, shape[0] // 256), 110)
+    if type_name == "Q5_K":
+        if not shape or shape[0] % 256:
+            raise ValueError("Q5_K innermost row is not divisible by 256")
+        rows = 1
+        for dimension in shape[1:]: rows = checked_mul(rows, dimension)
+        return checked_mul(checked_mul(rows, shape[0] // 256), 176)
+    if type_name == "IQ2_XXS":
+        block_bytes = 66
+    elif type_name == "IQ2_XS":
+        block_bytes = 74
+    elif type_name == "IQ2_S":
+        block_bytes = 84
+    else:
+        block_bytes = None
+    if block_bytes is not None:
+        if not shape or shape[0] % 256:
+            raise ValueError(f"{type_name} innermost row is not divisible by 256")
+        rows = 1
+        for dimension in shape[1:]: rows = checked_mul(rows, dimension)
+        return checked_mul(checked_mul(rows, shape[0] // 256), block_bytes)
+    if type_name == "IQ4_NL":
+        if not shape or shape[0] % 32:
+            raise ValueError("IQ4_NL innermost row is not divisible by 32")
+        rows = 1
+        for dimension in shape[1:]: rows = checked_mul(rows, dimension)
+        return checked_mul(checked_mul(rows, shape[0] // 32), 18)
+    if type_name == "IQ4_XS":
+        if not shape or shape[0] % 256:
+            raise ValueError("IQ4_XS innermost row is not divisible by 256")
+        rows = 1
+        for dimension in shape[1:]: rows = checked_mul(rows, dimension)
+        return checked_mul(checked_mul(rows, shape[0] // 256), 136)
     raise ValueError(f"unsupported Step-17 type {type_name}")
 
 

@@ -98,11 +98,12 @@ impl TokenizerModel {
 #[repr(u64)]
 pub enum PreTokenizer {
     Qwen2 = 1,
+    DeepSeek = 2,
 }
 
 impl PreTokenizer {
     fn from_value(value: u64) -> Result<Self, MlError> {
-        match value { 1 => Ok(Self::Qwen2), _ => Err(MlError::new(MlErrorCode::InvalidTokenizerIdentity, "unsupported pre-tokenizer identity")) }
+        match value { 1 => Ok(Self::Qwen2), 2 => Ok(Self::DeepSeek), _ => Err(MlError::new(MlErrorCode::InvalidTokenizerIdentity, "unsupported pre-tokenizer identity")) }
     }
 }
 

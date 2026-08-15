@@ -1,6 +1,7 @@
 use memmap2::Mmap;
 use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions};
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use vbuf_core::v06::{parse_v06, V06Physical, V06Semantic};
 use vbuf_ml::bootstrap::{encode_payload as encode_bootstrap, BootstrapEntry, BOOTSTRAP_KEY_ID};
@@ -8,22 +9,27 @@ use vbuf_ml::metadata::MetadataEntry;
 use vbuf_ml::tensor_directory::{encode_payload as encode_directory, TensorEntry};
 use vbuf_ml::tokenizer::{encode_payload as encode_tokenizer, TokenizerEntry, TokenizerKind};
 use vbuf_ml::{Bootstrap, MetadataValue, ModelMetadata, ModelMetadataKey, PreTokenizer, RegionRole, TensorDirectory, TensorRepresentation, TokenizerMetadata, TokenizerModel};
-use vbuf_ml::{LayoutClass, PlacementRequest};
+use vbuf_ml::{LayoutClass, MoeEntry, MoeParameters, PlacementRequest};
 
 const PLAN_MAGIC: &[u8; 8] = b"VBUF20PL";
-const PLAN_VERSION: u32 = 1;
+const PLAN_VERSION: u32 = 2;
 const TENSOR_KEY: u16 = 0x0200;
 const DIRECTORY_KEY: u16 = 0x0201;
 const METADATA_KEY: u16 = 0x0202;
 const TOKENIZER_KEY: u16 = 0x0203;
 const DATA_BASE: u16 = 0x0300;
+const NESTED_DATA_KEY: u16 = 0x0205;
+const NESTED_DIRECTORY_KEY: u16 = 0x0206;
+const MOE_DIRECTORY_KEY: u16 = 0x0207;
 
 #[derive(Debug)]
 struct Meta { key: u16, required: bool, kind: u8, bytes: Vec<u8> }
 #[derive(Debug)]
 struct Tensor { name: String, dims: Vec<u64>, repr: TensorRepresentation, offset: u64, bytes: u64, order: u32 }
 #[derive(Debug)]
-struct Plan { base_shift: u8, source_size: u64, source_hash: [u8; 32], metadata: Vec<Meta>, text: Vec<u8>, offsets: Vec<u64>, types: Vec<u32>, left: Vec<u32>, right: Vec<u32>, add_bos: bool, specials: Vec<(u8, u64)>, chat: Vec<u8>, tensors: Vec<Tensor> }
+struct MoePlan { parameters: MoeParameters }
+#[derive(Debug)]
+struct Plan { base_shift: u8, source_size: u64, source_hash: [u8; 32], metadata: Vec<Meta>, text: Vec<u8>, offsets: Vec<u64>, types: Vec<u32>, left: Vec<u32>, right: Vec<u32>, add_bos: bool, pre_tokenizer: u8, specials: Vec<(u8, u64)>, chat: Vec<u8>, tensors: Vec<Tensor>, moe: Option<MoePlan> }
 
 fn take<'a>(bytes: &'a [u8], cursor: &mut usize, count: usize) -> Result<&'a [u8], String> { let end = cursor.checked_add(count).ok_or("plan cursor overflow")?; let result = bytes.get(*cursor..end).ok_or("truncated conversion plan")?; *cursor = end; Ok(result) }
 fn u8v(bytes: &[u8], c: &mut usize) -> Result<u8, String> { Ok(take(bytes, c, 1)?[0]) }
@@ -45,11 +51,19 @@ fn parse_plan(bytes: &[u8]) -> Result<Plan, String> {
     let text_pool = blob(bytes, &mut c)?; let offset_count = usize::try_from(u64v(bytes, &mut c)?).map_err(|_| "offset count exceeds host range")?; let mut offsets = Vec::with_capacity(offset_count); for _ in 0..offset_count { offsets.push(u64v(bytes, &mut c)?); }
     let type_count = usize::try_from(u64v(bytes, &mut c)?).map_err(|_| "type count exceeds host range")?; let mut types = Vec::with_capacity(type_count); for _ in 0..type_count { types.push(u32v(bytes, &mut c)?); }
     let merge_count = usize::try_from(u64v(bytes, &mut c)?).map_err(|_| "merge count exceeds host range")?; let mut left = Vec::with_capacity(merge_count); for _ in 0..merge_count { left.push(u32v(bytes, &mut c)?); } let mut right = Vec::with_capacity(merge_count); for _ in 0..merge_count { right.push(u32v(bytes, &mut c)?); }
-    let add_bos = u8v(bytes, &mut c)? != 0; let special_count = usize::from(u8v(bytes, &mut c)?); let mut specials = Vec::new(); for _ in 0..special_count { specials.push((u8v(bytes, &mut c)?, u64v(bytes, &mut c)?)); }
+    let add_bos = u8v(bytes, &mut c)? != 0; let pre_tokenizer = u8v(bytes, &mut c)?; let special_count = usize::from(u8v(bytes, &mut c)?); let mut specials = Vec::new(); for _ in 0..special_count { specials.push((u8v(bytes, &mut c)?, u64v(bytes, &mut c)?)); }
     let chat = blob(bytes, &mut c)?; let tensor_count = usize::try_from(u32v(bytes, &mut c)?).map_err(|_| "tensor count exceeds host range")?; let mut tensors = Vec::with_capacity(tensor_count);
-    for _ in 0..tensor_count { let name = text(bytes, &mut c)?; let rank = usize::from(u8v(bytes, &mut c)?); let mut dims = Vec::with_capacity(rank); for _ in 0..rank { dims.push(u64v(bytes, &mut c)?); } let repr = match u8v(bytes, &mut c)? { 0 => TensorRepresentation::CanonicalPrimitive, 1 => TensorRepresentation::Bf16, 2 => TensorRepresentation::GgmlQ8_0, _ => return Err("unknown tensor representation in plan".into()) }; tensors.push(Tensor { name, dims, repr, offset: u64v(bytes, &mut c)?, bytes: u64v(bytes, &mut c)?, order: u32v(bytes, &mut c)? }); }
+    for _ in 0..tensor_count { let name = text(bytes, &mut c)?; let rank = usize::from(u8v(bytes, &mut c)?); let mut dims = Vec::with_capacity(rank); for _ in 0..rank { dims.push(u64v(bytes, &mut c)?); } let repr = match u8v(bytes, &mut c)? { 0 => TensorRepresentation::CanonicalPrimitive, 1 => TensorRepresentation::Bf16, 2 => TensorRepresentation::GgmlQ8_0, 3 => TensorRepresentation::GgmlQ4_0, 4 => TensorRepresentation::GgmlQ2_K, 5 => TensorRepresentation::GgmlIQ1_S, 6 => TensorRepresentation::GgmlQ4_K, 7 => TensorRepresentation::GgmlIQ4_NL, 8 => TensorRepresentation::GgmlIQ4_XS, 9 => TensorRepresentation::GgmlQ3_K, 10 => TensorRepresentation::GgmlIQ2_XXS, 11 => TensorRepresentation::GgmlIQ2_XS, 12 => TensorRepresentation::GgmlIQ2_S, 13 => TensorRepresentation::GgmlQ5_K, _ => return Err("unknown tensor representation in plan".into()) }; tensors.push(Tensor { name, dims, repr, offset: u64v(bytes, &mut c)?, bytes: u64v(bytes, &mut c)?, order: u32v(bytes, &mut c)? }); }
+    let moe = if u8v(bytes, &mut c)? == 0 { None } else {
+        let expert_count = u32v(bytes, &mut c)?;
+        let active_expert_count = u32v(bytes, &mut c)?;
+        let layer_count = u32v(bytes, &mut c)?;
+        let shared_expert_count = u32v(bytes, &mut c)?;
+        let shared_experts = u8v(bytes, &mut c)? != 0;
+        Some(MoePlan { parameters: MoeParameters { expert_count, active_expert_count, layer_count, shared_experts, shared_expert_count } })
+    };
     if c != bytes.len() { return Err("conversion plan has trailing bytes".into()); }
-    Ok(Plan { base_shift, source_size, source_hash, metadata, text: text_pool, offsets, types, left, right, add_bos, specials, chat, tensors })
+    Ok(Plan { base_shift, source_size, source_hash, metadata, text: text_pool, offsets, types, left, right, add_bos, pre_tokenizer, specials, chat, tensors, moe })
 }
 
 type ControlSpec = (LayoutClass, u64, u16, V06Semantic, V06Physical, u16, u64, usize);
@@ -86,15 +100,37 @@ fn main() -> Result<(), String> {
     let types_bytes: Vec<u8> = plan.types.iter().flat_map(|v| v.to_le_bytes()).collect(); let types_i=controls.len(); controls.push(types_bytes); requests.push((LayoutClass::TokenizerPayload,202,DATA_BASE+2,V06Semantic::Unsigned,V06Physical::Array,32,plan.types.len() as u64,types_i,None));
     let left_bytes: Vec<u8> = plan.left.iter().flat_map(|v| v.to_le_bytes()).collect(); let left_i=controls.len(); controls.push(left_bytes); requests.push((LayoutClass::TokenizerPayload,203,DATA_BASE+3,V06Semantic::Unsigned,V06Physical::Array,32,plan.left.len() as u64,left_i,None));
     let right_bytes: Vec<u8> = plan.right.iter().flat_map(|v| v.to_le_bytes()).collect(); let right_i=controls.len(); controls.push(right_bytes); requests.push((LayoutClass::TokenizerPayload,204,DATA_BASE+4,V06Semantic::Unsigned,V06Physical::Array,32,plan.right.len() as u64,right_i,None));
-    for (order,key,value) in [(205,DATA_BASE+5,1u8),(206,DATA_BASE+6,1u8),(207,DATA_BASE+7,u8::from(plan.add_bos))] { let i=controls.len(); controls.push(vec![value]); requests.push((LayoutClass::TokenizerPayload,order,key,V06Semantic::Unsigned,V06Physical::Scalar,8,1,i,None)); }
+    for (order,key,value) in [(205,DATA_BASE+5,1u8),(206,DATA_BASE+6,plan.pre_tokenizer),(207,DATA_BASE+7,u8::from(plan.add_bos))] { let i=controls.len(); controls.push(vec![value]); requests.push((LayoutClass::TokenizerPayload,order,key,V06Semantic::Unsigned,V06Physical::Scalar,8,1,i,None)); }
     let chat_i=controls.len(); controls.push(plan.chat.clone()); requests.push((LayoutClass::TokenizerPayload,208,DATA_BASE+8,V06Semantic::Opaque,V06Physical::Array,8,controls[chat_i].len() as u64,chat_i,None)); tok_entries.push(TokenizerEntry::new(14,false,DATA_BASE+8,0));
     for (index,(role,value)) in plan.specials.iter().enumerate() { let key=DATA_BASE+16+u16::from(*role); let i=controls.len(); controls.push(value.to_le_bytes().to_vec()); requests.push((LayoutClass::TokenizerPayload,220+u64::from(*role),key,V06Semantic::Unsigned,V06Physical::Scalar,64,1,i,None)); tok_entries.push(TokenizerEntry::new(u16::from(*role),false,key,0)); let _=index; }
     let tok_control = encode_tokenizer(TokenizerKind::Gpt2BpeQwen2,&tok_entries).map_err(|e| e.to_string())?; let tok_i=controls.len(); controls.push(tok_control); requests.push((LayoutClass::TokenizerControl,3,TOKENIZER_KEY,V06Semantic::Opaque,V06Physical::Array,8,controls[tok_i].len() as u64,tok_i,None));
-    let bootstrap = encode_bootstrap(&[BootstrapEntry::new(RegionRole::TensorDirectory as u16,true,DIRECTORY_KEY,0),BootstrapEntry::new(RegionRole::ModelMetadata as u16,true,METADATA_KEY,0),BootstrapEntry::new(RegionRole::TokenizerMetadata as u16,false,TOKENIZER_KEY,0)]).map_err(|e| e.to_string())?; let boot_i=controls.len(); controls.push(bootstrap); requests.push((LayoutClass::Bootstrap,0,BOOTSTRAP_KEY_ID,V06Semantic::Opaque,V06Physical::Array,8,controls[boot_i].len() as u64,boot_i,None));
+    let mut moe_bootstrap_entries = vec![BootstrapEntry::new(RegionRole::TensorDirectory as u16,true,DIRECTORY_KEY,0),BootstrapEntry::new(RegionRole::ModelMetadata as u16,true,METADATA_KEY,0),BootstrapEntry::new(RegionRole::TokenizerMetadata as u16,false,TOKENIZER_KEY,0)];
+    if let Some(moe) = &plan.moe {
+        let mut nested_entries = Vec::new();
+        let mut moe_entries = Vec::new();
+        let mut nested_payload = Vec::new();
+        for layer in 0..moe.parameters.layer_count {
+            for expert in 0..moe.parameters.expert_count {
+                let name = format!("moe.layer.{layer}.expert.{expert}");
+                let marker = [b'M', b'O', b'E', b'X', (layer & 0xff) as u8, (expert & 0xff) as u8];
+                let child = vbuf_ml::layout::write_known_size(Cursor::new(Vec::new()), plan.base_shift, &[req(LayoutClass::Auxiliary, 0, 0x7000, V06Semantic::Opaque, V06Physical::Array, 8, marker.len() as u64, &marker, plan.base_shift)]).map_err(|e| e.to_string())?.into_inner();
+                let child_offset = nested_payload.len() as u64;
+                nested_payload.extend_from_slice(&child);
+                nested_entries.push(vbuf_ml::NestedEntry { name: name.clone(), key_id: NESTED_DATA_KEY, occurrence: 0, child_offset, child_length: child.len() as u64 });
+                moe_entries.push(MoeEntry { layer_index: layer, expert_index: expert, role: 0, child_name: name });
+            }
+        }
+        let nested_data_i = controls.len(); controls.push(nested_payload); requests.push((LayoutClass::Auxiliary,300,NESTED_DATA_KEY,V06Semantic::Opaque,V06Physical::Array,8,controls[nested_data_i].len() as u64,nested_data_i,None));
+        let nested_i = controls.len(); controls.push(vbuf_ml::encode_nested_payload(&nested_entries).map_err(|e| e.to_string())?); requests.push((LayoutClass::Auxiliary,301,NESTED_DIRECTORY_KEY,V06Semantic::Opaque,V06Physical::Array,8,controls[nested_i].len() as u64,nested_i,None));
+        let moe_i = controls.len(); controls.push(vbuf_ml::encode_moe_payload(moe.parameters, &moe_entries).map_err(|e| e.to_string())?); requests.push((LayoutClass::Auxiliary,302,MOE_DIRECTORY_KEY,V06Semantic::Opaque,V06Physical::Array,8,controls[moe_i].len() as u64,moe_i,None));
+        moe_bootstrap_entries.push(BootstrapEntry::new(RegionRole::NestedDirectory as u16,false,NESTED_DIRECTORY_KEY,0));
+        moe_bootstrap_entries.push(BootstrapEntry::new(RegionRole::MoeDirectory as u16,false,MOE_DIRECTORY_KEY,0));
+    }
+    let bootstrap = encode_bootstrap(&moe_bootstrap_entries).map_err(|e| e.to_string())?; let boot_i=controls.len(); controls.push(bootstrap); requests.push((LayoutClass::Bootstrap,0,BOOTSTRAP_KEY_ID,V06Semantic::Opaque,V06Physical::Array,8,controls[boot_i].len() as u64,boot_i,None));
     for tensor in &plan.tensors {
         let (semantic, width, count) = match tensor.repr {
             TensorRepresentation::CanonicalPrimitive => (V06Semantic::Float, 32, tensor.bytes / 4),
-            TensorRepresentation::Bf16 | TensorRepresentation::GgmlQ8_0 => (V06Semantic::Opaque, 8, tensor.bytes),
+            TensorRepresentation::Bf16 | TensorRepresentation::GgmlQ8_0 | TensorRepresentation::GgmlQ4_0 | TensorRepresentation::GgmlQ2_K | TensorRepresentation::GgmlIQ1_S | TensorRepresentation::GgmlQ4_K | TensorRepresentation::GgmlIQ4_NL | TensorRepresentation::GgmlIQ4_XS | TensorRepresentation::GgmlQ3_K | TensorRepresentation::GgmlIQ2_XXS | TensorRepresentation::GgmlIQ2_XS | TensorRepresentation::GgmlIQ2_S | TensorRepresentation::GgmlQ5_K => (V06Semantic::Opaque, 8, tensor.bytes),
         };
         requests.push((LayoutClass::TensorPayload, 1_000_000 + u64::from(tensor.order), TENSOR_KEY, semantic, V06Physical::Array, width, count, controls.len(), Some((tensor.offset, tensor.bytes))));
     }
@@ -112,8 +148,10 @@ fn main() -> Result<(), String> {
 
 fn validate_target(path: &Path, source: &[u8], plan: &Plan, evidence: &Path) -> Result<(), String> {
     let target_file = File::open(path).map_err(|e| e.to_string())?; let bytes = unsafe { Mmap::map(&target_file).map_err(|e| e.to_string())? }; let validated = parse_v06(&bytes).map_err(|e| e.to_string())?; let bootstrap=Bootstrap::discover(&validated).map_err(|e| e.to_string())?; let metadata=ModelMetadata::parse(&validated,&bootstrap).map_err(|e| e.to_string())?; let directory=TensorDirectory::parse(&validated,&bootstrap).map_err(|e| e.to_string())?; let tokenizer=TokenizerMetadata::parse(&validated,&bootstrap).map_err(|e| e.to_string())?; if directory.tensors().len()!=plan.tensors.len() || tokenizer.token_count()!=u64::try_from(plan.types.len()).unwrap() || tokenizer.merge_count()!=u64::try_from(plan.left.len()).unwrap() { return Err("target semantic counts differ from plan".into()); }
+    if plan.moe.is_some() { let nested = vbuf_ml::NestedDirectory::parse(&validated, &bootstrap).map_err(|e| e.to_string())?; let moe = vbuf_ml::MoeDirectory::parse(&validated, &bootstrap, &nested).map_err(|e| e.to_string())?; vbuf_ml::DeepSeekMoELoader::from_model(metadata.architecture().unwrap_or(""), &metadata, &directory, &moe).map_err(|e| e.to_string())?; }
     for meta in &plan.metadata { let key=ModelMetadataKey::from_id(meta.key).ok_or("unknown target metadata key")?; let actual=metadata.get(key).ok_or("target metadata key is missing")?; match (meta.kind, &actual.value) { (1, MetadataValue::Text(value)) if value.as_bytes()==meta.bytes.as_slice() => {}, (2, MetadataValue::Unsigned(value)) if value.to_le_bytes()==meta.bytes.as_slice() => {}, (3, MetadataValue::Float(value)) if value.to_le_bytes()==meta.bytes.as_slice() => {}, _ => return Err(format!("target metadata mismatch for key {}",meta.key)), } }
-    if tokenizer.model()!=Some(TokenizerModel::Gpt2Bpe) || tokenizer.pre_tokenizer()!=Some(PreTokenizer::Qwen2) { return Err("target tokenizer identities differ from plan".into()); }
+    let expected_pre = match plan.pre_tokenizer { 1 => PreTokenizer::Qwen2, 2 => PreTokenizer::DeepSeek, _ => return Err("unsupported plan pre-tokenizer".into()) };
+    if tokenizer.model()!=Some(TokenizerModel::Gpt2Bpe) || tokenizer.pre_tokenizer()!=Some(expected_pre) { return Err("target tokenizer identities differ from plan".into()); }
     for index in 0..plan.types.len() { let start=usize::try_from(plan.offsets[index]).map_err(|_| "token offset overflow")?; let end=usize::try_from(plan.offsets[index+1]).map_err(|_| "token offset overflow")?; let expected=plan.text.get(start..end).ok_or("token text range outside pool")?; if tokenizer.token_text(index as u64).map(str::as_bytes)!=Some(expected) { return Err(format!("token text mismatch at {}",index)); } }
     for (role,value) in &plan.specials { let special=match *role { 5=>vbuf_ml::SpecialToken::Bos, 6=>vbuf_ml::SpecialToken::Eos, 7=>vbuf_ml::SpecialToken::Unk, 8=>vbuf_ml::SpecialToken::Pad, _=>return Err("unknown special role".into()) }; if !tokenizer.specials().contains(&(special,*value)) { return Err(format!("special token mismatch for role {}",role)); } }
     std::fs::create_dir_all(evidence).map_err(|e| e.to_string())?; let mut csv=String::from("tensor_name,source_representation,target_representation,source_payload_bytes,target_payload_bytes,source_sha256,target_sha256,match\n");

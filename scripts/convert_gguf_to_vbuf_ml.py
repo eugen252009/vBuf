@@ -22,8 +22,8 @@ from qualify_step16 import EXPECTED, parse  # noqa: E402
 from qualify_step17 import PINNED_COMMIT  # noqa: E402
 
 PLAN_MAGIC = b"VBUF20PL"
-PLAN_VERSION = 1
-REPRESENTATIONS = {"CanonicalPrimitive": 0, "BF16": 1, "GGML_Q8_0": 2}
+PLAN_VERSION = 2
+REPRESENTATIONS = {"CanonicalPrimitive": 0, "BF16": 1, "GGML_Q8_0": 2, "GGML_Q4_0": 3, "GGML_Q2_K": 4, "GGML_IQ1_S": 5, "GGML_Q4_K": 6, "GGML_IQ4_NL": 7, "GGML_IQ4_XS": 8, "GGML_Q3_K": 9, "GGML_IQ2_XXS": 10, "GGML_IQ2_XS": 11, "GGML_IQ2_S": 12, "GGML_Q5_K": 13}
 METADATA_IDS = {"Architecture": 1, "ContextLength": 2, "EmbeddingLength": 3, "LayerCount": 4,
                 "HeadCount": 5, "FeedForwardLength": 6, "NormalizationEpsilon": 7, "RopeTheta": 8,
                 "KVHeadCount": 9, "KeyHeadDimension": 10, "ValueHeadDimension": 11}
@@ -57,7 +57,7 @@ def build_plan(source: Path, manifest: dict, artifact, integrity: str) -> bytes:
         raise ValueError("manifest profile or pinned consumer revision is stale")
     if manifest["validation"]["conversion_readiness"] != ["READY_FOR_CONVERSION"]:
         raise ValueError("manifest is not conversion-ready")
-    if manifest["conversion_options"]["placement"] != "LAYER_MAJOR_ROLE_ORDER" or not 3 <= int(manifest["conversion_options"].get("base_shift", -1)) <= 8:
+    if manifest["conversion_options"]["placement"] not in {"LAYER_MAJOR_ROLE_ORDER", "DEEPSEEK_HOT_ROLE_ORDER"} or not 3 <= int(manifest["conversion_options"].get("base_shift", -1)) <= 8:
         raise ValueError("manifest placement or BaseShift policy is not qualified")
     if integrity != "none":
         raise ValueError("Step 20 currently supports only --integrity none")
@@ -77,7 +77,7 @@ def build_plan(source: Path, manifest: dict, artifact, integrity: str) -> bytes:
             raise ValueError("manifest tensor action or representation is unsupported")
 
     tokenizer = manifest["tokenizer_conversion_plan"]
-    if tokenizer["kind"] != "Gpt2BpeQwen2" or tokenizer["model_id"] != 1 or tokenizer["pre_tokenizer_id"] != 1:
+    if tokenizer["kind"] != "Gpt2BpeQwen2" or tokenizer["model_id"] != 1 or tokenizer["pre_tokenizer_id"] not in {1, 2}:
         raise ValueError("unsupported tokenizer conversion plan")
     tokens = artifact.metadata["tokenizer.ggml.tokens"]
     token_types = artifact.metadata["tokenizer.ggml.token_type"]
@@ -106,6 +106,7 @@ def build_plan(source: Path, manifest: dict, artifact, integrity: str) -> bytes:
     u64(out, len(token_types)); [u32(out, int(value)) for value in token_types]
     u64(out, len(left)); [u32(out, int(value)) for value in left]; [u32(out, int(value)) for value in right]
     u8(out, int(bool(tokenizer["add_bos"])))
+    u8(out, int(tokenizer["pre_tokenizer_id"]))
     specials = [(ROLE_IDS["BosId"], artifact.metadata["tokenizer.ggml.bos_token_id"]),
                 (ROLE_IDS["EosId"], artifact.metadata["tokenizer.ggml.eos_token_id"]),
                 (ROLE_IDS["PadId"], artifact.metadata["tokenizer.ggml.padding_token_id"])]
@@ -118,6 +119,14 @@ def build_plan(source: Path, manifest: dict, artifact, integrity: str) -> bytes:
         string(out, row["target_name"]); u8(out, len(row["source_shape"]));
         for dimension in row["source_shape"]: u64(out, dimension)
         u8(out, REPRESENTATIONS[row["target_representation"]]); u64(out, row["source_offset"]); u64(out, row["source_payload_bytes"]); u32(out, row["target_order"])
+    moe = manifest.get("moe_plan")
+    if moe is None:
+        u8(out, 0)
+    else:
+        u8(out, 1)
+        for key in ("expert_count", "active_expert_count", "layer_count", "shared_expert_count"):
+            u32(out, int(moe[key]))
+        u8(out, int(bool(moe["shared_experts"])))
     return bytes(out)
 
 

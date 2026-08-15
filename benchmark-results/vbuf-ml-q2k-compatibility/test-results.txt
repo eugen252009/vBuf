@@ -1,0 +1,6 @@
+source GGUF inspection: PASS, Q2_K type 10, 68,812,800 bytes, 84 bytes/block
+vBuf canonical diagnostic: PASS, 407 blocks, 377 tensors
+tensor payload parity: PASS, 377/377
+llama.cpp vBuf full load: PASS
+DeepSeek model: 27 layers, 64 experts, 6 active experts
+CPU inference: PASS, tokens=3, decode=0

@@ -26,6 +26,7 @@ from typing import Any, BinaryIO, Iterable
 EXPECTED = {
     "Q8_0": ("Qwen3-0.6B-Q8_0.gguf", "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031"),
     "BF16": ("Qwen3-0.6B-BF16.gguf", "65a16246f5814dc0587acadcf0328186b17febf6dcaeb1b13efa9243b551d38e"),
+    "DEEPSEEK_IQ1_S": ("DeepSeek-V2-Lite.IQ1_S.gguf", "9d3bc4a5bc25b7acb8bc31436745bd8cfaf94509fd1322bb36ab155b0daf1616"),
 }
 
 # GGML type IDs and exact block geometry needed by the two artifacts.  The
@@ -244,8 +245,13 @@ def metadata_number(artifact: Artifact, *keys: str) -> int | None:
     return None
 
 
-def role_key(tensor: Tensor) -> tuple[int, str, int]:
+def role_key(tensor: Tensor, deepseek: bool = False) -> tuple[Any, ...]:
     role = tensor.role_detail.lower()
+    if deepseek:
+        ranks = ("attn_norm", "attn_q", "attn_k", "attn_v", "attn_output", "ffn_norm", "ffn_gate_inp", "ffn_exp_probs_b", "ffn_gate_shexp", "ffn_up_shexp", "ffn_down_shexp", "ffn_gate_exps", "ffn_up_exps", "ffn_down_exps", "ffn_gate", "ffn_up", "ffn_down")
+        rank = next((index for index, token in enumerate(ranks) if token in role), len(ranks))
+        routed = int(any(token in role for token in ("ffn_gate_exps", "ffn_up_exps", "ffn_down_exps")))
+        return routed, rank, role, tensor.ordinal
     ranks = ("attn_norm", "attn_q", "attn_k", "attn_v", "attn_output", "ffn_norm", "ffn_gate", "ffn_up", "ffn_down")
     rank = next((index for index, token in enumerate(ranks) if token in role), len(ranks))
     return rank, role, tensor.ordinal
@@ -259,10 +265,10 @@ def layout_order(artifact: Artifact, name: str) -> list[Tensor]:
         return sorted(artifact.tensors, key=lambda tensor: tensor.name)
     def key(tensor: Tensor, roles: bool, prefix: bool = False) -> tuple[Any, ...]:
         if tensor.group == "GlobalPre":
-            return (0, -1, role_key(tensor) if roles else (tensor.name, tensor.ordinal))
+            return (0, -1, role_key(tensor, name == "DEEPSEEK_HOT_ROLE_ORDER") if roles else (tensor.name, tensor.ordinal))
         if tensor.group == "Layer":
             return (1, tensor.layer if tensor.layer is not None else 1 << 60,
-                    role_key(tensor) if roles else (tensor.name, tensor.ordinal))
+                    role_key(tensor, name == "DEEPSEEK_HOT_ROLE_ORDER") if roles else (tensor.name, tensor.ordinal))
         if tensor.group == "GlobalPost":
             return (3 if prefix else 2, 1 << 60, tensor.name, tensor.ordinal)
         return (4, 1 << 60, tensor.name, tensor.ordinal)
@@ -270,12 +276,14 @@ def layout_order(artifact: Artifact, name: str) -> list[Tensor]:
         return sorted(artifact.tensors, key=lambda tensor: key(tensor, False))
     if name == "LAYER_MAJOR_ROLE_ORDER":
         return sorted(artifact.tensors, key=lambda tensor: key(tensor, True))
+    if name == "DEEPSEEK_HOT_ROLE_ORDER":
+        return sorted(artifact.tensors, key=lambda tensor: key(tensor, True))
     if name == "PREFIX_FRIENDLY":
         return sorted(artifact.tensors, key=lambda tensor: key(tensor, True, True))
     raise ValueError(f"unknown layout {name}")
 
 
-LAYOUTS = ("GGUF_SOURCE_ORDER", "NAME_ORDER", "LAYER_MAJOR", "LAYER_MAJOR_ROLE_ORDER", "PREFIX_FRIENDLY")
+LAYOUTS = ("GGUF_SOURCE_ORDER", "NAME_ORDER", "LAYER_MAJOR", "LAYER_MAJOR_ROLE_ORDER", "DEEPSEEK_HOT_ROLE_ORDER", "PREFIX_FRIENDLY")
 
 
 def simulate(artifact: Artifact, layout: str) -> tuple[list[Tensor], int, int]:
@@ -614,6 +622,24 @@ class ToolTests(unittest.TestCase):
             classify(tensor)
         artifact.tensors = [a, b]
         self.assertEqual([tensor.name for tensor in layout_order(artifact, "LAYER_MAJOR_ROLE_ORDER")], [b.name, a.name])
+
+    def test_deepseek_hot_role_order_keeps_router_and_shared_before_routed_experts(self) -> None:
+        names = [
+            "blk.0.ffn_down_exps.weight",
+            "blk.0.ffn_gate_inp.weight",
+            "blk.0.ffn_up_shexp.weight",
+            "blk.0.ffn_gate_exps.weight",
+            "blk.0.ffn_norm.weight",
+        ]
+        tensors = [Tensor(index, name, (1,), 0, "F32", 1, 4, index * 32, index * 32, index * 32 + 4) for index, name in enumerate(names)]
+        for tensor in tensors:
+            classify(tensor)
+        artifact = Artifact(Path("x"), "", 0, 3, 2, 0, {}, 32, 0, [], 0)
+        artifact.tensors = tensors
+        self.assertEqual([tensor.name for tensor in layout_order(artifact, "DEEPSEEK_HOT_ROLE_ORDER")], [
+            "blk.0.ffn_norm.weight", "blk.0.ffn_gate_inp.weight", "blk.0.ffn_up_shexp.weight",
+            "blk.0.ffn_gate_exps.weight", "blk.0.ffn_down_exps.weight",
+        ])
 
 
 def main() -> int:

@@ -1,0 +1,12 @@
+{
+  "name": "token_embd.weight",
+  "gguf_type_id": 10,
+  "gguf_type": "Q2_K",
+  "dimensions": [2048, 102400],
+  "element_count": 209715200,
+  "byte_length": 68812800,
+  "block_elements": 256,
+  "block_count": 819200,
+  "bytes_per_block": 84,
+  "quantization_version": 2
+}

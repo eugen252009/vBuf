@@ -21,6 +21,17 @@ bool VbufMlAdapter::tensor(uint64_t index, TensorDescriptor & out) const {
         case 0: out.type = GGML_TYPE_F32; break;
         case 1: out.type = GGML_TYPE_BF16; break;
         case 2: out.type = GGML_TYPE_Q8_0; break;
+        case 3: out.type = GGML_TYPE_Q4_0; break;
+        case 4: out.type = GGML_TYPE_Q2_K; break;
+        case 5: out.type = GGML_TYPE_IQ1_S; break;
+        case 6: out.type = GGML_TYPE_Q4_K; break;
+        case 7: out.type = GGML_TYPE_IQ4_NL; break;
+        case 8: out.type = GGML_TYPE_IQ4_XS; break;
+        case 9: out.type = GGML_TYPE_Q3_K; break;
+        case 10: out.type = GGML_TYPE_IQ2_XXS; break;
+        case 11: out.type = GGML_TYPE_IQ2_XS; break;
+        case 12: out.type = GGML_TYPE_IQ2_S; break;
+        case 13: out.type = GGML_TYPE_Q5_K; break;
         default: return false;
     }
     out.payload = info.payload;
@@ -63,6 +74,25 @@ bool VbufMlAdapter::token_id(const std::string & bytes, uint32_t & out) const {
 
 bool VbufMlAdapter::merge_rank(uint64_t left, uint64_t right, uint32_t & out) const {
     return handle_ && vbuf_ml_consumer_merge_rank(handle_, left, right, &out) == 0;
+}
+
+uint64_t VbufMlAdapter::nested_count() const {
+    uint64_t count = 0;
+    return handle_ && vbuf_ml_consumer_nested_count(handle_, &count) == 0 ? count : 0;
+}
+
+bool VbufMlAdapter::nested_info(uint64_t index, std::string & name, uint16_t & key_id, uint16_t & occurrence, uint64_t & child_length) const {
+    if (!handle_) return false;
+    char buffer[4097]{};
+    if (vbuf_ml_consumer_nested_info(handle_, index, buffer, sizeof(buffer), &key_id, &occurrence, &child_length) != 0) return false;
+    name = buffer;
+    return true;
+}
+
+MoeLoaderKind VbufMlAdapter::moe_loader_kind() const {
+    uint8_t kind = 0;
+    if (!handle_ || vbuf_ml_consumer_moe_loader_kind(handle_, &kind) != 0) return MoeLoaderKind::Unsupported;
+    return static_cast<MoeLoaderKind>(kind);
 }
 
 } // namespace vbuf_llama

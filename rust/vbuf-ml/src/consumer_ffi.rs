@@ -79,6 +79,14 @@ pub struct VbufMlModelMetadataInfo {
     pub feed_forward_length: u64,
     pub normalization_epsilon: f64,
     pub rope_theta: f64,
+    pub expert_count: u32,
+    pub expert_used_count: u32,
+    pub expert_shared_count: u32,
+    pub expert_feed_forward_length: u32,
+    pub leading_dense_block_count: u32,
+    pub kv_lora_rank: u32,
+    pub rope_dimension: u32,
+    pub vocabulary_size: u32,
 }
 
 const OK: u32 = 0;
@@ -128,6 +136,31 @@ pub unsafe extern "C" fn vbuf_ml_consumer_tensor_physical_range(handle: *const V
     })).unwrap_or(VALIDATION_ERROR)
 }
 
+/// Return the number of inline child vBuf streams in the optional nested directory.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_nested_count(handle: *const VbufMlConsumerHandle, count: *mut u64) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || count.is_null() { return INVALID_ARGUMENT; }
+        *count = (*handle).model.view().nested.as_ref().map_or(0, |directory| directory.children().len() as u64);
+        OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// Return one nested child descriptor. The name buffer is caller-owned.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_nested_info(handle: *const VbufMlConsumerHandle, index: u64, name_buffer: *mut c_char, name_capacity: usize, key_id: *mut u16, occurrence: *mut u16, child_length: *mut u64) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || name_buffer.is_null() || key_id.is_null() || occurrence.is_null() || child_length.is_null() { return INVALID_ARGUMENT; }
+        let Some(child) = (*handle).model.view().nested.as_ref().and_then(|directory| directory.children().get(index as usize)) else { return VALIDATION_ERROR; };
+        let bytes = child.name.as_bytes();
+        if bytes.len().checked_add(1).is_none_or(|needed| needed > name_capacity) { return BUFFER_TOO_SMALL; }
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), name_buffer.cast::<u8>(), bytes.len());
+        *name_buffer.add(bytes.len()) = 0;
+        *key_id = child.key_id; *occurrence = child.occurrence; *child_length = child.child_length;
+        OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
 /// # Safety
 /// `handle`, `info`, and `name_buffer` must be valid for the duration of the call.
 #[unsafe(no_mangle)]
@@ -138,7 +171,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_tensor_info(handle: *const VbufMlConsu
         let bytes = name.as_bytes(); if bytes.len().checked_add(1).is_none_or(|needed| needed > name_capacity) { return BUFFER_TOO_SMALL; }
         std::ptr::copy_nonoverlapping(bytes.as_ptr(), name_buffer.cast::<u8>(), bytes.len()); *name_buffer.add(bytes.len()) = 0;
         if shape.len() > 16 { return VALIDATION_ERROR; }
-        (*info).representation = match kind { ConsumerTensorType::F32 => 0, ConsumerTensorType::Bf16 => 1, ConsumerTensorType::Q8_0 => 2 }; (*info).rank = shape.len() as u8; (*info).dimensions = [0; 16]; (&mut (*info).dimensions)[..shape.len()].copy_from_slice(&shape); (*info).payload = payload.as_ptr(); (*info).payload_len = payload.len() as u64; OK
+        (*info).representation = match kind { ConsumerTensorType::F32 => 0, ConsumerTensorType::Bf16 => 1, ConsumerTensorType::Q8_0 => 2, ConsumerTensorType::Q4_0 => 3, ConsumerTensorType::Q2_K => 4, ConsumerTensorType::IQ1_S => 5, ConsumerTensorType::Q4_K => 6, ConsumerTensorType::IQ4_NL => 7, ConsumerTensorType::IQ4_XS => 8, ConsumerTensorType::Q3_K => 9, ConsumerTensorType::IQ2_XXS => 10, ConsumerTensorType::IQ2_XS => 11, ConsumerTensorType::IQ2_S => 12, ConsumerTensorType::Q5_K => 13 }; (*info).rank = shape.len() as u8; (*info).dimensions = [0; 16]; (&mut (*info).dimensions)[..shape.len()].copy_from_slice(&shape); (*info).payload = payload.as_ptr(); (*info).payload_len = payload.len() as u64; OK
     })).unwrap_or(VALIDATION_ERROR)
 }
 
@@ -149,7 +182,12 @@ pub unsafe extern "C" fn vbuf_ml_consumer_metadata(handle: *const VbufMlConsumer
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
         if handle.is_null() || info.is_null() { return INVALID_ARGUMENT; }
         let Ok(value) = (*handle).model.model_metadata() else { return VALIDATION_ERROR; };
-        *info = VbufMlModelMetadataInfo { context_length: value.context_length, embedding_length: value.embedding_length, layer_count: value.layer_count, head_count: value.head_count, kv_head_count: value.kv_head_count, key_head_dimension: value.key_head_dimension, value_head_dimension: value.value_head_dimension, feed_forward_length: value.feed_forward_length, normalization_epsilon: value.normalization_epsilon, rope_theta: value.rope_theta }; OK
+        let moe = (*handle).model.view().moe.as_ref().map(|directory| directory.parameters());
+        let expert_feed_forward_length = (*handle).model.deepseek_moe_loader().map_or(0, |loader| loader.expert_feed_forward_length as u32);
+        let kv_lora_rank = (*handle).model.view().directory.get("blk.0.attn_kv_a_norm.weight").and_then(|tensor| tensor.dimensions.first()).copied().unwrap_or(0) as u32;
+        let rope_dimension = (*handle).model.view().directory.get("blk.0.attn_kv_a_mqa.weight").and_then(|tensor| tensor.dimensions.get(1)).copied().unwrap_or(0).saturating_sub(u64::from(kv_lora_rank)) as u32;
+        let leading_dense_block_count = (0..value.layer_count).take_while(|layer| (*handle).model.view().directory.get(&format!("blk.{layer}.ffn_gate_inp.weight")).is_none()).count() as u32;
+        *info = VbufMlModelMetadataInfo { context_length: value.context_length, embedding_length: value.embedding_length, layer_count: value.layer_count, head_count: value.head_count, kv_head_count: value.kv_head_count, key_head_dimension: value.key_head_dimension, value_head_dimension: value.value_head_dimension, feed_forward_length: value.feed_forward_length, normalization_epsilon: value.normalization_epsilon, rope_theta: value.rope_theta, expert_count: moe.map_or(0, |parameters| parameters.expert_count), expert_used_count: moe.map_or(0, |parameters| parameters.active_expert_count), expert_shared_count: moe.map_or(0, |parameters| parameters.shared_expert_count), expert_feed_forward_length, leading_dense_block_count, kv_lora_rank, rope_dimension, vocabulary_size: (*handle).model.tokenizer_count().unwrap_or(0) as u32 }; OK
     })).unwrap_or(VALIDATION_ERROR)
 }
 
@@ -269,7 +307,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_tensor_views(handle: *const VbufMlCons
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
         if handle.is_null() || views.is_null() || count.is_null() { return INVALID_ARGUMENT; }
         let handle = &*handle;
-        let table = handle.tensor_views.get_or_init(|| handle.model.view().directory.tensors().iter().map(|tensor| VbufMlTensorView { name: tensor.name.as_ptr().cast(), name_len: tensor.name.len() as u64, representation: match tensor.representation { crate::TensorRepresentation::CanonicalPrimitive => 0, crate::TensorRepresentation::Bf16 => 1, crate::TensorRepresentation::GgmlQ8_0 => 2 }, rank: tensor.dimensions.len() as u8, dimensions: tensor.dimensions.as_ptr(), payload: tensor.range.bytes().as_ptr(), payload_len: tensor.range.bytes().len() as u64 }).collect());
+         let table = handle.tensor_views.get_or_init(|| handle.model.view().directory.tensors().iter().map(|tensor| VbufMlTensorView { name: tensor.name.as_ptr().cast(), name_len: tensor.name.len() as u64, representation: match tensor.representation { crate::TensorRepresentation::CanonicalPrimitive => 0, crate::TensorRepresentation::Bf16 => 1, crate::TensorRepresentation::GgmlQ8_0 => 2, crate::TensorRepresentation::GgmlQ4_0 => 3, crate::TensorRepresentation::GgmlQ2_K => 4, crate::TensorRepresentation::GgmlIQ1_S => 5, crate::TensorRepresentation::GgmlQ4_K => 6, crate::TensorRepresentation::GgmlIQ4_NL => 7, crate::TensorRepresentation::GgmlIQ4_XS => 8, crate::TensorRepresentation::GgmlQ3_K => 9, crate::TensorRepresentation::GgmlIQ2_XXS => 10, crate::TensorRepresentation::GgmlIQ2_XS => 11, crate::TensorRepresentation::GgmlIQ2_S => 12, crate::TensorRepresentation::GgmlQ5_K => 13 }, rank: tensor.dimensions.len() as u8, dimensions: tensor.dimensions.as_ptr(), payload: tensor.range.bytes().as_ptr(), payload_len: tensor.range.bytes().len() as u64 }).collect());
         *views = table.as_ptr(); *count = table.len() as u64; OK
     })).unwrap_or(VALIDATION_ERROR)
 }
@@ -284,6 +322,24 @@ pub unsafe extern "C" fn vbuf_ml_consumer_architecture(handle: *const VbufMlCons
         let bytes = metadata.architecture.as_bytes();
         if bytes.len().checked_add(1).is_none_or(|needed| needed > capacity) { return BUFFER_TOO_SMALL; }
         std::ptr::copy_nonoverlapping(bytes.as_ptr(), buffer.cast(), bytes.len()); *buffer.add(bytes.len()) = 0; OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// Return the architecture-neutral MoE loader kind: 0 unsupported/dense,
+/// 1 Qwen MoE, or 2 DeepSeek MoE.
+/// # Safety
+/// `handle` and `kind` must be valid pointers for the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_moe_loader_kind(handle: *const VbufMlConsumerHandle, kind: *mut u8) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || kind.is_null() { return INVALID_ARGUMENT; }
+        let architecture = (*handle).model.view().metadata.architecture().unwrap_or("");
+        *kind = match crate::MoeLoaderKind::for_architecture(architecture) {
+            crate::MoeLoaderKind::QwenMoE => 1,
+            crate::MoeLoaderKind::DeepSeekMoE => 2,
+            crate::MoeLoaderKind::Unsupported => 0,
+        };
+        OK
     })).unwrap_or(VALIDATION_ERROR)
 }
 

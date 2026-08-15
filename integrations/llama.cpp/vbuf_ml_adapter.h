@@ -27,6 +27,14 @@ struct VbufMlModelMetadataInfo {
     uint64_t feed_forward_length;
     double normalization_epsilon;
     double rope_theta;
+    uint32_t expert_count;
+    uint32_t expert_used_count;
+    uint32_t expert_shared_count;
+    uint32_t expert_feed_forward_length;
+    uint32_t leading_dense_block_count;
+    uint32_t kv_lora_rank;
+    uint32_t rope_dimension;
+    uint32_t vocabulary_size;
 };
 VbufMlConsumerHandle * vbuf_ml_consumer_open(const char * path);
 void vbuf_ml_consumer_close(VbufMlConsumerHandle * handle);
@@ -48,9 +56,14 @@ uint32_t vbuf_ml_consumer_add_bos(const VbufMlConsumerHandle *, bool * value);
 uint32_t vbuf_ml_consumer_runtime_indexes(const VbufMlConsumerHandle *);
 uint32_t vbuf_ml_consumer_token_id(const VbufMlConsumerHandle *, const uint8_t *, size_t, uint32_t *);
 uint32_t vbuf_ml_consumer_merge_rank(const VbufMlConsumerHandle *, uint64_t, uint64_t, uint32_t *);
+uint32_t vbuf_ml_consumer_nested_count(const VbufMlConsumerHandle *, uint64_t * count);
+uint32_t vbuf_ml_consumer_nested_info(const VbufMlConsumerHandle *, uint64_t index, char * name, size_t name_capacity, uint16_t * key_id, uint16_t * occurrence, uint64_t * child_length);
+uint32_t vbuf_ml_consumer_moe_loader_kind(const VbufMlConsumerHandle *, uint8_t * kind);
 }
 
 namespace vbuf_llama {
+
+enum class MoeLoaderKind : uint8_t { Unsupported = 0, QwenMoE = 1, DeepSeekMoE = 2 };
 
 struct TensorDescriptor {
     std::string name;
@@ -81,6 +94,9 @@ public:
     bool build_runtime_indexes() const;
     bool token_id(const std::string & bytes, uint32_t & out) const;
     bool merge_rank(uint64_t left, uint64_t right, uint32_t & out) const;
+    uint64_t nested_count() const;
+    bool nested_info(uint64_t index, std::string & name, uint16_t & key_id, uint16_t & occurrence, uint64_t & child_length) const;
+    MoeLoaderKind moe_loader_kind() const;
 
 private:
     VbufMlConsumerHandle * handle_ = nullptr;

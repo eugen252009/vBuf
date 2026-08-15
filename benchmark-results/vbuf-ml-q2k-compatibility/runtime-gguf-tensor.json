@@ -1,0 +1,10 @@
+{
+  "type": "GGML_TYPE_Q2_K",
+  "type_id": 10,
+  "block_size": 256,
+  "type_size": 84,
+  "dimensions": [2048, 102400],
+  "nbytes": 68812800,
+  "data_origin": "direct GGUF mmap/file mapping",
+  "transform_before_runtime": false
+}

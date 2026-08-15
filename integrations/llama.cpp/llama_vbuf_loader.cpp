@@ -138,7 +138,7 @@ static void set_model_metadata(gguf_context * meta, VbufRuntime & source) {
 }
 
 static ggml_type tensor_type(uint8_t representation) {
-    switch (representation) { case 0: return GGML_TYPE_F32; case 1: return GGML_TYPE_BF16; case 2: return GGML_TYPE_Q8_0; default: throw std::runtime_error("unknown vBuf representation"); }
+    switch (representation) { case 0: return GGML_TYPE_F32; case 1: return GGML_TYPE_BF16; case 2: return GGML_TYPE_Q8_0; case 3: return GGML_TYPE_Q4_0; case 4: return GGML_TYPE_Q2_K; case 5: return GGML_TYPE_IQ1_S; case 6: return GGML_TYPE_Q4_K; case 7: return GGML_TYPE_IQ4_NL; case 8: return GGML_TYPE_IQ4_XS; case 9: return GGML_TYPE_Q3_K; case 10: return GGML_TYPE_IQ2_XXS; case 11: return GGML_TYPE_IQ2_XS; case 12: return GGML_TYPE_IQ2_S; case 13: return GGML_TYPE_Q5_K; default: throw std::runtime_error("unknown vBuf representation"); }
 }
 
 static ggml_context_ptr add_tensor_metadata(gguf_context * meta, VbufRuntime & source) {

@@ -19,7 +19,8 @@ TENSOR_KEY_ID = 0x0200
 BOOTSTRAP_KEY_ID = 0xF000
 CONTROL_KEY_IDS = {"TensorDirectory": 0x0201, "ModelMetadata": 0x0202, "TokenizerMetadata": 0x0203, "IntegrityMetadata": 0x0204}
 PLACEMENT = "LAYER_MAJOR_ROLE_ORDER"
-SUPPORTED_TYPES = {"F32": ("CanonicalPrimitive", "primitive"), "BF16": ("BF16", "opaque_bytes"), "Q8_0": ("GGML_Q8_0", "opaque_bytes")}
+DEEPSEEK_PLACEMENT = "DEEPSEEK_HOT_ROLE_ORDER"
+SUPPORTED_TYPES = {"F32": ("CanonicalPrimitive", "primitive"), "BF16": ("BF16", "opaque_bytes"), "Q8_0": ("GGML_Q8_0", "opaque_bytes"), "Q4_0": ("GGML_Q4_0", "opaque_bytes"), "Q2_K": ("GGML_Q2_K", "opaque_bytes"), "Q2_K_S": ("GGML_Q2_K", "opaque_bytes"), "Q2_K_M": ("GGML_Q2_K", "opaque_bytes"), "IQ1_S": ("GGML_IQ1_S", "opaque_bytes"), "Q4_K": ("GGML_Q4_K", "opaque_bytes"), "Q4_K_S": ("GGML_Q4_K", "opaque_bytes"), "Q4_K_M": ("GGML_Q4_K", "opaque_bytes"), "IQ4_NL": ("GGML_IQ4_NL", "opaque_bytes"), "IQ4_XS": ("GGML_IQ4_XS", "opaque_bytes"), "Q3_K": ("GGML_Q3_K", "opaque_bytes"), "Q3_K_S": ("GGML_Q3_K", "opaque_bytes"), "Q3_K_M": ("GGML_Q3_K", "opaque_bytes"), "IQ2_XXS": ("GGML_IQ2_XXS", "opaque_bytes"), "IQ2_XS": ("GGML_IQ2_XS", "opaque_bytes"), "IQ2_S": ("GGML_IQ2_S", "opaque_bytes"), "Q5_K": ("GGML_Q5_K", "opaque_bytes")}
 
 
 def sha256(path: Path) -> str:
@@ -58,18 +59,20 @@ def source_range_summary(artifact, tensors) -> dict[str, int]:
 
 def metadata_plan(artifact) -> list[dict[str, object]]:
     metadata = artifact.metadata
+    architecture = str(metadata.get("general.architecture", "qwen3"))
+    prefix = architecture
     fields = [
         ("general.architecture", "architecture", "Architecture", "DIRECTLY_REPRESENTED", metadata.get("general.architecture")),
-        ("qwen3.context_length", "context length", "ContextLength", "DIRECTLY_REPRESENTED", metadata.get("qwen3.context_length")),
-        ("qwen3.embedding_length", "embedding length", "EmbeddingLength", "DIRECTLY_REPRESENTED", metadata.get("qwen3.embedding_length")),
-        ("qwen3.block_count", "layer count", "LayerCount", "DIRECTLY_REPRESENTED", metadata.get("qwen3.block_count")),
-        ("qwen3.attention.head_count", "attention head count", "HeadCount", "DIRECTLY_REPRESENTED", metadata.get("qwen3.attention.head_count")),
-        ("qwen3.attention.head_count_kv", "KV head count", "KVHeadCount", "DIRECTLY_REPRESENTED", metadata.get("qwen3.attention.head_count_kv")),
-        ("qwen3.attention.key_length", "key head dimension", "KeyHeadDimension", "DIRECTLY_REPRESENTED", metadata.get("qwen3.attention.key_length")),
-        ("qwen3.attention.value_length", "value head dimension", "ValueHeadDimension", "DIRECTLY_REPRESENTED", metadata.get("qwen3.attention.value_length")),
-        ("qwen3.feed_forward_length", "feed-forward length", "FeedForwardLength", "DIRECTLY_REPRESENTED", metadata.get("qwen3.feed_forward_length")),
-        ("qwen3.attention.layer_norm_rms_epsilon", "RMS normalization epsilon", "NormalizationEpsilon", "DIRECTLY_REPRESENTED", metadata.get("qwen3.attention.layer_norm_rms_epsilon")),
-        ("qwen3.rope.freq_base", "RoPE base", "RopeTheta", "DIRECTLY_REPRESENTED", metadata.get("qwen3.rope.freq_base")),
+        (f"{prefix}.context_length", "context length", "ContextLength", "DIRECTLY_REPRESENTED", metadata.get(f"{prefix}.context_length")),
+        (f"{prefix}.embedding_length", "embedding length", "EmbeddingLength", "DIRECTLY_REPRESENTED", metadata.get(f"{prefix}.embedding_length")),
+        (f"{prefix}.block_count", "layer count", "LayerCount", "DIRECTLY_REPRESENTED", metadata.get(f"{prefix}.block_count")),
+        (f"{prefix}.attention.head_count", "attention head count", "HeadCount", "DIRECTLY_REPRESENTED", metadata.get(f"{prefix}.attention.head_count")),
+        (f"{prefix}.attention.head_count_kv", "KV head count", "KVHeadCount", "DIRECTLY_REPRESENTED", metadata.get(f"{prefix}.attention.head_count_kv")),
+        (f"{prefix}.attention.key_length", "key head dimension", "KeyHeadDimension", "DIRECTLY_REPRESENTED", metadata.get(f"{prefix}.attention.key_length")),
+        (f"{prefix}.attention.value_length", "value head dimension", "ValueHeadDimension", "DIRECTLY_REPRESENTED", metadata.get(f"{prefix}.attention.value_length")),
+        (f"{prefix}.feed_forward_length", "feed-forward length", "FeedForwardLength", "DIRECTLY_REPRESENTED", metadata.get(f"{prefix}.feed_forward_length")),
+        (f"{prefix}.attention.layer_norm_rms_epsilon", "RMS normalization epsilon", "NormalizationEpsilon", "DIRECTLY_REPRESENTED", metadata.get(f"{prefix}.attention.layer_norm_rms_epsilon")),
+        (f"{prefix}.rope.freq_base", "RoPE base", "RopeTheta", "DIRECTLY_REPRESENTED", metadata.get(f"{prefix}.rope.freq_base")),
         ("tokenizer.ggml.tokens", "vocabulary size", "VocabularySize", "DERIVABLE", len(metadata["tokenizer.ggml.tokens"]) if isinstance(metadata.get("tokenizer.ggml.tokens"), list) else None),
     ]
     return [{"source_key": source, "consumer_semantic": consumer, "target": target,
@@ -99,7 +102,8 @@ def tokenizer_conversion_plan(artifact) -> dict[str, object]:
             raise ValueError("merge component is absent from vocabulary")
         left_ids.append(token_ids[left])
         right_ids.append(token_ids[right])
-    return {"kind": "Gpt2BpeQwen2", "model_id": 1, "pre_tokenizer_id": 1,
+    pre_tokenizer = 2 if str(metadata.get("general.architecture", "")).startswith("deepseek") else 1
+    return {"kind": "Gpt2BpeQwen2", "model_id": 1, "pre_tokenizer_id": pre_tokenizer,
             "add_bos": metadata.get("tokenizer.ggml.add_bos_token"),
             "merge_left_ids": left_ids, "merge_right_ids": right_ids,
             "merge_count": len(merges)}
@@ -139,8 +143,25 @@ def tokenizer_plan(artifact) -> list[dict[str, object]]:
     return rows
 
 
-def tensor_plans(artifact):
-    ordered = layout_order(artifact, PLACEMENT)
+def placement_for_artifact(artifact):
+    architecture = artifact.metadata.get("general.architecture", "")
+    return DEEPSEEK_PLACEMENT if str(architecture).startswith("deepseek") else PLACEMENT
+
+
+def moe_plan(artifact):
+    architecture = str(artifact.metadata.get("general.architecture", ""))
+    if not architecture.startswith("deepseek"):
+        return None
+    prefix = architecture
+    return {"architecture": architecture, "expert_count": int(artifact.metadata[f"{prefix}.expert_count"]),
+            "active_expert_count": int(artifact.metadata[f"{prefix}.expert_used_count"]),
+            "layer_count": int(artifact.metadata[f"{prefix}.block_count"]),
+            "shared_experts": True, "shared_expert_count": int(artifact.metadata[f"{prefix}.expert_shared_count"])}
+
+
+def tensor_plans(artifact, placement=None):
+    placement = placement or placement_for_artifact(artifact)
+    ordered = layout_order(artifact, placement)
     plans = []
     for target_order, tensor in enumerate(ordered):
         if tensor.type_name not in SUPPORTED_TYPES:
@@ -201,9 +222,11 @@ def build_manifest(root: Path, label: str) -> dict[str, object]:
     if actual_hash != expected_hash:
         raise ValueError(f"hash mismatch for {path}: expected {expected_hash}, got {actual_hash}")
     artifact = parse(path)
-    if artifact.metadata.get("general.architecture") != "qwen3":
-        raise ValueError("source architecture is not qwen3")
-    plans = tensor_plans(artifact)
+    architecture = str(artifact.metadata.get("general.architecture", ""))
+    if architecture not in {"qwen3", "deepseek2", "deepseek32", "deepseek2-ocr"}:
+        raise ValueError("source architecture is not a supported Qwen/DeepSeek architecture")
+    placement = placement_for_artifact(artifact)
+    plans = tensor_plans(artifact, placement)
     metadata = metadata_plan(artifact)
     tokenizer = tokenizer_plan(artifact)
     tokenizer_conversion = tokenizer_conversion_plan(artifact)
@@ -234,11 +257,11 @@ def build_manifest(root: Path, label: str) -> dict[str, object]:
     manifest = {
         "manifest_version": 1,
         "source_identity": {"path": f"research-models/{filename}", "filename": filename, "size": artifact.size,
-                             "sha256": actual_hash, "gguf_version": artifact.version, "architecture": "qwen3",
+                             "sha256": actual_hash, "gguf_version": artifact.version, "architecture": architecture,
                              "metadata_kv_count": artifact.metadata_count, "tensor_count": artifact.tensor_count},
         "consumer_revision": {"repository": "https://github.com/ggml-org/llama.cpp.git", "commit": PINNED_COMMIT},
         "profile_version": "vbuf-ml-0.1",
-        "conversion_options": {"placement": PLACEMENT, "base_shift": 3, "integrity": {"enabled": False, "algorithm": "SHA-256", "coverage": "payload bytes"}},
+        "conversion_options": {"placement": placement, "base_shift": 3, "integrity": {"enabled": False, "algorithm": "SHA-256", "coverage": "payload bytes"}},
         "control_plan": [{"role": "Bootstrap", "target_key_id": BOOTSTRAP_KEY_ID, "action": "DERIVED"}] + [{"role": role, "target_key_id": key_id, "action": "DERIVED"} for role, key_id in CONTROL_KEY_IDS.items() if role != "IntegrityMetadata"],
         "model_metadata_plan": metadata,
         "tokenizer_plan": tokenizer,
@@ -247,10 +270,11 @@ def build_manifest(root: Path, label: str) -> dict[str, object]:
                                     "key_id": plan["target_key_id"], "occurrence": plan["target_occurrence"], "directory_order": index}
                                    for index, plan in enumerate(sorted(plans, key=lambda plan: plan["target_name"]))],
         "tensor_plans": plans,
+        "moe_plan": moe_plan(artifact),
         "shared_reference_plan": tied,
         "output_decision": output_decision,
         "payload_evidence": {"selected_source_payload_sha256": special_hashes},
-        "placement_plan": {"policy": PLACEMENT, "target_order_is_non_normative": True},
+        "placement_plan": {"policy": placement, "target_order_is_non_normative": True},
         "source_read_plan": source_read,
         "accounting": {"source_tensors": len(artifact.tensors), "copy_bytes": len(plans), "shared_reference": 1 if tied else 0,
                        "derived": len(CONTROL_KEY_IDS) - 1, "reject": 0, "unaccounted": 0},
@@ -264,6 +288,10 @@ def build_manifest(root: Path, label: str) -> dict[str, object]:
 
 
 class ManifestTests(unittest.TestCase):
+    def test_deepseek_placement_policy_is_selected_by_architecture(self) -> None:
+        artifact = type("Artifact", (), {"metadata": {"general.architecture": "deepseek2"}})()
+        self.assertEqual(placement_for_artifact(artifact), DEEPSEEK_PLACEMENT)
+
     def test_representation_geometry_is_reused(self) -> None:
         self.assertEqual(expected_bytes("F32", (2, 3)), 24)
         self.assertEqual(expected_bytes("BF16", (2, 3)), 12)
@@ -289,8 +317,10 @@ def main() -> int:
     root = args.root.resolve()
     output = (args.output_dir or root / "benchmark-results" / "vbuf-ml-step18").resolve()
     output.mkdir(parents=True, exist_ok=True)
+    labels = ["Q8_0", "BF16"]
+    if (root / "research-models" / EXPECTED["DEEPSEEK_IQ1_S"][0]).is_file(): labels.append("DEEPSEEK_IQ1_S")
     try:
-        manifests = {label: build_manifest(root, label) for label in ("Q8_0", "BF16")}
+        manifests = {label: build_manifest(root, label) for label in labels}
     except FileNotFoundError as error:
         print(f"SKIP — research model absent: {error}")
         return 0
@@ -298,7 +328,7 @@ def main() -> int:
         print(f"FAIL — {error}", file=sys.stderr)
         return 1
     for label, manifest in manifests.items():
-        filename = "qwen3-0.6b-q8_0-manifest.json" if label == "Q8_0" else "qwen3-0.6b-bf16-manifest.json"
+        filename = {"Q8_0": "qwen3-0.6b-q8_0-manifest.json", "BF16": "qwen3-0.6b-bf16-manifest.json", "DEEPSEEK_IQ1_S": "deepseek-v2-lite-iq1-s-manifest.json"}[label]
         (output / filename).write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     metadata_rows = []
     tokenizer_rows = []

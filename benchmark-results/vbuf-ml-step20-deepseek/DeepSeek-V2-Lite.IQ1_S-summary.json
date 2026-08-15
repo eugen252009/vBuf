@@ -1,0 +1,10 @@
+{
+  "artifact": "DeepSeek-V2-Lite.IQ1_S.vbuf",
+  "source": "DeepSeek-V2-Lite.IQ1_S.gguf",
+  "source_sha256": "9d3bc4a5bc25b7acb8bc31436745bd8cfaf94509fd1322bb36ab155b0daf1616",
+  "target_sha256": "780a55b77d2730705a93622338d9747149624d72e558e26182176868210fafcc",
+  "target_size": 4993331814,
+  "integrity": "none",
+  "tool": "vbuf-ml-convert",
+  "manifest": "deepseek-v2-lite-iq1-s-manifest.json"
+}

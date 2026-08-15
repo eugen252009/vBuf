@@ -60,31 +60,44 @@ public:
     bool get_string(const std::string & key, std::string & value) const override {
         if (key == "general.architecture") { value = architecture_; return true; }
         if (key == "tokenizer.ggml.model") { value = "gpt2"; return true; }
-        if (key == "tokenizer.ggml.pre") { value = "qwen2"; return true; }
+        if (key == "tokenizer.ggml.pre") { value = architecture_.find("deepseek") != std::string::npos ? "deepseek-llm" : "qwen2"; return true; }
         if (key == "tokenizer.chat_template" && chat_template_) { value = *chat_template_; return true; }
         return false;
     }
     bool get_u32(const std::string & key, uint32_t & value) const override {
-        const uint64_t * v = nullptr;
-        if (key == "qwen3.context_length") v = &metadata_.context_length;
-        else if (key == "qwen3.embedding_length") v = &metadata_.embedding_length;
-        else if (key == "qwen3.block_count") v = &metadata_.layer_count;
-        else if (key == "qwen3.feed_forward_length") v = &metadata_.feed_forward_length;
-        else if (key == "qwen3.attention.head_count") v = &metadata_.head_count;
-        else if (key == "qwen3.attention.head_count_kv") v = &metadata_.kv_head_count;
-        else if (key == "qwen3.attention.key_length") v = &metadata_.key_head_dimension;
-        else if (key == "qwen3.attention.value_length") v = &metadata_.value_head_dimension;
-        else if (key == "tokenizer.ggml.bos_token_id") v = &special_[0];
-        else if (key == "tokenizer.ggml.eos_token_id") v = &special_[1];
-        else if (key == "tokenizer.ggml.padding_token_id") v = &special_[3];
+        uint64_t v = 0;
+        const bool deepseek = architecture_.find("deepseek") != std::string::npos;
+        const std::string prefix = deepseek ? "deepseek2." : "qwen3.";
+        const bool generic = deepseek && key.rfind("qwen3.", 0) == 0;
+        if (key == prefix + "context_length" || generic && key == "qwen3.context_length") v = metadata_.context_length;
+        else if (key == prefix + "embedding_length" || generic && key == "qwen3.embedding_length") v = metadata_.embedding_length;
+        else if (key == prefix + "block_count" || generic && key == "qwen3.block_count") v = metadata_.layer_count;
+        else if (key == prefix + "feed_forward_length" || generic && key == "qwen3.feed_forward_length") v = metadata_.feed_forward_length;
+        else if (key == prefix + "attention.head_count" || generic && key == "qwen3.attention.head_count") v = metadata_.head_count;
+        else if (key == prefix + "attention.head_count_kv" || generic && key == "qwen3.attention.head_count_kv") v = metadata_.kv_head_count;
+        else if (key == prefix + "attention.key_length" || generic && key == "qwen3.attention.key_length") v = metadata_.key_head_dimension;
+        else if (key == prefix + "attention.value_length" || generic && key == "qwen3.attention.value_length") v = metadata_.value_head_dimension;
+        else if (key == prefix + "expert_count") v = metadata_.expert_count;
+        else if (key == prefix + "expert_used_count") v = metadata_.expert_used_count;
+        else if (key == prefix + "expert_shared_count") v = metadata_.expert_shared_count;
+        else if (key == prefix + "expert_feed_forward_length") v = metadata_.expert_feed_forward_length;
+        else if (key == prefix + "leading_dense_block_count") v = metadata_.leading_dense_block_count;
+        else if (key == prefix + "vocab_size") v = metadata_.vocabulary_size;
+        else if (key == prefix + "attention.kv_lora_rank") v = metadata_.kv_lora_rank;
+        else if (key == prefix + "rope.dimension_count") v = metadata_.rope_dimension;
+        else if (key == "tokenizer.ggml.bos_token_id") v = special_[0];
+        else if (key == "tokenizer.ggml.eos_token_id") v = special_[1];
+        else if (key == "tokenizer.ggml.padding_token_id") v = special_[3];
         else return false;
-        value = static_cast<uint32_t>(*v); return true;
+        value = static_cast<uint32_t>(v); return true;
     }
     bool get_i32(const std::string &, int32_t &) const override { return false; }
     bool get_u64(const std::string &, uint64_t &) const override { return false; }
     bool get_f32(const std::string & key, float & value) const override {
-        if (key == "qwen3.attention.layer_norm_rms_epsilon") { value = static_cast<float>(metadata_.normalization_epsilon); return true; }
-        if (key == "qwen3.rope.freq_base") { value = static_cast<float>(metadata_.rope_theta); return true; }
+        const bool deepseek = architecture_.find("deepseek") != std::string::npos;
+        const std::string prefix = deepseek ? "deepseek2." : "qwen3.";
+        if (key == prefix + "attention.layer_norm_rms_epsilon" || deepseek && key == "qwen3.attention.layer_norm_rms_epsilon") { value = static_cast<float>(metadata_.normalization_epsilon); return true; }
+        if (key == prefix + "rope.freq_base" || deepseek && key == "qwen3.rope.freq_base") { value = static_cast<float>(metadata_.rope_theta); return true; }
         return false;
     }
     bool get_bool(const std::string & key, bool & value) const override {
@@ -98,7 +111,7 @@ public:
         if (index >= tensor_count_) return false;
         const auto & view = tensors_[index];
         name.assign(view.name, view.name_len); dimensions.assign(view.dimensions, view.dimensions + view.rank); payload = view.payload; payload_bytes = view.payload_len;
-        switch (view.representation) { case 0: type = GGML_TYPE_F32; break; case 1: type = GGML_TYPE_BF16; break; case 2: type = GGML_TYPE_Q8_0; break; default: return false; }
+        switch (view.representation) { case 0: type = GGML_TYPE_F32; break; case 1: type = GGML_TYPE_BF16; break; case 2: type = GGML_TYPE_Q8_0; break; case 3: type = GGML_TYPE_Q4_0; break; case 4: type = GGML_TYPE_Q2_K; break; case 5: type = GGML_TYPE_IQ1_S; break; case 6: type = GGML_TYPE_Q4_K; break; case 7: type = GGML_TYPE_IQ4_NL; break; case 8: type = GGML_TYPE_IQ4_XS; break; case 9: type = GGML_TYPE_Q3_K; break; case 10: type = GGML_TYPE_IQ2_XXS; break; case 11: type = GGML_TYPE_IQ2_XS; break; case 12: type = GGML_TYPE_IQ2_S; break; case 13: type = GGML_TYPE_Q5_K; break; default: return false; }
         return true;
     }
     uint64_t token_count() const override { return token_count_; }

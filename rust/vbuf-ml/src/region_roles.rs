@@ -5,6 +5,8 @@ pub enum RegionRole {
     ModelMetadata = 2,
     TokenizerMetadata = 3,
     IntegrityMetadata = 4,
+    NestedDirectory = 5,
+    MoeDirectory = 6,
 }
 
 impl RegionRole {
@@ -14,6 +16,8 @@ impl RegionRole {
             2 => Some(Self::ModelMetadata),
             3 => Some(Self::TokenizerMetadata),
             4 => Some(Self::IntegrityMetadata),
+            5 => Some(Self::NestedDirectory),
+            6 => Some(Self::MoeDirectory),
             _ => None,
         }
     }

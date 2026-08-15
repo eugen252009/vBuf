@@ -19,3 +19,14 @@ BF16,tokenizer.ggml.padding_token_id,tokenizer metadata,151643,GPT2BpeQwen2 spec
 BF16,tokenizer.ggml.pre,tokenizer metadata,qwen2,GPT2BpeQwen2 PreTokenizerIdentity,DIRECTLY_REPRESENTED
 BF16,tokenizer.ggml.token_type,tokenizer metadata,array[151936],GPT2BpeQwen2 vocabulary,DIRECTLY_REPRESENTED
 BF16,tokenizer.ggml.tokens,tokenizer metadata,array[151936],GPT2BpeQwen2 vocabulary,DIRECTLY_REPRESENTED
+DEEPSEEK_IQ1_S,tokenizer.chat_template,tokenizer metadata,string[459],GPT2BpeQwen2 ChatTemplate (optional raw target),DIRECTLY_REPRESENTED
+DEEPSEEK_IQ1_S,tokenizer.ggml.add_bos_token,tokenizer metadata,True,GPT2BpeQwen2 AddBos,DIRECTLY_REPRESENTED
+DEEPSEEK_IQ1_S,tokenizer.ggml.add_eos_token,tokenizer metadata,False,not consumed by pinned first target,IGNORE_WITH_REASON
+DEEPSEEK_IQ1_S,tokenizer.ggml.bos_token_id,tokenizer metadata,100000,GPT2BpeQwen2 special ID,DIRECTLY_REPRESENTED
+DEEPSEEK_IQ1_S,tokenizer.ggml.eos_token_id,tokenizer metadata,100001,GPT2BpeQwen2 special ID,DIRECTLY_REPRESENTED
+DEEPSEEK_IQ1_S,tokenizer.ggml.merges,tokenizer metadata,array[99757],GPT2BpeQwen2 MergeLeftIds+MergeRightIds,DIRECTLY_REPRESENTED
+DEEPSEEK_IQ1_S,tokenizer.ggml.model,tokenizer metadata,gpt2,GPT2BpeQwen2 TokenizerModelIdentity,DIRECTLY_REPRESENTED
+DEEPSEEK_IQ1_S,tokenizer.ggml.padding_token_id,tokenizer metadata,100001,GPT2BpeQwen2 special ID,DIRECTLY_REPRESENTED
+DEEPSEEK_IQ1_S,tokenizer.ggml.pre,tokenizer metadata,deepseek-llm,GPT2BpeQwen2 PreTokenizerIdentity,DIRECTLY_REPRESENTED
+DEEPSEEK_IQ1_S,tokenizer.ggml.token_type,tokenizer metadata,array[102400],GPT2BpeQwen2 vocabulary,DIRECTLY_REPRESENTED
+DEEPSEEK_IQ1_S,tokenizer.ggml.tokens,tokenizer metadata,array[102400],GPT2BpeQwen2 vocabulary,DIRECTLY_REPRESENTED

@@ -3,7 +3,7 @@
 //! Canonical parsing happens once at open. The resulting semantic snapshot is
 //! owned by the handle; payload bytes remain borrowed from its mmap.
 
-use crate::{Bootstrap, ModelMetadata, ModelMetadataKey, TensorDirectory, TensorRepresentation, TokenizerMetadata};
+use crate::{Bootstrap, DeepSeekMoELoader, MoeDirectory, ModelMetadata, ModelMetadataKey, NestedDirectory, QwenMoELoader, TensorDirectory, TensorRepresentation, TokenizerMetadata};
 use crate::error::{MlError, MlErrorCode};
 use memmap2::Mmap;
 use std::sync::OnceLock;
@@ -56,6 +56,8 @@ pub struct BorrowedModelView<'a> {
     pub metadata: ModelMetadata<'a>,
     pub directory: TensorDirectory<'a>,
     pub tokenizer: TokenizerMetadata<'a>,
+    pub nested: Option<NestedDirectory<'a>>,
+    pub moe: Option<MoeDirectory>,
 }
 
 impl<'a> BorrowedModelView<'a> {
@@ -65,7 +67,12 @@ impl<'a> BorrowedModelView<'a> {
         let metadata = ModelMetadata::parse(&validated, &bootstrap)?;
         let directory = TensorDirectory::parse(&validated, &bootstrap)?;
         let tokenizer = TokenizerMetadata::parse(&validated, &bootstrap)?;
-        Ok(Self { validated, bootstrap, metadata, directory, tokenizer })
+        let nested = if bootstrap.region(crate::RegionRole::NestedDirectory).is_some() { Some(NestedDirectory::parse(&validated, &bootstrap)?) } else { None };
+        let moe = if bootstrap.region(crate::RegionRole::MoeDirectory).is_some() {
+            let nested = nested.as_ref().ok_or_else(|| MlError::new(MlErrorCode::MoeExpertReferenceMissing, "MoE directory requires a nested directory"))?;
+            Some(MoeDirectory::parse(&validated, &bootstrap, nested)?)
+        } else { None };
+        Ok(Self { validated, bootstrap, metadata, directory, tokenizer, nested, moe })
     }
 }
 
@@ -92,11 +99,22 @@ impl BorrowedModel {
     }
 
     pub fn view(&self) -> &BorrowedModelView<'static> { &self.view }
+    pub fn nested_child_count(&self) -> usize { self.view.nested.as_ref().map_or(0, |directory| directory.children().len()) }
+    pub fn moe_parameters(&self) -> Option<crate::MoeParameters> { self.view.moe.as_ref().map(MoeDirectory::parameters) }
+    pub fn moe_loader_kind(&self) -> crate::MoeLoaderKind { crate::MoeLoaderKind::for_architecture(self.view.metadata.architecture().unwrap_or("")) }
+    pub fn qwen_moe_loader(&self) -> Result<QwenMoELoader, MlError> {
+        let moe = self.view.moe.as_ref().ok_or_else(|| MlError::new(MlErrorCode::MoeDirectoryMissing, "model has no MoE directory"))?;
+        QwenMoELoader::from_model(self.view.metadata.architecture().unwrap_or(""), &self.view.metadata, &self.view.directory, moe)
+    }
+    pub fn deepseek_moe_loader(&self) -> Result<DeepSeekMoELoader, MlError> {
+        let moe = self.view.moe.as_ref().ok_or_else(|| MlError::new(MlErrorCode::MoeDirectoryMissing, "model has no MoE directory"))?;
+        DeepSeekMoELoader::from_model(self.view.metadata.architecture().unwrap_or(""), &self.view.metadata, &self.view.directory, moe)
+    }
     pub fn is_validated(&self) -> bool { true }
     pub fn tensor_count(&self) -> Result<usize, MlError> { Ok(self.view.directory.tensors().len()) }
     pub fn tensor_name(&self, index: usize) -> Result<Option<String>, MlError> { Ok(self.view.directory.tensors().get(index).map(|t| t.name.clone())) }
     pub fn tensor_shape(&self, index: usize) -> Result<Option<Vec<u64>>, MlError> { Ok(self.view.directory.tensors().get(index).map(|t| t.dimensions.clone())) }
-    pub fn tensor_type(&self, index: usize) -> Result<Option<ConsumerTensorType>, MlError> { Ok(self.view.directory.tensors().get(index).map(|t| match t.representation { TensorRepresentation::CanonicalPrimitive => ConsumerTensorType::F32, TensorRepresentation::Bf16 => ConsumerTensorType::Bf16, TensorRepresentation::GgmlQ8_0 => ConsumerTensorType::Q8_0 })) }
+    pub fn tensor_type(&self, index: usize) -> Result<Option<ConsumerTensorType>, MlError> { Ok(self.view.directory.tensors().get(index).map(|t| match t.representation { TensorRepresentation::CanonicalPrimitive => ConsumerTensorType::F32, TensorRepresentation::Bf16 => ConsumerTensorType::Bf16, TensorRepresentation::GgmlQ8_0 => ConsumerTensorType::Q8_0, TensorRepresentation::GgmlQ4_0 => ConsumerTensorType::Q4_0, TensorRepresentation::GgmlQ2_K => ConsumerTensorType::Q2_K, TensorRepresentation::GgmlIQ1_S => ConsumerTensorType::IQ1_S, TensorRepresentation::GgmlQ4_K => ConsumerTensorType::Q4_K, TensorRepresentation::GgmlIQ4_NL => ConsumerTensorType::IQ4_NL, TensorRepresentation::GgmlIQ4_XS => ConsumerTensorType::IQ4_XS, TensorRepresentation::GgmlQ3_K => ConsumerTensorType::Q3_K, TensorRepresentation::GgmlIQ2_XXS => ConsumerTensorType::IQ2_XXS, TensorRepresentation::GgmlIQ2_XS => ConsumerTensorType::IQ2_XS, TensorRepresentation::GgmlIQ2_S => ConsumerTensorType::IQ2_S, TensorRepresentation::GgmlQ5_K => ConsumerTensorType::Q5_K })) }
     pub fn tensor_payload(&self, index: usize) -> Result<Option<&[u8]>, MlError> { Ok(self.view.directory.tensors().get(index).map(|t| t.range.bytes())) }
     pub fn model_metadata(&self) -> Result<ConsumerModelMetadata, MlError> {
         let m = &self.view.metadata; let u = |key| m.unsigned(key).ok_or_else(|| MlError::new(MlErrorCode::MissingRequiredMetadata, "borrowed metadata value is absent"));
@@ -115,7 +133,8 @@ impl BorrowedModel {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
-pub enum ConsumerTensorType { F32 = 0, Bf16 = 1, Q8_0 = 2 }
+#[allow(non_camel_case_types)]
+pub enum ConsumerTensorType { F32 = 0, Bf16 = 1, Q8_0 = 2, Q4_0 = 3, Q2_K = 4, IQ1_S = 5, Q4_K = 6, IQ4_NL = 7, IQ4_XS = 8, Q3_K = 9, IQ2_XXS = 10, IQ2_XS = 11, IQ2_S = 12, Q5_K = 13 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConsumerModelMetadata {
@@ -160,7 +179,7 @@ impl ConsumerModel {
             normalization_epsilon: views.metadata.float(crate::ModelMetadataKey::NormalizationEpsilon).ok_or_else(|| MlError::new(MlErrorCode::MissingRequiredMetadata, "consumer normalization epsilon is absent"))?,
             rope_theta: views.metadata.float(crate::ModelMetadataKey::RopeTheta).ok_or_else(|| MlError::new(MlErrorCode::MissingRequiredMetadata, "consumer RoPE theta is absent"))?,
         };
-        let tensors = views.directory.tensors().iter().map(|tensor| TensorSnapshot { name: tensor.name.clone(), dimensions: tensor.dimensions.clone(), kind: match tensor.representation { TensorRepresentation::CanonicalPrimitive => ConsumerTensorType::F32, TensorRepresentation::Bf16 => ConsumerTensorType::Bf16, TensorRepresentation::GgmlQ8_0 => ConsumerTensorType::Q8_0 }, offset: tensor.range.offset(), length: tensor.range.length() }).collect();
+        let tensors = views.directory.tensors().iter().map(|tensor| TensorSnapshot { name: tensor.name.clone(), dimensions: tensor.dimensions.clone(), kind: match tensor.representation { TensorRepresentation::CanonicalPrimitive => ConsumerTensorType::F32, TensorRepresentation::Bf16 => ConsumerTensorType::Bf16, TensorRepresentation::GgmlQ8_0 => ConsumerTensorType::Q8_0, TensorRepresentation::GgmlQ4_0 => ConsumerTensorType::Q4_0, TensorRepresentation::GgmlQ2_K => ConsumerTensorType::Q2_K, TensorRepresentation::GgmlIQ1_S => ConsumerTensorType::IQ1_S, TensorRepresentation::GgmlQ4_K => ConsumerTensorType::Q4_K, TensorRepresentation::GgmlIQ4_NL => ConsumerTensorType::IQ4_NL, TensorRepresentation::GgmlIQ4_XS => ConsumerTensorType::IQ4_XS, TensorRepresentation::GgmlQ3_K => ConsumerTensorType::Q3_K, TensorRepresentation::GgmlIQ2_XXS => ConsumerTensorType::IQ2_XXS, TensorRepresentation::GgmlIQ2_XS => ConsumerTensorType::IQ2_XS, TensorRepresentation::GgmlIQ2_S => ConsumerTensorType::IQ2_S, TensorRepresentation::GgmlQ5_K => ConsumerTensorType::Q5_K }, offset: tensor.range.offset(), length: tensor.range.length() }).collect();
         let token_count = views.tokenizer.token_count();
         let mut token_text = Vec::with_capacity(usize::try_from(token_count).map_err(|_| MlError::new(MlErrorCode::TokenizerArrayLengthMismatch, "vocabulary exceeds host range"))?);
         let mut token_types = Vec::with_capacity(token_text.capacity()); let mut token_scores = Vec::with_capacity(token_text.capacity());

@@ -129,6 +129,7 @@
       "target": "VocabularySize"
     }
   ],
+  "moe_plan": null,
   "output_decision": {
     "action": "COPY_BYTES independently",
     "payload_hashes_equal": true,
