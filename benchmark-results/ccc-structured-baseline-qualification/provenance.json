@@ -1,0 +1,9 @@
+{
+  "artifact": "/home/eugen/projekte/vBuf_4/research-models/Qwen3-32B-Q8_0.gguf",
+  "expected_sha256": "2c50eb8aad05047dbf24fa014eb621adf552e14176cabe0c5db4ef38c91e2169",
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "llama_quantize": "/tmp/ccc-llama-pinned/build/bin/llama-quantize",
+  "tensor": "blk.0.attn_k.weight",
+  "ground_truth": "Q8_0 reconstructed weights (Q8-relative, NOT BF16/F32)",
+  "sha256": "2c50eb8aad05047dbf24fa014eb621adf552e14176cabe0c5db4ef38c91e2169"
+}
