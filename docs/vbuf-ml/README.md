@@ -80,7 +80,9 @@ layer compute and bulk-I/O qualification is documented in
 reconstructable-weight research is documented in
 [`step30-reparameterization.md`](step30-reparameterization.md). The corrected
 full tensor/group/layer algorithm matrix is documented in
-[`step30-structured-matrix.md`](step30-structured-matrix.md).
+[`step30-structured-matrix.md`](step30-structured-matrix.md), with the 22-family
+completion and residual-quantization continuation in
+[`step30-continuation.md`](step30-continuation.md).
 Tokenizer execution and chat-template rendering remain consumer/runtime responsibilities.
 
 The base remains a small compositional vocabulary: efficient composition is

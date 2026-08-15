@@ -1,6 +1,6 @@
 # Step 30 addendum — structured algorithm matrix
 
-Status: **PARTIAL — tensor breadth screening and shared-input low-rank pilots only**.
+Status: **PARTIAL — 22/22 tensor families tested; hidden-state and deeper group/layer phases remain**.
 
 The previous completion claim and `B` classification are invalid. This
 addendum records the corrected tensor/group/layer search boundary. The
@@ -51,23 +51,16 @@ Exact / Numerically Equivalent Reparameterization
 
 ## TENSOR-LEVEL WINNERS
 
-A real 0.6B layer-0 `attn_k` tensor was screened with 17 implemented families.
+A real 0.6B layer-0 `attn_k` tensor was screened with all 22 required families.
 Each `TESTED` row has deterministic 64-byte-aligned experimental serialization
 accounting, random-probe action error, direct compact apply timing, temporary
 memory, bytes touched, and writer fit time.
 
-Five tensor families remain missing:
-
-```text
-Tensor Train / MPO
-Butterfly
-Generalized / Deformable Butterfly
-Low Displacement Rank
-Structured Orthogonal
-```
-
-This incompleteness is recorded in `structured-matrix-summary.json`; no winner
-is promoted to inference because real hidden-state validation is absent.
+The former five gaps now have bounded MPO, Butterfly, generalized Butterfly,
+genuine nilpotent-shift displacement-rank, and Householder implementations.
+All performed poorly on random action probes. Details are in
+`step30-continuation.md`. No winner is promoted because real hidden-state
+validation is absent.
 
 ## QKV JOINT SEARCH
 

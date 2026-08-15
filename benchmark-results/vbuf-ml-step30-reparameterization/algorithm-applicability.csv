@@ -27,21 +27,21 @@ Kronecker,Gate/Up,NOT TESTED — family did not survive tensor screening or has 
 Kronecker,MLP,NOT TESTED — complete functional group work remains gated by poor shared-input action error
 Kronecker,Whole Layer,NOT TESTED — group evidence is not functionally useful and whole nonlinear layer work remains gated
 Kronecker,Cross Layer,NOT TESTED — gated on a functionally useful whole-layer result
-Tensor Train / MPO,Tensor,NOT TESTED — no TT/MPO direct-contraction implementation
+Tensor Train / MPO,Tensor,"TESTED — real 0.6B tensor run, complete modeled serialization accounting, direct apply, and action error"
 Tensor Train / MPO,QKV,NOT TESTED — family did not survive tensor screening or has not been executed at this boundary
 Tensor Train / MPO,Attention,NOT TESTED — complete functional group work remains gated by poor shared-input action error
 Tensor Train / MPO,Gate/Up,NOT TESTED — family did not survive tensor screening or has not been executed at this boundary
 Tensor Train / MPO,MLP,NOT TESTED — complete functional group work remains gated by poor shared-input action error
 Tensor Train / MPO,Whole Layer,NOT TESTED — group evidence is not functionally useful and whole nonlinear layer work remains gated
 Tensor Train / MPO,Cross Layer,NOT TESTED — gated on a functionally useful whole-layer result
-Butterfly,Tensor,NOT TESTED — no fitted Butterfly direct evaluator
+Butterfly,Tensor,"TESTED — real 0.6B tensor run, complete modeled serialization accounting, direct apply, and action error"
 Butterfly,QKV,NOT TESTED — family did not survive tensor screening or has not been executed at this boundary
 Butterfly,Attention,NOT TESTED — complete functional group work remains gated by poor shared-input action error
 Butterfly,Gate/Up,NOT TESTED — family did not survive tensor screening or has not been executed at this boundary
 Butterfly,MLP,NOT TESTED — complete functional group work remains gated by poor shared-input action error
 Butterfly,Whole Layer,NOT TESTED — group evidence is not functionally useful and whole nonlinear layer work remains gated
 Butterfly,Cross Layer,NOT TESTED — gated on a functionally useful whole-layer result
-Generalized / Deformable Butterfly,Tensor,NOT TESTED — no generalized/deformable Butterfly implementation; ordinary Butterfly was not substituted
+Generalized / Deformable Butterfly,Tensor,"TESTED — real 0.6B tensor run, complete modeled serialization accounting, direct apply, and action error"
 Generalized / Deformable Butterfly,QKV,NOT TESTED — family did not survive tensor screening or has not been executed at this boundary
 Generalized / Deformable Butterfly,Attention,NOT TESTED — complete functional group work remains gated by poor shared-input action error
 Generalized / Deformable Butterfly,Gate/Up,NOT TESTED — family did not survive tensor screening or has not been executed at this boundary
@@ -62,7 +62,7 @@ Circulant / Block-Circulant,Gate/Up,NOT TESTED — family did not survive tensor
 Circulant / Block-Circulant,MLP,NOT TESTED — complete functional group work remains gated by poor shared-input action error
 Circulant / Block-Circulant,Whole Layer,NOT TESTED — group evidence is not functionally useful and whole nonlinear layer work remains gated
 Circulant / Block-Circulant,Cross Layer,NOT TESTED — gated on a functionally useful whole-layer result
-Low Displacement Rank,Tensor,NOT TESTED — no genuine learned displacement-operator implementation; generic low rank was not substituted
+Low Displacement Rank,Tensor,"TESTED — real 0.6B tensor run, complete modeled serialization accounting, direct apply, and action error"
 Low Displacement Rank,QKV,NOT TESTED — family did not survive tensor screening or has not been executed at this boundary
 Low Displacement Rank,Attention,NOT TESTED — complete functional group work remains gated by poor shared-input action error
 Low Displacement Rank,Gate/Up,NOT TESTED — family did not survive tensor screening or has not been executed at this boundary
@@ -125,7 +125,7 @@ Hadamard / Walsh,Gate/Up,NOT TESTED — family did not survive tensor screening 
 Hadamard / Walsh,MLP,NOT TESTED — complete functional group work remains gated by poor shared-input action error
 Hadamard / Walsh,Whole Layer,NOT TESTED — group evidence is not functionally useful and whole nonlinear layer work remains gated
 Hadamard / Walsh,Cross Layer,NOT TESTED — gated on a functionally useful whole-layer result
-Structured Orthogonal,Tensor,NOT TESTED — no bounded learned Householder/Givens evaluator; Hadamard was not substituted
+Structured Orthogonal,Tensor,"TESTED — real 0.6B tensor run, complete modeled serialization accounting, direct apply, and action error"
 Structured Orthogonal,QKV,NOT TESTED — family did not survive tensor screening or has not been executed at this boundary
 Structured Orthogonal,Attention,NOT TESTED — complete functional group work remains gated by poor shared-input action error
 Structured Orthogonal,Gate/Up,NOT TESTED — family did not survive tensor screening or has not been executed at this boundary

@@ -1,6 +1,6 @@
 # Step 30 — reconstructable weight reparameterization qualification
 
-Status: **PARTIAL — tensor breadth screening and shared-input low-rank pilots only**.
+Status: **PARTIAL — 22/22 tensor families tested; hidden-state and deeper group/layer phases remain**.
 
 The former completion claim was invalidated by the full structured-matrix
 audit. Step 30 is reopened; Step 31 has not started.

@@ -2057,7 +2057,7 @@ See `docs/vbuf-ml/step29-layer-io.md` and
 
 #### Step 30 — Reconstructable weight reparameterization qualification
 
-**Status: PARTIAL — tensor breadth screening and shared-input low-rank pilots only.**
+**Status: PARTIAL — 22/22 tensor families tested; hidden-state and deeper group/layer phases remain.**
 The previous completion claim is invalid; Step 30 is reopened and Step 31 has
 not started.
 
@@ -2079,11 +2079,14 @@ BaseShift, runtime, Nano, or Nested-vBuf changes were made.
 See `docs/vbuf-ml/step30-reparameterization.md` and
 `benchmark-results/vbuf-ml-step30-reparameterization/`.
 
-The corrected matrix contains 22 families × 7 boundaries. Seventeen families
-have qualifying real-tensor coarse-screen rows; Tensor Train/MPO, Butterfly,
-Generalized/Deformable Butterfly, genuine Low Displacement Rank, and
-Structured Orthogonal remain untested. Deeper group/layer phases remain gated.
-See `docs/vbuf-ml/step30-structured-matrix.md`.
+The corrected matrix contains 22 families × 7 boundaries, and all 22 families
+now have qualifying real-tensor coarse-screen rows. The continuation adds
+bounded MPO, Butterfly, generalized Butterfly, genuine displacement-rank, and
+Householder candidates plus hierarchical, sign/magnitude/residual, and vector
+prototype/residual quantization. Deeper group/layer phases remain gated by
+missing hidden-state evidence and poor low-bit action preservation. See
+`docs/vbuf-ml/step30-structured-matrix.md` and
+`docs/vbuf-ml/step30-continuation.md`.
 
 The bounded 0.6B group pilots found rank-16 joint low-rank **raw factor-array**
 byte reductions of 1.40x for QKV and 1.14x for gate/up, with approximately

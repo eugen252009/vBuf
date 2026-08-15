@@ -1,0 +1,13 @@
+{
+  "status": "PARTIAL \u2014 22/22 tensor families tested; hidden-state and deeper phases remain",
+  "missing_family_rows": 10,
+  "new_candidate_rows": {
+    "hierarchical": 11,
+    "sign_magnitude_residual": 4,
+    "vector_prototype_residual": 16
+  },
+  "source_artifacts_changed": false,
+  "wire_changes": 0,
+  "canonical_changes": 0,
+  "group_promotion": "NONE \u2014 tensor evidence insufficient pending review and hidden-state validation"
+}

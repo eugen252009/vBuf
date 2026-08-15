@@ -1,5 +1,5 @@
 {
-  "status": "PARTIAL \u2014 breadth-first real-tensor screening",
+  "status": "PARTIAL \u2014 22/22 required tensor families tested; hidden-state and deeper phases remain",
   "model": "0.6B",
   "layer": 0,
   "tensor": "blk.0.attn_k.weight",
@@ -28,9 +28,10 @@
     "Block Dictionary",
     "Exact / Numerically Equivalent Reparameterization"
   ],
-  "tested_count": 17,
+  "tested_count": 22,
   "dense_apply_median_ms": 3.997644,
   "storage_accounting": "deterministic 64-byte-aligned experimental serialization model; all arrays, metadata, indexes, permutations, scales, residuals and padding counted",
   "hidden_state_evaluation": "NOT TESTED",
-  "canonical_artifacts_changed": false
+  "canonical_artifacts_changed": false,
+  "continuation_evidence": "missing-family-screen.csv"
 }
