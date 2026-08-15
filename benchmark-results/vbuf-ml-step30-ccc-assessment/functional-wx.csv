@@ -1,0 +1,6 @@
+tensor_name,candidate,bits,true_bits_per_weight,wx_relative_error,wx_cosine,output_mean_error,direct_apply,real_hidden_states
+blk.32.attn_k.weight,CCC tensor-mean additive,2,2.000030517578125,0.3584813177585602,0.9336233139038086,0.0008081644773483276,NO — compact -> dense reconstruction -> matmul,NOT AVAILABLE
+blk.32.attn_k.weight,CCC tensor-mean additive,3,3.000054931640625,0.20299555361270905,0.9791818857192993,3.178045153617859e-05,NO — compact -> dense reconstruction -> matmul,NOT AVAILABLE
+blk.32.attn_k.weight,CCC tensor-mean additive,4,4.000103759765625,0.12262599915266037,0.9924727082252502,0.0026660682633519173,NO — compact -> dense reconstruction -> matmul,NOT AVAILABLE
+blk.32.attn_k.weight,CCC tensor-mean additive,6,6.000396728515625,0.06157072260975838,0.9981123208999634,0.00037022680044174194,NO — compact -> dense reconstruction -> matmul,NOT AVAILABLE
+blk.32.attn_k.weight,CCC tensor-mean additive,8,8.001568603515626,0.04076637327671051,0.999171257019043,0.00023137405514717102,NO — compact -> dense reconstruction -> matmul,NOT AVAILABLE

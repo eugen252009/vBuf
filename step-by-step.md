@@ -2101,6 +2101,15 @@ capacity is zero. Decision: **E — no meaningful opportunity**. A separate paid
 scalar-budget sweep found 2+2 best at four bits, 3+3 at six bits, and 3+5 best
 at eight bits. See `docs/vbuf-ml/step30-slack-audit.md`.
 
+A bounded Qwen3-32B CCC Stage-1 assessment sampled 49 real Q8_0 tensors across
+layers 0/1/16/32/48/62/63 and seven major roles, producing 3,822 candidate
+rows with disjoint 70/15/15 position-hash splits. Learned additive correction
+levels beat simplified uniform/affine controls at 2–6 bpw, but zero and
+mean anchors tied, row/column context generally hurt, and lane-mod32 context
+helped only C2 modestly. Canonical GGML comparators, native direct apply, and
+real hidden states remain blockers, so the assessment is **PARTIAL**. See
+`benchmark-results/vbuf-ml-step30-ccc-assessment/representation-assessment.md`.
+
 ---
 
 ### Step 23 — Qualification review and format-freeze decision

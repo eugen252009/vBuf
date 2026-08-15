@@ -1,0 +1,24 @@
+family,classification,reason
+CCC lane-mod32 context,TESTED_INTERESTING,empirical 32B Stage-1 execution
+CCC row/column anchors,TESTED_INTERESTING,empirical 32B Stage-1 execution
+CCC scalar additive,TESTED_INTERESTING,empirical 32B Stage-1 execution
+Q8_0 source control,PROMOTED,empirical 32B Stage-1 execution
+affine/asymmetric quantization,TESTED_REJECTED,empirical 32B Stage-1 execution
+mean/median centered quantization,TESTED_REJECTED,empirical 32B Stage-1 execution
+per-tensor scaling,TESTED_REJECTED,empirical 32B Stage-1 execution
+scalar Lloyd-Max codebook,TESTED_INTERESTING,empirical 32B Stage-1 execution
+sparse FP16 outlier correction,TESTED_INTERESTING,empirical 32B Stage-1 execution
+uniform symmetric quantization,TESTED_REJECTED,empirical 32B Stage-1 execution
+canonical GGML Q4/Q5/K/IQ formats,BLOCKED,local canonical quantizer was not integrated into this bounded harness
+real hidden states,BLOCKED,capture corpus unavailable
+native direct kernels,BLOCKED,no production implementation authorized
+per-row/per-column scale sweeps,NOT_TESTED,outside bounded Stage-1 budget; no 32B empirical claim
+block-size 16..512 scale sweep,NOT_TESTED,outside bounded Stage-1 budget; no 32B empirical claim
+full statistical dispersion/range/curve sweep,NOT_TESTED,outside bounded Stage-1 budget; no 32B empirical claim
+multiplicative/zig-zag/XOR CCC decoders,NOT_TESTED,outside bounded Stage-1 budget; no 32B empirical claim
+vector/PQ/RVQ on 32B,NOT_TESTED,outside bounded Stage-1 budget; no 32B empirical claim
+low-rank and structured matrix families on 32B,NOT_TESTED,outside bounded Stage-1 budget; no 32B empirical claim
+TT/Tucker/CP on 32B,NOT_TESTED,outside bounded Stage-1 budget; no 32B empirical claim
+cross-layer dictionaries,NOT_TESTED,outside bounded Stage-1 budget; no 32B empirical claim
+joint QKV/Gate-Up on 32B,NOT_TESTED,outside bounded Stage-1 budget; no 32B empirical claim
+adaptive bitplanes,NOT_TESTED,outside bounded Stage-1 budget; no 32B empirical claim
