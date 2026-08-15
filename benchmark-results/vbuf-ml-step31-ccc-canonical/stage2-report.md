@@ -106,3 +106,52 @@ Q8_0 oracle | 8.5000 | 0 | 0 | 0 | 0 | 1 | canonical | canonical | PARETO | YES 
 Correction alphabet: `LEARNED_ALPHABET_LOW_BIT_NICHE`
 Geometry: `GEOMETRY_APPROXIMATES_LEARNED_LEVELS`
 Overall CCC direction: `CCC_LOW_BIT_NICHE_INTERESTING`
+
+---
+
+## Post-merge addendum — later independent C3 evidence
+
+This addendum was appended only after independent parallel research commit
+`889bd58c674195b9e40f0156e56ca18c1fd00e78` was preserved and merged by
+`d11d16791eb63d5cb6d9ff78c424a4f2a87eb8b0`. The original Stage-2 text,
+measurements, and classifications above remain historical and unchanged.
+
+### Original Stage-2 classification
+
+Stage-2 commit `b9316d9b83f4d193aec10d4b5cbead53d0963e79` classified C3 from numerical
+evidence available at that time. It found C3 dominated in rate × quality,
+while C4 plus a fixed 0.1% tail remained numerically Pareto.
+
+### Later parallel evidence
+
+The parallel branch independently found learned/geometric C3 near 0.206/0.211
+real W*x error, consistent with Stage-2's approximate 0.202/0.214 operating
+point. It also demonstrated correct direct W*x from packed three-bit codes
+without a dense reconstructed matrix. C3 direct-apply feasibility is therefore
+confirmed by later evidence.
+
+The parallel hard gate reported much larger canonical errors. Reconciliation
+found a tensor-orientation bug in that evaluation: flat GGML data was reshaped
+as `(5120, 1024)` and then transposed instead of being reshaped directly to
+`W[out,in] == (1024, 5120)`. Canonical serialized bytes and dequantized tensors
+are identical between branches. Correcting only the reshape reproduces the
+Stage-2 canonical errors on eight shared activations.
+
+The parallel branch's initial claim that packed C3 was faster than canonical
+kernels was later invalidated by its own fairness audit, which used native GGML
+dot kernels. The audit consistently finds canonical kernels faster, although
+its report and raw/structured files disagree on exact latency magnitudes.
+Comparative direction is retained; exact speed ratios are not promoted.
+
+### Combined reconciliation classification
+
+```text
+GEOMETRY_APPROXIMATES_LEARNED
+C3_NUMERICALLY_DOMINATED
+C3_DIRECT_APPLY_FEASIBILITY_CONFIRMED
+CANONICAL_RUNTIME_COMPARISON = PARTIALLY_VALID
+STOP_C3
+```
+
+Full provenance and localization evidence:
+`../vbuf-ml-step32-ccc-reconciliation/reconciliation-report.md`.

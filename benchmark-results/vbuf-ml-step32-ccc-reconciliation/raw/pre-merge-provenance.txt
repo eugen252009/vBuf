@@ -1,0 +1,8 @@
+Stage-2 branch: vbuf-ml
+Stage-2 HEAD: b9316d9b83f4d193aec10d4b5cbead53d0963e79
+Parallel branch: vBuf_3
+Parallel research commit: 889bd58c674195b9e40f0156e56ca18c1fd00e78
+Merge base: 33a4d037015b09394b762d5df159dad6d42f8643
+Stage-2 independent commits: b9043fb, b9316d9
+Parallel independent commits: 889bd58
+Merge commit: d11d16791eb63d5cb6d9ff78c424a4f2a87eb8b0

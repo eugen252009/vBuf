@@ -1,0 +1,4 @@
+format,parallel_entry_point,stage2_entry_point,parallel_bytes,stage2_bytes,bytes_per_block,parallel_sha256,stage2_sha256,first_differing_block,identical,imatrix
+Q2_K,"quantize_q2_k(nrows=20480,n_per_row=256)","ggml_quantize_chunk(nrows=1024,n_per_row=5120)",1720320,1720320,84,1fb574613e8377c7db470c311d5288a5c2d91fad1abb9767504f8225d6bd5d6f,1fb574613e8377c7db470c311d5288a5c2d91fad1abb9767504f8225d6bd5d6f,none,True,none
+Q3_K,"quantize_q3_k(nrows=20480,n_per_row=256)","ggml_quantize_chunk(nrows=1024,n_per_row=5120)",2252800,2252800,110,59c6032d9f87f0a3e4f4480096158ceaee3079549404029dea5dfd7ebacda816,59c6032d9f87f0a3e4f4480096158ceaee3079549404029dea5dfd7ebacda816,none,True,none
+Q4_K,"quantize_q4_k(nrows=20480,n_per_row=256)","ggml_quantize_chunk(nrows=1024,n_per_row=5120)",2949120,2949120,144,b0b88b5bc4c798e41f2d2257362b102a8c8fcec470143ecadb6db819f6372ab3,b0b88b5bc4c798e41f2d2257362b102a8c8fcec470143ecadb6db819f6372ab3,none,True,none

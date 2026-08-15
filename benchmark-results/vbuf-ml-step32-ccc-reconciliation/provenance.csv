@@ -1,0 +1,8 @@
+evidence,source_branch,source_commit,artifact_path,created_before_merge,status
+Stage-2 numerical qualification,vbuf-ml,b9316d9b83f4d193aec10d4b5cbead53d0963e79,benchmark-results/vbuf-ml-step31-ccc-canonical/,True,immutable historical qualification
+geometric C3 qualification,vBuf_3,889bd58c674195b9e40f0156e56ca18c1fd00e78,benchmark-results/ccc_geometric_qualification.json,True,imported unchanged; earlier blk.0 evidence
+C3 numerical hard gate,vBuf_3,889bd58c674195b9e40f0156e56ca18c1fd00e78,benchmark-results/vbuf-ml-step31-ccc-hard-gate/,True,imported unchanged; functional orientation bug documented here
+C3 native kernel qualification,vBuf_3,889bd58c674195b9e40f0156e56ca18c1fd00e78,benchmark-results/ccc-c3-native-kernel/,True,direct-apply correctness accepted; original speed comparison invalidated
+C3 native fairness audit,vBuf_3,889bd58c674195b9e40f0156e56ca18c1fd00e78,benchmark-results/ccc-c3-native-fairness-audit/,True,"finished; canonical-faster direction accepted, exact latency ratio internally inconsistent"
+independent-history merge,vbuf-ml,d11d16791eb63d5cb6d9ff78c424a4f2a87eb8b0,Git merge commit,False,two-parent no-ff merge
+CCC reconciliation,vbuf-ml,commit containing this artifact,benchmark-results/vbuf-ml-step32-ccc-reconciliation/,False,post-merge reconciliation

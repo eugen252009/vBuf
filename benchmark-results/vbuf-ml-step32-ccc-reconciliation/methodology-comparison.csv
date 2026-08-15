@@ -1,0 +1,19 @@
+metric_property,parallel_c3_branch,independent_stage2,same,explanation
+model hash,2c50eb8aad05047dbf24fa014eb621adf552e14176cabe0c5db4ef38c91e2169,2c50eb8aad05047dbf24fa014eb621adf552e14176cabe0c5db4ef38c91e2169,YES,Both point to the same verified GGUF.
+tensor byte range,"[18238388864,18243959424)","[18238388864,18243959424)",YES,Same Q8_0 payload.
+tensor shape convention,"GGML [5120,1024] reshaped directly, then transposed","GGML [5120,1024] reversed to W[out,in]=[1024,5120]",NO,"Parallel direct reshape changes flat element-to-(output,input) mapping; this is the root bug."
+Q8 FP32 hash,619317f4ee1694e6450fa4b9bf761f14479fb6e2a90206d52b8488776a7f5aa6,619317f4ee1694e6450fa4b9bf761f14479fb6e2a90206d52b8488776a7f5aa6,YES,Decoders produce identical flat FP32 values.
+hidden-state semantic node,F32 src paired with blk.32.attn_k.weight in mul_mat callback,named attn_norm-32; paired Kcur-32 validated,SEMANTICALLY YES,Both target pre-key-projection input; Stage-2 additionally proves Kcur association.
+activation dimension,5120,5120,YES,Logical key-projection input width.
+activation count,182,128,NO,Different prompt corpora/counts; common-vector test removes this variable.
+functional split,91 validation / 91 test,64 validation / 64 test by prompt,NO,Not causal: discrepancy reproduces on identical eight vectors solely by reshape.
+y_ref formula,"X @ W_mat_eval.T where W_mat_eval=flat.reshape(5120,1024).T","X @ W.T where W=flat.reshape(1024,5120)",NO,Shapes match but element mapping differs.
+relative-L2 formula,mean_i ||yc_i-yr_i||2/||yr_i||2,mean_i ||yc_i-yr_i||2/||yr_i||2,YES,Both average per-vector relative L2; not an aggregation discrepancy.
+Q2_K serialized hash,1fb574613e8377c7db470c311d5288a5c2d91fad1abb9767504f8225d6bd5d6f,1fb574613e8377c7db470c311d5288a5c2d91fad1abb9767504f8225d6bd5d6f,YES,Different canonical entry-point row grouping produced byte-identical output.
+Q3_K serialized hash,59c6032d9f87f0a3e4f4480096158ceaee3079549404029dea5dfd7ebacda816,59c6032d9f87f0a3e4f4480096158ceaee3079549404029dea5dfd7ebacda816,YES,Different canonical entry-point row grouping produced byte-identical output.
+Q4_K serialized hash,b0b88b5bc4c798e41f2d2257362b102a8c8fcec470143ecadb6db819f6372ab3,b0b88b5bc4c798e41f2d2257362b102a8c8fcec470143ecadb6db819f6372ab3,YES,Different canonical entry-point row grouping produced byte-identical output.
+canonical dequantized hash,Q2/Q3/Q4 hashes in tensor-equivalence.csv,same hashes,YES,Pinned dequantizers produce bit-identical FP32 tensors.
+C3 error,0.20613873414400638,0.20159149169921875,CLOSE,Global scalar C3 is comparatively permutation-insensitive.
+Q2_K error,0.30493324995040894,0.13388358056545258,NO,Parallel orientation bug destroys alignment between real input features and canonical block quantization error.
+Q3_K error,0.15691466629505157,0.06823986768722534,NO,Parallel orientation bug destroys alignment between real input features and canonical block quantization error.
+Q4_K error,0.07345215231180191,0.03332104533910751,NO,Parallel orientation bug destroys alignment between real input features and canonical block quantization error.
