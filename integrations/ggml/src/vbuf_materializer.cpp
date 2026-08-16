@@ -76,6 +76,7 @@ struct LocalVbufRangeMaterializer::Impl {
     uint64_t inflight_bytes = 0;
     uint64_t ready_bytes = 0;
     std::shared_ptr<RangeSource> source;
+    std::shared_ptr<RangeSource> fallback_source;
 
     void record(const Request & request, MaterializationState state,
         const char * event = "STATE") {
@@ -88,9 +89,11 @@ struct LocalVbufRangeMaterializer::Impl {
     }
 };
 
-LocalVbufRangeMaterializer::LocalVbufRangeMaterializer(std::shared_ptr<RangeSource> source)
+LocalVbufRangeMaterializer::LocalVbufRangeMaterializer(std::shared_ptr<RangeSource> source,
+    std::shared_ptr<RangeSource> fallback_source)
     : impl_(std::make_unique<Impl>()) {
     impl_->source = std::move(source);
+    impl_->fallback_source = std::move(fallback_source);
 }
 
 LocalVbufRangeMaterializer::~LocalVbufRangeMaterializer() {
@@ -148,6 +151,14 @@ bool LocalVbufRangeMaterializer::request(
         if (impl_->source) {
             read_ok = impl_->source->read_range(raw->tensor.source_offset, owner->size,
                 owner->data, &raw->read_result);
+            if (!read_ok && impl_->fallback_source) {
+                {
+                    std::lock_guard<std::mutex> lock(impl_->mutex);
+                    impl_->record(*raw, MaterializationState::InFlight, "PRIMARY_SOURCE_FAILED");
+                }
+                read_ok = impl_->fallback_source->read_range(raw->tensor.source_offset,
+                    owner->size, owner->data, &raw->read_result);
+            }
         } else {
             raw->read_result = { raw->tensor.source_offset, owner->size, owner->size,
                 now_ns(), 200, "inline-vbuf", {}, {} };

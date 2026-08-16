@@ -2,6 +2,8 @@
 #include "vbuf_prefetch_planner.h"
 #include "vbuf_materializer.h"
 #include "vbuf_range_source.h"
+#include "vbuf_source_selection.h"
+#include "vbuf_residency.h"
 
 #include <algorithm>
 #include <cmath>
@@ -27,6 +29,11 @@ using vbuf_ggml::TensorWaveReport;
 using vbuf_ggml::PrefetchPlan;
 using vbuf_ggml::PrefetchPlanner;
 using vbuf_ggml::LocalVbufRangeMaterializer;
+using vbuf_ggml::SourceDescriptor;
+using vbuf_ggml::SourceSelectionPolicy;
+using vbuf_ggml::ResidentTensorMaterializer;
+using vbuf_ggml::TensorResidencyStore;
+using vbuf_ggml::TensorMaterializer;
 using vbuf_ggml::VbufBorrowedStorage;
 using vbuf_ggml::VbufTensorView;
 
@@ -165,15 +172,22 @@ uint64_t rss_kib() {
 } // namespace
 
 int main(int argc, char ** argv) {
-    if (argc < 4 || argc > 6) {
+    if (argc < 4 || argc > 8) {
         std::fprintf(stderr, "usage: tensor_wave_poc3 <vbuf> <capture-dir> <output-dir> "
-            "[baseline|local|remote] [http-endpoint]\n");
+            "[baseline|local|remote|auto] [http-endpoint] "
+            "[local-bytes-per-second remote-bytes-per-second]\n");
         return 2;
     }
     const std::string mode = argc >= 5 ? argv[4] : "baseline";
-    const bool prefetch_enabled = mode == "local" || mode == "remote";
-    if (mode == "remote" && argc != 6) {
-        std::fprintf(stderr, "remote mode requires an HTTP endpoint\n");
+    const bool warm = mode.size() > 5 && mode.substr(mode.size() - 5) == "-warm";
+    const std::string source_mode = warm ? mode.substr(0, mode.size() - 5) : mode;
+    const bool prefetch_enabled = source_mode == "local" || source_mode == "remote" || source_mode == "auto";
+    if ((source_mode == "remote" || source_mode == "auto") && argc < 6) {
+        std::fprintf(stderr, "%s mode requires an HTTP endpoint\n", source_mode.c_str());
+        return 2;
+    }
+    if (source_mode == "auto" && argc != 8) {
+        std::fprintf(stderr, "auto mode requires local and remote throughput inputs\n");
         return 2;
     }
     auto input_owner = read_aligned((std::string(argv[2]) + "/ffn_inp.f32").c_str());
@@ -254,22 +268,66 @@ int main(int argc, char ** argv) {
 
     auto model_lease = std::shared_ptr<const void>(handle,
         [handle](const void *) { vbuf_ml_consumer_close(handle); });
-    std::shared_ptr<vbuf_ggml::RangeSource> range_source;
-    if (mode == "local") {
+    std::shared_ptr<vbuf_ggml::RangeSource> local_source;
+    std::shared_ptr<vbuf_ggml::RangeSource> remote_source;
+    if (source_mode == "local" || source_mode == "auto") {
         const uintptr_t payload = reinterpret_cast<uintptr_t>(named[names[3]].payload);
         const uintptr_t base = payload - offsets[names[3]];
-        range_source = std::make_shared<vbuf_ggml::LocalVbufRangeSource>(
+        local_source = std::make_shared<vbuf_ggml::LocalVbufRangeSource>(
             reinterpret_cast<const uint8_t *>(base), std::filesystem::file_size(argv[1]));
-    } else if (mode == "remote") {
-        range_source = std::make_shared<vbuf_ggml::HttpRangeSource>(argv[5]);
     }
-    std::unique_ptr<LocalVbufRangeMaterializer> materializer;
-    if (prefetch_enabled) materializer = std::make_unique<LocalVbufRangeMaterializer>(range_source);
+    if (source_mode == "remote" || source_mode == "auto") {
+        remote_source = std::make_shared<vbuf_ggml::HttpRangeSource>(argv[5]);
+    }
+    std::vector<SourceDescriptor> source_descriptors;
+    if (source_mode == "local" || source_mode == "auto") {
+        source_descriptors.push_back({ "local", "file", true, true,
+            source_mode == "auto" ? std::strtoull(argv[6], nullptr, 10) : 1, 0, local_source });
+    }
+    if (source_mode == "remote" || source_mode == "auto") {
+        source_descriptors.push_back({ "remote", "http", true, true,
+            source_mode == "auto" ? std::strtoull(argv[7], nullptr, 10) : 1, 0, remote_source });
+    }
+    std::shared_ptr<vbuf_ggml::RangeSource> range_source;
+    std::shared_ptr<vbuf_ggml::RangeSource> fallback_source;
+    std::string selected_source_id = "none";
+    if (prefetch_enabled) {
+        const auto selection = SourceSelectionPolicy().select(source_descriptors,
+            named[names[3]].payload_len);
+        if (!selection.selected_source) {
+            std::fprintf(stderr, "source selection failed: %s\n", selection.reason.c_str());
+            return 7;
+        }
+        for (const auto & estimate : selection.estimates) {
+            std::printf("source_candidate=%s eligible=%s estimated_ns=%llu reason=%s\n",
+                estimate.source_id.c_str(), estimate.eligible ? "yes" : "no",
+                static_cast<unsigned long long>(estimate.estimated_time_ns), estimate.reason.c_str());
+        }
+        std::printf("source_selection=%s fallback=%s selection_ns=%llu reason=%s\n",
+            source_descriptors[*selection.selected_source].id.c_str(),
+            selection.fallback_source ? source_descriptors[*selection.fallback_source].id.c_str() : "none",
+            static_cast<unsigned long long>(selection.selection_duration_ns), selection.reason.c_str());
+        range_source = source_descriptors[*selection.selected_source].source;
+        selected_source_id = source_descriptors[*selection.selected_source].id;
+        if (selection.fallback_source) fallback_source =
+            source_descriptors[*selection.fallback_source].source;
+    }
     const uint64_t prefetch_budget = [&]() {
         uint64_t value = 0;
         for (const auto & tensor : graph.persistent) value = std::max(value, tensor.view.payload_len);
         return value;
     }();
+    std::shared_ptr<TensorMaterializer> materializer;
+    std::shared_ptr<TensorResidencyStore> residency;
+    if (prefetch_enabled) {
+        auto backing = std::make_shared<LocalVbufRangeMaterializer>(range_source, fallback_source);
+        if (warm) {
+            residency = std::make_shared<TensorResidencyStore>(prefetch_budget);
+            materializer = std::make_shared<ResidentTensorMaterializer>(backing, residency);
+        } else {
+            materializer = std::move(backing);
+        }
+    }
     uint64_t storage_calls = 0;
     const auto storage_provider = [model_lease, &storage_calls](const VbufTensorView & view) {
         ++storage_calls;
@@ -323,14 +381,28 @@ int main(int argc, char ** argv) {
             static_cast<unsigned long long>(timestamp),
             static_cast<unsigned long long>(op_timings.back().second.second));
     };
-    const uint64_t execute_start = now_ns();
-    const uint64_t rss_before = rss_kib();
-    {
+    const int run_count = warm ? 2 : 1;
+    for (int run = 0; run < run_count; ++run) {
+        actual.clear();
+        actual_shape.clear();
+        report = {};
+        op_timings.clear();
+        const uint64_t execute_start = now_ns();
+        const uint64_t rss_before = rss_kib();
         error = executor->execute(input, storage_provider, &actual, &actual_shape, &report,
             nullptr, active_planning_observer, materializer.get(), execution_observer);
+        const uint64_t execute_end = now_ns();
+        const uint64_t rss_after_execute = rss_kib();
+        std::printf("residency_run=%d run_mode=%s source=%s endpoint=%s execute_ms=%.3f "
+            "rss_before_kib=%llu rss_after_execute_kib=%llu prefetch_budget_bytes=%llu\n",
+            run + 1, mode.c_str(), prefetch_enabled ? selected_source_id.c_str() : "none",
+            selected_source_id == "remote" ? argv[5] : "none",
+            static_cast<double>(execute_end - execute_start) / 1000000.0,
+            static_cast<unsigned long long>(rss_before),
+            static_cast<unsigned long long>(rss_after_execute),
+            static_cast<unsigned long long>(prefetch_budget));
+        if (error != AdapterError::None) break;
     }
-    const uint64_t execute_end = now_ns();
-    const uint64_t rss_after_execute = rss_kib();
     executor.reset();
     if (error != AdapterError::None) {
         std::fprintf(stderr, "tensor wave execution failed: %s\n",
@@ -338,14 +410,6 @@ int main(int argc, char ** argv) {
         return 7;
     }
 
-    std::printf("run_mode=%s source=%s endpoint=%s execute_ms=%.3f rss_before_kib=%llu rss_after_execute_kib=%llu "
-        "prefetch_budget_bytes=%llu\n", mode.c_str(),
-        prefetch_enabled ? (mode == "remote" ? "http" : "local") : "none",
-        mode == "remote" ? argv[5] : "none",
-        static_cast<double>(execute_end - execute_start) / 1000000.0,
-        static_cast<unsigned long long>(rss_before),
-        static_cast<unsigned long long>(rss_after_execute),
-        static_cast<unsigned long long>(prefetch_budget));
     if (materializer) {
         const auto events = materializer->trace();
         bool materialization_failed = false;
@@ -372,9 +436,31 @@ int main(int argc, char ** argv) {
         std::printf("materializer_after_execute inflight_bytes=%llu ready_bytes=%llu\n",
             static_cast<unsigned long long>(materializer->active_inflight_bytes()),
             static_cast<unsigned long long>(materializer->active_ready_bytes()));
-        if (mode == "remote" && materialization_failed) {
+        if (source_mode == "remote" && materialization_failed) {
             std::printf("remote_prefetch_fallback=explicit_local_jit\n");
         }
+    }
+    if (residency) {
+        for (const auto & event : residency->trace()) {
+            std::printf("residency_event tensor_ref=%u tensor=%s event=%s resident_before=%llu "
+                "resident_after=%llu active_leases=%u timestamp_ns=%llu source=%s\n",
+                event.tensor_ref, event.tensor_name.c_str(),
+                vbuf_ggml::residency_event_name(event.kind),
+                static_cast<unsigned long long>(event.resident_bytes_before),
+                static_cast<unsigned long long>(event.resident_bytes_after),
+                event.active_leases, static_cast<unsigned long long>(event.timestamp_ns),
+                event.source_id.c_str());
+        }
+        std::printf("residency_summary resident_count=%zu resident_bytes=%llu active_lease_count=%u "
+            "active_lease_bytes=%llu\n", residency->resident_count(),
+            static_cast<unsigned long long>(residency->resident_bytes()),
+            residency->active_lease_count(),
+            static_cast<unsigned long long>(residency->active_lease_bytes()));
+        std::printf("partial_layer_residency resident=blk.0.ffn_down.weight "
+            "nonresident=blk.0.ffn_norm.weight,blk.0.ffn_gate.weight,blk.0.ffn_up.weight\n");
+        residency->clear();
+        std::printf("residency_teardown resident_resources=%zu resident_bytes=%llu\n",
+            residency->resident_count(), static_cast<unsigned long long>(residency->resident_bytes()));
     }
 
     for (size_t index = 0; index < report.trace.size(); ++index) {

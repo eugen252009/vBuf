@@ -88,7 +88,9 @@ add_library(vbuf_region_executor STATIC
     src/vbuf_tensor_wave.cpp
     src/vbuf_prefetch_planner.cpp
     src/vbuf_materializer.cpp
-    src/vbuf_range_source.cpp)
+    src/vbuf_range_source.cpp
+    src/vbuf_source_selection.cpp
+    src/vbuf_residency.cpp)
 target_compile_features(vbuf_region_executor PUBLIC cxx_std_17)
 target_include_directories(vbuf_region_executor
     PUBLIC include
@@ -133,6 +135,15 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_range_source_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_range_source_contract PRIVATE vbuf_region_executor)
 
+    add_executable(vbuf_source_selection_contract
+        tests/source_selection_contract.cpp)
+    target_compile_features(vbuf_source_selection_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_source_selection_contract PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_residency_contract tests/residency_contract.cpp)
+    target_compile_features(vbuf_residency_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_residency_contract PRIVATE vbuf_region_executor)
+
     enable_testing()
     add_test(NAME vbuf_ggml_smoke COMMAND vbuf_ggml_smoke)
     add_test(NAME vbuf_borrowed_cpu_buffer_probe
@@ -147,6 +158,10 @@ if(VBUF_BUILD_PROBES)
         COMMAND vbuf_materializer_contract)
     add_test(NAME vbuf_range_source_contract
         COMMAND vbuf_range_source_contract)
+    add_test(NAME vbuf_source_selection_contract
+        COMMAND vbuf_source_selection_contract)
+    add_test(NAME vbuf_residency_contract
+        COMMAND vbuf_residency_contract)
 endif()
 
 if(VBUF_ML_LIBRARY)

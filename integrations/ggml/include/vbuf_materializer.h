@@ -66,7 +66,8 @@ public:
 // owned RAM. It intentionally has one worker and no source-selection policy.
 class LocalVbufRangeMaterializer final : public TensorMaterializer {
 public:
-    explicit LocalVbufRangeMaterializer(std::shared_ptr<RangeSource> source = {});
+    explicit LocalVbufRangeMaterializer(std::shared_ptr<RangeSource> source = {},
+        std::shared_ptr<RangeSource> fallback_source = {});
     ~LocalVbufRangeMaterializer() override;
 
     bool request(uint32_t tensor_ref, const PersistentTensorRef & tensor,

@@ -1,0 +1,14 @@
+tensor=blk.0.ffn_down.weight ref=3
+MISS resident=0 leases=0
+MATERIALIZE source=local-vbuf resident=0 leases=0
+INSERT resident=12607488 leases=0
+HIT resident=12607488 leases=0
+LEASE_ACQUIRE resident=12607488 leases=1
+LEASE_RELEASE resident=12607488 leases=0
+HIT resident=12607488 leases=0
+LEASE_ACQUIRE resident=12607488 leases=1
+LEASE_RELEASE resident=12607488 leases=0
+teardown resident=0 leases=0
+
+HTTP variant replaces the MATERIALIZE/INSERT source with:
+http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf

@@ -1,0 +1,6 @@
+architecture=x86_64
+ggml=2d191b5dee1a591c41ee8a653ce42bfcd9c8716d
+CPU_REPACK=OFF
+CUDA=OFF
+resident_budget_bytes=12607488
+rv2_runtime=NOT_EXECUTED

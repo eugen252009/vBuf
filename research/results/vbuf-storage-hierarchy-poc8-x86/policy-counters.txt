@@ -1,0 +1,4 @@
+local_warm_source_selection_calls=1
+http_warm_source_selection_calls=1
+warm_hit_source_selection_calls=0
+warm_hit_range_source_calls=0

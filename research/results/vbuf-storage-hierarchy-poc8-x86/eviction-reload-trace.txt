@@ -1,0 +1,11 @@
+budget_bytes=8
+insert=A bytes=4 resident=4 leases=0
+acquire=A leases=1
+insert=B result=REJECTED reason=no-evictable-entry resident=4
+evict=A result=REJECTED reason=active-lease resident=4
+release=A leases=0
+insert=B result=PASS evicted=A resident=4
+acquire=B leases=1
+evict=B result=REJECTED reason=active-lease resident=4
+release=B leases=0
+evict=B result=PASS resident=0

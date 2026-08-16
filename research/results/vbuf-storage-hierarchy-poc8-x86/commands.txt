@@ -1,0 +1,6 @@
+cmake -S integrations/ggml -B /tmp/opencode/vbuf-ggml-region-x86 -DVBUF_ML_LIBRARY=/home/eugen/projekte/vBuf/rust/target/release/libvbuf_ml.so -DVBUF_ENABLE_CUDA=OFF -DVBUF_BUILD_PROBES=ON
+cmake --build /tmp/opencode/vbuf-ggml-region-x86 --target vbuf_residency_contract vbuf_tensor_wave_poc3 -j2
+ctest --test-dir /tmp/opencode/vbuf-ggml-region-x86 --output-on-failure
+/tmp/opencode/vbuf-ggml-region-x86/vbuf_tensor_wave_poc3 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf research/results/vbuf-remote-range-poc6-x86 /tmp/opencode/vbuf-poc8-local local-warm
+python3 scripts/range_server.py --file research-models/DeepSeek-V2-Lite.IQ1_S.vbuf --port 18090
+/tmp/opencode/vbuf-ggml-region-x86/vbuf_tensor_wave_poc3 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf research/results/vbuf-remote-range-poc6-x86 /tmp/opencode/vbuf-poc8-http remote-warm http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf

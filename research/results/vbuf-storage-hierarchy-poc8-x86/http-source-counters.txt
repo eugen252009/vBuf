@@ -1,0 +1,7 @@
+source=http
+source_selection_calls=1
+http_range_requests_cold=1
+http_range_requests_warm=0
+status=206
+content_range=bytes 83518776-96126263/4993331814
+payload_hash=0c7bdf85b162206b

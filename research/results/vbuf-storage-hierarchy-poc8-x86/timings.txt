@@ -1,0 +1,9 @@
+local_cold_execution_ms=46.905
+local_warm_execution_ms=10.292
+http_cold_execution_ms=87.965
+http_warm_execution_ms=26.392
+local_warm_ram_lookup_acquire_ns=110
+http_warm_ram_lookup_acquire_ns=490
+cold_consumer_wait_ms=15.572810_local_from_poc6;38.879683_http_from_poc6
+warm_consumer_wait_ms=0
+interpretation=fixture-level source materialization removal; not a model throughput claim
