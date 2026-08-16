@@ -1,0 +1,25 @@
+{
+  "host": "orangepirv2",
+  "access": "ssh pi",
+  "source": "/home/eugen/llama-vbuf-pinned",
+  "enabled_build": "/home/eugen/llama-vbuf-rvv-build",
+  "repack_off_build": "/home/eugen/llama-vbuf-rvv-ab-off",
+  "vbuf_library": "/home/eugen/projekte/vBuf/rust/target/release/libvbuf_ml.so",
+  "gguf_model": "/home/eugen/DeepSeek-V2-Lite.IQ1_S.gguf",
+  "vbuf_model": "/home/eugen/DeepSeek-V2-Lite.IQ1_S.vbuf",
+  "page_size": 4096,
+  "model_parameters": {
+    "n_gpu_layers": 0,
+    "load_mode": "none",
+    "n_ctx": 256,
+    "n_batch": 64,
+    "n_ubatch": 64,
+    "n_threads": 8,
+    "n_threads_batch": 8,
+    "prompt": "Hello world",
+    "decode_tokens": 3,
+    "sampling": "greedy"
+  },
+  "preserved_benchmark_evidence": "benchmark-results/vbuf-ml-rvv-gguf-comparison",
+  "audit_runs": "one successful run per case; event-boundary smaps capture"
+}

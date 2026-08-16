@@ -1,0 +1,59 @@
+Name:	rv2_memory_audi
+Umask:	0002
+State:	R (running)
+Tgid:	69069
+Ngid:	0
+Pid:	69069
+PPid:	69068
+TracerPid:	0
+Uid:	1002	1002	1002	1002
+Gid:	1002	1002	1002	1002
+FDSize:	64
+Groups:	20 27 100 1002 
+NStgid:	69069
+NSpid:	69069
+NSpgid:	69068
+NSsid:	69068
+Kthread:	0
+VmPeak:	10018892 kB
+VmSize:	 9851400 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	 7629540 kB
+VmRSS:	 6537064 kB
+RssAnon:	 3903080 kB
+RssFile:	 2633984 kB
+RssShmem:	       0 kB
+VmData:	 4964032 kB
+VmStk:	    1032 kB
+VmExe:	     100 kB
+VmLib:	    9724 kB
+VmPTE:	   19224 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffffff
+Threads:	8
+SigQ:	0/29713
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000000000
+SigCgt:	0000000100000000
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	000001ffffffffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Seccomp_filters:	0
+Speculation_Store_Bypass:	unknown
+SpeculationIndirectBranch:	unsupported
+Cpus_allowed:	ff
+Cpus_allowed_list:	0-7
+Mems_allowed:	1
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	41385
+nonvoluntary_ctxt_switches:	317

@@ -1,0 +1,11 @@
+case,allocation_id,owner,buffer_type,size_bytes,size_precision,allocation_phase,first_use,last_observed,free_phase,address_or_range,evidence
+gguf,gguf-cpu,ggml/llama,CPU model buffer,2276605297,printed MiB rounded,MODEL_STRUCTURE_READY,PAYLOAD_MATERIALIZATION_BEGIN,MODEL_OPEN_END,not observed,anonymous arena; see gguf-lifetime/mappings.csv,gguf.log CPU model buffer size
+gguf,gguf-cpu-repack,ggml/llama,CPU_REPACK model buffer,2713536430,printed MiB rounded,MODEL_STRUCTURE_READY,PAYLOAD_MATERIALIZATION_BEGIN,MODEL_OPEN_END,not observed,anonymous arena; see gguf-lifetime/mappings.csv,gguf.log CPU_REPACK model buffer size
+gguf,gguf-output,ggml/llama,CPU output buffer,408945,printed MiB rounded,CONTEXT_CREATE_BEGIN,PROMPT_EVAL_BEGIN,BEFORE_CONTEXT_FREE,AFTER_CONTEXT_FREE,small mapping,gguf.log output buffer size
+gguf,gguf-kv,ggml/llama,CPU KV buffer,70778880,exact from printed MiB,CONTEXT_CREATE_BEGIN,PROMPT_EVAL_BEGIN,BEFORE_CONTEXT_FREE,AFTER_CONTEXT_FREE,small mappings,gguf.log KV buffer size
+gguf,gguf-compute,ggml/llama,CPU compute buffer,31488737,printed MiB rounded,GRAPH_RESERVE_BEGIN,PROMPT_EVAL_BEGIN,BEFORE_CONTEXT_FREE,AFTER_CONTEXT_FREE,small mappings,gguf.log compute buffer size
+vbuf-off,vbuf-cpu,ggml/llama,CPU model buffer,4990131241,printed MiB rounded,MODEL_STRUCTURE_READY,PAYLOAD_MATERIALIZATION_BEGIN,MODEL_OPEN_END,not observed,anonymous arena; see vbuf-off-lifetime/mappings.csv,vbuf.log CPU model buffer size
+vbuf-off,vbuf-output,ggml/llama,CPU output buffer,408945,printed MiB rounded,CONTEXT_CREATE_BEGIN,PROMPT_EVAL_BEGIN,BEFORE_CONTEXT_FREE,AFTER_CONTEXT_FREE,small mapping,vbuf.log output buffer size
+vbuf-off,vbuf-kv,ggml/llama,CPU KV buffer,70778880,exact from printed MiB,CONTEXT_CREATE_BEGIN,PROMPT_EVAL_BEGIN,BEFORE_CONTEXT_FREE,AFTER_CONTEXT_FREE,small mappings,vbuf.log KV buffer size
+vbuf-off,vbuf-compute,ggml/llama,CPU compute buffer,31488737,printed MiB rounded,GRAPH_RESERVE_BEGIN,PROMPT_EVAL_BEGIN,BEFORE_CONTEXT_FREE,AFTER_CONTEXT_FREE,small mappings,vbuf.log compute buffer size
+vbuf-off,vbuf-source,vBuf Rust consumer,full-file mmap,4993335296,full page-rounded mapping,FORMAT_OPEN_END,TENSOR_ENUMERATION_END,BEFORE_MODEL_FREE,AFTER_MODEL_FREE,0x3e92e00000-0x3fbc804000,r--s source mapping in smaps

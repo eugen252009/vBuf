@@ -1,0 +1,9 @@
+{
+  "command": [
+    "/home/eugen/rv2_memory_audit_bench",
+    "vbuf",
+    "/home/eugen/DeepSeek-V2-Lite.IQ1_S.vbuf"
+  ],
+  "page_size": 4096,
+  "pid": 69069
+}

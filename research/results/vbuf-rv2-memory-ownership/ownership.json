@@ -1,0 +1,32 @@
+{
+  "gguf": {
+    "source": "file reads with load_mode=none",
+    "source_mapping": false,
+    "runtime_weight_storage": "anonymous ggml CPU and CPU_REPACK buffers",
+    "source_destination_coexist": false,
+    "ownership": "llama/ggml backend owns destination storage"
+  },
+  "vbuf_repack_off": {
+    "source": "Rust memmap2 Mmap::map full artifact, MAP_SHARED read-only mapping",
+    "mapping_bytes": 4993335296,
+    "tensor_pointer_semantics": "validated tensor payload pointers point into the mmap",
+    "runtime_weight_storage": "anonymous ggml CPU model buffer, approximately 4758.96 MiB",
+    "source_destination_coexist": true,
+    "simultaneous_resident_at_payload_end": {
+      "anonymous_destination_rss_gib": 4.657,
+      "source_file_mapping_rss_gib": 2.548,
+      "source_file_mapping_pss_gib": 2.548
+    },
+    "source_mapping_lifetime": "FORMAT_OPEN_END through BEFORE_MODEL_FREE; absent after llama_model_free_vbuf_direct",
+    "ownership": {
+      "source": "Rust consumer handle",
+      "destination": "llama/ggml backend",
+      "lifetime_keeper": "g_direct_models shared_ptr registry"
+    }
+  },
+  "mincore": {
+    "status": "UNAVAILABLE",
+    "result": "ENOMEM for the multi-gigabyte mappings on the qualified RV2 kernel",
+    "replacement": "smaps Rss/Pss and per-mapping Private_Clean/Private_Dirty snapshots"
+  }
+}

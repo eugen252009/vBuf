@@ -1,0 +1,60 @@
+2aca962000-2aca97b000 r-xp 00000000 b3:01 130783                         /home/eugen/rv2_memory_audit_bench
+2aca97b000-2aca97c000 r--p 00019000 b3:01 130783                         /home/eugen/rv2_memory_audit_bench
+2aca97c000-2aca97d000 rw-p 0001a000 b3:01 130783                         /home/eugen/rv2_memory_audit_bench
+2aca97d000-2accabb000 rw-p 00000000 00:00 0                              [heap]
+3e7330b000-3e7330c000 ---p 00000000 00:00 0 
+3e7330c000-3e73b0c000 rw-p 00000000 00:00 0 
+3e73b0c000-3e73b0d000 ---p 00000000 00:00 0 
+3e73b0d000-3e7430d000 rw-p 00000000 00:00 0 
+3e7430d000-3e7430e000 ---p 00000000 00:00 0 
+3e7430e000-3e74b0e000 rw-p 00000000 00:00 0 
+3e74b0e000-3e74b0f000 ---p 00000000 00:00 0 
+3e74b0f000-3e7530f000 rw-p 00000000 00:00 0 
+3e7530f000-3e75310000 ---p 00000000 00:00 0 
+3e75310000-3e75b10000 rw-p 00000000 00:00 0 
+3e75b10000-3e75b11000 ---p 00000000 00:00 0 
+3e75b11000-3fa999d000 rw-p 00000000 00:00 0 
+3fa9fdf000-3faa0af000 r-xp 00000000 b3:01 256151                         /home/eugen/llama-vbuf-rvv-build/bin/libggml-cpu.so.0.19.0
+3faa0af000-3faa0b1000 r--p 000d0000 b3:01 256151                         /home/eugen/llama-vbuf-rvv-build/bin/libggml-cpu.so.0.19.0
+3faa0b1000-3faa0b2000 rw-p 000d2000 b3:01 256151                         /home/eugen/llama-vbuf-rvv-build/bin/libggml-cpu.so.0.19.0
+3faa0b2000-3faa137000 rw-p 00000000 00:00 0 
+3faa137000-3faa17f000 r-xp 00000000 b3:01 18419                          /usr/lib/riscv64-linux-gnu/libgomp.so.1.0.0
+3faa17f000-3faa180000 r--p 00047000 b3:01 18419                          /usr/lib/riscv64-linux-gnu/libgomp.so.1.0.0
+3faa180000-3faa181000 rw-p 00048000 b3:01 18419                          /usr/lib/riscv64-linux-gnu/libgomp.so.1.0.0
+3faa181000-3faa1fe000 r-xp 00000000 b3:01 31176                          /usr/lib/riscv64-linux-gnu/libm.so.6
+3faa1fe000-3faa1ff000 r--p 0007c000 b3:01 31176                          /usr/lib/riscv64-linux-gnu/libm.so.6
+3faa1ff000-3faa200000 rw-p 0007d000 b3:01 31176                          /usr/lib/riscv64-linux-gnu/libm.so.6
+3faa200000-3faa434000 r-xp 00000000 b3:01 18395                          /usr/lib/riscv64-linux-gnu/libstdc++.so.6.0.33
+3faa434000-3faa440000 r--p 00234000 b3:01 18395                          /usr/lib/riscv64-linux-gnu/libstdc++.so.6.0.33
+3faa440000-3faa442000 rw-p 00240000 b3:01 18395                          /usr/lib/riscv64-linux-gnu/libstdc++.so.6.0.33
+3faa442000-3faa446000 rw-p 00000000 00:00 0 
+3faa47d000-3faa480000 rw-p 00000000 00:00 0 
+3faa480000-3faa5ef000 r-xp 00000000 b3:01 31161                          /usr/lib/riscv64-linux-gnu/libc.so.6
+3faa5ef000-3faa5f2000 r--p 0016f000 b3:01 31161                          /usr/lib/riscv64-linux-gnu/libc.so.6
+3faa5f2000-3faa5f4000 rw-p 00172000 b3:01 31161                          /usr/lib/riscv64-linux-gnu/libc.so.6
+3faa5f4000-3faa600000 rw-p 00000000 00:00 0 
+3faa600000-3faa8e7000 r-xp 00000000 b3:01 256150                         /home/eugen/llama-vbuf-rvv-build/bin/libllama.so.0.1.0
+3faa8e7000-3faa8f4000 r--p 002e6000 b3:01 256150                         /home/eugen/llama-vbuf-rvv-build/bin/libllama.so.0.1.0
+3faa8f4000-3faa8f8000 rw-p 002f3000 b3:01 256150                         /home/eugen/llama-vbuf-rvv-build/bin/libllama.so.0.1.0
+3faa8f8000-3faa8f9000 rw-p 00000000 00:00 0 
+3faa8f9000-3faa8ff000 rw-p 00000000 00:00 0 
+3faa8ff000-3faa906000 r-xp 00000000 b3:01 256154                         /home/eugen/llama-vbuf-rvv-build/bin/libggml.so.0.19.0
+3faa906000-3faa907000 r--p 00006000 b3:01 256154                         /home/eugen/llama-vbuf-rvv-build/bin/libggml.so.0.19.0
+3faa907000-3faa908000 rw-p 00007000 b3:01 256154                         /home/eugen/llama-vbuf-rvv-build/bin/libggml.so.0.19.0
+3faa908000-3faa90a000 rw-p 00000000 00:00 0 
+3faa90a000-3faa926000 r-xp 00000000 b3:01 4530                           /usr/lib/riscv64-linux-gnu/libgcc_s.so.1
+3faa926000-3faa927000 r--p 0001b000 b3:01 4530                           /usr/lib/riscv64-linux-gnu/libgcc_s.so.1
+3faa927000-3faa928000 rw-p 0001c000 b3:01 4530                           /usr/lib/riscv64-linux-gnu/libgcc_s.so.1
+3faa92d000-3faa9a7000 r-xp 00000000 b3:01 1018995                        /home/eugen/projekte/vBuf/rust/target/release/libvbuf_ml.so
+3faa9a7000-3faa9ab000 r--p 00079000 b3:01 1018995                        /home/eugen/projekte/vBuf/rust/target/release/libvbuf_ml.so
+3faa9ab000-3faa9ac000 rw-p 0007d000 b3:01 1018995                        /home/eugen/projekte/vBuf/rust/target/release/libvbuf_ml.so
+3faa9ac000-3faaa4b000 r-xp 00000000 b3:01 267396                         /home/eugen/llama-vbuf-rvv-build/bin/libggml-base.so.0.19.0
+3faaa4b000-3faaa4d000 r--p 0009f000 b3:01 267396                         /home/eugen/llama-vbuf-rvv-build/bin/libggml-base.so.0.19.0
+3faaa4d000-3faaa4e000 rw-p 000a1000 b3:01 267396                         /home/eugen/llama-vbuf-rvv-build/bin/libggml-base.so.0.19.0
+3faaa4e000-3faaa51000 rw-p 00000000 00:00 0 
+3faaa51000-3faaa53000 r--p 00000000 00:00 0                              [vvar]
+3faaa53000-3faaa55000 r-xp 00000000 00:00 0                              [vdso]
+3faaa55000-3faaa77000 r-xp 00000000 b3:01 31158                          /usr/lib/riscv64-linux-gnu/ld-linux-riscv64-lp64d.so.1
+3faaa77000-3faaa79000 r--p 00022000 b3:01 31158                          /usr/lib/riscv64-linux-gnu/ld-linux-riscv64-lp64d.so.1
+3faaa79000-3faaa7b000 rw-p 00024000 b3:01 31158                          /usr/lib/riscv64-linux-gnu/ld-linux-riscv64-lp64d.so.1
+3fdc553000-3fdc574000 rw-p 00000000 00:00 0                              [stack]
