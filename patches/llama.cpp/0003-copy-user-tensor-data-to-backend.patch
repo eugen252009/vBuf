@@ -1,0 +1,16 @@
+diff --git a/src/llama-model-loader.cpp b/src/llama-model-loader.cpp
+--- a/src/llama-model-loader.cpp
++++ b/src/llama-model-loader.cpp
+@@ -1576,7 +1576,13 @@ bool llama_model_loader::load_all_data(
+     if (files.empty()) {
+         for (ggml_tensor * t = ggml_get_first_tensor(ctx); t != nullptr; t = ggml_get_next_tensor(ctx, t)) {
++            void * destination = t->data;
+             set_tensor_data(t, set_tensor_data_ud);
++            if (t->data != destination) {
++                const void * source = t->data;
++                t->data = destination;
++                ggml_backend_tensor_set(t, source, 0, ggml_nbytes(t));
++            }
+         }
+         return true;
+     }

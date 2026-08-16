@@ -22,6 +22,8 @@ The only pinned llama.cpp patch is:
 
 ```text
 patches/llama.cpp/0001-user-metadata-tensor-source.patch
+patches/llama.cpp/0002-source-neutral-model-source.patch
+patches/llama.cpp/0003-copy-user-tensor-data-to-backend.patch
 ```
 
 It makes the existing user-metadata path account for tensor inventory/bytes,
