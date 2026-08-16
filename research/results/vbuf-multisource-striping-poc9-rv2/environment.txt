@@ -1,0 +1,11 @@
+host=orangepirv2
+architecture=riscv64
+kernel=6.6.63-ky
+end0=192.168.188.42/24
+end1=192.168.188.50/24
+wlan0=192.168.188.11/24
+requested_source_a_ip=192.168.188.50
+requested_source_b_ip=192.168.188.42
+actual_source_a_interface=end1
+actual_source_b_interface=end0
+ggml_compute=NOT_EXECUTED_existing_RVV_FP16_toolchain_blocker

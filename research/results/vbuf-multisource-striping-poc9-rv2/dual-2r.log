@@ -1,0 +1,8 @@
+plan offset=0 length=2147483648 A_offset=0 A_length=1073741824 B_offset=1073741824 B_length=1073741824
+ready bytes=2147483648
+materialization event=STRIPED_IN_FLIGHT state=IN_FLIGHT timestamp_ns=3024456723978 first_byte_ns=0 bytes=2147483648 returned=0 source=striped local= remote=
+materialization event=STRIPED_READY state=READY timestamp_ns=3037653217581 first_byte_ns=0 bytes=2147483648 returned=2147483648 source=striped local= remote=
+stripe id=A start_ns=3024457525129 first_byte_ns=3024459321052 complete_ns=3037642811118 offset=0 length=1073741824 returned=1073741824 source=http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf local=192.168.188.50:54975 remote=192.168.188.2:80
+stripe id=B start_ns=3024457527712 first_byte_ns=3024472276965 complete_ns=3037653023876 offset=1073741824 length=1073741824 returned=1073741824 source=http://192.168.188.40/models/DeepSeek-V2-Lite.IQ1_S.vbuf local=192.168.188.42:33417 remote=192.168.188.40:80
+striped total_bytes=2147483648 wall_ns=13195498747
+resources_after_teardown=0

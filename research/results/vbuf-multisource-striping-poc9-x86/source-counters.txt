@@ -1,0 +1,9 @@
+source_a_endpoint=http://127.0.0.1:18091/DeepSeek-V2-Lite.IQ1_S.vbuf
+source_b_endpoint=http://127.0.0.1:18092/DeepSeek-V2-Lite.IQ1_S.vbuf
+source_a_requested_bytes=6303744
+source_b_requested_bytes=6303744
+source_a_received_bytes=6303744
+source_b_received_bytes=6303744
+warm_source_a_requests=0
+warm_source_b_requests=0
+full_artifact_download=NO

@@ -1,0 +1,3 @@
+source_a_failure=STRIPED_FAILED READY=NO destination_discarded=YES
+source_b_failure=STRIPED_FAILED READY=NO destination_discarded=YES
+both_sources_failure=STRIPED_FAILED READY=NO destination_discarded=YES

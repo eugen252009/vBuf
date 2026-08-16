@@ -1,0 +1,11 @@
+plan offset=83518776 length=12607488 A_offset=83518776 A_length=6303744 B_offset=89822520 B_length=6303744
+ready bytes=12607488
+payload_hash=0c7bdf85b162206b
+warm_hit=PASS warm_stripe_operations=0
+materialization event=STRIPED_IN_FLIGHT state=IN_FLIGHT timestamp_ns=3425772314311 first_byte_ns=0 bytes=12607488 returned=0 source=striped local= remote=
+materialization event=STRIPED_READY state=READY timestamp_ns=3425884934732 first_byte_ns=0 bytes=12607488 returned=12607488 source=striped local= remote=
+materialization event=STRIPED_RELEASED state=RELEASED timestamp_ns=3425965121162 first_byte_ns=0 bytes=12607488 returned=12607488 source=striped local= remote=
+stripe id=A start_ns=3425773171210 first_byte_ns=3425774869427 complete_ns=3425884745235 offset=83518776 length=6303744 returned=6303744 source=http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf local=192.168.188.50:52251 remote=192.168.188.2:80
+stripe id=B start_ns=3425773172794 first_byte_ns=3425776488146 complete_ns=3425855700762 offset=89822520 length=6303744 returned=6303744 source=http://192.168.188.40/models/DeepSeek-V2-Lite.IQ1_S.vbuf local=192.168.188.42:43603 remote=192.168.188.40:80
+striped total_bytes=12607488 wall_ns=111574025
+resources_after_teardown=0

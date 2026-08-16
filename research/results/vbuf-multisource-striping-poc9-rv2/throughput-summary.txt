@@ -1,0 +1,10 @@
+source_a_single_median_mibs=64.183
+source_b_single_median_mibs=63.942
+dual_aggregate_median_mibs=149.843
+dual_speedup_vs_fastest_single=2.335x
+large_range_bytes=2147483648
+large_stripe_a_bytes=1073741824
+large_stripe_b_bytes=1073741824
+dual_overlap_all_runs=YES
+real_tensor_bytes=12607488
+real_tensor_payload_hash=0c7bdf85b162206b

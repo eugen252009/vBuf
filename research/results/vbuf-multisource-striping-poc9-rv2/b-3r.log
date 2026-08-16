@@ -1,0 +1,6 @@
+ready bytes=2147483648
+materialization event=STATE state=IN_FLIGHT timestamp_ns=3100416524524 first_byte_ns=0 bytes=2147483648 returned=0 source=range-source local= remote=
+materialization event=WAIT_START state=IN_FLIGHT timestamp_ns=3100417348591 first_byte_ns=0 bytes=2147483648 returned=0 source=range-source local= remote=
+materialization event=STATE state=READY timestamp_ns=3132445560573 first_byte_ns=3100418780730 bytes=2147483648 returned=2147483648 source=http://192.168.188.40/models/DeepSeek-V2-Lite.IQ1_S.vbuf local=192.168.188.42:45145 remote=192.168.188.40:80
+materialization event=WAIT_END state=READY timestamp_ns=3132646867133 first_byte_ns=3100418780730 bytes=2147483648 returned=2147483648 source=http://192.168.188.40/models/DeepSeek-V2-Lite.IQ1_S.vbuf local=192.168.188.42:45145 remote=192.168.188.40:80
+resources_after_teardown=0

@@ -1,0 +1,7 @@
+cold=MISS STRIPED_MATERIALIZE INSERT LEASE_ACQUIRE LEASE_RELEASE
+warm=HIT LEASE_ACQUIRE LEASE_RELEASE
+warm_stripe_workers=0
+warm_network_requests=0
+warm_source_selection_calls=0
+resident_bytes_after_cold=12607488
+resident_bytes_after_teardown=0

@@ -1,0 +1,15 @@
+offset=83518776
+length=12607488
+stripe_a_offset=83518776
+stripe_a_length=6303744
+stripe_b_offset=89822520
+stripe_b_length=6303744
+source_a_local=192.168.188.50
+source_a_remote=192.168.188.2:80
+source_b_local=192.168.188.42
+source_b_remote=192.168.188.40:80
+payload_hash=0c7bdf85b162206b
+warm_hit=PASS
+warm_network_requests=0
+warm_stripe_operations=0
+resources_after_teardown=0

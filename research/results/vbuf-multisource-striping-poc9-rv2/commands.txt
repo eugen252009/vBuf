@@ -1,0 +1,6 @@
+ssh pi 'ip -br addr && ip route'
+g++ -std=c++17 -O2 -pthread -I/tmp/opencode/vbuf-rv2-poc9/include -I/home/eugen/llama-vbuf-pinned/ggml/include vbuf_range_source.cpp vbuf_materializer.cpp vbuf_striped_materializer.cpp vbuf_residency.cpp striping_transport.cpp -o striping_transport
+striping_transport single 0 2147483648 http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf 192.168.188.50
+striping_transport single 0 2147483648 http://192.168.188.40/models/DeepSeek-V2-Lite.IQ1_S.vbuf 192.168.188.42
+striping_transport striped 0 2147483648 http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf http://192.168.188.40/models/DeepSeek-V2-Lite.IQ1_S.vbuf 192.168.188.50 192.168.188.42
+striping_transport striped 83518776 12607488 http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf http://192.168.188.40/models/DeepSeek-V2-Lite.IQ1_S.vbuf 192.168.188.50 192.168.188.42 warm

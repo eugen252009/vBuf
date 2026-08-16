@@ -85,7 +85,8 @@ struct LocalVbufRangeMaterializer::Impl {
             request.read_result.requested_offset, request.read_result.first_byte_timestamp_ns,
             request.read_result.returned_bytes,
             request.read_result.status_code, request.read_result.source_id,
-            request.read_result.content_range, request.payload_hash });
+            request.read_result.content_range, request.payload_hash,
+            request.read_result.local_endpoint, request.read_result.remote_endpoint });
     }
 };
 

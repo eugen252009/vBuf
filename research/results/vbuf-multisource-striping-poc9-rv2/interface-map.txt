@@ -1,0 +1,11 @@
+hostname=orangepirv2
+end0=192.168.188.42/24
+end1=192.168.188.50/24
+wlan0=192.168.188.11/24
+source_A_configured_local_ip=192.168.188.50
+source_A_observed_local_endpoint=192.168.188.50:* 
+source_A_observed_remote_endpoint=192.168.188.2:80
+source_B_configured_local_ip=192.168.188.42
+source_B_observed_local_endpoint=192.168.188.42:*
+source_B_observed_remote_endpoint=192.168.188.40:80
+interface_label_note=kernel currently assigns requested A IP to end1 and requested B IP to end0

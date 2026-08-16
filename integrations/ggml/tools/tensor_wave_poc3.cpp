@@ -4,6 +4,7 @@
 #include "vbuf_range_source.h"
 #include "vbuf_source_selection.h"
 #include "vbuf_residency.h"
+#include "vbuf_striped_materializer.h"
 
 #include <algorithm>
 #include <cmath>
@@ -34,6 +35,8 @@ using vbuf_ggml::SourceSelectionPolicy;
 using vbuf_ggml::ResidentTensorMaterializer;
 using vbuf_ggml::TensorResidencyStore;
 using vbuf_ggml::TensorMaterializer;
+using vbuf_ggml::ParallelRangeMaterializer;
+using vbuf_ggml::RangeStripingPlan;
 using vbuf_ggml::VbufBorrowedStorage;
 using vbuf_ggml::VbufTensorView;
 
@@ -174,16 +177,21 @@ uint64_t rss_kib() {
 int main(int argc, char ** argv) {
     if (argc < 4 || argc > 8) {
         std::fprintf(stderr, "usage: tensor_wave_poc3 <vbuf> <capture-dir> <output-dir> "
-            "[baseline|local|remote|auto] [http-endpoint] "
+            "[baseline|local|remote|auto|striped] [http-endpoint] "
             "[local-bytes-per-second remote-bytes-per-second]\n");
         return 2;
     }
     const std::string mode = argc >= 5 ? argv[4] : "baseline";
     const bool warm = mode.size() > 5 && mode.substr(mode.size() - 5) == "-warm";
     const std::string source_mode = warm ? mode.substr(0, mode.size() - 5) : mode;
-    const bool prefetch_enabled = source_mode == "local" || source_mode == "remote" || source_mode == "auto";
+    const bool prefetch_enabled = source_mode == "local" || source_mode == "remote" ||
+        source_mode == "auto" || source_mode == "striped";
     if ((source_mode == "remote" || source_mode == "auto") && argc < 6) {
         std::fprintf(stderr, "%s mode requires an HTTP endpoint\n", source_mode.c_str());
+        return 2;
+    }
+    if (source_mode == "striped" && argc != 7 && argc != 9) {
+        std::fprintf(stderr, "striped mode requires two HTTP endpoints and optional local IPv4 addresses\n");
         return 2;
     }
     if (source_mode == "auto" && argc != 8) {
@@ -279,6 +287,10 @@ int main(int argc, char ** argv) {
     if (source_mode == "remote" || source_mode == "auto") {
         remote_source = std::make_shared<vbuf_ggml::HttpRangeSource>(argv[5]);
     }
+    if (source_mode == "striped") {
+        remote_source = std::make_shared<vbuf_ggml::HttpRangeSource>(argv[5],
+            argc == 9 ? argv[7] : "");
+    }
     std::vector<SourceDescriptor> source_descriptors;
     if (source_mode == "local" || source_mode == "auto") {
         source_descriptors.push_back({ "local", "file", true, true,
@@ -291,7 +303,28 @@ int main(int argc, char ** argv) {
     std::shared_ptr<vbuf_ggml::RangeSource> range_source;
     std::shared_ptr<vbuf_ggml::RangeSource> fallback_source;
     std::string selected_source_id = "none";
-    if (prefetch_enabled) {
+    std::shared_ptr<ParallelRangeMaterializer> striped_materializer;
+    if (prefetch_enabled && source_mode == "striped") {
+        auto source_b = std::make_shared<vbuf_ggml::HttpRangeSource>(argv[6],
+            argc == 9 ? argv[8] : "");
+        const auto plan = RangeStripingPlan::two_way(offsets[names[3]],
+            named[names[3]].payload_len, remote_source, source_b, 32);
+        if (!plan) {
+            std::fprintf(stderr, "striping plan construction failed\n");
+            return 7;
+        }
+        std::printf("striping_plan tensor_offset=%llu tensor_length=%llu split_offset=%llu "
+            "stripe_a_offset=%llu stripe_a_length=%llu stripe_b_offset=%llu stripe_b_length=%llu\n",
+            static_cast<unsigned long long>(plan->tensor_offset),
+            static_cast<unsigned long long>(plan->tensor_length),
+            static_cast<unsigned long long>(plan->stripes[1].source_offset),
+            static_cast<unsigned long long>(plan->stripes[0].source_offset),
+            static_cast<unsigned long long>(plan->stripes[0].length),
+            static_cast<unsigned long long>(plan->stripes[1].source_offset),
+            static_cast<unsigned long long>(plan->stripes[1].length));
+        striped_materializer = std::make_shared<ParallelRangeMaterializer>(*plan);
+        selected_source_id = "striped";
+    } else if (prefetch_enabled) {
         const auto selection = SourceSelectionPolicy().select(source_descriptors,
             named[names[3]].payload_len);
         if (!selection.selected_source) {
@@ -320,7 +353,10 @@ int main(int argc, char ** argv) {
     std::shared_ptr<TensorMaterializer> materializer;
     std::shared_ptr<TensorResidencyStore> residency;
     if (prefetch_enabled) {
-        auto backing = std::make_shared<LocalVbufRangeMaterializer>(range_source, fallback_source);
+        std::shared_ptr<TensorMaterializer> backing = striped_materializer
+            ? std::static_pointer_cast<TensorMaterializer>(striped_materializer)
+            : std::static_pointer_cast<TensorMaterializer>(
+                std::make_shared<LocalVbufRangeMaterializer>(range_source, fallback_source));
         if (warm) {
             residency = std::make_shared<TensorResidencyStore>(prefetch_budget);
             materializer = std::make_shared<ResidentTensorMaterializer>(backing, residency);
@@ -396,7 +432,8 @@ int main(int argc, char ** argv) {
         std::printf("residency_run=%d run_mode=%s source=%s endpoint=%s execute_ms=%.3f "
             "rss_before_kib=%llu rss_after_execute_kib=%llu prefetch_budget_bytes=%llu\n",
             run + 1, mode.c_str(), prefetch_enabled ? selected_source_id.c_str() : "none",
-            selected_source_id == "remote" ? argv[5] : "none",
+            selected_source_id == "remote" ? argv[5] :
+                (selected_source_id == "striped" ? "two-endpoints" : "none"),
             static_cast<double>(execute_end - execute_start) / 1000000.0,
             static_cast<unsigned long long>(rss_before),
             static_cast<unsigned long long>(rss_after_execute),
@@ -417,7 +454,7 @@ int main(int argc, char ** argv) {
             materialization_failed = materialization_failed ||
                 event.state == vbuf_ggml::MaterializationState::Failed;
             std::printf("materialization_event tensor=%s offset=%llu event=%s state=%s timestamp_ns=%llu "
-                "first_byte_ns=%llu bytes=%llu returned_bytes=%llu payload_hash=%016llx status=%d source=%s content_range=%s "
+                "first_byte_ns=%llu bytes=%llu returned_bytes=%llu payload_hash=%016llx status=%d source=%s content_range=%s local=%s remote=%s "
                 "inflight_bytes=%llu ready_bytes=%llu rss_kib=%llu\n",
                 event.tensor_name.c_str(),
                 static_cast<unsigned long long>(event.requested_offset),
@@ -429,6 +466,7 @@ int main(int argc, char ** argv) {
                 static_cast<unsigned long long>(event.returned_bytes),
                 static_cast<unsigned long long>(event.payload_hash), event.status_code,
                 event.source_id.c_str(), event.content_range.c_str(),
+                event.local_endpoint.c_str(), event.remote_endpoint.c_str(),
                 static_cast<unsigned long long>(event.active_inflight_bytes),
                 static_cast<unsigned long long>(event.active_ready_bytes),
                 static_cast<unsigned long long>(event.rss_kib));
@@ -436,6 +474,39 @@ int main(int argc, char ** argv) {
         std::printf("materializer_after_execute inflight_bytes=%llu ready_bytes=%llu\n",
             static_cast<unsigned long long>(materializer->active_inflight_bytes()),
             static_cast<unsigned long long>(materializer->active_ready_bytes()));
+        if (striped_materializer) {
+            auto stripes = striped_materializer->stripe_trace();
+            std::sort(stripes.begin(), stripes.end(), [](const auto & lhs, const auto & rhs) {
+                return lhs.stripe_id < rhs.stripe_id;
+            });
+            uint64_t total_bytes = 0;
+            uint64_t overlap_start = UINT64_MAX;
+            uint64_t overlap_end = 0;
+            for (const auto & stripe : stripes) {
+                total_bytes += stripe.returned_bytes;
+                overlap_start = std::min(overlap_start, stripe.request_start_ns);
+                overlap_end = std::max(overlap_end, stripe.complete_ns);
+                std::printf("stripe_event id=%s start_ns=%llu first_byte_ns=%llu complete_ns=%llu "
+                    "offset=%llu length=%llu returned=%llu status=%d source=%s local=%s remote=%s error=%s\n",
+                    stripe.stripe_id.c_str(),
+                    static_cast<unsigned long long>(stripe.request_start_ns),
+                    static_cast<unsigned long long>(stripe.first_byte_ns),
+                    static_cast<unsigned long long>(stripe.complete_ns),
+                    static_cast<unsigned long long>(stripe.requested_offset),
+                    static_cast<unsigned long long>(stripe.requested_length),
+                    static_cast<unsigned long long>(stripe.returned_bytes), stripe.status_code,
+                    stripe.source_id.c_str(), stripe.local_endpoint.c_str(),
+                    stripe.remote_endpoint.c_str(), stripe.error.c_str());
+            }
+            if (stripes.size() == 2) {
+                const uint64_t overlap = std::min(stripes[0].complete_ns, stripes[1].complete_ns) -
+                    std::max(stripes[0].request_start_ns, stripes[1].request_start_ns);
+                std::printf("striped_summary total_returned_bytes=%llu overlap_ns=%llu wall_ns=%llu\n",
+                    static_cast<unsigned long long>(total_bytes),
+                    static_cast<unsigned long long>(overlap),
+                    static_cast<unsigned long long>(overlap_end - overlap_start));
+            }
+        }
         if (source_mode == "remote" && materialization_failed) {
             std::printf("remote_prefetch_fallback=explicit_local_jit\n");
         }

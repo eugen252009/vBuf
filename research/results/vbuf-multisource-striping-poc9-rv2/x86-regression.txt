@@ -1,0 +1,6 @@
+ggml_revision=2d191b5dee1a591c41ee8a653ce42bfcd9c8716d
+CPU_REPACK=OFF
+CUDA=OFF
+ctest=10/10 PASS
+streaming_http_remote_ffn_parity=PASS
+streaming_http_warm_network_requests=0

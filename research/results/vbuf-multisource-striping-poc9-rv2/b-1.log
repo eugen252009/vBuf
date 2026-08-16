@@ -1,0 +1,6 @@
+ready bytes=2147483648
+materialization event=STATE state=IN_FLIGHT bytes=2147483648 source=range-source local= remote=
+materialization event=WAIT_START state=IN_FLIGHT bytes=2147483648 source=range-source local= remote=
+materialization event=STATE state=READY bytes=2147483648 source=http://192.168.188.40/models/DeepSeek-V2-Lite.IQ1_S.vbuf local=192.168.188.42:47241 remote=192.168.188.40:80
+materialization event=WAIT_END state=READY bytes=2147483648 source=http://192.168.188.40/models/DeepSeek-V2-Lite.IQ1_S.vbuf local=192.168.188.42:47241 remote=192.168.188.40:80
+resources_after_teardown=0

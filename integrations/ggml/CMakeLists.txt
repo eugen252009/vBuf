@@ -90,7 +90,8 @@ add_library(vbuf_region_executor STATIC
     src/vbuf_materializer.cpp
     src/vbuf_range_source.cpp
     src/vbuf_source_selection.cpp
-    src/vbuf_residency.cpp)
+    src/vbuf_residency.cpp
+    src/vbuf_striped_materializer.cpp)
 target_compile_features(vbuf_region_executor PUBLIC cxx_std_17)
 target_include_directories(vbuf_region_executor
     PUBLIC include
@@ -144,6 +145,15 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_residency_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_residency_contract PRIVATE vbuf_region_executor)
 
+    add_executable(vbuf_striped_materializer_contract
+        tests/striped_materializer_contract.cpp)
+    target_compile_features(vbuf_striped_materializer_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_striped_materializer_contract PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_striping_transport tools/striping_transport.cpp)
+    target_compile_features(vbuf_striping_transport PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_striping_transport PRIVATE vbuf_region_executor)
+
     enable_testing()
     add_test(NAME vbuf_ggml_smoke COMMAND vbuf_ggml_smoke)
     add_test(NAME vbuf_borrowed_cpu_buffer_probe
@@ -162,6 +172,8 @@ if(VBUF_BUILD_PROBES)
         COMMAND vbuf_source_selection_contract)
     add_test(NAME vbuf_residency_contract
         COMMAND vbuf_residency_contract)
+    add_test(NAME vbuf_striped_materializer_contract
+        COMMAND vbuf_striped_materializer_contract)
 endif()
 
 if(VBUF_ML_LIBRARY)

@@ -1,0 +1,8 @@
+tensor_ref=3 tensor=blk.0.ffn_down.weight
+stripe=A offset=83518776 length=6303744 destination_offset=0 returned=6303744 status=206
+stripe=B offset=89822520 length=6303744 destination_offset=6303744 returned=6303744 status=206
+request_overlap_ns=23422324
+stripe_wall_ns=25147841
+total_returned_bytes=12607488
+destination_ready=YES
+payload_hash=0c7bdf85b162206b

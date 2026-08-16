@@ -42,6 +42,8 @@ struct MaterializationTraceEvent {
     std::string source_id;
     std::string content_range;
     uint64_t payload_hash = 0;
+    std::string local_endpoint;
+    std::string remote_endpoint;
 };
 
 class TensorMaterializer {

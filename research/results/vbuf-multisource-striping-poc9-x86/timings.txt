@@ -1,0 +1,10 @@
+single_source_a_execution_ms=94.115
+single_source_b_execution_ms=65.236
+striped_cold_execution_ms=46.870
+striped_warm_execution_ms=42.764
+striped_speedup_vs_fastest_single=1.392x
+source_a_effective_mbps=221.79
+source_b_effective_mbps=313.90
+striped_a_mbps=348.70
+striped_b_mbps=336.74
+striped_aggregate_mbps=501.33

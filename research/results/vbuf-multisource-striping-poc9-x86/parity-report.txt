@@ -1,0 +1,5 @@
+striped_cold_payload_hash=0c7bdf85b162206b
+single_source_payload_hash=0c7bdf85b162206b
+striped_cold_output_hash=4a6526893cc2f652
+striped_warm_output_hash=4a6526893cc2f652
+striped_source_execution_parity=PASS

@@ -16,6 +16,8 @@ struct RangeReadResult {
     std::string source_id;
     std::string content_range;
     std::string error;
+    std::string local_endpoint;
+    std::string remote_endpoint;
 };
 
 class RangeSource {
@@ -42,13 +44,17 @@ private:
 
 class HttpRangeSource final : public RangeSource {
 public:
-    explicit HttpRangeSource(std::string endpoint);
+    explicit HttpRangeSource(std::string endpoint, std::string local_source_ip = {});
+
+    const std::string & endpoint() const { return endpoint_; }
+    const std::string & local_source_ip() const { return local_source_ip_; }
 
     bool read_range(uint64_t offset, uint64_t length, uint8_t * destination,
         RangeReadResult * result) override;
 
 private:
     std::string endpoint_;
+    std::string local_source_ip_;
 };
 
 } // namespace vbuf_ggml
