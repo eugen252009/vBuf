@@ -1,0 +1,1 @@
+{"phase":"vbuf_diagnostic","file_bytes":4993331814,"blocks":407,"tensors":377,"tokens":102400,"merges":99757,"map_us":66.498,"canonical_us":675307.471,"bootstrap_us":33.124,"model_metadata_us":29.332,"tensor_directory_us":1114.561,"tokenizer_metadata_us":43885.928,"consumer_open_total_us":115857.180,"descriptor_tensors":377,"elapsed_us":836328.013}

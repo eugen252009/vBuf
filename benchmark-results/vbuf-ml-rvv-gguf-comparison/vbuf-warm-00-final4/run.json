@@ -1,0 +1,14 @@
+{
+  "kind": "vbuf",
+  "model": "/home/eugen/DeepSeek-V2-Lite.IQ1_S.vbuf",
+  "cache_regime": "WARM_CACHE",
+  "return_code": 0,
+  "elapsed_us": 82116759,
+  "peak_rss_bytes": 7836372992,
+  "sample_count": 768,
+  "command": [
+    "/home/eugen/rv2_gguf_vbuf_bench",
+    "vbuf",
+    "/home/eugen/DeepSeek-V2-Lite.IQ1_S.vbuf"
+  ]
+}

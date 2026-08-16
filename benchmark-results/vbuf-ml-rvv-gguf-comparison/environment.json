@@ -1,0 +1,31 @@
+{
+  "host": "Orange Pi RV2",
+  "kernel": "6.6.63-ky",
+  "architecture": "riscv64",
+  "cpu": "8-core Ky(R) X1, 614.4-1600 MHz",
+  "isa": "rv64imafdcv_zicbom_zicboz_zicntr_zicond_zicsr_zifencei_zihintpause_zihpm_zfh_zfhmin_zca_zcd_zba_zbb_zbc_zbs_zkt_zve32f_zve32x_zve64d_zve64f_zve64x_zvfh_zvfhmin_zvkt",
+  "ram": "7.7 GiB",
+  "compiler": {
+    "cc": "gcc-14 14.2.0",
+    "cxx": "g++-14 14.2.0"
+  },
+  "llama_cpp_source": "~/llama-vbuf-pinned",
+  "llama_cpp_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "build": {
+    "GGML_CUDA": "OFF",
+    "GGML_NATIVE": "ON",
+    "GGML_RVV": "ON",
+    "GGML_OPENMP": "ON",
+    "CMAKE_BUILD_TYPE": "Release"
+  },
+  "primary_runtime": "patched pinned llama.cpp + native GGUF versus patched pinned llama.cpp + vBuf direct source",
+  "threads": 8,
+  "context": 256,
+  "batch": 64,
+  "ubatch": 64,
+  "generated_tokens": 3,
+  "prompt": "Hello world",
+  "load_mode": "LLAMA_LOAD_MODE_NONE",
+  "perf_counters": "PERF_COUNTERS_UNAVAILABLE",
+  "cache_drop": "COLD_CACHE_NOT_GUARANTEED: /proc/sys/vm/drop_caches is not writable"
+}

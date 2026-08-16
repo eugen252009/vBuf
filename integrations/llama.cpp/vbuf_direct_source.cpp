@@ -1,4 +1,5 @@
 #include "vbuf_direct_source.h"
+#include "bench_trace.h"
 
 #include "vbuf_ml_adapter.h"
 
@@ -39,15 +40,25 @@ static float load_le_f32(const uint8_t * p) { const uint32_t bits = load_le32(p)
 
 class VbufDirectSource final : public llama_model_source {
 public:
-    explicit VbufDirectSource(const char * path) : handle_(vbuf_ml_consumer_open(path)) {
+    explicit VbufDirectSource(const char * path) : handle_(nullptr) {
+        vbuf_bench::event("FORMAT_OPEN_BEGIN");
+        handle_ = vbuf_ml_consumer_open(path);
+        vbuf_bench::event("FORMAT_OPEN_END");
         if (!handle_) throw std::runtime_error("vBuf direct source open failed");
         char architecture[128]{};
         if (vbuf_ml_consumer_architecture(handle_, architecture, sizeof(architecture)) != 0) throw std::runtime_error("vBuf architecture lookup failed");
         architecture_ = architecture;
+        vbuf_bench::event("MODEL_METADATA_BEGIN", "vbuf");
         if (vbuf_ml_consumer_metadata(handle_, &metadata_) != 0) throw std::runtime_error("vBuf metadata lookup failed");
-        if (vbuf_ml_consumer_token_arrays(handle_, &token_arrays_) != 0 || vbuf_ml_consumer_merge_arrays(handle_, &merge_arrays_) != 0 || vbuf_ml_consumer_tensor_views(handle_, &tensors_, &tensor_count_) != 0) throw std::runtime_error("vBuf borrowed source view failed");
+        vbuf_bench::event("MODEL_METADATA_END", "vbuf");
+        vbuf_bench::event("TOKENIZER_BEGIN", "vbuf");
+        if (vbuf_ml_consumer_token_arrays(handle_, &token_arrays_) != 0 || vbuf_ml_consumer_merge_arrays(handle_, &merge_arrays_) != 0) throw std::runtime_error("vBuf tokenizer view failed");
+        vbuf_bench::event("TOKENIZER_END", "vbuf");
+        vbuf_bench::event("TENSOR_ENUMERATION_BEGIN", "vbuf");
+        if (vbuf_ml_consumer_tensor_views(handle_, &tensors_, &tensor_count_) != 0) throw std::runtime_error("vBuf borrowed source view failed");
         offsets_.resize(tensor_count_); lengths_.resize(tensor_count_);
         for (uint64_t i = 0; i < tensor_count_; ++i) if (vbuf_ml_consumer_tensor_physical_range(handle_, i, &offsets_[i], &lengths_[i]) != 0) throw std::runtime_error("vBuf physical tensor range failed");
+        vbuf_bench::event("TENSOR_ENUMERATION_END", "vbuf");
         token_count_ = token_arrays_.token_count; merge_count_ = merge_arrays_.merge_count;
         for (uint8_t kind = 0; kind < 4; ++kind) vbuf_ml_consumer_special_token(handle_, kind, &special_[kind]);
         vbuf_ml_consumer_add_bos(handle_, &add_bos_);

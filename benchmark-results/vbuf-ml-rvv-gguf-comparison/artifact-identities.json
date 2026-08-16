@@ -1,0 +1,21 @@
+{
+  "gguf": {
+    "filename": "DeepSeek-V2-Lite.IQ1_S.gguf",
+    "bytes": 4994131488,
+    "sha256": "9d3bc4a5bc25b7acb8bc31436745bd8cfaf94509fd1322bb36ab155b0daf1616"
+  },
+  "vbuf": {
+    "filename": "DeepSeek-V2-Lite.IQ1_S.vbuf",
+    "bytes": 4993331814,
+    "sha256": "780a55b77d2730705a93622338d9747149624d72e558e26182176868210fafcc"
+  },
+  "qualification": {
+    "tensor_payload_parity": "377/377",
+    "same_representations": true,
+    "same_shapes": true,
+    "same_vocabulary": true,
+    "same_token_types": true,
+    "same_merges": true,
+    "same_model_identity": true
+  }
+}

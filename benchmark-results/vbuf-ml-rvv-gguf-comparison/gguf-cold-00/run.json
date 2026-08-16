@@ -1,0 +1,14 @@
+{
+  "kind": "gguf",
+  "model": "/home/eugen/DeepSeek-V2-Lite.IQ1_S.gguf",
+  "cache_regime": "COLD_CACHE_NOT_GUARANTEED",
+  "return_code": 0,
+  "elapsed_us": 106248072,
+  "peak_rss_bytes": 5128925184,
+  "sample_count": 1004,
+  "command": [
+    "/home/eugen/rv2_gguf_vbuf_bench",
+    "gguf",
+    "/home/eugen/DeepSeek-V2-Lite.IQ1_S.gguf"
+  ]
+}
