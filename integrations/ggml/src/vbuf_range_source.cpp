@@ -1,0 +1,176 @@
+#include "vbuf_range_source.h"
+
+#include <algorithm>
+#include <chrono>
+#include <cstring>
+#include <limits>
+#include <sstream>
+#include <vector>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+namespace vbuf_ggml {
+namespace {
+
+uint64_t now_ns() {
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+bool checked_end(uint64_t offset, uint64_t length, uint64_t * end) {
+    if (length == 0 || offset > std::numeric_limits<uint64_t>::max() - length) return false;
+    *end = offset + length;
+    return true;
+}
+
+} // namespace
+
+LocalVbufRangeSource::LocalVbufRangeSource(const uint8_t * mapped_base,
+    uint64_t artifact_bytes, std::string source_id)
+    : mapped_base_(mapped_base), artifact_bytes_(artifact_bytes), source_id_(std::move(source_id)) {}
+
+bool LocalVbufRangeSource::read_range(uint64_t offset, uint64_t length,
+    uint8_t * destination, RangeReadResult * result) {
+    *result = { offset, length, 0, 0, 0, source_id_, {}, {} };
+    uint64_t end = 0;
+    if (destination == nullptr || mapped_base_ == nullptr || !checked_end(offset, length, &end) ||
+        end > artifact_bytes_) {
+        result->error = "local range is outside the validated artifact";
+        return false;
+    }
+    result->first_byte_timestamp_ns = now_ns();
+    std::memcpy(destination, mapped_base_ + offset, static_cast<size_t>(length));
+    result->returned_bytes = length;
+    result->status_code = 200;
+    return true;
+}
+
+HttpRangeSource::HttpRangeSource(std::string endpoint)
+    : endpoint_(std::move(endpoint)) {}
+
+bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
+    uint8_t * destination, RangeReadResult * result) {
+    *result = { offset, length, 0, 0, 0, endpoint_, {}, {} };
+    uint64_t end = 0;
+    if (destination == nullptr || !checked_end(offset, length, &end)) {
+        result->error = "invalid HTTP range";
+        return false;
+    }
+    if (endpoint_.compare(0, 7, "http://") != 0) {
+        result->error = "only http:// endpoints are supported by this POC";
+        return false;
+    }
+    const std::string authority_and_path = endpoint_.substr(7);
+    const size_t slash = authority_and_path.find('/');
+    const std::string authority = authority_and_path.substr(0, slash);
+    const std::string path = slash == std::string::npos
+        ? "/" : authority_and_path.substr(slash);
+    const size_t colon = authority.rfind(':');
+    const std::string host = authority.substr(0, colon);
+    const std::string port = colon == std::string::npos ? "80" : authority.substr(colon + 1);
+    addrinfo hints{};
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_family = AF_UNSPEC;
+    addrinfo * addresses = nullptr;
+    if (getaddrinfo(host.c_str(), port.c_str(), &hints, &addresses) != 0) {
+        result->error = "HTTP host resolution failed";
+        return false;
+    }
+    int socket_fd = -1;
+    for (addrinfo * address = addresses; address != nullptr; address = address->ai_next) {
+        socket_fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
+        if (socket_fd >= 0 && connect(socket_fd, address->ai_addr, address->ai_addrlen) == 0) break;
+        if (socket_fd >= 0) close(socket_fd);
+        socket_fd = -1;
+    }
+    freeaddrinfo(addresses);
+    if (socket_fd < 0) {
+        result->error = "HTTP connection failed";
+        return false;
+    }
+    const std::string request = "GET " + path + " HTTP/1.1\r\nHost: " + host +
+        "\r\nRange: bytes=" + std::to_string(offset) + "-" + std::to_string(end - 1) +
+        "\r\nConnection: close\r\n\r\n";
+    size_t sent = 0;
+    while (sent < request.size()) {
+        const ssize_t count = send(socket_fd, request.data() + sent, request.size() - sent, 0);
+        if (count <= 0) { close(socket_fd); result->error = "HTTP request send failed"; return false; }
+        sent += static_cast<size_t>(count);
+    }
+    std::vector<uint8_t> header_bytes;
+    size_t body_start = 0;
+    while (body_start == 0) {
+        uint8_t buffer[4096];
+        const ssize_t count = recv(socket_fd, buffer, sizeof(buffer), 0);
+        if (count <= 0 || header_bytes.size() > 65536) {
+            close(socket_fd); result->error = "HTTP response headers truncated"; return false;
+        }
+        header_bytes.insert(header_bytes.end(), buffer, buffer + count);
+        const auto begin = std::search(header_bytes.begin(), header_bytes.end(),
+            "\r\n\r\n", "\r\n\r\n" + 4);
+        if (begin != header_bytes.end()) body_start = static_cast<size_t>(begin - header_bytes.begin()) + 4;
+    }
+    const std::string headers(header_bytes.begin(), header_bytes.begin() + body_start);
+    std::istringstream header_stream(headers);
+    std::string status_line;
+    std::getline(header_stream, status_line);
+    std::istringstream status_fields(status_line);
+    std::string protocol;
+    status_fields >> protocol >> result->status_code;
+    std::string content_range;
+    uint64_t content_length = 0;
+    bool have_content_length = false;
+    std::string line;
+    while (std::getline(header_stream, line)) {
+        if (line.size() >= 15 && line.compare(0, 15, "Content-Length:") == 0) {
+            content_length = std::stoull(line.substr(15));
+            have_content_length = true;
+        } else if (line.size() >= 14 && line.compare(0, 14, "Content-Range:") == 0) {
+            content_range = line.substr(14);
+        }
+    }
+    result->content_range = content_range;
+    if (result->status_code != 206) {
+        close(socket_fd); result->error = "HTTP server did not return 206 Partial Content"; return false;
+    }
+    if (have_content_length && content_length != length) {
+        close(socket_fd); result->error = "HTTP returned an incorrect Content-Length"; return false;
+    }
+    std::vector<uint8_t> response(header_bytes.begin() + body_start, header_bytes.end());
+    if (response.size() > length) {
+        close(socket_fd); result->error = "HTTP returned more than the requested range"; return false;
+    }
+    while (response.size() < length) {
+        uint8_t buffer[4096];
+        const ssize_t count = recv(socket_fd, buffer, sizeof(buffer), 0);
+        if (count <= 0) break;
+        if (result->first_byte_timestamp_ns == 0) result->first_byte_timestamp_ns = now_ns();
+        response.insert(response.end(), buffer, buffer + count);
+        if (response.size() > length) break;
+    }
+    close(socket_fd);
+    result->returned_bytes = response.size();
+    if (response.size() != length) {
+        result->error = "HTTP returned a truncated or oversized payload";
+        return false;
+    }
+    if (!content_range.empty()) {
+        std::istringstream fields(content_range);
+        std::string unit;
+        uint64_t start = 0;
+        char dash = 0;
+        uint64_t last = 0;
+        fields >> unit >> start >> dash >> last;
+        if (fields.fail() || unit.find("bytes") == std::string::npos ||
+            start != offset || last != end - 1) {
+            result->error = "HTTP Content-Range does not match the request";
+            return false;
+        }
+    }
+    if (result->first_byte_timestamp_ns == 0) result->first_byte_timestamp_ns = now_ns();
+    std::memcpy(destination, response.data(), response.size());
+    return true;
+}
+
+} // namespace vbuf_ggml

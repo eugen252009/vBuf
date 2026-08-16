@@ -1,0 +1,4 @@
+cmake -S integrations/ggml -B /tmp/opencode/vbuf-ggml-region-x86 -DVBUF_ML_LIBRARY=/home/eugen/projekte/vBuf/rust/target/release/libvbuf_ml.so -DVBUF_ENABLE_CUDA=OFF -DVBUF_BUILD_PROBES=ON
+cmake --build /tmp/opencode/vbuf-ggml-region-x86 --target vbuf_tensor_wave_poc3 vbuf_prefetch_planner_contract -j2
+/tmp/opencode/vbuf-ggml-region-x86/vbuf_tensor_wave_poc3 /tmp/opencode/DeepSeek-V2-Lite.IQ1_S.vbuf /tmp/opencode/reference-chain /tmp/opencode/vbuf-prefetch-planner-poc4-x86
+ctest --test-dir /tmp/opencode/vbuf-ggml-region-x86 --output-on-failure

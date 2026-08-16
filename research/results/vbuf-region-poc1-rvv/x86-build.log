@@ -1,0 +1,8 @@
+[ 25%] Built target ggml-base
+[ 64%] Built target ggml-cpu
+[ 71%] Built target ggml
+[ 79%] Built target vbuf_region_executor
+[ 89%] Built target vbuf_ggml_smoke
+[ 89%] Built target vbuf_borrowed_cpu_buffer_probe
+[ 94%] Built target vbuf_tensor_adapter_qualification
+[100%] Built target vbuf_region_poc1

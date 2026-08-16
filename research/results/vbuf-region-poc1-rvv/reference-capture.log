@@ -1,0 +1,682 @@
+reference_node=ffn_inp-0 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-0 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-0 type=0 ne0=10944 ne1=2 bytes=87552
+reference_node=ffn_up-0 type=0 ne0=10944 ne1=2 bytes=87552
+reference_node=ffn_swiglu-0 type=0 ne0=10944 ne1=2 bytes=87552
+reference_node=ffn_out-0 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-1 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-1 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-1 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-1 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-1 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-1 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-1 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-1 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-1 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-1 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-1 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-1 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-1 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-1 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-1 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-1 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-1 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-1 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-1 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-1 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-1 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-1 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-1 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-1 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-1 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-1 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-2 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-2 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-2 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-2 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-2 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-2 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-2 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-2 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-2 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-2 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-2 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-2 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-2 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-2 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-2 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-2 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-2 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-2 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-2 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-2 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-2 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-2 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-2 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-2 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-2 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-2 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-3 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-3 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-3 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-3 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-3 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-3 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-3 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-3 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-3 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-3 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-3 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-3 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-3 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-3 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-3 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-3 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-3 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-3 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-3 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-3 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-3 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-3 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-3 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-3 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-3 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-3 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-4 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-4 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-4 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-4 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-4 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-4 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-4 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-4 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-4 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-4 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-4 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-4 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-4 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-4 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-4 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-4 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-4 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-4 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-4 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-4 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-4 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-4 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-4 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-4 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-4 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-4 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-5 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-5 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-5 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-5 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-5 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-5 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-5 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-5 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-5 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-5 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-5 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-5 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-5 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-5 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-5 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-5 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-5 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-5 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-5 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-5 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-5 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-5 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-5 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-5 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-5 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-5 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-6 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-6 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-6 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-6 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-6 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-6 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-6 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-6 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-6 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-6 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-6 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-6 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-6 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-6 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-6 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-6 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-6 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-6 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-6 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-6 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-6 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-6 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-6 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-6 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-6 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-6 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-7 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-7 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-7 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-7 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-7 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-7 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-7 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-7 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-7 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-7 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-7 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-7 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-7 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-7 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-7 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-7 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-7 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-7 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-7 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-7 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-7 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-7 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-7 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-7 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-7 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-7 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-8 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-8 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-8 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-8 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-8 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-8 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-8 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-8 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-8 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-8 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-8 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-8 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-8 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-8 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-8 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-8 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-8 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-8 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-8 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-8 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-8 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-8 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-8 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-8 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-8 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-8 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-9 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-9 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-9 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-9 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-9 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-9 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-9 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-9 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-9 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-9 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-9 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-9 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-9 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-9 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-9 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-9 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-9 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-9 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-9 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-9 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-9 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-9 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-9 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-9 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-9 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-9 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-10 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-10 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-10 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-10 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-10 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-10 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-10 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-10 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-10 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-10 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-10 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-10 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-10 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-10 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-10 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-10 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-10 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-10 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-10 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-10 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-10 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-10 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-10 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-10 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-10 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-10 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-11 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-11 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-11 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-11 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-11 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-11 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-11 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-11 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-11 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-11 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-11 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-11 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-11 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-11 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-11 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-11 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-11 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-11 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-11 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-11 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-11 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-11 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-11 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-11 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-11 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-11 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-12 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-12 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-12 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-12 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-12 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-12 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-12 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-12 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-12 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-12 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-12 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-12 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-12 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-12 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-12 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-12 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-12 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-12 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-12 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-12 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-12 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-12 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-12 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-12 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-12 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-12 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-13 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-13 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-13 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-13 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-13 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-13 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-13 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-13 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-13 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-13 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-13 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-13 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-13 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-13 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-13 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-13 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-13 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-13 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-13 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-13 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-13 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-13 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-13 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-13 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-13 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-13 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-14 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-14 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-14 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-14 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-14 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-14 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-14 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-14 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-14 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-14 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-14 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-14 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-14 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-14 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-14 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-14 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-14 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-14 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-14 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-14 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-14 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-14 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-14 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-14 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-14 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-14 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-15 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-15 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-15 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-15 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-15 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-15 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-15 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-15 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-15 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-15 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-15 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-15 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-15 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-15 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-15 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-15 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-15 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-15 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-15 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-15 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-15 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-15 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-15 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-15 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-15 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-15 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-16 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-16 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-16 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-16 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-16 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-16 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-16 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-16 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-16 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-16 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-16 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-16 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-16 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-16 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-16 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-16 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-16 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-16 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-16 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-16 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-16 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-16 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-16 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-16 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-16 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-16 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-17 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-17 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-17 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-17 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-17 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-17 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-17 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-17 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-17 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-17 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-17 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-17 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-17 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-17 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-17 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-17 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-17 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-17 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-17 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-17 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-17 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-17 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-17 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-17 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-17 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-17 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-18 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-18 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-18 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-18 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-18 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-18 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-18 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-18 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-18 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-18 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-18 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-18 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-18 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-18 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-18 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-18 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-18 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-18 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-18 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-18 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-18 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-18 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-18 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-18 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-18 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-18 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-19 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-19 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-19 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-19 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-19 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-19 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-19 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-19 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-19 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-19 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-19 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-19 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-19 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-19 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-19 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-19 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-19 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-19 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-19 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-19 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-19 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-19 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-19 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-19 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-19 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-19 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-20 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-20 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-20 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-20 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-20 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-20 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-20 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-20 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-20 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-20 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-20 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-20 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-20 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-20 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-20 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-20 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-20 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-20 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-20 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-20 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-20 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-20 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-20 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-20 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-20 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-20 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-21 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-21 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-21 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-21 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-21 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-21 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-21 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-21 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-21 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-21 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-21 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-21 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-21 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-21 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-21 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-21 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-21 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-21 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-21 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-21 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-21 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-21 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-21 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-21 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-21 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-21 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-22 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-22 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-22 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-22 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-22 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-22 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-22 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-22 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-22 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-22 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-22 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-22 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-22 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-22 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-22 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-22 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-22 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-22 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-22 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-22 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-22 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-22 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-22 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-22 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-22 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-22 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-23 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-23 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-23 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-23 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-23 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-23 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-23 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-23 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-23 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-23 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-23 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-23 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-23 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-23 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-23 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-23 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-23 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-23 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-23 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-23 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-23 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-23 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-23 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-23 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-23 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-23 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-24 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-24 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-24 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-24 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-24 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-24 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-24 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-24 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-24 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-24 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-24 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-24 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-24 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-24 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-24 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-24 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-24 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-24 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-24 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-24 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-24 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-24 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-24 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-24 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-24 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-24 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-25 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-25 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-25 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-25 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-25 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-25 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-25 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-25 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-25 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-25 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-25 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-25 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-25 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-25 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-25 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-25 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-25 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-25 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-25 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-25 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-25 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-25 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-25 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-25 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-25 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-25 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_inp-26 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_norm-26 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_moe_logits-26 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-26 type=0 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_probs-26 (reshaped) type=0 ne0=1 ne1=64 bytes=512
+reference_node=ffn_moe_argsort-26 type=26 ne0=64 ne1=2 bytes=512
+reference_node=ffn_moe_topk-26 type=26 ne0=6 ne1=2 bytes=280
+reference_node=ffn_moe_weights-26 type=0 ne0=1 ne1=6 bytes=48
+reference_node=ffn_norm-26 (reshaped) type=0 ne0=2048 ne1=1 bytes=16384
+reference_node=ffn_moe_gate-26 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_up-26 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_swiglu-26 type=0 ne0=1408 ne1=6 bytes=67584
+reference_node=ffn_moe_down-26 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-26 type=0 ne0=2048 ne1=6 bytes=98304
+reference_node=ffn_moe_weighted-26 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-26 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-26 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-26 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-26 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_weighted-26 (view) type=0 ne0=2048 ne1=2 bytes=57344
+reference_node=ffn_moe_out-26 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_gate-26 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_up-26 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_swiglu-26 type=0 ne0=2816 ne1=2 bytes=22528
+reference_node=ffn_shexp-26 type=0 ne0=2048 ne1=2 bytes=16384
+reference_node=ffn_out-26 type=0 ne0=2048 ne1=2 bytes=16384

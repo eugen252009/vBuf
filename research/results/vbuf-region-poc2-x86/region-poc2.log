@@ -1,0 +1,11 @@
+region=A phase=weights_acquired active_weight_bytes=8763392 active_weight_leases=3
+region=A phase=executing active_weight_bytes=8763392 active_weight_leases=3
+region=A phase=synchronized active_weight_bytes=8763392 active_weight_leases=3
+region=A phase=released active_weight_bytes=0 active_weight_leases=0
+region=B phase=weights_acquired active_weight_bytes=12607488 active_weight_leases=1
+region=B phase=executing active_weight_bytes=12607488 active_weight_leases=1
+region=B phase=synchronized active_weight_bytes=12607488 active_weight_leases=1
+region=B phase=released active_weight_bytes=0 active_weight_leases=0
+activation_parity=output_elements=21888 max_abs=4.47035e-08 max_rel=0.00241219 mean_abs=7.10122e-10 actual_hash=59eba05ae514d7a6 reference_hash=51126d8e000bd61a
+output_parity=output_elements=4096 max_abs=1.78814e-07 max_rel=0.00196622 mean_abs=1.39676e-08 actual_hash=4a6526893cc2f652 reference_hash=00edbc8c56555043
+requested_tensor_count=4 acquired_tensor_count=4 selected_weight_bytes=21370880 acquired_weight_bytes=21370880 graph_nodes=6 mapped_source_bytes=4993331814 rss_before_kib=28096 rss_after_execute_kib=50720 rss_after_release_kib=7440 anonymous_before_kib=1508 anonymous_after_execute_kib=2240 anonymous_after_release_kib=2080 private_clean_before_kib=540 shared_clean_before_kib=3052 output_shape=[2048,2]

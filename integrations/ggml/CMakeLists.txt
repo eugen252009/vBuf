@@ -83,7 +83,12 @@ set(GGML_CUDA ${VBUF_ENABLE_CUDA} CACHE BOOL "" FORCE)
 add_subdirectory("${GGML_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/ggml" EXCLUDE_FROM_ALL)
 
 add_library(vbuf_region_executor STATIC
-    src/vbuf_region_executor.cpp)
+    src/vbuf_region_executor.cpp
+    src/vbuf_execution_region.cpp
+    src/vbuf_tensor_wave.cpp
+    src/vbuf_prefetch_planner.cpp
+    src/vbuf_materializer.cpp
+    src/vbuf_range_source.cpp)
 target_compile_features(vbuf_region_executor PUBLIC cxx_std_17)
 target_include_directories(vbuf_region_executor
     PUBLIC include
@@ -103,10 +108,55 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_borrowed_cpu_buffer_probe PRIVATE cxx_std_17)
     target_link_libraries(vbuf_borrowed_cpu_buffer_probe PRIVATE vbuf_region_executor)
 
+    add_executable(vbuf_tensor_adapter_qualification
+        tests/tensor_adapter_qualification.cpp)
+    target_compile_features(vbuf_tensor_adapter_qualification PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_tensor_adapter_qualification PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_tensor_wave_dependency_contract
+        tests/tensor_wave_dependency_contract.cpp)
+    target_compile_features(vbuf_tensor_wave_dependency_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_tensor_wave_dependency_contract PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_prefetch_planner_contract
+        tests/prefetch_planner_contract.cpp)
+    target_compile_features(vbuf_prefetch_planner_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_prefetch_planner_contract PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_materializer_contract
+        tests/materializer_contract.cpp)
+    target_compile_features(vbuf_materializer_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_materializer_contract PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_range_source_contract
+        tests/range_source_contract.cpp)
+    target_compile_features(vbuf_range_source_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_range_source_contract PRIVATE vbuf_region_executor)
+
     enable_testing()
     add_test(NAME vbuf_ggml_smoke COMMAND vbuf_ggml_smoke)
     add_test(NAME vbuf_borrowed_cpu_buffer_probe
         COMMAND vbuf_borrowed_cpu_buffer_probe)
+    add_test(NAME vbuf_tensor_adapter_qualification
+        COMMAND vbuf_tensor_adapter_qualification)
+    add_test(NAME vbuf_tensor_wave_dependency_contract
+        COMMAND vbuf_tensor_wave_dependency_contract)
+    add_test(NAME vbuf_prefetch_planner_contract
+        COMMAND vbuf_prefetch_planner_contract)
+    add_test(NAME vbuf_materializer_contract
+        COMMAND vbuf_materializer_contract)
+    add_test(NAME vbuf_range_source_contract
+        COMMAND vbuf_range_source_contract)
+endif()
+
+if(VBUF_ML_LIBRARY)
+    add_executable(vbuf_region_poc1 tools/region_poc1.cpp)
+    target_compile_features(vbuf_region_poc1 PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_region_poc1 PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_tensor_wave_poc3 tools/tensor_wave_poc3.cpp)
+    target_compile_features(vbuf_tensor_wave_poc3 PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_tensor_wave_poc3 PRIVATE vbuf_region_executor)
 endif()
 
 message(STATUS "vBuf native substrate")

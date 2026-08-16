@@ -1,0 +1,18 @@
+Internal ctest changing into directory: /tmp/opencode/vbuf-ggml-region-x86
+Test project /tmp/opencode/vbuf-ggml-region-x86
+    Start 1: vbuf_ggml_smoke
+1/6 Test #1: vbuf_ggml_smoke ........................   Passed    0.00 sec
+    Start 2: vbuf_borrowed_cpu_buffer_probe
+2/6 Test #2: vbuf_borrowed_cpu_buffer_probe .........   Passed    0.00 sec
+    Start 3: vbuf_tensor_adapter_qualification
+3/6 Test #3: vbuf_tensor_adapter_qualification ......   Passed    0.00 sec
+    Start 4: vbuf_tensor_wave_dependency_contract
+4/6 Test #4: vbuf_tensor_wave_dependency_contract ...   Passed    0.00 sec
+    Start 5: vbuf_prefetch_planner_contract
+5/6 Test #5: vbuf_prefetch_planner_contract .........   Passed    0.00 sec
+    Start 6: vbuf_materializer_contract
+6/6 Test #6: vbuf_materializer_contract .............   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Total Test time (real) =   0.02 sec

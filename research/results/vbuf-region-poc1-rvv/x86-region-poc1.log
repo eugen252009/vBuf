@@ -1,0 +1,2 @@
+output_elements=4096 max_abs=1.78814e-07 max_rel=0.00196622 mean_abs=1.39676e-08 actual_hash=4a6526893cc2f652 reference_hash=00edbc8c56555043
+requested_tensor_count=4 acquired_tensor_count=4 selected_weight_bytes=21370880 acquired_weight_bytes=21370880 graph_nodes=6 mapped_source_bytes=4993331814 rss_before_kib=27996 rss_after_execute_kib=50488 rss_after_release_kib=7172 anonymous_before_kib=1424 anonymous_after_execute_kib=2008 anonymous_after_release_kib=1748 private_clean_before_kib=532 shared_clean_before_kib=3068 output_shape=[2048,2]

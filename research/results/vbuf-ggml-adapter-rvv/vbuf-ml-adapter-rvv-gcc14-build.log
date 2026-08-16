@@ -1,0 +1,363 @@
+[  5%] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml.cpp.o
+[  5%] Building C object ggml/src/CMakeFiles/ggml-base.dir/ggml.c.o
+[  8%] Building C object ggml/src/CMakeFiles/ggml-base.dir/ggml-alloc.c.o
+[ 11%] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml-backend.cpp.o
+[ 13%] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml-backend-meta.cpp.o
+[ 16%] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml-opt.cpp.o
+[ 19%] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml-threading.cpp.o
+[ 22%] Building C object ggml/src/CMakeFiles/ggml-base.dir/ggml-quants.c.o
+[ 25%] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/gguf.cpp.o
+[  2%] Linking CXX shared library libggml-base.so
+[ 27%] Built target ggml-base
+[ 33%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.cpp.o
+[ 33%] Building C object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o
+In file included from /tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/common.h:7,
+                 from /tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/unary-ops.h:3,
+                 from /tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/ggml-cpu.c:11:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h: In function ‘riscv_compute_fp16_to_fp32’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h:97:9: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+   97 |         _Float16 hf;
+      |         ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h: In function ‘riscv_compute_fp32_to_fp16’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h:104:9: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  104 |         _Float16 hf = (_Float16)f;
+      |         ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h:104:24: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  104 |         _Float16 hf = (_Float16)f;
+      |                        ^~~~~~~~
+In file included from /tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/ggml-cpu.c:13:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h: In function ‘ggml_vec_dot_f16_unroll’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:227:65: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  227 |                 vfloat16m2_t ay0 = __riscv_vle16_v_f16m2((const _Float16 *)(y + i), epr);
+      |                                                                 ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:228:67: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  228 |                 vfloat16m2_t ax0_0 = __riscv_vle16_v_f16m2((const _Float16 *)(x[0] + i), epr);
+      |                                                                   ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:229:67: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  229 |                 vfloat16m2_t ax1_0 = __riscv_vle16_v_f16m2((const _Float16 *)(x[1] + i), epr);
+      |                                                                   ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:233:65: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  233 |                 vfloat16m2_t ay1 = __riscv_vle16_v_f16m2((const _Float16 *)(y + i + epr), epr);
+      |                                                                 ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:234:67: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  234 |                 vfloat16m2_t ax0_1 = __riscv_vle16_v_f16m2((const _Float16 *)(x[0] + i + epr), epr);
+      |                                                                   ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:235:67: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  235 |                 vfloat16m2_t ax1_1 = __riscv_vle16_v_f16m2((const _Float16 *)(x[1] + i + epr), epr);
+      |                                                                   ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:246:64: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  246 |                 vfloat16m2_t ay = __riscv_vle16_v_f16m2((const _Float16 *)(y + i), vl);
+      |                                                                ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:247:65: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  247 |                 vfloat16m2_t ax0 = __riscv_vle16_v_f16m2((const _Float16 *)(x[0] + i), vl);
+      |                                                                 ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:248:65: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  248 |                 vfloat16m2_t ax1 = __riscv_vle16_v_f16m2((const _Float16 *)(x[1] + i), vl);
+      |                                                                 ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h: In function ‘ggml_vec_mad_f16’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:520:15: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  520 |         const _Float16 scale = *(const _Float16*)(&s);
+      |               ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:520:40: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  520 |         const _Float16 scale = *(const _Float16*)(&s);
+      |                                        ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:520:33: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  520 |         const _Float16 scale = *(const _Float16*)(&s);
+      |                                 ^~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:529:61: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  529 |             vfloat16m4_t ax0 = __riscv_vle16_v_f16m4((const _Float16*)x + i, epr);
+      |                                                             ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:530:61: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  530 |             vfloat16m4_t ay0 = __riscv_vle16_v_f16m4((const _Float16*)y + i, epr);
+      |                                                             ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:532:36: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  532 |             __riscv_vse16_v_f16m4((_Float16*)y + i, ay0, epr);
+      |                                    ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:535:61: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  535 |             vfloat16m4_t ax1 = __riscv_vle16_v_f16m4((const _Float16*)x + i + epr, epr);
+      |                                                             ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:536:61: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  536 |             vfloat16m4_t ay1 = __riscv_vle16_v_f16m4((const _Float16*)y + i + epr, epr);
+      |                                                             ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:538:36: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  538 |             __riscv_vse16_v_f16m4((_Float16*)y + i + epr, ay1, epr);
+      |                                    ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:546:61: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  546 |             vfloat16m4_t ax0 = __riscv_vle16_v_f16m4((const _Float16*)x + i, vl);
+      |                                                             ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:547:61: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  547 |             vfloat16m4_t ay0 = __riscv_vle16_v_f16m4((const _Float16*)y + i, vl);
+      |                                                             ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:549:36: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  549 |             __riscv_vse16_v_f16m4((_Float16*)y + i, ay0, vl);
+      |                                    ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h: In function ‘ggml_vec_scale_f16’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:800:15: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  800 |         const _Float16 scale = *(const _Float16*)(&s);
+      |               ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:800:40: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  800 |         const _Float16 scale = *(const _Float16*)(&s);
+      |                                        ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:800:33: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  800 |         const _Float16 scale = *(const _Float16*)(&s);
+      |                                 ^~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:809:61: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  809 |             vfloat16m4_t ay0 = __riscv_vle16_v_f16m4((const _Float16*)y + i, epr);
+      |                                                             ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:811:36: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  811 |             __riscv_vse16_v_f16m4((_Float16*)y + i, ay0, epr);
+      |                                    ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:814:61: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  814 |             vfloat16m4_t ay1 = __riscv_vle16_v_f16m4((const _Float16*)y + i + epr, epr);
+      |                                                             ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:816:36: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  816 |             __riscv_vse16_v_f16m4((_Float16*)y + i + epr, ay1, epr);
+      |                                    ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:824:61: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  824 |             vfloat16m4_t ay0 = __riscv_vle16_v_f16m4((const _Float16*)y + i, vl);
+      |                                                             ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:826:36: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  826 |             __riscv_vse16_v_f16m4((_Float16*)y + i, ay0, vl);
+      |                                    ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/ggml-cpu.c: In function ‘ggml_cpu_fp32_to_fp16’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/ggml-cpu.c:3469:32: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+ 3469 |         __riscv_vse16_v_f16m1((_Float16 *)&y[i], vy, vl);
+      |                                ^~~~~~~~
+[ 36%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/repack.cpp.o
+[ 38%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/hbm.cpp.o
+[ 41%] Building C object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/quants.c.o
+In file included from /tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/quants.c:5:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h: In function ‘riscv_compute_fp16_to_fp32’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h:97:9: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+   97 |         _Float16 hf;
+      |         ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h: In function ‘riscv_compute_fp32_to_fp16’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h:104:9: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  104 |         _Float16 hf = (_Float16)f;
+      |         ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h:104:24: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  104 |         _Float16 hf = (_Float16)f;
+      |                        ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/repack.cpp: In function ‘void ggml_quantize_mat_q8_K_4x1(const float*, void*, int64_t)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/repack.cpp:97:15: warning: unused variable ‘blck_size_interleave’ [-Wunused-variable]
+   97 |     const int blck_size_interleave = 1;
+      |               ^~~~~~~~~~~~~~~~~~~~
+[ 44%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/traits.cpp.o
+[ 47%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/amx.cpp.o
+[ 50%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/mmq.cpp.o
+[ 52%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/binary-ops.cpp.o
+[ 55%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/unary-ops.cpp.o
+[ 58%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/vec.cpp.o
+In file included from /tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp:1:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h: In function ‘void ggml_vec_mad_f16(int, ggml_fp16_t*, const ggml_fp16_t*, float)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:520:33: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  520 |         const _Float16 scale = *(const _Float16*)(&s);
+      |                                 ^~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h: In function ‘void ggml_vec_scale_f16(int, ggml_fp16_t*, float)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:800:33: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  800 |         const _Float16 scale = *(const _Float16*)(&s);
+      |                                 ^~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp: In function ‘void ggml_vec_dot_f32(int, float*, size_t, const float*, size_t, const float*, size_t, int)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp:93:41: warning: ‘vsum’ is used uninitialized [-Wuninitialized]
+   93 |         vsum = __riscv_vfmv_v_f_f32m8_tu(vsum, 0.0f, vl);
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp:90:22: note: ‘vsum’ was declared here
+   90 |         vfloat32m8_t vsum;
+      |                      ^~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp:96:42: warning: ‘ax’ may be used uninitialized [-Wmaybe-uninitialized]
+   96 |             ax = __riscv_vle32_v_f32m8_tu(ax, &x[i], vl);
+      |                  ~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp:91:22: note: ‘ax’ was declared here
+   91 |         vfloat32m8_t ax;
+      |                      ^~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp:97:42: warning: ‘ay’ may be used uninitialized [-Wmaybe-uninitialized]
+   97 |             ay = __riscv_vle32_v_f32m8_tu(ay, &y[i], vl);
+      |                  ~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp:92:22: note: ‘ay’ was declared here
+   92 |         vfloat32m8_t ay;
+      |                      ^~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp: In function ‘void ggml_vec_dot_f16(int, float*, size_t, ggml_fp16_t*, size_t, ggml_fp16_t*, size_t, int)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp:331:46: warning: ‘ax’ may be used uninitialized [-Wmaybe-uninitialized]
+  331 |                 ax = __riscv_vle16_v_f16m1_tu(ax, (const _Float16 *)&x[i], vl);
+      |                      ~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp:326:26: note: ‘ax’ was declared here
+  326 |             vfloat16m1_t ax;
+      |                          ^~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp:332:46: warning: ‘ay’ may be used uninitialized [-Wmaybe-uninitialized]
+  332 |                 ay = __riscv_vle16_v_f16m1_tu(ay, (const _Float16 *)&y[i], vl);
+      |                      ~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.cpp:327:26: note: ‘ay’ was declared here
+  327 |             vfloat16m1_t ay;
+      |                          ^~
+[ 61%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ops.cpp.o
+In file included from /tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/ops.cpp:9:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h: In function ‘void ggml_vec_mad_f16(int, ggml_fp16_t*, const ggml_fp16_t*, float)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:520:33: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  520 |         const _Float16 scale = *(const _Float16*)(&s);
+      |                                 ^~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h: In function ‘void ggml_vec_scale_f16(int, ggml_fp16_t*, float)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/vec.h:800:33: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  800 |         const _Float16 scale = *(const _Float16*)(&s);
+      |                                 ^~~~~~~~~~~~~~~~~~~~~
+[ 63%] Building C object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/riscv/quants.c.o
+In file included from /tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:6:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h: In function ‘riscv_compute_fp16_to_fp32’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h:97:9: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+   97 |         _Float16 hf;
+      |         ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h: In function ‘riscv_compute_fp32_to_fp16’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h:104:9: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  104 |         _Float16 hf = (_Float16)f;
+      |         ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/simd-mappings.h:104:24: warning: ISO C does not support the ‘_Float16’ type before C23 [-Wpedantic]
+  104 |         _Float16 hf = (_Float16)f;
+      |                        ^~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c: In function ‘quantize_row_q8_K’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:199:25: warning: declaration of ‘k’ shadows a parameter [-Wshadow]
+  199 |             for (size_t k = 16; k < vl; k += 16) {
+      |                         ^
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:122:87: note: shadowed declaration is here
+  122 | void quantize_row_q8_K(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k) {
+      |                                                                               ~~~~~~~~^
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c: At top level:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:692:6: warning: no previous prototype for ‘ggml_vec_dot_q2_K_q8_K_vl128’ [-Wmissing-prototypes]
+  692 | void ggml_vec_dot_q2_K_q8_K_vl128(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c: In function ‘ggml_vec_dot_q2_K_q8_K_vl128’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:707:13: warning: unused variable ‘temp_01’ [-Wunused-variable]
+  707 |     uint8_t temp_01[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      |             ^~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c: At top level:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:847:6: warning: no previous prototype for ‘ggml_vec_dot_q2_K_q8_K_vl256’ [-Wmissing-prototypes]
+  847 | void ggml_vec_dot_q2_K_q8_K_vl256(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c: In function ‘ggml_vec_dot_q2_K_q8_K_vl256’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:860:13: warning: unused variable ‘atmp’ [-Wunused-variable]
+  860 |     uint8_t atmp[16];
+      |             ^~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c: At top level:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:1107:6: warning: no previous prototype for ‘ggml_vec_dot_q3_K_q8_K_vl128’ [-Wmissing-prototypes]
+ 1107 | void ggml_vec_dot_q3_K_q8_K_vl128(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c: In function ‘ggml_vec_dot_q3_K_q8_K_vl128’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:1125:14: warning: unused variable ‘aux’ [-Wunused-variable]
+ 1125 |     uint32_t aux[3];
+      |              ^~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c: At top level:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:1257:6: warning: no previous prototype for ‘ggml_vec_dot_q3_K_q8_K_vl256’ [-Wmissing-prototypes]
+ 1257 | void ggml_vec_dot_q3_K_q8_K_vl256(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:1370:6: warning: no previous prototype for ‘ggml_vec_dot_q3_K_q8_K_vl512’ [-Wmissing-prototypes]
+ 1370 | void ggml_vec_dot_q3_K_q8_K_vl512(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:1488:6: warning: no previous prototype for ‘ggml_vec_dot_q3_K_q8_K_vl1024’ [-Wmissing-prototypes]
+ 1488 | void ggml_vec_dot_q3_K_q8_K_vl1024(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c: In function ‘ggml_vec_dot_tq2_0_q8_K_vl128’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:6335:27: warning: declaration of ‘vy’ shadows a parameter [-Wshadow]
+ 6335 |                 vint8m2_t vy = __riscv_vle8_v_i8m2(py0, vl);
+      |                           ^~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:6300:170: note: shadowed declaration is here
+ 6300 | static NOINLINE void ggml_vec_dot_tq2_0_q8_K_vl128(const int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+      |                                                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:6346:27: warning: declaration of ‘vy’ shadows a parameter [-Wshadow]
+ 6346 |                 vint8m2_t vy = __riscv_vle8_v_i8m2(py1, vl);
+      |                           ^~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:6300:170: note: shadowed declaration is here
+ 6300 | static NOINLINE void ggml_vec_dot_tq2_0_q8_K_vl128(const int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+      |                                                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:6356:27: warning: declaration of ‘vy’ shadows a parameter [-Wshadow]
+ 6356 |                 vint8m2_t vy = __riscv_vle8_v_i8m2(py2, vl);
+      |                           ^~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:6300:170: note: shadowed declaration is here
+ 6300 | static NOINLINE void ggml_vec_dot_tq2_0_q8_K_vl128(const int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+      |                                                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:6365:27: warning: declaration of ‘vy’ shadows a parameter [-Wshadow]
+ 6365 |                 vint8m2_t vy = __riscv_vle8_v_i8m2(py3, vl);
+      |                           ^~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/quants.c:6300:170: note: shadowed declaration is here
+ 6300 | static NOINLINE void ggml_vec_dot_tq2_0_q8_K_vl128(const int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+      |                                                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+[ 66%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/riscv/repack.cpp.o
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp: In function ‘void ggml_gemv_q4_0_16x1_q8_0(int, float*, size_t, const void*, const void*, int, int)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:251:68: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  251 |             const vfloat32m2_t d_0 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d, 16);
+      |                                                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp: In function ‘void ggml_gemv_iq4_nl_16x1_q8_0(int, float*, size_t, const void*, const void*, int, int)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:438:68: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  438 |             const vfloat32m2_t d_0 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d, 16);
+      |                                                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp: In function ‘void ggml_gemv_q8_0_16x1_q8_0(int, float*, size_t, const void*, const void*, int, int)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:488:68: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  488 |             const vfloat32m2_t d_0 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d, 16);
+      |                                                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp: In function ‘void ggml_gemv_q2_K_16x1_q8_K(int, float*, size_t, const void*, const void*, int, int)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:497:140: warning: unused parameter ‘nr’ [-Wunused-parameter]
+  497 | void ggml_gemv_q2_K_16x1_q8_K(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, const void * GGML_RESTRICT vy, int nr, int nc) {
+      |                                                                                                                                        ~~~~^~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp: In function ‘void ggml_gemm_q4_0_16x1_q8_0(int, float*, size_t, const void*, const void*, int, int)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:964:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  964 |                 const vfloat32m2_t d_0 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[0], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:965:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  965 |                 const vfloat32m2_t d_1 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[1], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:966:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  966 |                 const vfloat32m2_t d_2 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[2], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:967:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  967 |                 const vfloat32m2_t d_3 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[3], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp: In function ‘void ggml_gemm_iq4_nl_16x1_q8_0(int, float*, size_t, const void*, const void*, int, int)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:1317:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1317 |                 const vfloat32m2_t d_0 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[0], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:1318:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1318 |                 const vfloat32m2_t d_1 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[1], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:1319:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1319 |                 const vfloat32m2_t d_2 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[2], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:1320:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1320 |                 const vfloat32m2_t d_3 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[3], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp: In function ‘void ggml_gemm_q8_0_16x1_q8_0(int, float*, size_t, const void*, const void*, int, int)’:
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:1387:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1387 |                 const vfloat32m2_t d_0 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[0], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:1388:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1388 |                 const vfloat32m2_t d_1 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[1], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:1389:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1389 |                 const vfloat32m2_t d_2 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[2], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/opencode/vbuf-ml-adapter-rvv-gcc14/build/_deps/ggml_source-src/src/ggml-cpu/arch/riscv/repack.cpp:1390:72: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1390 |                 const vfloat32m2_t d_3 = __riscv_vfwmul_vf_f32m2(b_d, *(const _Float16 *)&a_ptr[l].d[3], 16);
+      |                                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[ 69%] Linking CXX shared library libggml-cpu.so
+[ 69%] Built target ggml-cpu
+[ 75%] Building CXX object ggml/src/CMakeFiles/ggml.dir/ggml-backend-dl.cpp.o
+[ 75%] Building CXX object ggml/src/CMakeFiles/ggml.dir/ggml-backend-reg.cpp.o
+[ 77%] Linking CXX shared library libggml.so
+[ 77%] Built target ggml
+[ 80%] Building CXX object CMakeFiles/vbuf_region_executor.dir/src/vbuf_region_executor.cpp.o
+[ 83%] Linking CXX static library libvbuf_region_executor.a
+[ 83%] Built target vbuf_region_executor
+[ 88%] Building CXX object CMakeFiles/vbuf_ggml_smoke.dir/tests/ggml_smoke.cpp.o
+[ 88%] Building CXX object CMakeFiles/vbuf_borrowed_cpu_buffer_probe.dir/tests/borrowed_cpu_buffer.cpp.o
+[ 91%] Linking CXX executable vbuf_borrowed_cpu_buffer_probe
+[ 91%] Built target vbuf_borrowed_cpu_buffer_probe
+[ 94%] Building CXX object CMakeFiles/vbuf_tensor_adapter_qualification.dir/tests/tensor_adapter_qualification.cpp.o
+[ 97%] Linking CXX executable vbuf_ggml_smoke
+[ 97%] Built target vbuf_ggml_smoke
+[100%] Linking CXX executable vbuf_tensor_adapter_qualification
+[100%] Built target vbuf_tensor_adapter_qualification
+[ 27%] Built target ggml-base
+[ 69%] Built target ggml-cpu
+[ 77%] Built target ggml
+[ 83%] Built target vbuf_region_executor
+[ 88%] Built target vbuf_borrowed_cpu_buffer_probe
+[ 94%] Built target vbuf_ggml_smoke
+[ 97%] Building CXX object CMakeFiles/vbuf_tensor_adapter_qualification.dir/tests/tensor_adapter_qualification.cpp.o
+[100%] Linking CXX executable vbuf_tensor_adapter_qualification
+[100%] Built target vbuf_tensor_adapter_qualification
