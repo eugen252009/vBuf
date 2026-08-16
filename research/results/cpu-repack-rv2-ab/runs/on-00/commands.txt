@@ -1,0 +1,1 @@
+/home/eugen/cpu-repack-rv2-ab/rv2_repack_ab_on vbuf /home/eugen/DeepSeek-V2-Lite.IQ1_S.vbuf

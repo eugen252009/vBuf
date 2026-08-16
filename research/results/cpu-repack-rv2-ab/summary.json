@@ -1,0 +1,407 @@
+{
+  "runs": [
+    {
+      "run": "on-00",
+      "variant": "on",
+      "return_code": 0,
+      "structure_ready_us": 2200519,
+      "payload_end_us": 50364396,
+      "execution_ready_us": 50762636,
+      "first_token_us": 52719237,
+      "total_us": 65272279,
+      "prompt_us": 1548076,
+      "prompt_tokens": 3,
+      "prompt_tok_s": 1.937889,
+      "first_decode_us": 407469,
+      "decode_us": 12960532,
+      "decode_tokens": 32,
+      "decode_tok_s": 2.469034,
+      "repack_tensors": 28,
+      "repack_source_bytes": 2713534464,
+      "repack_destination_bytes": 2713534464,
+      "repack_us": 40956498,
+      "peak_rss_bytes": 7856820224,
+      "rss_execution_ready_bytes": 7839518720,
+      "steady_rss_bytes": 7772672000.0,
+      "min_available_bytes": 2710441984,
+      "max_minor_faults": 1333009,
+      "max_major_faults": 22514,
+      "temperature_max_milli_c": 63000,
+      "frequency_min_hz": 1600000,
+      "frequency_max_hz": 1600000,
+      "sample_count": 544,
+      "buffers_mib": {
+        "CPU": 2171.14,
+        "CPU_REPACK": 2587.83
+      }
+    },
+    {
+      "run": "off-00",
+      "variant": "off",
+      "return_code": 0,
+      "structure_ready_us": 2221270,
+      "payload_end_us": 50835630,
+      "execution_ready_us": 51154678,
+      "first_token_us": 53103447,
+      "total_us": 65198792,
+      "prompt_us": 1464463,
+      "prompt_tokens": 3,
+      "prompt_tok_s": 2.048532,
+      "first_decode_us": 483304,
+      "decode_us": 12578640,
+      "decode_tokens": 32,
+      "decode_tok_s": 2.543995,
+      "repack_tensors": 0,
+      "repack_source_bytes": 0,
+      "repack_destination_bytes": 0,
+      "repack_us": 0,
+      "peak_rss_bytes": 7853178880,
+      "rss_execution_ready_bytes": 7842037760,
+      "steady_rss_bytes": 7796948992,
+      "min_available_bytes": 2709467136,
+      "max_minor_faults": 1327014,
+      "max_major_faults": 24306,
+      "temperature_max_milli_c": 65000,
+      "frequency_min_hz": 1600000,
+      "frequency_max_hz": 1600000,
+      "sample_count": 524,
+      "buffers_mib": {
+        "CPU": 4758.96
+      }
+    },
+    {
+      "run": "off-01",
+      "variant": "off",
+      "return_code": 0,
+      "structure_ready_us": 2166300,
+      "payload_end_us": 57906993,
+      "execution_ready_us": 58211220,
+      "first_token_us": 59766592,
+      "total_us": 71837721,
+      "prompt_us": 1169131,
+      "prompt_tokens": 3,
+      "prompt_tok_s": 2.566008,
+      "first_decode_us": 385170,
+      "decode_us": 12456289,
+      "decode_tokens": 32,
+      "decode_tok_s": 2.568983,
+      "repack_tensors": 0,
+      "repack_source_bytes": 0,
+      "repack_destination_bytes": 0,
+      "repack_us": 0,
+      "peak_rss_bytes": 7859048448,
+      "rss_execution_ready_bytes": 7859048448,
+      "steady_rss_bytes": 7781978112.0,
+      "min_available_bytes": 2715389952,
+      "max_minor_faults": 1325131,
+      "max_major_faults": 28652,
+      "temperature_max_milli_c": 65000,
+      "frequency_min_hz": 1600000,
+      "frequency_max_hz": 1600000,
+      "sample_count": 588,
+      "buffers_mib": {
+        "CPU": 4758.96
+      }
+    },
+    {
+      "run": "on-01",
+      "variant": "on",
+      "return_code": 0,
+      "structure_ready_us": 2156923,
+      "payload_end_us": 68392801,
+      "execution_ready_us": 68718511,
+      "first_token_us": 70604725,
+      "total_us": 83235914,
+      "prompt_us": 1487760,
+      "prompt_tokens": 3,
+      "prompt_tok_s": 2.016454,
+      "first_decode_us": 397454,
+      "decode_us": 13028638,
+      "decode_tokens": 32,
+      "decode_tok_s": 2.456128,
+      "repack_tensors": 28,
+      "repack_source_bytes": 2713534464,
+      "repack_destination_bytes": 2713534464,
+      "repack_us": 41476068,
+      "peak_rss_bytes": 7856033792,
+      "rss_execution_ready_bytes": 7805177856,
+      "steady_rss_bytes": 7776342016.0,
+      "min_available_bytes": 2707185664,
+      "max_minor_faults": 1336911,
+      "max_major_faults": 33333,
+      "temperature_max_milli_c": 63000,
+      "frequency_min_hz": 1600000,
+      "frequency_max_hz": 1600000,
+      "sample_count": 701,
+      "buffers_mib": {
+        "CPU": 2171.14,
+        "CPU_REPACK": 2587.83
+      }
+    },
+    {
+      "run": "on-02",
+      "variant": "on",
+      "return_code": 0,
+      "structure_ready_us": 2162207,
+      "payload_end_us": 73394188,
+      "execution_ready_us": 73767821,
+      "first_token_us": 75359973,
+      "total_us": 87907214,
+      "prompt_us": 1195405,
+      "prompt_tokens": 3,
+      "prompt_tok_s": 2.50961,
+      "first_decode_us": 395740,
+      "decode_us": 12942964,
+      "decode_tokens": 32,
+      "decode_tok_s": 2.472386,
+      "repack_tensors": 28,
+      "repack_source_bytes": 2713534464,
+      "repack_destination_bytes": 2713534464,
+      "repack_us": 39252213,
+      "peak_rss_bytes": 7858917376,
+      "rss_execution_ready_bytes": 7858655232,
+      "steady_rss_bytes": 7829295104,
+      "min_available_bytes": 2713210880,
+      "max_minor_faults": 1336102,
+      "max_major_faults": 32152,
+      "temperature_max_milli_c": 62000,
+      "frequency_min_hz": 1600000,
+      "frequency_max_hz": 1600000,
+      "sample_count": 741,
+      "buffers_mib": {
+        "CPU": 2171.14,
+        "CPU_REPACK": 2587.83
+      }
+    },
+    {
+      "run": "off-02",
+      "variant": "off",
+      "return_code": 0,
+      "structure_ready_us": 2197219,
+      "payload_end_us": 59249032,
+      "execution_ready_us": 59584987,
+      "first_token_us": 61112386,
+      "total_us": 73455560,
+      "prompt_us": 1143463,
+      "prompt_tokens": 3,
+      "prompt_tok_s": 2.623609,
+      "first_decode_us": 382959,
+      "decode_us": 12726113,
+      "decode_tokens": 32,
+      "decode_tok_s": 2.514515,
+      "repack_tensors": 0,
+      "repack_source_bytes": 0,
+      "repack_destination_bytes": 0,
+      "repack_us": 0,
+      "peak_rss_bytes": 7854714880,
+      "rss_execution_ready_bytes": 7854714880,
+      "steady_rss_bytes": 7779610624.0,
+      "min_available_bytes": 2713665536,
+      "max_minor_faults": 1329220,
+      "max_major_faults": 29573,
+      "temperature_max_milli_c": 65000,
+      "frequency_min_hz": 1600000,
+      "frequency_max_hz": 1600000,
+      "sample_count": 614,
+      "buffers_mib": {
+        "CPU": 4758.96
+      }
+    }
+  ],
+  "by_variant": {
+    "on": {
+      "structure_ready_us": {
+        "min": 2156923,
+        "median": 2162207,
+        "max": 2200519
+      },
+      "payload_end_us": {
+        "min": 50364396,
+        "median": 68392801,
+        "max": 73394188
+      },
+      "execution_ready_us": {
+        "min": 50762636,
+        "median": 68718511,
+        "max": 73767821
+      },
+      "first_token_us": {
+        "min": 52719237,
+        "median": 70604725,
+        "max": 75359973
+      },
+      "total_us": {
+        "min": 65272279,
+        "median": 83235914,
+        "max": 87907214
+      },
+      "prompt_us": {
+        "min": 1195405,
+        "median": 1487760,
+        "max": 1548076
+      },
+      "prompt_tok_s": {
+        "min": 1.937889,
+        "median": 2.016454,
+        "max": 2.50961
+      },
+      "first_decode_us": {
+        "min": 395740,
+        "median": 397454,
+        "max": 407469
+      },
+      "decode_tok_s": {
+        "min": 2.456128,
+        "median": 2.469034,
+        "max": 2.472386
+      },
+      "repack_tensors": {
+        "min": 28,
+        "median": 28,
+        "max": 28
+      },
+      "repack_source_bytes": {
+        "min": 2713534464,
+        "median": 2713534464,
+        "max": 2713534464
+      },
+      "repack_destination_bytes": {
+        "min": 2713534464,
+        "median": 2713534464,
+        "max": 2713534464
+      },
+      "repack_us": {
+        "min": 39252213,
+        "median": 40956498,
+        "max": 41476068
+      },
+      "peak_rss_bytes": {
+        "min": 7856033792,
+        "median": 7856820224,
+        "max": 7858917376
+      },
+      "rss_execution_ready_bytes": {
+        "min": 7805177856,
+        "median": 7839518720,
+        "max": 7858655232
+      },
+      "steady_rss_bytes": {
+        "min": 7772672000.0,
+        "median": 7776342016.0,
+        "max": 7829295104
+      },
+      "min_available_bytes": {
+        "min": 2707185664,
+        "median": 2710441984,
+        "max": 2713210880
+      },
+      "max_minor_faults": {
+        "min": 1333009,
+        "median": 1336102,
+        "max": 1336911
+      },
+      "max_major_faults": {
+        "min": 22514,
+        "median": 32152,
+        "max": 33333
+      }
+    },
+    "off": {
+      "structure_ready_us": {
+        "min": 2166300,
+        "median": 2197219,
+        "max": 2221270
+      },
+      "payload_end_us": {
+        "min": 50835630,
+        "median": 57906993,
+        "max": 59249032
+      },
+      "execution_ready_us": {
+        "min": 51154678,
+        "median": 58211220,
+        "max": 59584987
+      },
+      "first_token_us": {
+        "min": 53103447,
+        "median": 59766592,
+        "max": 61112386
+      },
+      "total_us": {
+        "min": 65198792,
+        "median": 71837721,
+        "max": 73455560
+      },
+      "prompt_us": {
+        "min": 1143463,
+        "median": 1169131,
+        "max": 1464463
+      },
+      "prompt_tok_s": {
+        "min": 2.048532,
+        "median": 2.566008,
+        "max": 2.623609
+      },
+      "first_decode_us": {
+        "min": 382959,
+        "median": 385170,
+        "max": 483304
+      },
+      "decode_tok_s": {
+        "min": 2.514515,
+        "median": 2.543995,
+        "max": 2.568983
+      },
+      "repack_tensors": {
+        "min": 0,
+        "median": 0,
+        "max": 0
+      },
+      "repack_source_bytes": {
+        "min": 0,
+        "median": 0,
+        "max": 0
+      },
+      "repack_destination_bytes": {
+        "min": 0,
+        "median": 0,
+        "max": 0
+      },
+      "repack_us": {
+        "min": 0,
+        "median": 0,
+        "max": 0
+      },
+      "peak_rss_bytes": {
+        "min": 7853178880,
+        "median": 7854714880,
+        "max": 7859048448
+      },
+      "rss_execution_ready_bytes": {
+        "min": 7842037760,
+        "median": 7854714880,
+        "max": 7859048448
+      },
+      "steady_rss_bytes": {
+        "min": 7779610624.0,
+        "median": 7781978112.0,
+        "max": 7796948992
+      },
+      "min_available_bytes": {
+        "min": 2709467136,
+        "median": 2713665536,
+        "max": 2715389952
+      },
+      "max_minor_faults": {
+        "min": 1325131,
+        "median": 1327014,
+        "max": 1329220
+      },
+      "max_major_faults": {
+        "min": 24306,
+        "median": 28652,
+        "max": 29573
+      }
+    }
+  }
+}

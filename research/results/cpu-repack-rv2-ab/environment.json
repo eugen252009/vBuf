@@ -1,0 +1,34 @@
+{
+  "host": "orangepirv2",
+  "system": "Linux 6.6.63-ky riscv64",
+  "hardware": "Orange Pi RV2 / Ky X1 / RVV",
+  "compiler": "GCC/G++ 14.2",
+  "source": "~/llama-vbuf-pinned",
+  "enabled_build": "~/llama-vbuf-rvv-build",
+  "disabled_build": "~/llama-vbuf-rvv-ab-off",
+  "vbuf_library": "~/projekte/vBuf/rust/target/release/libvbuf_ml.so",
+  "model": "~/DeepSeek-V2-Lite.IQ1_S.vbuf",
+  "model_sha256": "780a55b77d2730705a93622338d9747149624d72e558e26182176868210fafcc",
+  "build_flags": {
+    "GGML_NATIVE": true,
+    "GGML_OPENMP": true,
+    "GGML_RVV": true,
+    "enabled_GGML_CPU_REPACK": true,
+    "disabled_GGML_CPU_REPACK": false,
+    "CMAKE_C_COMPILER": "/usr/bin/gcc-14",
+    "CMAKE_CXX_COMPILER": "/usr/bin/g++-14"
+  },
+  "runtime": {
+    "context": 256,
+    "batch": 64,
+    "ubatch": 64,
+    "threads": 8,
+    "prompt": "Hello world",
+    "generated_tokens": 32,
+    "sampling": "greedy",
+    "cache_regime": "WARM_CACHE"
+  },
+  "swap": "none",
+  "cpu_frequency_hz": 1600000,
+  "run_order": ["on-00", "off-00", "off-01", "on-01", "on-02", "off-02"]
+}

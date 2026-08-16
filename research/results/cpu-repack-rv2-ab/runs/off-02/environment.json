@@ -1,0 +1,25 @@
+{
+  "variant": "off",
+  "run_id": "off-02",
+  "command": [
+    "/home/eugen/cpu-repack-rv2-ab/rv2_repack_ab_off",
+    "vbuf",
+    "/home/eugen/DeepSeek-V2-Lite.IQ1_S.vbuf"
+  ],
+  "model": "/home/eugen/DeepSeek-V2-Lite.IQ1_S.vbuf",
+  "environment": {
+    "VBUF_BENCH_TRACE": "/home/eugen/cpu-repack-rv2-ab/runs/off-02/trace.csv",
+    "LD_LIBRARY_PATH": "/home/eugen/llama-vbuf-rvv-ab-off/bin:/home/eugen/projekte/vBuf/rust/target/release:"
+  },
+  "parameters": {
+    "context": 256,
+    "batch": 64,
+    "ubatch": 64,
+    "threads": 8,
+    "prompt": "Hello world",
+    "generated_tokens": 32,
+    "sampling": "greedy",
+    "seed": "default"
+  },
+  "cache_regime": "WARM_CACHE"
+}

@@ -1,0 +1,24 @@
+{
+  "variant": "on",
+  "run_id": "on-00",
+  "command": [
+    "/home/eugen/cpu-repack-rv2-ab/rv2_repack_ab_on",
+    "vbuf",
+    "/home/eugen/DeepSeek-V2-Lite.IQ1_S.vbuf"
+  ],
+  "model": "/home/eugen/DeepSeek-V2-Lite.IQ1_S.vbuf",
+  "environment": {
+    "VBUF_BENCH_TRACE": "/home/eugen/cpu-repack-rv2-ab/runs/on-00/trace.csv"
+  },
+  "parameters": {
+    "context": 256,
+    "batch": 64,
+    "ubatch": 64,
+    "threads": 8,
+    "prompt": "Hello world",
+    "generated_tokens": 32,
+    "sampling": "greedy",
+    "seed": "default"
+  },
+  "cache_regime": "WARM_CACHE"
+}
