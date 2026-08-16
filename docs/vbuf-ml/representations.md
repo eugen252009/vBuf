@@ -17,7 +17,8 @@ available:
 - `GGML Q3_K` → exact opaque-byte profile contract (profile ID `9`);
 - `GGML IQ2_XXS` → exact opaque-byte profile contract (profile ID `10`);
 - `GGML IQ2_XS` → exact opaque-byte profile contract (profile ID `11`);
-- `GGML IQ2_S` → exact opaque-byte profile contract (profile ID `12`).
+- `GGML IQ2_S` → exact opaque-byte profile contract (profile ID `12`);
+- `GGML Q5_K` → exact opaque-byte profile contract (profile ID `13`).
 
 `Q4_K_S` and `Q4_K_M` are quantization/model aliases used by llama.cpp
 packaging. Their tensor payloads are still the per-tensor `GGML_TYPE_Q4_K`
@@ -43,6 +44,7 @@ The external mapping is explicit:
 | 10 | `GGML_IQ2_XXS` | 16 | opaque canonical bytes |
 | 11 | `GGML_IQ2_XS` | 17 | opaque canonical bytes |
 | 12 | `GGML_IQ2_S` | 22 | opaque canonical bytes |
+| 13 | `GGML_Q5_K` | 13 | opaque canonical bytes |
 
 The contracts were derived from llama.cpp commit
 `4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c`.
@@ -153,6 +155,6 @@ It never changes bytes inside an F32, BF16, Q8_0, Q4_0, Q2_K, or IQ1_S tensor pa
 
 ## Unsupported representations
 
-Q4_0, Q2_K, and IQ1_S are supported by the current profile. Other Q4/Q2/IQ
-variants, Q5, and unqualified GGML types remain unsupported. Unknown profile IDs
-fail closed.
+Q4_0, Q2_K, IQ1_S, and Q5_K are supported by the current profile. Other
+Q4/Q2/IQ variants and unqualified GGML types remain unsupported. Unknown
+profile IDs fail closed.
