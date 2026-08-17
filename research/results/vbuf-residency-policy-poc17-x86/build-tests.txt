@@ -1,0 +1,11 @@
+vbuf_ml_release_build=PASS
+poc16_relink=PASS
+full_x86_ctest=16/16 PASS
+residency_policy_contract=PASS
+poc16_normal_semantics=PASS
+middle_block_attention_failure=PASS
+middle_block_selected_expert_failure=PASS
+oracle_and_capacity_sweep=PASS
+git_diff_check=PASS
+ccc_index=PASS
+commit_created=NO

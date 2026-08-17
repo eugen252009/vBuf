@@ -5,9 +5,43 @@
 #include "full_moe_layer_poc13.cpp"
 #undef VBUF_POC13_LIBRARY_ONLY
 
+#include <algorithm>
+#include <atomic>
+#include <map>
 #include <set>
 
 namespace {
+
+class MultiSelectiveFailureSource final : public RangeSource {
+public:
+    MultiSelectiveFailureSource(std::shared_ptr<RangeSource> delegate, std::set<uint64_t> offsets)
+        : delegate_(std::move(delegate)), offsets_(std::move(offsets)) {}
+
+    bool read_range(uint64_t offset, uint64_t length, uint8_t * destination,
+        RangeReadResult * result) override {
+        reads_.fetch_add(1, std::memory_order_relaxed);
+        if (offsets_.count(offset) != 0) {
+            failures_.fetch_add(1, std::memory_order_relaxed);
+            if (result != nullptr) {
+                result->requested_offset = offset;
+                result->requested_length = length;
+                result->source_id = "controlled-selected-expert-failure";
+                result->error = "controlled selected expert tensor failure";
+            }
+            return false;
+        }
+        return delegate_->read_range(offset, length, destination, result);
+    }
+
+    uint32_t failures() const { return failures_; }
+    uint32_t reads() const { return reads_; }
+
+private:
+    std::shared_ptr<RangeSource> delegate_;
+    std::set<uint64_t> offsets_;
+    std::atomic<uint32_t> reads_ = 0;
+    std::atomic<uint32_t> failures_ = 0;
+};
 
 struct LayerPlan {
     Metadata metadata;
@@ -52,6 +86,7 @@ LayerPlan make_plan(const Metadata & all, uint32_t block_id, uint32_t namespace_
 
 struct SequenceRun {
     bool ok = true;
+    size_t completed_blocks = 0;
     Activation output;
     Activation reference_output;
     std::vector<std::vector<float>> block_outputs;
@@ -59,13 +94,180 @@ struct SequenceRun {
     std::vector<std::vector<float>> weights;
 };
 
+uint32_t trace_block(uint32_t ref) {
+    if (ref >= 300000) return 3;
+    if (ref >= 200000) return 2;
+    if (ref >= 100000) return 1;
+    if (ref >= 30000) return 3;
+    if (ref >= 20000) return 2;
+    return 1;
+}
+
+struct ReloadStats {
+    uint64_t loads = 0;
+    uint64_t reloads = 0;
+    uint64_t reload_bytes = 0;
+    uint64_t evictions = 0;
+};
+
+struct TraceIdentity {
+    uint64_t offset = 0;
+    uint64_t bytes = 0;
+    std::string semantic_class;
+    int32_t expert = -1;
+};
+
+void add_trace_identity(std::map<uint32_t, TraceIdentity> * identities, uint32_t ref,
+    const Meta & tensor, const char * semantic_class, int32_t expert = -1,
+    uint64_t offset = UINT64_MAX, uint64_t bytes = 0) {
+    (*identities)[ref] = { offset == UINT64_MAX ? tensor.offset : offset,
+        bytes == 0 ? tensor.view.payload_len : bytes, semantic_class, expert };
+}
+
+std::map<uint32_t, TraceIdentity> trace_identities(const std::vector<LayerPlan> & plans) {
+    std::map<uint32_t, TraceIdentity> identities;
+    for (const LayerPlan & plan : plans) {
+        const uint32_t ns = plan.namespace_base;
+        const Meta norm = lookup(plan.metadata, "blk.1.ffn_norm.weight");
+        const Meta router = lookup(plan.metadata, "blk.1.ffn_gate_inp.weight");
+        add_trace_identity(&identities, ns + 500, norm, "norm");
+        add_trace_identity(&identities, ns + 501, router, "router");
+        const Meta shared_gate = lookup(plan.metadata, "blk.1.ffn_gate_shexp.weight");
+        const Meta shared_up = lookup(plan.metadata, "blk.1.ffn_up_shexp.weight");
+        const Meta shared_down = lookup(plan.metadata, "blk.1.ffn_down_shexp.weight");
+        add_trace_identity(&identities, ns + 600, shared_gate, "shared_expert");
+        add_trace_identity(&identities, ns + 601, shared_up, "shared_expert");
+        add_trace_identity(&identities, ns + 602, shared_down, "shared_expert");
+        const Meta gate = lookup(plan.metadata, "blk.1.ffn_gate_exps.weight");
+        const Meta up = lookup(plan.metadata, "blk.1.ffn_up_exps.weight");
+        const Meta down = lookup(plan.metadata, "blk.1.ffn_down_exps.weight");
+        for (uint32_t expert = 0; expert < 64; ++expert) {
+            add_trace_identity(&identities, ns + expert * 3, gate, "routed_expert_gate", expert,
+                gate.offset + (gate.view.payload_len / 64) * expert, gate.view.payload_len / 64);
+            add_trace_identity(&identities, ns + expert * 3 + 1, up, "routed_expert_up", expert,
+                up.offset + (up.view.payload_len / 64) * expert, up.view.payload_len / 64);
+            add_trace_identity(&identities, ns + expert * 3 + 2, down, "routed_expert_down", expert,
+                down.offset + (down.view.payload_len / 64) * expert, down.view.payload_len / 64);
+        }
+        const AttentionTensors attention = attention_tensors(plan.metadata);
+        add_trace_identity(&identities, 1000 + static_cast<uint32_t>(attention.norm.id * 10),
+            attention.norm, "attention");
+        add_trace_identity(&identities, 1000 + static_cast<uint32_t>(attention.q.id * 10),
+            attention.q, "attention");
+        add_trace_identity(&identities, 1000 + static_cast<uint32_t>(attention.kv_a.id * 10),
+            attention.kv_a, "attention");
+        add_trace_identity(&identities, 1000 + static_cast<uint32_t>(attention.kv_a_norm.id * 10),
+            attention.kv_a_norm, "attention");
+        add_trace_identity(&identities, 1000 + static_cast<uint32_t>(attention.kv_b.id * 10),
+            attention.kv_b, "attention");
+        add_trace_identity(&identities, 1000 + static_cast<uint32_t>(attention.output.id * 10),
+            attention.output, "attention");
+    }
+    return identities;
+}
+
+void print_poc17_trace(const std::vector<LayerPlan> & plans,
+    const TensorResidencyStore & residency) {
+    const auto identities = trace_identities(plans);
+    for (const auto & entry : identities) {
+        const auto found = identities.find(entry.first);
+        const auto & identity = found->second;
+        std::printf("poc17_identity ref=%u offset=%llu bytes=%llu class=%s expert=%d\n", entry.first,
+            static_cast<unsigned long long>(identity.offset),
+            static_cast<unsigned long long>(identity.bytes), identity.semantic_class.c_str(),
+            identity.expert);
+    }
+    const auto & trace = residency.trace();
+    for (size_t ordinal = 0; ordinal < trace.size(); ++ordinal) {
+        const auto & event = trace[ordinal];
+        const auto found = identities.find(event.tensor_ref);
+        const TraceIdentity * identity = found == identities.end() ? nullptr : &found->second;
+        std::printf("poc17_event ordinal=%zu ref=%u name=%s kind=%s before=%llu after=%llu "
+            "leases=%u timestamp_ns=%llu offset=%llu bytes=%llu class=%s expert=%d source=%s\n",
+            ordinal, event.tensor_ref, event.tensor_name.c_str(), residency_event_name(event.kind),
+            static_cast<unsigned long long>(event.resident_bytes_before),
+            static_cast<unsigned long long>(event.resident_bytes_after), event.active_leases,
+            static_cast<unsigned long long>(event.timestamp_ns),
+            static_cast<unsigned long long>(identity ? identity->offset : UINT64_MAX),
+            static_cast<unsigned long long>(identity ? identity->bytes : 0),
+            identity ? identity->semantic_class.c_str() : "unknown", identity ? identity->expert : -1,
+            event.source_id.c_str());
+    }
+}
+
+void print_residency_summary(const TensorResidencyStore & residency) {
+    std::map<std::string, ReloadStats> stats;
+    std::map<uint32_t, ReloadStats> by_block;
+    std::set<std::string> seen;
+    uint64_t hits = 0, misses = 0, evictions = 0, load_events = 0;
+    uint64_t reload_events = 0, load_bytes = 0, reload_bytes = 0;
+    for (const auto & event : residency.trace()) {
+        const std::string key = std::to_string(event.tensor_ref) + ":" + event.tensor_name;
+        ReloadStats & item = stats[key];
+        ReloadStats & block = by_block[trace_block(event.tensor_ref)];
+        if (event.kind == ResidencyEventKind::Hit) ++hits;
+        if (event.kind == ResidencyEventKind::Miss) ++misses;
+        if (event.kind == ResidencyEventKind::Evict) {
+            ++evictions;
+            ++item.evictions;
+            ++block.evictions;
+        }
+        if (event.kind == ResidencyEventKind::Insert) {
+            const uint64_t inserted_bytes = event.resident_bytes_after >= event.resident_bytes_before
+                ? event.resident_bytes_after - event.resident_bytes_before : 0;
+            ++load_events;
+            load_bytes += inserted_bytes;
+            ++item.loads;
+            ++block.loads;
+            if (seen.count(key) != 0) {
+                ++reload_events;
+                ++item.reloads;
+                ++block.reloads;
+                item.reload_bytes += inserted_bytes;
+                block.reload_bytes += inserted_bytes;
+                reload_bytes += inserted_bytes;
+            }
+            seen.insert(key);
+        }
+    }
+    std::vector<std::pair<std::string, ReloadStats>> offenders;
+    for (const auto & entry : stats)
+        if (entry.second.reloads != 0) offenders.push_back(entry);
+    std::sort(offenders.begin(), offenders.end(), [](const auto & lhs, const auto & rhs) {
+        if (lhs.second.reload_bytes != rhs.second.reload_bytes)
+            return lhs.second.reload_bytes > rhs.second.reload_bytes;
+        return lhs.first < rhs.first;
+    });
+    std::printf("residency_unique_loaded=%zu residency_load_events=%llu residency_hits=%llu "
+        "residency_misses=%llu residency_evictions=%llu residency_reload_events=%llu "
+        "residency_unique_reloaded=%zu residency_reload_bytes=%llu reload_fraction=%g\n", seen.size(),
+        static_cast<unsigned long long>(load_events), static_cast<unsigned long long>(hits),
+        static_cast<unsigned long long>(misses), static_cast<unsigned long long>(evictions),
+        static_cast<unsigned long long>(reload_events), offenders.size(),
+        static_cast<unsigned long long>(reload_bytes), load_bytes == 0 ? 0.0 :
+            static_cast<double>(reload_bytes) / static_cast<double>(load_bytes));
+    for (size_t i = 0; i < std::min<size_t>(10, offenders.size()); ++i)
+        std::printf("reload_offender rank=%zu identity=%s loads=%llu reloads=%llu reload_bytes=%llu evictions=%llu\n",
+            i + 1, offenders[i].first.c_str(), static_cast<unsigned long long>(offenders[i].second.loads),
+            static_cast<unsigned long long>(offenders[i].second.reloads),
+            static_cast<unsigned long long>(offenders[i].second.reload_bytes),
+            static_cast<unsigned long long>(offenders[i].second.evictions));
+    for (const auto & entry : by_block)
+        std::printf("residency_block block=%u loads=%llu reloads=%llu reload_bytes=%llu evictions=%llu\n",
+            entry.first, static_cast<unsigned long long>(entry.second.loads),
+            static_cast<unsigned long long>(entry.second.reloads),
+            static_cast<unsigned long long>(entry.second.reload_bytes),
+            static_cast<unsigned long long>(entry.second.evictions));
+}
+
 SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation & input,
     uint32_t position, std::vector<RuntimeStateSlot> * actual_k,
     std::vector<RuntimeStateSlot> * actual_v, std::vector<RuntimeStateSlot> * reference_k,
     std::vector<RuntimeStateSlot> * reference_v, const std::shared_ptr<const void> & lease,
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
     const std::shared_ptr<TensorResidencyStore> & residency,
-    const std::shared_ptr<RangeSource> & source, const char * label, bool reference_only = false) {
+    const std::shared_ptr<RangeSource> & source, const char * label, bool reference_only = false,
+    const MultiSelectiveFailureSource * failure_source = nullptr) {
     SequenceRun result;
     Activation actual = input;
     Activation reference = input;
@@ -84,6 +286,10 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
             reference_only ? nullptr : materializer, (std::string(label) + "_blk" + std::to_string(plan.block_id)).c_str());
         const TokenData reference_attention = compute_token(tensors, reference, position, rk, rv, lease,
             nullptr, "reference_attention");
+        if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == 2) {
+            result.ok = false;
+            return result;
+        }
         if (actual_attention.output.empty() || reference_attention.output.empty()) {
             result.ok = false;
             return result;
@@ -93,6 +299,10 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
             Activation{ actual_attention.output, { 2048, 1 } }, lease,
             reference_only ? nullptr : materializer, reference_only ? nullptr : residency,
             source, block_label, false, plan.namespace_base);
+        if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == 2) {
+            result.ok = false;
+            return result;
+        }
         auto ref_source = std::make_shared<LocalVbufRangeSource>(plan.metadata.artifact->data,
             plan.metadata.artifact->size);
         auto ref_backing = std::make_shared<LocalVbufRangeMaterializer>(ref_source);
@@ -113,6 +323,7 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         result.block_outputs.push_back(actual_ffn.final_output);
         result.ok = result.ok && actual_ffn.ok;
         if (!actual_ffn.ok) return result;
+        ++result.completed_blocks;
         actual = Activation{ actual_ffn.final_output, { 2048, 1 } };
         reference = Activation{ reference_ffn.reference_output, { 2048, 1 } };
         previous_block_ready_ns = clock_ns();
@@ -160,11 +371,21 @@ int main(int argc, char ** argv) {
     const std::string mode = argc > 4 ? argv[4] : "";
     std::printf("mode=%s\n", mode.empty() ? "normal" : mode.c_str());
     std::shared_ptr<RangeSource> source = std::make_shared<HttpRangeSource>(argv[2]);
-    if (mode == "middle-attention-failure")
-        source = std::make_shared<FailingSource>(source, attention_tensors(plans[1].metadata).q.offset);
-    if (mode == "middle-selected-expert-failure") {
-        const ExpertTensor failed = make_expert(lookup(plans[1].metadata, "blk.1.ffn_up_exps.weight"), 18);
-        source = std::make_shared<SelectiveFailureSource>(source, failed.ref().source_offset);
+    std::shared_ptr<MultiSelectiveFailureSource> selected_failure;
+    if (mode == "middle-attention-failure") {
+        std::set<uint64_t> middle_block_ranges;
+        for (const Meta & tensor : plans[1].metadata.tensors) middle_block_ranges.insert(tensor.offset);
+        selected_failure = std::make_shared<MultiSelectiveFailureSource>(source,
+            std::move(middle_block_ranges));
+        source = selected_failure;
+    } else if (mode == "middle-selected-expert-failure") {
+        std::set<uint64_t> selected_expert_ranges;
+        const Meta & up_meta = lookup(plans[1].metadata, "blk.1.ffn_up_exps.weight");
+        for (uint32_t expert = 0; expert < 64; ++expert)
+            selected_expert_ranges.insert(make_expert(up_meta, expert).ref().source_offset);
+        selected_failure = std::make_shared<MultiSelectiveFailureSource>(source,
+            std::move(selected_expert_ranges));
+        source = selected_failure;
     }
     if (!mode.empty()) std::printf("failure_target_mode=%s target_offset=%llu\n", mode.c_str(),
         static_cast<unsigned long long>(mode == "middle-attention-failure"
@@ -177,14 +398,24 @@ int main(int argc, char ** argv) {
         actual_k.emplace_back(16 * 192, 2); actual_v.emplace_back(16 * 128, 2);
         reference_k.emplace_back(16 * 192, 2); reference_v.emplace_back(16 * 128, 2);
     }
+    std::printf("poc17_phase name=cold_token0 event_begin=%zu\n", residency->trace().size());
     const SequenceRun token0 = run_sequence(plans, one_hot(0, 2048), 0, &actual_k, &actual_v,
-        &reference_k, &reference_v, lease, materializer, residency, source, "token0");
+        &reference_k, &reference_v, lease, materializer, residency, source, "token0", false,
+        selected_failure.get());
+    std::printf("poc17_phase name=cold_token1 event_begin=%zu\n", residency->trace().size());
     const SequenceRun token1 = run_sequence(plans, one_hot(1, 2048), 1, &actual_k, &actual_v,
-        &reference_k, &reference_v, lease, materializer, residency, source, "token1");
+        &reference_k, &reference_v, lease, materializer, residency, source, "token1", false,
+        selected_failure.get());
+    if (selected_failure != nullptr)
+        std::printf("failure_source_reads=%u failure_injections=%u\n", selected_failure->reads(),
+            selected_failure->failures());
     if (!token0.ok || !token1.ok) {
         if (mode == "middle-attention-failure" || mode == "middle-selected-expert-failure") {
             std::printf("middle_block_failure mode=%s earlier_block_completed=YES later_blocks_executed=NO "
-                "final_output=INVALID resources_after_teardown=0 cleanup=PASS\n", mode.c_str());
+                "final_output=INVALID resources_after_teardown=0 cleanup=PASS failure_injections=%u "
+                "completed_blocks=%zu later_block_count=0 failure_source_reads=%u\n", mode.c_str(),
+                selected_failure ? selected_failure->failures() : 1, token0.ok ? token1.completed_blocks :
+                    token0.completed_blocks, selected_failure ? selected_failure->reads() : 0);
             return 0;
         }
         return 15;
@@ -209,8 +440,10 @@ int main(int argc, char ** argv) {
         warm_k.emplace_back(16 * 192, 2); warm_v.emplace_back(16 * 128, 2);
         warm_rk.emplace_back(16 * 192, 2); warm_rv.emplace_back(16 * 128, 2);
     }
+    std::printf("poc17_phase name=warm1_token0 event_begin=%zu\n", residency->trace().size());
     const SequenceRun warm0 = run_sequence(plans, one_hot(0, 2048), 0, &warm_k, &warm_v,
         &warm_rk, &warm_rv, lease, materializer, residency, source, "warm_token0");
+    std::printf("poc17_phase name=warm1_token1 event_begin=%zu\n", residency->trace().size());
     const SequenceRun warm1 = run_sequence(plans, one_hot(1, 2048), 1, &warm_k, &warm_v,
         &warm_rk, &warm_rv, lease, materializer, residency, source, "warm_token1");
     std::printf("warm_sequence_parity=%s warm_source_reads=MEASURED\n", warm0.ok && warm1.ok ? "PASS" : "FAIL");
@@ -237,5 +470,7 @@ int main(int argc, char ** argv) {
         "total_bytes_repacked=0 total_bytes_transcoded=0 model_artifact_mutated=NO "
         "architecture_specific_runtime_logic=NO vbuf_format_change_required=NO\n",
         static_cast<unsigned long long>(residency->resident_bytes()));
+    print_residency_summary(*residency);
+    print_poc17_trace(plans, *residency);
     return 0;
 }

@@ -20,6 +20,7 @@ struct ResidentTensor {
 };
 
 enum class ResidencyEventKind {
+    Request,
     Miss,
     Materialize,
     Insert,
@@ -51,6 +52,7 @@ public:
     const ResidentTensor * lookup(uint32_t tensor_ref, const std::string & tensor_name = {});
     const ResidentTensor * peek(uint32_t tensor_ref) const;
     void note_miss(uint32_t tensor_ref, const std::string & tensor_name);
+    void note_request(uint32_t tensor_ref, const std::string & tensor_name);
     void note_materialize(uint32_t tensor_ref, const std::string & tensor_name,
         const std::string & source_id = {});
     bool insert(uint32_t tensor_ref, const std::string & tensor_name,

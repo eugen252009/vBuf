@@ -15,6 +15,7 @@ uint64_t now_ns() {
 
 const char * residency_event_name(ResidencyEventKind kind) {
     switch (kind) {
+    case ResidencyEventKind::Request: return "REQUEST";
     case ResidencyEventKind::Miss: return "MISS";
     case ResidencyEventKind::Materialize: return "MATERIALIZE";
     case ResidencyEventKind::Insert: return "INSERT";
@@ -58,6 +59,10 @@ const ResidentTensor * TensorResidencyStore::peek(uint32_t tensor_ref) const {
 
 void TensorResidencyStore::note_miss(uint32_t tensor_ref, const std::string & tensor_name) {
     add_event(tensor_ref, tensor_name, ResidencyEventKind::Miss, resident_bytes_, 0);
+}
+
+void TensorResidencyStore::note_request(uint32_t tensor_ref, const std::string & tensor_name) {
+    add_event(tensor_ref, tensor_name, ResidencyEventKind::Request, resident_bytes_, 0);
 }
 
 void TensorResidencyStore::note_materialize(uint32_t tensor_ref, const std::string & tensor_name,
@@ -169,6 +174,7 @@ bool ResidentTensorMaterializer::request(uint32_t tensor_ref,
     const PersistentTensorRef & tensor, uint64_t byte_budget) {
     known_tensors_[tensor_ref] = tensor;
     requests_[tensor_ref] = { tensor, false, false };
+    residency_->note_request(tensor_ref, tensor.name);
     if (residency_->lookup(tensor_ref, tensor.name) != nullptr) return true;
     residency_->note_miss(tensor_ref, tensor.name);
     return backing_->request(tensor_ref, tensor, byte_budget);

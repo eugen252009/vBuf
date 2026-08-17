@@ -42,15 +42,18 @@ acquisitions, source reads, and materializations were reported as zero.
 - Peak active persistent bytes: `1,892,352`.
 - Peak active fraction: `0.0261417`.
 - Peak resident bytes: `8,312,832`.
-- Cold source reads/bytes: `172 / 139,249,664`.
-- Warm source reads/bytes: `172 / 139,249,664`.
+- Cold source reads/bytes: `174 / 141,707,264`.
+- Warm source reads/bytes: `174 / 141,707,264`.
 - Cache thrash: observed; the 8 MiB budget does not retain the complete
   multi-block working set.
 - Execution-preparation copies/repack/transcode: `0/0/0`.
 
-The current harness records per-block residency traces and payload timing
-events. The output demonstrates bounded residency and reload behavior, but the
-aggregate eviction/reload counters still need a dedicated summary pass.
+The aggregate residency trace reports `102` unique identities, `348` load
+events, `696` hits, `684` misses, `340` evictions, and `246` reload events.
+Reloaded bytes are `198,818,816`, a `0.701512` reload-byte fraction. Block
+reload bytes are `66,888,704`, `67,339,264`, and `64,590,848` for `blk.1`,
+`blk.2`, and `blk.3`; the top ten reload offenders are recorded in the raw
+execution log.
 
 ## State
 
@@ -61,13 +64,14 @@ Each block has independent K/V runtime state. State bytes per block are:
 
 The generic `multi_layer_state_contract` passes cross-slot isolation.
 
-## Qualification Gaps
+## Failure Semantics
 
-This package is not yet a complete POC16 qualification because:
+- Middle-block attention failure: PASS; `12` injections, one completed earlier
+  block, no later block execution, invalid final output, cleanup PASS.
+- Middle-block selected-expert failure: PASS; `6` injections, one completed
+  earlier block, no later block execution, invalid final output, cleanup PASS.
 
-- The middle-block failure selector currently does not fail at the intended
-  block boundary and requires correction before failure semantics can be PASS.
-- RV2 exact-range replay for the three-block span has not yet been executed.
-- A dedicated aggregate eviction/reload/thrash report is still required.
+## Remaining Scope
 
-These are reported as gaps, not fabricated PASS results.
+- RV2 exact-range replay for the three-block span remains transport-only;
+  RV2 compute is not executed because of the pinned RVV FP16 blocker.

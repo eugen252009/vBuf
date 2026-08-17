@@ -1,8 +1,8 @@
 cargo build --release --manifest-path rust/Cargo.toml -p vbuf-ml
 cmake -S integrations/ggml -B /tmp/opencode/vbuf-poc16-build -DVBUF_ML_LIBRARY=/home/eugen/projekte/vBuf/rust/target/release/libvbuf_ml.so -DVBUF_ENABLE_CUDA=OFF -DVBUF_BUILD_PROBES=ON
-cmake --build /tmp/opencode/vbuf-poc16-build --target vbuf_multi_layer_poc16 -j2
-vbuf_multi_layer_poc16 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-multi-layer-poc16-x86
-vbuf_multi_layer_poc16 ... middle-attention-failure
-vbuf_multi_layer_poc16 ... middle-selected-expert-failure
 cmake --build /tmp/opencode/vbuf-poc16-build -j2
+vbuf_multi_layer_poc16 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-multi-layer-poc16-x86
+python3 scripts/qualify_residency_policy_poc17.py research/results/vbuf-residency-policy-poc17-x86/baseline-trace.log --output-dir research/results/vbuf-residency-policy-poc17-x86
 ctest --test-dir /tmp/opencode/vbuf-poc16-build --output-on-failure
+git diff --check
+ccc index

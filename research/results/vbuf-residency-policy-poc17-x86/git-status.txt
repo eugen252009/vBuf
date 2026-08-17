@@ -1,0 +1,3 @@
+COMMIT_STATE=UNCOMMITTED
+PREEXISTING_POC16_WORK=integrations/ggml/src/vbuf_materializer.cpp,integrations/ggml/tools/multi_layer_poc16.cpp,research/results/vbuf-multi-layer-poc16-x86/*
+POC17_WORK=integrations/ggml/include/vbuf_residency.h,integrations/ggml/src/vbuf_residency.cpp,integrations/ggml/CMakeLists.txt,integrations/ggml/tests/residency_policy_poc17_contract.cpp,scripts/qualify_residency_policy_poc17.py,research/results/vbuf-residency-policy-poc17-x86/*

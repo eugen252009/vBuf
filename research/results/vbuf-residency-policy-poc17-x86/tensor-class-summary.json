@@ -1,0 +1,79 @@
+[
+  {
+    "class": "attention",
+    "unique": 18,
+    "bytes": 8881152,
+    "requests": 72,
+    "hits": 0,
+    "reloads": 54,
+    "reload_bytes": 26643456,
+    "median_reuse_distance": 170,
+    "max_reuse_distance": 170
+  },
+  {
+    "class": "norm",
+    "unique": 3,
+    "bytes": 24576,
+    "requests": 12,
+    "hits": 0,
+    "reloads": 9,
+    "reload_bytes": 73728,
+    "median_reuse_distance": 170,
+    "max_reuse_distance": 170
+  },
+  {
+    "class": "routed_expert_down",
+    "unique": 23,
+    "bytes": 37306368,
+    "requests": 288,
+    "hits": 216,
+    "reloads": 49,
+    "reload_bytes": 79478784,
+    "median_reuse_distance": 0,
+    "max_reuse_distance": 337
+  },
+  {
+    "class": "routed_expert_gate",
+    "unique": 23,
+    "bytes": 12953600,
+    "requests": 72,
+    "hits": 0,
+    "reloads": 49,
+    "reload_bytes": 27596800,
+    "median_reuse_distance": 170,
+    "max_reuse_distance": 341
+  },
+  {
+    "class": "routed_expert_up",
+    "unique": 23,
+    "bytes": 12953600,
+    "requests": 144,
+    "hits": 72,
+    "reloads": 49,
+    "reload_bytes": 27596800,
+    "median_reuse_distance": 1,
+    "max_reuse_distance": 339
+  },
+  {
+    "class": "router",
+    "unique": 3,
+    "bytes": 1572864,
+    "requests": 12,
+    "hits": 0,
+    "reloads": 9,
+    "reload_bytes": 4718592,
+    "median_reuse_distance": 170,
+    "max_reuse_distance": 170
+  },
+  {
+    "class": "shared_expert",
+    "unique": 9,
+    "bytes": 10903552,
+    "requests": 84,
+    "hits": 48,
+    "reloads": 27,
+    "reload_bytes": 32710656,
+    "median_reuse_distance": 1,
+    "max_reuse_distance": 170
+  }
+]
