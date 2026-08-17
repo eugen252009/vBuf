@@ -1,0 +1,52 @@
+[
+  {
+    "ref": 10602,
+    "name": "blk.1.ffn_down_shexp.weight",
+    "reload_bytes": 5677056
+  },
+  {
+    "ref": 10170,
+    "name": "blk.1.ffn_down_exps.weight",
+    "reload_bytes": 4866048
+  },
+  {
+    "ref": 10035,
+    "name": "blk.1.ffn_down_exps.weight",
+    "reload_bytes": 4866048
+  },
+  {
+    "ref": 10011,
+    "name": "blk.1.ffn_down_exps.weight",
+    "reload_bytes": 4866048
+  },
+  {
+    "ref": 10152,
+    "name": "blk.1.ffn_down_exps.weight",
+    "reload_bytes": 4866048
+  },
+  {
+    "ref": 20113,
+    "name": "blk.1.ffn_down_exps.weight",
+    "reload_bytes": 4866048
+  },
+  {
+    "ref": 20056,
+    "name": "blk.1.ffn_down_exps.weight",
+    "reload_bytes": 4866048
+  },
+  {
+    "ref": 20134,
+    "name": "blk.1.ffn_down_exps.weight",
+    "reload_bytes": 4866048
+  },
+  {
+    "ref": 20161,
+    "name": "blk.1.ffn_down_exps.weight",
+    "reload_bytes": 4866048
+  },
+  {
+    "ref": 20071,
+    "name": "blk.1.ffn_down_exps.weight",
+    "reload_bytes": 4866048
+  }
+]

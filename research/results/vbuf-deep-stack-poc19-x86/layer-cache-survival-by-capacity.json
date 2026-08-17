@@ -1,0 +1,347 @@
+[
+  {
+    "capacity_mib": 8,
+    "blocks": [
+      {
+        "block": 1,
+        "token0_bytes": 24128512,
+        "reused_bytes": 18631680,
+        "retained_bytes": 0,
+        "reloaded_bytes": 18631680,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 2,
+        "token0_bytes": 23362560,
+        "reused_bytes": 20614144,
+        "retained_bytes": 0,
+        "reloaded_bytes": 20614144,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 3,
+        "token0_bytes": 23362560,
+        "reused_bytes": 17865728,
+        "retained_bytes": 0,
+        "reloaded_bytes": 17865728,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 4,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 0,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 5,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 0,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 6,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 0,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 7,
+        "token0_bytes": 23362560,
+        "reused_bytes": 17865728,
+        "retained_bytes": 0,
+        "reloaded_bytes": 17865728,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 8,
+        "token0_bytes": 23362560,
+        "reused_bytes": 20614144,
+        "retained_bytes": 5564416,
+        "reloaded_bytes": 20614144,
+        "retention_rate": 0.26993194575530277
+      }
+    ]
+  },
+  {
+    "capacity_mib": 32,
+    "blocks": [
+      {
+        "block": 1,
+        "token0_bytes": 24128512,
+        "reused_bytes": 18631680,
+        "retained_bytes": 0,
+        "reloaded_bytes": 18631680,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 2,
+        "token0_bytes": 23362560,
+        "reused_bytes": 20614144,
+        "retained_bytes": 0,
+        "reloaded_bytes": 20614144,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 3,
+        "token0_bytes": 23362560,
+        "reused_bytes": 17865728,
+        "retained_bytes": 0,
+        "reloaded_bytes": 17865728,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 4,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 0,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 5,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 0,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 6,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 0,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 7,
+        "token0_bytes": 23362560,
+        "reused_bytes": 17865728,
+        "retained_bytes": 6127616,
+        "reloaded_bytes": 17865728,
+        "retention_rate": 0.3429816014214478
+      },
+      {
+        "block": 8,
+        "token0_bytes": 23362560,
+        "reused_bytes": 20614144,
+        "retained_bytes": 20614144,
+        "reloaded_bytes": 20614144,
+        "retention_rate": 1.0
+      }
+    ]
+  },
+  {
+    "capacity_mib": 64,
+    "blocks": [
+      {
+        "block": 1,
+        "token0_bytes": 24128512,
+        "reused_bytes": 18631680,
+        "retained_bytes": 0,
+        "reloaded_bytes": 18631680,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 2,
+        "token0_bytes": 23362560,
+        "reused_bytes": 20614144,
+        "retained_bytes": 0,
+        "reloaded_bytes": 20614144,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 3,
+        "token0_bytes": 23362560,
+        "reused_bytes": 17865728,
+        "retained_bytes": 0,
+        "reloaded_bytes": 17865728,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 4,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 0,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 5,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 0,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 6,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 11624448,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 0.7689494005283479
+      },
+      {
+        "block": 7,
+        "token0_bytes": 23362560,
+        "reused_bytes": 17865728,
+        "retained_bytes": 17865728,
+        "reloaded_bytes": 17865728,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 8,
+        "token0_bytes": 23362560,
+        "reused_bytes": 20614144,
+        "retained_bytes": 20614144,
+        "reloaded_bytes": 20614144,
+        "retention_rate": 1.0
+      }
+    ]
+  },
+  {
+    "capacity_mib": 128,
+    "blocks": [
+      {
+        "block": 1,
+        "token0_bytes": 24128512,
+        "reused_bytes": 18631680,
+        "retained_bytes": 0,
+        "reloaded_bytes": 18631680,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 2,
+        "token0_bytes": 23362560,
+        "reused_bytes": 20614144,
+        "retained_bytes": 0,
+        "reloaded_bytes": 20614144,
+        "retention_rate": 0.0
+      },
+      {
+        "block": 3,
+        "token0_bytes": 23362560,
+        "reused_bytes": 17865728,
+        "retained_bytes": 11624448,
+        "reloaded_bytes": 17865728,
+        "retention_rate": 0.6506562732848055
+      },
+      {
+        "block": 4,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 15117312,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 5,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 15117312,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 6,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 15117312,
+        "reloaded_bytes": 15117312,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 7,
+        "token0_bytes": 23362560,
+        "reused_bytes": 17865728,
+        "retained_bytes": 17865728,
+        "reloaded_bytes": 17865728,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 8,
+        "token0_bytes": 23362560,
+        "reused_bytes": 20614144,
+        "retained_bytes": 20614144,
+        "reloaded_bytes": 20614144,
+        "retention_rate": 1.0
+      }
+    ]
+  },
+  {
+    "capacity_mib": 256,
+    "blocks": [
+      {
+        "block": 1,
+        "token0_bytes": 24128512,
+        "reused_bytes": 18631680,
+        "retained_bytes": 18631680,
+        "reloaded_bytes": 0,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 2,
+        "token0_bytes": 23362560,
+        "reused_bytes": 20614144,
+        "retained_bytes": 20614144,
+        "reloaded_bytes": 0,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 3,
+        "token0_bytes": 23362560,
+        "reused_bytes": 17865728,
+        "retained_bytes": 17865728,
+        "reloaded_bytes": 0,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 4,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 15117312,
+        "reloaded_bytes": 0,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 5,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 15117312,
+        "reloaded_bytes": 0,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 6,
+        "token0_bytes": 23362560,
+        "reused_bytes": 15117312,
+        "retained_bytes": 15117312,
+        "reloaded_bytes": 0,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 7,
+        "token0_bytes": 23362560,
+        "reused_bytes": 17865728,
+        "retained_bytes": 17865728,
+        "reloaded_bytes": 0,
+        "retention_rate": 1.0
+      },
+      {
+        "block": 8,
+        "token0_bytes": 23362560,
+        "reused_bytes": 20614144,
+        "retained_bytes": 20614144,
+        "reloaded_bytes": 0,
+        "retention_rate": 1.0
+      }
+    ]
+  }
+]

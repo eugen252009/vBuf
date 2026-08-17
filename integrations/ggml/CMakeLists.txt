@@ -255,6 +255,10 @@ if(VBUF_ML_LIBRARY)
     add_executable(vbuf_multi_layer_poc16 tools/multi_layer_poc16.cpp)
     target_compile_features(vbuf_multi_layer_poc16 PRIVATE cxx_std_17)
     target_link_libraries(vbuf_multi_layer_poc16 PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_deep_stack_poc19 tools/multi_layer_poc16.cpp)
+    target_compile_features(vbuf_deep_stack_poc19 PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_deep_stack_poc19 PRIVATE vbuf_region_executor)
 endif()
 
 message(STATUS "vBuf native substrate")

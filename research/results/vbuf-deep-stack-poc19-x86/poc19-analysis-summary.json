@@ -1,0 +1,67 @@
+{
+  "block_range": "blk.1..blk.8",
+  "block_count": 8,
+  "token_positions": [
+    0,
+    1
+  ],
+  "capacity_knee_bytes": 268435456,
+  "reusable_bytes": 140943360,
+  "retained_bytes": 5564416,
+  "token0_only_bytes": 46723072,
+  "token1_only_bytes": 46723072,
+  "selected_in_both_routed_expert_bytes": 85200896,
+  "retention_by_capacity": [
+    {
+      "capacity_mib": 8,
+      "reusable_bytes": 140943360,
+      "retained_bytes": 5564416,
+      "token0_only_bytes": 46723072,
+      "token1_only_bytes": 46723072,
+      "selected_in_both_routed_expert_bytes": 85200896,
+      "retention_rate": 0.03947980238302819
+    },
+    {
+      "capacity_mib": 32,
+      "reusable_bytes": 140943360,
+      "retained_bytes": 26741760,
+      "token0_only_bytes": 46723072,
+      "token1_only_bytes": 46723072,
+      "selected_in_both_routed_expert_bytes": 85200896,
+      "retention_rate": 0.18973408892763732
+    },
+    {
+      "capacity_mib": 64,
+      "reusable_bytes": 140943360,
+      "retained_bytes": 50104320,
+      "token0_only_bytes": 46723072,
+      "token1_only_bytes": 46723072,
+      "selected_in_both_routed_expert_bytes": 85200896,
+      "retention_rate": 0.3554925893635571
+    },
+    {
+      "capacity_mib": 128,
+      "reusable_bytes": 140943360,
+      "retained_bytes": 95456256,
+      "token0_only_bytes": 46723072,
+      "token1_only_bytes": 46723072,
+      "selected_in_both_routed_expert_bytes": 85200896,
+      "retention_rate": 0.6772667829119442
+    },
+    {
+      "capacity_mib": 256,
+      "reusable_bytes": 140943360,
+      "retained_bytes": 140943360,
+      "token0_only_bytes": 46723072,
+      "token1_only_bytes": 46723072,
+      "selected_in_both_routed_expert_bytes": 85200896,
+      "retention_rate": 1.0
+    }
+  ],
+  "always_required_reuse_bytes": 55742464,
+  "routed_expert_reuse_bytes": 85200896,
+  "reuse_distance_buckets": {
+    "<=256MiB": 181,
+    "<=8MiB": 448
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "pure_capacity_miss": {
+    "events": 645,
+    "bytes": 516276224
+  },
+  "eviction_despite_reuse_distance_fitting_budget": {
+    "events": 0,
+    "bytes": 0
+  },
+  "transient_routed_expert_displacement": {
+    "events": 0,
+    "bytes": 0
+  },
+  "sequential_layer_traversal": {
+    "events": 645,
+    "bytes": 516276224
+  },
+  "mixed_or_unclassified": {
+    "events": 0,
+    "bytes": 0
+  }
+}

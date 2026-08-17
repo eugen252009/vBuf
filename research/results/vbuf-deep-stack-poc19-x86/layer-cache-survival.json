@@ -1,0 +1,66 @@
+[
+  {
+    "block": 1,
+    "token0_bytes": 24128512,
+    "reused_bytes": 18631680,
+    "retained_bytes": 0,
+    "reloaded_bytes": 18631680,
+    "retention_rate": 0.0
+  },
+  {
+    "block": 2,
+    "token0_bytes": 23362560,
+    "reused_bytes": 20614144,
+    "retained_bytes": 0,
+    "reloaded_bytes": 20614144,
+    "retention_rate": 0.0
+  },
+  {
+    "block": 3,
+    "token0_bytes": 23362560,
+    "reused_bytes": 17865728,
+    "retained_bytes": 0,
+    "reloaded_bytes": 17865728,
+    "retention_rate": 0.0
+  },
+  {
+    "block": 4,
+    "token0_bytes": 23362560,
+    "reused_bytes": 15117312,
+    "retained_bytes": 0,
+    "reloaded_bytes": 15117312,
+    "retention_rate": 0.0
+  },
+  {
+    "block": 5,
+    "token0_bytes": 23362560,
+    "reused_bytes": 15117312,
+    "retained_bytes": 0,
+    "reloaded_bytes": 15117312,
+    "retention_rate": 0.0
+  },
+  {
+    "block": 6,
+    "token0_bytes": 23362560,
+    "reused_bytes": 15117312,
+    "retained_bytes": 0,
+    "reloaded_bytes": 15117312,
+    "retention_rate": 0.0
+  },
+  {
+    "block": 7,
+    "token0_bytes": 23362560,
+    "reused_bytes": 17865728,
+    "retained_bytes": 0,
+    "reloaded_bytes": 17865728,
+    "retention_rate": 0.0
+  },
+  {
+    "block": 8,
+    "token0_bytes": 23362560,
+    "reused_bytes": 20614144,
+    "retained_bytes": 5564416,
+    "reloaded_bytes": 20614144,
+    "retention_rate": 0.26993194575530277
+  }
+]

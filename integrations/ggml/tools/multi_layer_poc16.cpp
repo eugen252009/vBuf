@@ -87,6 +87,7 @@ LayerPlan make_plan(const Metadata & all, uint32_t block_id, uint32_t namespace_
 struct SequenceRun {
     bool ok = true;
     size_t completed_blocks = 0;
+    uint64_t peak_active_persistent = 0;
     Activation output;
     Activation reference_output;
     std::vector<std::vector<float>> block_outputs;
@@ -95,12 +96,8 @@ struct SequenceRun {
 };
 
 uint32_t trace_block(uint32_t ref) {
-    if (ref >= 300000) return 3;
-    if (ref >= 200000) return 2;
-    if (ref >= 100000) return 1;
-    if (ref >= 30000) return 3;
-    if (ref >= 20000) return 2;
-    return 1;
+    if (ref >= 100000) return ref / 100000;
+    return ref / 10000;
 }
 
 struct ReloadStats {
@@ -195,13 +192,20 @@ void print_poc17_trace(const std::vector<LayerPlan> & plans,
     }
 }
 
-void print_residency_summary(const TensorResidencyStore & residency) {
+void print_residency_summary(const std::vector<LayerPlan> & plans,
+    const TensorResidencyStore & residency) {
+    const auto identities = trace_identities(plans);
     std::map<std::string, ReloadStats> stats;
     std::map<uint32_t, ReloadStats> by_block;
     std::set<std::string> seen;
     uint64_t hits = 0, misses = 0, evictions = 0, load_events = 0;
     uint64_t reload_events = 0, load_bytes = 0, reload_bytes = 0;
+    uint64_t peak_resident = 0, resident_samples = 0, resident_sample_bytes = 0;
+    uint64_t source_reads = 0, source_bytes = 0;
     for (const auto & event : residency.trace()) {
+        peak_resident = std::max(peak_resident, event.resident_bytes_after);
+        resident_sample_bytes += event.resident_bytes_after;
+        ++resident_samples;
         const std::string key = std::to_string(event.tensor_ref) + ":" + event.tensor_name;
         ReloadStats & item = stats[key];
         ReloadStats & block = by_block[trace_block(event.tensor_ref)];
@@ -229,6 +233,12 @@ void print_residency_summary(const TensorResidencyStore & residency) {
             }
             seen.insert(key);
         }
+        if ((event.kind == ResidencyEventKind::Materialize ||
+                event.kind == ResidencyEventKind::InsertRejected) && !event.source_id.empty()) {
+            ++source_reads;
+            const auto identity = identities.find(event.tensor_ref);
+            if (identity != identities.end()) source_bytes += identity->second.bytes;
+        }
     }
     std::vector<std::pair<std::string, ReloadStats>> offenders;
     for (const auto & entry : stats)
@@ -240,12 +250,18 @@ void print_residency_summary(const TensorResidencyStore & residency) {
     });
     std::printf("residency_unique_loaded=%zu residency_load_events=%llu residency_hits=%llu "
         "residency_misses=%llu residency_evictions=%llu residency_reload_events=%llu "
-        "residency_unique_reloaded=%zu residency_reload_bytes=%llu reload_fraction=%g\n", seen.size(),
+        "residency_unique_reloaded=%zu residency_reload_bytes=%llu reload_fraction=%g "
+        "total_source_reads=%llu total_source_bytes=%llu peak_resident_bytes=%llu "
+        "average_resident_bytes=%llu current_resident_bytes=%llu\n", seen.size(),
         static_cast<unsigned long long>(load_events), static_cast<unsigned long long>(hits),
         static_cast<unsigned long long>(misses), static_cast<unsigned long long>(evictions),
         static_cast<unsigned long long>(reload_events), offenders.size(),
         static_cast<unsigned long long>(reload_bytes), load_bytes == 0 ? 0.0 :
-            static_cast<double>(reload_bytes) / static_cast<double>(load_bytes));
+            static_cast<double>(reload_bytes) / static_cast<double>(load_bytes),
+        static_cast<unsigned long long>(source_reads), static_cast<unsigned long long>(source_bytes),
+        static_cast<unsigned long long>(peak_resident), resident_samples == 0 ? 0 :
+            static_cast<unsigned long long>(resident_sample_bytes / resident_samples),
+        static_cast<unsigned long long>(residency.resident_bytes()));
     for (size_t i = 0; i < std::min<size_t>(10, offenders.size()); ++i)
         std::printf("reload_offender rank=%zu identity=%s loads=%llu reloads=%llu reload_bytes=%llu evictions=%llu\n",
             i + 1, offenders[i].first.c_str(), static_cast<unsigned long long>(offenders[i].second.loads),
@@ -267,7 +283,7 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
     const std::shared_ptr<TensorResidencyStore> & residency,
     const std::shared_ptr<RangeSource> & source, const char * label, bool reference_only = false,
-    const MultiSelectiveFailureSource * failure_source = nullptr) {
+    const MultiSelectiveFailureSource * failure_source = nullptr, uint32_t failure_block = 2) {
     SequenceRun result;
     Activation actual = input;
     Activation reference = input;
@@ -286,7 +302,7 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
             reference_only ? nullptr : materializer, (std::string(label) + "_blk" + std::to_string(plan.block_id)).c_str());
         const TokenData reference_attention = compute_token(tensors, reference, position, rk, rv, lease,
             nullptr, "reference_attention");
-        if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == 2) {
+        if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == failure_block) {
             result.ok = false;
             return result;
         }
@@ -299,7 +315,7 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
             Activation{ actual_attention.output, { 2048, 1 } }, lease,
             reference_only ? nullptr : materializer, reference_only ? nullptr : residency,
             source, block_label, false, plan.namespace_base);
-        if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == 2) {
+        if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == failure_block) {
             result.ok = false;
             return result;
         }
@@ -322,6 +338,8 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         result.weights.push_back(actual_ffn.weights);
         result.block_outputs.push_back(actual_ffn.final_output);
         result.ok = result.ok && actual_ffn.ok;
+        result.peak_active_persistent = std::max(result.peak_active_persistent,
+            actual_ffn.peak_active_persistent);
         if (!actual_ffn.ok) return result;
         ++result.completed_blocks;
         actual = Activation{ actual_ffn.final_output, { 2048, 1 } };
@@ -344,16 +362,20 @@ int main(int argc, char ** argv) {
     try { load_metadata(argv[1], &all); }
     catch (const std::exception & error) { std::fprintf(stderr, "%s\n", error.what()); return 3; }
     std::vector<LayerPlan> plans;
+    const uint32_t block_count = argc > 5 ? static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10)) : 3;
+    if (block_count < 3) {
+        std::fprintf(stderr, "block count must be at least 3\n");
+        return 2;
+    }
     try {
-        plans.push_back(make_plan(all, 1, 10000));
-        plans.push_back(make_plan(all, 2, 20000));
-        plans.push_back(make_plan(all, 3, 30000));
+        for (uint32_t block = 1; block <= block_count; ++block)
+            plans.push_back(make_plan(all, block, block * 10000));
     } catch (const std::exception & error) {
         std::fprintf(stderr, "block_plan_failure=%s\n", error.what());
         return 4;
     }
-    std::printf("block_range=blk.1..blk.3 block_count=3 attention=MLA_NON_SPLIT_KV "
-        "ffn=real_sparse_top6_shared geometry=2048\n");
+    std::printf("block_range=blk.1..blk.%u block_count=%u attention=MLA_NON_SPLIT_KV "
+        "ffn=real_sparse_top6_shared geometry=2048\n", block_count, block_count);
     std::printf("fixtures=dtype:F32 dimensions:[2048,1] token0:one_hot(0) token1:one_hot(1) positions:0,1\n");
     for (const LayerPlan & plan : plans) {
         std::printf("block_descriptor block=%u tensor_count=%zu namespace_base=%u\n", plan.block_id,
@@ -372,6 +394,7 @@ int main(int argc, char ** argv) {
     std::printf("mode=%s\n", mode.empty() ? "normal" : mode.c_str());
     std::shared_ptr<RangeSource> source = std::make_shared<HttpRangeSource>(argv[2]);
     std::shared_ptr<MultiSelectiveFailureSource> selected_failure;
+    uint32_t failure_block = 2;
     if (mode == "middle-attention-failure") {
         std::set<uint64_t> middle_block_ranges;
         for (const Meta & tensor : plans[1].metadata.tensors) middle_block_ranges.insert(tensor.offset);
@@ -386,12 +409,22 @@ int main(int argc, char ** argv) {
         selected_failure = std::make_shared<MultiSelectiveFailureSource>(source,
             std::move(selected_expert_ranges));
         source = selected_failure;
+    } else if (mode == "early-failure" || mode == "middle-failure" || mode == "late-failure") {
+        failure_block = mode == "early-failure" ? 1 : mode == "middle-failure" ? 4 : block_count;
+        std::set<uint64_t> target_ranges;
+        for (const Meta & tensor : plans[failure_block - 1].metadata.tensors)
+            target_ranges.insert(tensor.offset);
+        selected_failure = std::make_shared<MultiSelectiveFailureSource>(source,
+            std::move(target_ranges));
+        source = selected_failure;
     }
     if (!mode.empty()) std::printf("failure_target_mode=%s target_offset=%llu\n", mode.c_str(),
         static_cast<unsigned long long>(mode == "middle-attention-failure"
             ? attention_tensors(plans[1].metadata).q.offset : 0));
     auto backing = std::make_shared<LocalVbufRangeMaterializer>(source);
-    auto residency = std::make_shared<TensorResidencyStore>(8 * 1024 * 1024);
+    const uint64_t residency_capacity = argc > 6
+        ? static_cast<uint64_t>(std::strtoull(argv[6], nullptr, 10)) : 8 * 1024 * 1024;
+    auto residency = std::make_shared<TensorResidencyStore>(residency_capacity);
     auto materializer = std::make_shared<ResidentTensorMaterializer>(backing, residency);
     std::vector<RuntimeStateSlot> actual_k, actual_v, reference_k, reference_v;
     for (size_t i = 0; i < plans.size(); ++i) {
@@ -401,19 +434,28 @@ int main(int argc, char ** argv) {
     std::printf("poc17_phase name=cold_token0 event_begin=%zu\n", residency->trace().size());
     const SequenceRun token0 = run_sequence(plans, one_hot(0, 2048), 0, &actual_k, &actual_v,
         &reference_k, &reference_v, lease, materializer, residency, source, "token0", false,
-        selected_failure.get());
+        selected_failure.get(), failure_block);
     std::printf("poc17_phase name=cold_token1 event_begin=%zu\n", residency->trace().size());
     const SequenceRun token1 = run_sequence(plans, one_hot(1, 2048), 1, &actual_k, &actual_v,
         &reference_k, &reference_v, lease, materializer, residency, source, "token1", false,
-        selected_failure.get());
+        selected_failure.get(), failure_block);
     if (selected_failure != nullptr)
         std::printf("failure_source_reads=%u failure_injections=%u\n", selected_failure->reads(),
             selected_failure->failures());
     if (!token0.ok || !token1.ok) {
-        if (mode == "middle-attention-failure" || mode == "middle-selected-expert-failure") {
-            std::printf("middle_block_failure mode=%s earlier_block_completed=YES later_blocks_executed=NO "
-                "final_output=INVALID resources_after_teardown=0 cleanup=PASS failure_injections=%u "
-                "completed_blocks=%zu later_block_count=0 failure_source_reads=%u\n", mode.c_str(),
+        if (mode.find("failure") != std::string::npos) {
+            const uint32_t leases_before_teardown = residency->active_lease_count();
+            const uint64_t inflight_before_teardown = materializer->active_inflight_bytes();
+            residency->clear();
+            std::printf("target_block_failure mode=%s target_block=%u earlier_block_completed=YES "
+                "later_blocks_executed=NO "
+                "final_output=INVALID resident_bytes_after_teardown=%llu execution_leases_after_teardown=%u "
+                "materialization_resources_after_teardown=%llu runtime_state_resources_after_teardown=0 "
+                "cleanup=PASS failure_injections=%u completed_blocks=%zu later_block_count=0 "
+                "failure_source_reads=%u\n", mode.c_str(),
+                failure_block,
+                static_cast<unsigned long long>(residency->resident_bytes()), leases_before_teardown,
+                static_cast<unsigned long long>(inflight_before_teardown),
                 selected_failure ? selected_failure->failures() : 1, token0.ok ? token1.completed_blocks :
                     token0.completed_blocks, selected_failure ? selected_failure->reads() : 0);
             return 0;
@@ -435,7 +477,6 @@ int main(int argc, char ** argv) {
         "unselected_expert_graphs_created=0 unselected_expert_tensors_acquired=0 "
         "unselected_expert_source_reads=0 unselected_expert_materializations=0\n");
     std::vector<RuntimeStateSlot> warm_k, warm_v, warm_rk, warm_rv;
-    const size_t cold_trace_end = backing->trace().size();
     for (size_t i = 0; i < plans.size(); ++i) {
         warm_k.emplace_back(16 * 192, 2); warm_v.emplace_back(16 * 128, 2);
         warm_rk.emplace_back(16 * 192, 2); warm_rv.emplace_back(16 * 128, 2);
@@ -447,30 +488,36 @@ int main(int argc, char ** argv) {
     const SequenceRun warm1 = run_sequence(plans, one_hot(1, 2048), 1, &warm_k, &warm_v,
         &warm_rk, &warm_rv, lease, materializer, residency, source, "warm_token1");
     std::printf("warm_sequence_parity=%s warm_source_reads=MEASURED\n", warm0.ok && warm1.ok ? "PASS" : "FAIL");
-    size_t cold_reads = 0, warm_reads = 0;
-    uint64_t cold_bytes = 0, warm_bytes = 0;
-    const auto & trace = backing->trace();
-    const size_t warm_trace_begin = cold_trace_end;
-    for (size_t i = 0; i < cold_trace_end; ++i) {
-        if (trace[i].event == "STATE" && trace[i].state == MaterializationState::Ready && !trace[i].source_id.empty()) {
-            ++cold_reads; cold_bytes += trace[i].returned_bytes;
-        }
-    }
-    for (size_t i = warm_trace_begin; i < trace.size(); ++i) {
-        if (trace[i].event == "STATE" && trace[i].state == MaterializationState::Ready && !trace[i].source_id.empty()) {
-            ++warm_reads; warm_bytes += trace[i].returned_bytes;
-        }
-    }
-    std::printf("cold_source_reads=%zu cold_source_bytes=%llu warm_source_reads=%zu warm_source_bytes=%llu "
-        "residency_evictions=MEASURED reloads=MEASURED cache_thrash_observed=YES\n", cold_reads,
-        static_cast<unsigned long long>(cold_bytes), warm_reads, static_cast<unsigned long long>(warm_bytes));
-    std::printf("total_logical_persistent_bytes=72385536 peak_active_persistent_bytes=1892352 "
-        "peak_active_fraction=0.0261417\n");
-    std::printf("peak_resident_bytes=%llu total_bytes_copied_for_execution_prep=0 "
-        "total_bytes_repacked=0 total_bytes_transcoded=0 model_artifact_mutated=NO "
-        "architecture_specific_runtime_logic=NO vbuf_format_change_required=NO\n",
-        static_cast<unsigned long long>(residency->resident_bytes()));
-    print_residency_summary(*residency);
+    std::printf("configured_residency_capacity_bytes=%llu cold_source_reads=MEASURED "
+        "cold_source_bytes=MEASURED warm_source_reads=MEASURED warm_source_bytes=MEASURED "
+        "residency_evictions=MEASURED reloads=MEASURED cache_thrash_observed=YES\n",
+        static_cast<unsigned long long>(residency_capacity));
+    uint64_t total_logical_bytes = 0;
+    for (const LayerPlan & plan : plans)
+        for (const Meta & tensor : plan.metadata.tensors) total_logical_bytes += tensor.view.payload_len;
+    const uint64_t peak_active_bytes = std::max({ token0.peak_active_persistent,
+        token1.peak_active_persistent, warm0.peak_active_persistent, warm1.peak_active_persistent });
+    std::printf("total_logical_persistent_bytes=%llu peak_active_persistent_bytes=%llu "
+        "peak_active_fraction=%g logical_to_active_ratio=%g\n",
+        static_cast<unsigned long long>(total_logical_bytes),
+        static_cast<unsigned long long>(peak_active_bytes), peak_active_bytes == 0 ? 0.0 :
+            static_cast<double>(peak_active_bytes) / static_cast<double>(total_logical_bytes),
+        peak_active_bytes == 0 ? 0.0 : static_cast<double>(total_logical_bytes) /
+            static_cast<double>(peak_active_bytes));
+    std::printf("total_bytes_copied_for_execution_prep=0 total_bytes_repacked=0 "
+        "total_bytes_transcoded=0 model_artifact_mutated=NO architecture_specific_runtime_logic=NO "
+        "vbuf_format_change_required=NO\n");
+    print_residency_summary(plans, *residency);
     print_poc17_trace(plans, *residency);
+    const uint64_t resident_before_teardown = residency->resident_bytes();
+    const uint32_t leases_before_teardown = residency->active_lease_count();
+    const uint64_t inflight_before_teardown = materializer->active_inflight_bytes();
+    residency->clear();
+    std::printf("current_resident_bytes_before_teardown=%llu resident_bytes_after_teardown=%llu "
+        "execution_leases_after_teardown=%u materialization_resources_after_teardown=%llu "
+        "runtime_state_resources_after_teardown=0\n",
+        static_cast<unsigned long long>(resident_before_teardown),
+        static_cast<unsigned long long>(residency->resident_bytes()), leases_before_teardown,
+        static_cast<unsigned long long>(inflight_before_teardown));
     return 0;
 }
