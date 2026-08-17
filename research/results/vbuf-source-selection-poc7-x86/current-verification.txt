@@ -1,0 +1,9 @@
+source_selection_contract=PASS
+source_selection_fallback_contract=PASS
+range_source_contract=PASS
+materializer_contract=PASS
+striped_materializer_contract=PASS
+full_x86_ctest=14/14 PASS
+git_diff_check=PASS
+ccc_index=PASS
+historical_measurements_fabricated=NO

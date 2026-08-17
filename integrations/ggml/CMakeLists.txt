@@ -165,6 +165,10 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_runtime_state_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_runtime_state_contract PRIVATE vbuf_region_executor)
 
+    add_executable(vbuf_source_selection_fallback_contract tests/source_selection_fallback_contract.cpp)
+    target_compile_features(vbuf_source_selection_fallback_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_source_selection_fallback_contract PRIVATE vbuf_region_executor)
+
     add_executable(vbuf_striping_transport tools/striping_transport.cpp)
     target_compile_features(vbuf_striping_transport PRIVATE cxx_std_17)
     target_link_libraries(vbuf_striping_transport PRIVATE vbuf_region_executor)
@@ -192,6 +196,7 @@ if(VBUF_BUILD_PROBES)
     add_test(NAME vbuf_topk_contract COMMAND vbuf_topk_contract)
     add_test(NAME vbuf_weighted_merge_contract COMMAND vbuf_weighted_merge_contract)
     add_test(NAME vbuf_runtime_state_contract COMMAND vbuf_runtime_state_contract)
+    add_test(NAME vbuf_source_selection_fallback_contract COMMAND vbuf_source_selection_fallback_contract)
 endif()
 
 if(VBUF_ML_LIBRARY)
