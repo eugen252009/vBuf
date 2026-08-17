@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <limits>
 
 namespace vbuf_ggml {
 namespace {
@@ -12,6 +13,72 @@ uint64_t now_ns() {
 }
 
 } // namespace
+
+namespace {
+
+class LruReplacementPolicy final : public ResidencyReplacementPolicy {
+public:
+    uint32_t choose(const std::vector<ResidencyReplacementCandidate> & candidates,
+        uint64_t) const override {
+        return std::min_element(candidates.begin(), candidates.end(),
+            [](const auto & lhs, const auto & rhs) {
+                if (lhs.last_request_ordinal != rhs.last_request_ordinal)
+                    return lhs.last_request_ordinal < rhs.last_request_ordinal;
+                return lhs.tensor_ref < rhs.tensor_ref;
+            })->tensor_ref;
+    }
+
+    const char * name() const override { return "LRU"; }
+};
+
+class CostAwareReplacementPolicy final : public ResidencyReplacementPolicy {
+public:
+    uint32_t choose(const std::vector<ResidencyReplacementCandidate> & candidates,
+        uint64_t current_request_ordinal) const override {
+        if (candidates.empty()) return UINT32_MAX;
+        double max_density = 0.0;
+        double max_recency = 0.0;
+        for (const auto & candidate : candidates) {
+            const double density = candidate.bytes == 0 ? 0.0 :
+                static_cast<double>(candidate.observed_request_count) *
+                static_cast<double>(candidate.reacquire_cost_bytes) /
+                static_cast<double>(candidate.bytes);
+            const uint64_t age = current_request_ordinal >= candidate.last_request_ordinal
+                ? current_request_ordinal - candidate.last_request_ordinal : 0;
+            max_density = std::max(max_density, density);
+            max_recency = std::max(max_recency, 1.0 / static_cast<double>(age + 1));
+        }
+        uint32_t victim = UINT32_MAX;
+        double victim_score = std::numeric_limits<double>::infinity();
+        for (const auto & candidate : candidates) {
+            const double density = candidate.bytes == 0 ? 0.0 :
+                static_cast<double>(candidate.observed_request_count) *
+                static_cast<double>(candidate.reacquire_cost_bytes) /
+                static_cast<double>(candidate.bytes);
+            const uint64_t age = current_request_ordinal >= candidate.last_request_ordinal
+                ? current_request_ordinal - candidate.last_request_ordinal : 0;
+            const double recency = 1.0 / static_cast<double>(age + 1);
+            const double score = 0.9 * (max_density == 0.0 ? 0.0 : density / max_density) +
+                0.1 * (max_recency == 0.0 ? 0.0 : recency / max_recency);
+            if (score < victim_score || (score == victim_score && candidate.tensor_ref < victim)) {
+                victim = candidate.tensor_ref;
+                victim_score = score;
+            }
+        }
+        return victim;
+    }
+
+    const char * name() const override { return "COST_AWARE"; }
+};
+
+} // namespace
+
+std::shared_ptr<const ResidencyReplacementPolicy> make_residency_replacement_policy(
+    ResidencyReplacementPolicyKind kind) {
+    if (kind == ResidencyReplacementPolicyKind::CostAware)
+        return std::make_shared<CostAwareReplacementPolicy>();
+    return std::make_shared<LruReplacementPolicy>();
+}
 
 const char * residency_event_name(ResidencyEventKind kind) {
     switch (kind) {
@@ -28,8 +95,10 @@ const char * residency_event_name(ResidencyEventKind kind) {
     return "UNKNOWN";
 }
 
-TensorResidencyStore::TensorResidencyStore(uint64_t max_resident_bytes)
-    : max_resident_bytes_(max_resident_bytes) {}
+TensorResidencyStore::TensorResidencyStore(uint64_t max_resident_bytes,
+    ResidencyReplacementPolicyKind policy_kind)
+    : max_resident_bytes_(max_resident_bytes),
+      replacement_policy_(make_residency_replacement_policy(policy_kind)) {}
 
 TensorResidencyStore::~TensorResidencyStore() {
     clear();
@@ -62,6 +131,9 @@ void TensorResidencyStore::note_miss(uint32_t tensor_ref, const std::string & te
 }
 
 void TensorResidencyStore::note_request(uint32_t tensor_ref, const std::string & tensor_name) {
+    ++request_ordinal_;
+    ++observed_request_count_[tensor_ref];
+    last_request_ordinal_[tensor_ref] = request_ordinal_;
     add_event(tensor_ref, tensor_name, ResidencyEventKind::Request, resident_bytes_, 0);
 }
 
@@ -72,16 +144,24 @@ void TensorResidencyStore::note_materialize(uint32_t tensor_ref, const std::stri
 }
 
 bool TensorResidencyStore::evict_one(const std::string &) {
-    auto candidate = entries_.end();
+    std::vector<ResidencyReplacementCandidate> candidates;
+    candidates.reserve(entries_.size());
     for (auto it = entries_.begin(); it != entries_.end(); ++it) {
         if (it->second.active_leases != 0) continue;
-        if (candidate == entries_.end() || it->second.last_use < candidate->second.last_use ||
-            (it->second.last_use == candidate->second.last_use && it->first < candidate->first)) {
-            candidate = it;
-        }
+        candidates.push_back({ it->first, it->second.bytes, it->second.active_leases,
+            last_request_ordinal_[it->first], observed_request_count_[it->first], it->second.bytes });
     }
-    if (candidate == entries_.end()) return false;
-    const uint32_t ref = candidate->first;
+    if (candidates.empty()) return false;
+    const auto started = std::chrono::steady_clock::now();
+    const uint32_t ref = replacement_policy_->choose(candidates, request_ordinal_);
+    const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now() - started).count();
+    ++policy_decisions_;
+    policy_candidates_evaluated_ += candidates.size();
+    policy_cpu_time_ns_ += static_cast<uint64_t>(elapsed);
+    policy_max_decision_ns_ = std::max(policy_max_decision_ns_, static_cast<uint64_t>(elapsed));
+    auto candidate = entries_.find(ref);
+    if (candidate == entries_.end() || candidate->second.active_leases != 0) return false;
     const uint64_t before = resident_bytes_;
     const std::string name = names_[ref];
     resident_bytes_ -= candidate->second.bytes;

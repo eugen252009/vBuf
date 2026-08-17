@@ -1,0 +1,58 @@
+{
+  "8_lru": {
+    "reusable_bytes": 140943360,
+    "retained_bytes": 5564416,
+    "useful_retained_bytes": 5564416,
+    "dead_retained_bytes": 2748416,
+    "retention_rate": 0.03947980238302819
+  },
+  "8_cost": {
+    "reusable_bytes": 140943360,
+    "retained_bytes": 7614464,
+    "useful_retained_bytes": 7614464,
+    "dead_retained_bytes": 0,
+    "retention_rate": 0.05402499273467015
+  },
+  "64_lru": {
+    "reusable_bytes": 140943360,
+    "retained_bytes": 50104320,
+    "useful_retained_bytes": 50104320,
+    "dead_retained_bytes": 16490496,
+    "retention_rate": 0.3554925893635571
+  },
+  "64_cost": {
+    "reusable_bytes": 140943360,
+    "retained_bytes": 60059648,
+    "useful_retained_bytes": 60059648,
+    "dead_retained_bytes": 6488064,
+    "retention_rate": 0.4261261261261261
+  },
+  "128_lru": {
+    "reusable_bytes": 140943360,
+    "retained_bytes": 95456256,
+    "useful_retained_bytes": 95456256,
+    "dead_retained_bytes": 38477824,
+    "retention_rate": 0.6772667829119442
+  },
+  "128_cost": {
+    "reusable_bytes": 140943360,
+    "retained_bytes": 87656448,
+    "useful_retained_bytes": 87656448,
+    "dead_retained_bytes": 37148672,
+    "retention_rate": 0.6219267654751526
+  },
+  "256_lru": {
+    "reusable_bytes": 140943360,
+    "retained_bytes": 140943360,
+    "useful_retained_bytes": 140943360,
+    "dead_retained_bytes": 46723072,
+    "retention_rate": 1.0
+  },
+  "256_cost": {
+    "reusable_bytes": 140943360,
+    "retained_bytes": 140943360,
+    "useful_retained_bytes": 140943360,
+    "dead_retained_bytes": 46723072,
+    "retention_rate": 1.0
+  }
+}

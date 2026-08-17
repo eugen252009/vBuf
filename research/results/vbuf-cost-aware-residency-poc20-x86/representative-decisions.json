@@ -1,0 +1,2840 @@
+[
+  {
+    "request_index": 17,
+    "incoming_ref": 10035,
+    "incoming_bytes": 1622016,
+    "eligible": [
+      101130,
+      101150,
+      101100,
+      101110,
+      101120,
+      101140,
+      10500,
+      10501,
+      10168,
+      10169,
+      10170,
+      10033,
+      10034
+    ],
+    "victim": 101150,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 17,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.1111111111111111,
+        "retention_score": 0.2361111111111111
+      },
+      "101150": {
+        "size": 1228800,
+        "reacquire_cost_bytes": 1228800,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 16,
+        "reuse_density": 8.138020833333334e-07,
+        "normalized_reuse_density": 0.0016666666666666668,
+        "normalized_recency": 0.11764705882352941,
+        "retention_score": 0.01326470588235294
+      },
+      "101100": {
+        "size": 230400,
+        "reacquire_cost_bytes": 230400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 15,
+        "reuse_density": 4.340277777777778e-06,
+        "normalized_reuse_density": 0.008888888888888889,
+        "normalized_recency": 0.125,
+        "retention_score": 0.0205
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 14,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.13333333333333333,
+        "retention_score": 0.9133333333333333
+      },
+      "101120": {
+        "size": 409600,
+        "reacquire_cost_bytes": 409600,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 13,
+        "reuse_density": 2.44140625e-06,
+        "normalized_reuse_density": 0.005,
+        "normalized_recency": 0.14285714285714285,
+        "retention_score": 0.018785714285714288
+      },
+      "101140": {
+        "size": 1081344,
+        "reacquire_cost_bytes": 1081344,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 12,
+        "reuse_density": 9.247750946969697e-07,
+        "normalized_reuse_density": 0.001893939393939394,
+        "normalized_recency": 0.15384615384615385,
+        "retention_score": 0.01708916083916084
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 11,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.16666666666666666,
+        "retention_score": 0.24166666666666667
+      },
+      "10501": {
+        "size": 524288,
+        "reacquire_cost_bytes": 524288,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 10,
+        "reuse_density": 1.9073486328125e-06,
+        "normalized_reuse_density": 0.00390625,
+        "normalized_recency": 0.18181818181818182,
+        "retention_score": 0.021697443181818186
+      },
+      "10168": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2,
+        "retention_score": 0.023272727272727278
+      },
+      "10169": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 6,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.2857142857142857,
+        "retention_score": 0.035116883116883116
+      },
+      "10170": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 3,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.5,
+        "retention_score": 0.05454545454545455
+      },
+      "10033": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.06993939393939394
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10327272727272728
+      }
+    }
+  },
+  {
+    "request_index": 23,
+    "incoming_ref": 10151,
+    "incoming_bytes": 563200,
+    "eligible": [
+      101130,
+      101100,
+      101110,
+      101120,
+      101140,
+      10500,
+      10501,
+      10168,
+      10169,
+      10170,
+      10033,
+      10034,
+      10035,
+      10150
+    ],
+    "victim": 101140,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 23,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.08333333333333333,
+        "retention_score": 0.23333333333333334
+      },
+      "101100": {
+        "size": 230400,
+        "reacquire_cost_bytes": 230400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 21,
+        "reuse_density": 4.340277777777778e-06,
+        "normalized_reuse_density": 0.008888888888888889,
+        "normalized_recency": 0.09090909090909091,
+        "retention_score": 0.017090909090909094
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 20,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.09523809523809523,
+        "retention_score": 0.9095238095238095
+      },
+      "101120": {
+        "size": 409600,
+        "reacquire_cost_bytes": 409600,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 19,
+        "reuse_density": 2.44140625e-06,
+        "normalized_reuse_density": 0.005,
+        "normalized_recency": 0.1,
+        "retention_score": 0.014500000000000002
+      },
+      "101140": {
+        "size": 1081344,
+        "reacquire_cost_bytes": 1081344,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 18,
+        "reuse_density": 9.247750946969697e-07,
+        "normalized_reuse_density": 0.001893939393939394,
+        "normalized_recency": 0.10526315789473684,
+        "retention_score": 0.012230861244019139
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 17,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.1111111111111111,
+        "retention_score": 0.2361111111111111
+      },
+      "10501": {
+        "size": 524288,
+        "reacquire_cost_bytes": 524288,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 16,
+        "reuse_density": 1.9073486328125e-06,
+        "normalized_reuse_density": 0.00390625,
+        "normalized_recency": 0.11764705882352941,
+        "retention_score": 0.01528033088235294
+      },
+      "10168": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 15,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.125,
+        "retention_score": 0.01577272727272727
+      },
+      "10169": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 12,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.15384615384615385,
+        "retention_score": 0.02193006993006993
+      },
+      "10170": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.2,
+        "retention_score": 0.02454545454545455
+      },
+      "10033": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 8,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2222222222222222,
+        "retention_score": 0.025494949494949494
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 5,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.3333333333333333,
+        "retention_score": 0.039878787878787875
+      },
+      "10035": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.07121212121212121
+      },
+      "10150": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10327272727272728
+      }
+    }
+  },
+  {
+    "request_index": 24,
+    "incoming_ref": 10152,
+    "incoming_bytes": 1622016,
+    "eligible": [
+      101130,
+      101100,
+      101110,
+      101120,
+      10500,
+      10501,
+      10168,
+      10169,
+      10170,
+      10033,
+      10034,
+      10035,
+      10150,
+      10151
+    ],
+    "victim": 101120,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 24,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.08,
+        "retention_score": 0.233
+      },
+      "101100": {
+        "size": 230400,
+        "reacquire_cost_bytes": 230400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 22,
+        "reuse_density": 4.340277777777778e-06,
+        "normalized_reuse_density": 0.008888888888888889,
+        "normalized_recency": 0.08695652173913043,
+        "retention_score": 0.016695652173913042
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 21,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.09090909090909091,
+        "retention_score": 0.9090909090909091
+      },
+      "101120": {
+        "size": 409600,
+        "reacquire_cost_bytes": 409600,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 20,
+        "reuse_density": 2.44140625e-06,
+        "normalized_reuse_density": 0.005,
+        "normalized_recency": 0.09523809523809523,
+        "retention_score": 0.014023809523809525
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 18,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.10526315789473684,
+        "retention_score": 0.2355263157894737
+      },
+      "10501": {
+        "size": 524288,
+        "reacquire_cost_bytes": 524288,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 17,
+        "reuse_density": 1.9073486328125e-06,
+        "normalized_reuse_density": 0.00390625,
+        "normalized_recency": 0.1111111111111111,
+        "retention_score": 0.014626736111111111
+      },
+      "10168": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 16,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.11764705882352941,
+        "retention_score": 0.015037433155080214
+      },
+      "10169": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 13,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.14285714285714285,
+        "retention_score": 0.020831168831168832
+      },
+      "10170": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 10,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.18181818181818182,
+        "retention_score": 0.02272727272727273
+      },
+      "10033": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2,
+        "retention_score": 0.023272727272727278
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 6,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.2857142857142857,
+        "retention_score": 0.035116883116883116
+      },
+      "10035": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 3,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.5,
+        "retention_score": 0.05454545454545455
+      },
+      "10150": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.06993939393939394
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10327272727272728
+      }
+    }
+  },
+  {
+    "request_index": 24,
+    "incoming_ref": 10152,
+    "incoming_bytes": 1622016,
+    "eligible": [
+      101130,
+      101100,
+      101110,
+      10500,
+      10501,
+      10168,
+      10169,
+      10170,
+      10033,
+      10034,
+      10035,
+      10150,
+      10151
+    ],
+    "victim": 10501,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 24,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.08,
+        "retention_score": 0.233
+      },
+      "101100": {
+        "size": 230400,
+        "reacquire_cost_bytes": 230400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 22,
+        "reuse_density": 4.340277777777778e-06,
+        "normalized_reuse_density": 0.008888888888888889,
+        "normalized_recency": 0.08695652173913043,
+        "retention_score": 0.016695652173913042
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 21,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.09090909090909091,
+        "retention_score": 0.9090909090909091
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 18,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.10526315789473684,
+        "retention_score": 0.2355263157894737
+      },
+      "10501": {
+        "size": 524288,
+        "reacquire_cost_bytes": 524288,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 17,
+        "reuse_density": 1.9073486328125e-06,
+        "normalized_reuse_density": 0.00390625,
+        "normalized_recency": 0.1111111111111111,
+        "retention_score": 0.014626736111111111
+      },
+      "10168": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 16,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.11764705882352941,
+        "retention_score": 0.015037433155080214
+      },
+      "10169": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 13,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.14285714285714285,
+        "retention_score": 0.020831168831168832
+      },
+      "10170": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 10,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.18181818181818182,
+        "retention_score": 0.02272727272727273
+      },
+      "10033": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2,
+        "retention_score": 0.023272727272727278
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 6,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.2857142857142857,
+        "retention_score": 0.035116883116883116
+      },
+      "10035": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 3,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.5,
+        "retention_score": 0.05454545454545455
+      },
+      "10150": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.06993939393939394
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10327272727272728
+      }
+    }
+  },
+  {
+    "request_index": 24,
+    "incoming_ref": 10152,
+    "incoming_bytes": 1622016,
+    "eligible": [
+      101130,
+      101100,
+      101110,
+      10500,
+      10168,
+      10169,
+      10170,
+      10033,
+      10034,
+      10035,
+      10150,
+      10151
+    ],
+    "victim": 10168,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 24,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.08,
+        "retention_score": 0.233
+      },
+      "101100": {
+        "size": 230400,
+        "reacquire_cost_bytes": 230400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 22,
+        "reuse_density": 4.340277777777778e-06,
+        "normalized_reuse_density": 0.008888888888888889,
+        "normalized_recency": 0.08695652173913043,
+        "retention_score": 0.016695652173913042
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 21,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.09090909090909091,
+        "retention_score": 0.9090909090909091
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 18,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.10526315789473684,
+        "retention_score": 0.2355263157894737
+      },
+      "10168": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 16,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.11764705882352941,
+        "retention_score": 0.015037433155080214
+      },
+      "10169": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 13,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.14285714285714285,
+        "retention_score": 0.020831168831168832
+      },
+      "10170": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 10,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.18181818181818182,
+        "retention_score": 0.02272727272727273
+      },
+      "10033": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2,
+        "retention_score": 0.023272727272727278
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 6,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.2857142857142857,
+        "retention_score": 0.035116883116883116
+      },
+      "10035": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 3,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.5,
+        "retention_score": 0.05454545454545455
+      },
+      "10150": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.06993939393939394
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10327272727272728
+      }
+    }
+  },
+  {
+    "request_index": 29,
+    "incoming_ref": 10102,
+    "incoming_bytes": 563200,
+    "eligible": [
+      101130,
+      101100,
+      101110,
+      10500,
+      10169,
+      10170,
+      10033,
+      10034,
+      10035,
+      10150,
+      10151,
+      10152
+    ],
+    "victim": 101100,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 29,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.06666666666666667,
+        "retention_score": 0.23166666666666666
+      },
+      "101100": {
+        "size": 230400,
+        "reacquire_cost_bytes": 230400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 27,
+        "reuse_density": 4.340277777777778e-06,
+        "normalized_reuse_density": 0.008888888888888889,
+        "normalized_recency": 0.07142857142857142,
+        "retention_score": 0.015142857142857142
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 26,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.07407407407407407,
+        "retention_score": 0.9074074074074074
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 23,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.08333333333333333,
+        "retention_score": 0.23333333333333334
+      },
+      "10169": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 18,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.10526315789473684,
+        "retention_score": 0.01707177033492823
+      },
+      "10170": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 15,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.125,
+        "retention_score": 0.017045454545454548
+      },
+      "10033": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 14,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.13333333333333333,
+        "retention_score": 0.016606060606060607
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 11,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.16666666666666666,
+        "retention_score": 0.02321212121212121
+      },
+      "10035": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 8,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.2222222222222222,
+        "retention_score": 0.02676767676767677
+      },
+      "10150": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 7,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.25,
+        "retention_score": 0.028272727272727276
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 4,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.4,
+        "retention_score": 0.046545454545454557
+      },
+      "10152": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10454545454545455
+      }
+    }
+  },
+  {
+    "request_index": 30,
+    "incoming_ref": 10103,
+    "incoming_bytes": 563200,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10169,
+      10170,
+      10033,
+      10034,
+      10035,
+      10150,
+      10151,
+      10152,
+      10102
+    ],
+    "victim": 10033,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 30,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.06451612903225806,
+        "retention_score": 0.2314516129032258
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 27,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.07142857142857142,
+        "retention_score": 0.9071428571428571
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 24,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.08,
+        "retention_score": 0.233
+      },
+      "10169": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 19,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.1,
+        "retention_score": 0.016545454545454547
+      },
+      "10170": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 16,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.11764705882352941,
+        "retention_score": 0.016310160427807488
+      },
+      "10033": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 15,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.125,
+        "retention_score": 0.01577272727272727
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 12,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.15384615384615385,
+        "retention_score": 0.02193006993006993
+      },
+      "10035": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.2,
+        "retention_score": 0.02454545454545455
+      },
+      "10150": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 8,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2222222222222222,
+        "retention_score": 0.025494949494949494
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 5,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.3333333333333333,
+        "retention_score": 0.039878787878787875
+      },
+      "10152": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.07121212121212121
+      },
+      "10102": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10327272727272728
+      }
+    }
+  },
+  {
+    "request_index": 31,
+    "incoming_ref": 10104,
+    "incoming_bytes": 1622016,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10169,
+      10170,
+      10034,
+      10035,
+      10150,
+      10151,
+      10152,
+      10102,
+      10103
+    ],
+    "victim": 10170,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 31,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.0625,
+        "retention_score": 0.23125
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 28,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.06896551724137931,
+        "retention_score": 0.906896551724138
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 25,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.07692307692307693,
+        "retention_score": 0.2326923076923077
+      },
+      "10169": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 20,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.09523809523809523,
+        "retention_score": 0.01606926406926407
+      },
+      "10170": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 17,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.1111111111111111,
+        "retention_score": 0.015656565656565657
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 13,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.14285714285714285,
+        "retention_score": 0.020831168831168832
+      },
+      "10035": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 10,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.18181818181818182,
+        "retention_score": 0.02272727272727273
+      },
+      "10150": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2,
+        "retention_score": 0.023272727272727278
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 6,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.2857142857142857,
+        "retention_score": 0.035116883116883116
+      },
+      "10152": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 3,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.5,
+        "retention_score": 0.05454545454545455
+      },
+      "10102": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.06993939393939394
+      },
+      "10103": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10327272727272728
+      }
+    }
+  },
+  {
+    "request_index": 36,
+    "incoming_ref": 10009,
+    "incoming_bytes": 563200,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10169,
+      10034,
+      10035,
+      10150,
+      10151,
+      10152,
+      10102,
+      10103,
+      10104
+    ],
+    "victim": 10169,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 36,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.05405405405405406,
+        "retention_score": 0.2304054054054054
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 33,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.058823529411764705,
+        "retention_score": 0.9058823529411765
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 30,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.06451612903225806,
+        "retention_score": 0.2314516129032258
+      },
+      "10169": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 25,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.07692307692307693,
+        "retention_score": 0.014237762237762238
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 18,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.10526315789473684,
+        "retention_score": 0.01707177033492823
+      },
+      "10035": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 15,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.125,
+        "retention_score": 0.017045454545454548
+      },
+      "10150": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 14,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.13333333333333333,
+        "retention_score": 0.016606060606060607
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 11,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.16666666666666666,
+        "retention_score": 0.02321212121212121
+      },
+      "10152": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 8,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.2222222222222222,
+        "retention_score": 0.02676767676767677
+      },
+      "10102": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 7,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.25,
+        "retention_score": 0.028272727272727276
+      },
+      "10103": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 4,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.4,
+        "retention_score": 0.046545454545454557
+      },
+      "10104": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10454545454545455
+      }
+    }
+  },
+  {
+    "request_index": 37,
+    "incoming_ref": 10010,
+    "incoming_bytes": 563200,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10034,
+      10035,
+      10150,
+      10151,
+      10152,
+      10102,
+      10103,
+      10104,
+      10009
+    ],
+    "victim": 10150,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 37,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.05263157894736842,
+        "retention_score": 0.23026315789473684
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 34,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.05714285714285714,
+        "retention_score": 0.9057142857142857
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 31,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.0625,
+        "retention_score": 0.23125
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 19,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.1,
+        "retention_score": 0.016545454545454547
+      },
+      "10035": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 16,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.11764705882352941,
+        "retention_score": 0.016310160427807488
+      },
+      "10150": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 15,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.125,
+        "retention_score": 0.01577272727272727
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 12,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.15384615384615385,
+        "retention_score": 0.02193006993006993
+      },
+      "10152": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.2,
+        "retention_score": 0.02454545454545455
+      },
+      "10102": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 8,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2222222222222222,
+        "retention_score": 0.025494949494949494
+      },
+      "10103": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 5,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.3333333333333333,
+        "retention_score": 0.039878787878787875
+      },
+      "10104": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.07121212121212121
+      },
+      "10009": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10327272727272728
+      }
+    }
+  },
+  {
+    "request_index": 38,
+    "incoming_ref": 10011,
+    "incoming_bytes": 1622016,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10034,
+      10035,
+      10151,
+      10152,
+      10102,
+      10103,
+      10104,
+      10009,
+      10010
+    ],
+    "victim": 10035,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 38,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.05128205128205128,
+        "retention_score": 0.23012820512820514
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 35,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.05555555555555555,
+        "retention_score": 0.9055555555555556
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 32,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.06060606060606061,
+        "retention_score": 0.23106060606060608
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 20,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.09523809523809523,
+        "retention_score": 0.01606926406926407
+      },
+      "10035": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 17,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.1111111111111111,
+        "retention_score": 0.015656565656565657
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 13,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.14285714285714285,
+        "retention_score": 0.020831168831168832
+      },
+      "10152": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 10,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.18181818181818182,
+        "retention_score": 0.02272727272727273
+      },
+      "10102": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2,
+        "retention_score": 0.023272727272727278
+      },
+      "10103": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 6,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.2857142857142857,
+        "retention_score": 0.035116883116883116
+      },
+      "10104": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 3,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.5,
+        "retention_score": 0.05454545454545455
+      },
+      "10009": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.06993939393939394
+      },
+      "10010": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10327272727272728
+      }
+    }
+  },
+  {
+    "request_index": 43,
+    "incoming_ref": 10141,
+    "incoming_bytes": 563200,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10034,
+      10151,
+      10152,
+      10102,
+      10103,
+      10104,
+      10009,
+      10010,
+      10011
+    ],
+    "victim": 10034,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 43,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.045454545454545456,
+        "retention_score": 0.22954545454545455
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 40,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.04878048780487805,
+        "retention_score": 0.9048780487804878
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 37,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.05263157894736842,
+        "retention_score": 0.23026315789473684
+      },
+      "10034": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 25,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.07692307692307693,
+        "retention_score": 0.014237762237762238
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 18,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.10526315789473684,
+        "retention_score": 0.01707177033492823
+      },
+      "10152": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 15,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.125,
+        "retention_score": 0.017045454545454548
+      },
+      "10102": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 14,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.13333333333333333,
+        "retention_score": 0.016606060606060607
+      },
+      "10103": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 11,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.16666666666666666,
+        "retention_score": 0.02321212121212121
+      },
+      "10104": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 8,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.2222222222222222,
+        "retention_score": 0.02676767676767677
+      },
+      "10009": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 7,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.25,
+        "retention_score": 0.028272727272727276
+      },
+      "10010": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 4,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.4,
+        "retention_score": 0.046545454545454557
+      },
+      "10011": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10454545454545455
+      }
+    }
+  },
+  {
+    "request_index": 44,
+    "incoming_ref": 10142,
+    "incoming_bytes": 563200,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10151,
+      10152,
+      10102,
+      10103,
+      10104,
+      10009,
+      10010,
+      10011,
+      10141
+    ],
+    "victim": 10102,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 44,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.044444444444444446,
+        "retention_score": 0.22944444444444445
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 41,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.047619047619047616,
+        "retention_score": 0.9047619047619048
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 38,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.05128205128205128,
+        "retention_score": 0.23012820512820514
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 19,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.1,
+        "retention_score": 0.016545454545454547
+      },
+      "10152": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 16,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.11764705882352941,
+        "retention_score": 0.016310160427807488
+      },
+      "10102": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 15,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.125,
+        "retention_score": 0.01577272727272727
+      },
+      "10103": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 12,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.15384615384615385,
+        "retention_score": 0.02193006993006993
+      },
+      "10104": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.2,
+        "retention_score": 0.02454545454545455
+      },
+      "10009": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 8,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2222222222222222,
+        "retention_score": 0.025494949494949494
+      },
+      "10010": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 5,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.3333333333333333,
+        "retention_score": 0.039878787878787875
+      },
+      "10011": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.07121212121212121
+      },
+      "10141": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10327272727272728
+      }
+    }
+  },
+  {
+    "request_index": 45,
+    "incoming_ref": 10143,
+    "incoming_bytes": 1622016,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10151,
+      10152,
+      10103,
+      10104,
+      10009,
+      10010,
+      10011,
+      10141,
+      10142
+    ],
+    "victim": 10152,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 45,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.043478260869565216,
+        "retention_score": 0.22934782608695653
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 42,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.046511627906976744,
+        "retention_score": 0.9046511627906977
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 39,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.05,
+        "retention_score": 0.23
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 20,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.09523809523809523,
+        "retention_score": 0.01606926406926407
+      },
+      "10152": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 17,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.1111111111111111,
+        "retention_score": 0.015656565656565657
+      },
+      "10103": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 13,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.14285714285714285,
+        "retention_score": 0.020831168831168832
+      },
+      "10104": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 10,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.18181818181818182,
+        "retention_score": 0.02272727272727273
+      },
+      "10009": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2,
+        "retention_score": 0.023272727272727278
+      },
+      "10010": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 6,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.2857142857142857,
+        "retention_score": 0.035116883116883116
+      },
+      "10011": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 3,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.5,
+        "retention_score": 0.05454545454545455
+      },
+      "10141": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.06993939393939394
+      },
+      "10142": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10327272727272728
+      }
+    }
+  },
+  {
+    "request_index": 50,
+    "incoming_ref": 10600,
+    "incoming_bytes": 1126400,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10151,
+      10103,
+      10104,
+      10009,
+      10010,
+      10011,
+      10141,
+      10142,
+      10143
+    ],
+    "victim": 10151,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 50,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.0392156862745098,
+        "retention_score": 0.228921568627451
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 47,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.041666666666666664,
+        "retention_score": 0.9041666666666667
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 44,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.044444444444444446,
+        "retention_score": 0.22944444444444445
+      },
+      "10151": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 25,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.07692307692307693,
+        "retention_score": 0.014237762237762238
+      },
+      "10103": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 18,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.10526315789473684,
+        "retention_score": 0.01707177033492823
+      },
+      "10104": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 15,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.125,
+        "retention_score": 0.017045454545454548
+      },
+      "10009": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 14,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.13333333333333333,
+        "retention_score": 0.016606060606060607
+      },
+      "10010": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 11,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.16666666666666666,
+        "retention_score": 0.02321212121212121
+      },
+      "10011": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 8,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.2222222222222222,
+        "retention_score": 0.02676767676767677
+      },
+      "10141": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 7,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.25,
+        "retention_score": 0.028272727272727276
+      },
+      "10142": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 4,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.4,
+        "retention_score": 0.046545454545454557
+      },
+      "10143": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10454545454545455
+      }
+    }
+  },
+  {
+    "request_index": 50,
+    "incoming_ref": 10600,
+    "incoming_bytes": 1126400,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10103,
+      10104,
+      10009,
+      10010,
+      10011,
+      10141,
+      10142,
+      10143
+    ],
+    "victim": 10009,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 50,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.0392156862745098,
+        "retention_score": 0.228921568627451
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 47,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.041666666666666664,
+        "retention_score": 0.9041666666666667
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 44,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.044444444444444446,
+        "retention_score": 0.22944444444444445
+      },
+      "10103": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 18,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.10526315789473684,
+        "retention_score": 0.01707177033492823
+      },
+      "10104": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 15,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.125,
+        "retention_score": 0.017045454545454548
+      },
+      "10009": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 14,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.13333333333333333,
+        "retention_score": 0.016606060606060607
+      },
+      "10010": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 11,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.16666666666666666,
+        "retention_score": 0.02321212121212121
+      },
+      "10011": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 8,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.2222222222222222,
+        "retention_score": 0.02676767676767677
+      },
+      "10141": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 7,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.25,
+        "retention_score": 0.028272727272727276
+      },
+      "10142": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 4,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.4,
+        "retention_score": 0.046545454545454557
+      },
+      "10143": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10454545454545455
+      }
+    }
+  },
+  {
+    "request_index": 51,
+    "incoming_ref": 10601,
+    "incoming_bytes": 1126400,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10103,
+      10104,
+      10010,
+      10011,
+      10141,
+      10142,
+      10143,
+      10600
+    ],
+    "victim": 10104,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 51,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.038461538461538464,
+        "retention_score": 0.22884615384615387
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 48,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.04081632653061224,
+        "retention_score": 0.9040816326530613
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 45,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.043478260869565216,
+        "retention_score": 0.22934782608695653
+      },
+      "10103": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 19,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.1,
+        "retention_score": 0.016545454545454547
+      },
+      "10104": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 16,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.11764705882352941,
+        "retention_score": 0.016310160427807488
+      },
+      "10010": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 12,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.15384615384615385,
+        "retention_score": 0.02193006993006993
+      },
+      "10011": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.2,
+        "retention_score": 0.02454545454545455
+      },
+      "10141": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 8,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2222222222222222,
+        "retention_score": 0.025494949494949494
+      },
+      "10142": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 5,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.3333333333333333,
+        "retention_score": 0.039878787878787875
+      },
+      "10143": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.07121212121212121
+      },
+      "10600": {
+        "size": 1126400,
+        "reacquire_cost_bytes": 1126400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 8.877840909090909e-07,
+        "normalized_reuse_density": 0.0018181818181818182,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10163636363636364
+      }
+    }
+  },
+  {
+    "request_index": 52,
+    "incoming_ref": 10602,
+    "incoming_bytes": 1892352,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10103,
+      10010,
+      10011,
+      10141,
+      10142,
+      10143,
+      10600,
+      10601
+    ],
+    "victim": 10103,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 52,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.03773584905660377,
+        "retention_score": 0.22877358490566038
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 49,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.04,
+        "retention_score": 0.904
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 46,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.0425531914893617,
+        "retention_score": 0.22925531914893618
+      },
+      "10103": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 20,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.09523809523809523,
+        "retention_score": 0.01606926406926407
+      },
+      "10010": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 13,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.14285714285714285,
+        "retention_score": 0.020831168831168832
+      },
+      "10011": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 10,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.18181818181818182,
+        "retention_score": 0.02272727272727273
+      },
+      "10141": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2,
+        "retention_score": 0.023272727272727278
+      },
+      "10142": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 6,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.2857142857142857,
+        "retention_score": 0.035116883116883116
+      },
+      "10143": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 3,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.5,
+        "retention_score": 0.05454545454545455
+      },
+      "10600": {
+        "size": 1126400,
+        "reacquire_cost_bytes": 1126400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 8.877840909090909e-07,
+        "normalized_reuse_density": 0.0018181818181818182,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.0683030303030303
+      },
+      "10601": {
+        "size": 1126400,
+        "reacquire_cost_bytes": 1126400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 8.877840909090909e-07,
+        "normalized_reuse_density": 0.0018181818181818182,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10163636363636364
+      }
+    }
+  },
+  {
+    "request_index": 52,
+    "incoming_ref": 10602,
+    "incoming_bytes": 1892352,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10010,
+      10011,
+      10141,
+      10142,
+      10143,
+      10600,
+      10601
+    ],
+    "victim": 10010,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 52,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.03773584905660377,
+        "retention_score": 0.22877358490566038
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 49,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.04,
+        "retention_score": 0.904
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 46,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.0425531914893617,
+        "retention_score": 0.22925531914893618
+      },
+      "10010": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 13,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.14285714285714285,
+        "retention_score": 0.020831168831168832
+      },
+      "10011": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 10,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.18181818181818182,
+        "retention_score": 0.02272727272727273
+      },
+      "10141": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2,
+        "retention_score": 0.023272727272727278
+      },
+      "10142": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 6,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.2857142857142857,
+        "retention_score": 0.035116883116883116
+      },
+      "10143": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 3,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.5,
+        "retention_score": 0.05454545454545455
+      },
+      "10600": {
+        "size": 1126400,
+        "reacquire_cost_bytes": 1126400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 8.877840909090909e-07,
+        "normalized_reuse_density": 0.0018181818181818182,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.0683030303030303
+      },
+      "10601": {
+        "size": 1126400,
+        "reacquire_cost_bytes": 1126400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 8.877840909090909e-07,
+        "normalized_reuse_density": 0.0018181818181818182,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10163636363636364
+      }
+    }
+  },
+  {
+    "request_index": 52,
+    "incoming_ref": 10602,
+    "incoming_bytes": 1892352,
+    "eligible": [
+      101130,
+      101110,
+      10500,
+      10011,
+      10141,
+      10142,
+      10143,
+      10600,
+      10601
+    ],
+    "victim": 10011,
+    "policy": "cost-aware",
+    "scores": {
+      "101130": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 52,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.03773584905660377,
+        "retention_score": 0.22877358490566038
+      },
+      "101110": {
+        "size": 2048,
+        "reacquire_cost_bytes": 2048,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 49,
+        "reuse_density": 0.00048828125,
+        "normalized_reuse_density": 1.0,
+        "normalized_recency": 0.04,
+        "retention_score": 0.904
+      },
+      "10500": {
+        "size": 8192,
+        "reacquire_cost_bytes": 8192,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 46,
+        "reuse_density": 0.0001220703125,
+        "normalized_reuse_density": 0.25,
+        "normalized_recency": 0.0425531914893617,
+        "retention_score": 0.22925531914893618
+      },
+      "10011": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 10,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.18181818181818182,
+        "retention_score": 0.02272727272727273
+      },
+      "10141": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 9,
+        "reuse_density": 1.7755681818181818e-06,
+        "normalized_reuse_density": 0.0036363636363636364,
+        "normalized_recency": 0.2,
+        "retention_score": 0.023272727272727278
+      },
+      "10142": {
+        "size": 563200,
+        "reacquire_cost_bytes": 563200,
+        "observed_request_count": 2,
+        "next_use_distance_estimate": 6,
+        "reuse_density": 3.5511363636363636e-06,
+        "normalized_reuse_density": 0.007272727272727273,
+        "normalized_recency": 0.2857142857142857,
+        "retention_score": 0.035116883116883116
+      },
+      "10143": {
+        "size": 1622016,
+        "reacquire_cost_bytes": 1622016,
+        "observed_request_count": 4,
+        "next_use_distance_estimate": 3,
+        "reuse_density": 2.4660669191919194e-06,
+        "normalized_reuse_density": 0.005050505050505051,
+        "normalized_recency": 0.5,
+        "retention_score": 0.05454545454545455
+      },
+      "10600": {
+        "size": 1126400,
+        "reacquire_cost_bytes": 1126400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 2,
+        "reuse_density": 8.877840909090909e-07,
+        "normalized_reuse_density": 0.0018181818181818182,
+        "normalized_recency": 0.6666666666666666,
+        "retention_score": 0.0683030303030303
+      },
+      "10601": {
+        "size": 1126400,
+        "reacquire_cost_bytes": 1126400,
+        "observed_request_count": 1,
+        "next_use_distance_estimate": 1,
+        "reuse_density": 8.877840909090909e-07,
+        "normalized_reuse_density": 0.0018181818181818182,
+        "normalized_recency": 1.0,
+        "retention_score": 0.10163636363636364
+      }
+    }
+  }
+]

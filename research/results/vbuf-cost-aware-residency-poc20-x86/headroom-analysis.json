@@ -1,0 +1,34 @@
+{
+  "8": {
+    "lru_reload_bytes": 516276224,
+    "min_reload_bytes": 495354880,
+    "cost_aware_reload_bytes": 516276224,
+    "reload_bytes_saved": 0,
+    "headroom_capture_percent": 0.0,
+    "source_bytes_saved": 0
+  },
+  "64": {
+    "lru_reload_bytes": 516276224,
+    "min_reload_bytes": 319285248,
+    "cost_aware_reload_bytes": 433733632,
+    "reload_bytes_saved": 82542592,
+    "headroom_capture_percent": 41.90171228960254,
+    "source_bytes_saved": 82542592
+  },
+  "128": {
+    "lru_reload_bytes": 516276224,
+    "min_reload_bytes": 118007808,
+    "cost_aware_reload_bytes": 288225280,
+    "reload_bytes_saved": 228050944,
+    "headroom_capture_percent": 57.260614911527405,
+    "source_bytes_saved": 228050944
+  },
+  "256": {
+    "lru_reload_bytes": 0,
+    "min_reload_bytes": 0,
+    "cost_aware_reload_bytes": 0,
+    "reload_bytes_saved": 0,
+    "headroom_capture_percent": 0.0,
+    "source_bytes_saved": 0
+  }
+}

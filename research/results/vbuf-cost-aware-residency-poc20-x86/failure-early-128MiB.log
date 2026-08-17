@@ -1,0 +1,21 @@
+block_range=blk.1..blk.8 block_count=8 attention=MLA_NON_SPLIT_KV ffn=real_sparse_top6_shared geometry=2048
+fixtures=dtype:F32 dimensions:[2048,1] token0:one_hot(0) token1:one_hot(1) positions:0,1
+block_descriptor block=1 tensor_count=14 namespace_base=10000
+block_descriptor block=2 tensor_count=14 namespace_base=20000
+block_descriptor block=3 tensor_count=14 namespace_base=30000
+block_descriptor block=4 tensor_count=14 namespace_base=40000
+block_descriptor block=5 tensor_count=14 namespace_base=50000
+block_descriptor block=6 tensor_count=14 namespace_base=60000
+block_descriptor block=7 tensor_count=14 namespace_base=70000
+block_descriptor block=8 tensor_count=14 namespace_base=80000
+mode=early-failure
+replacement_policy=COST_AWARE
+failure_target_mode=early-failure target_offset=0
+poc17_phase name=cold_token0 event_begin=0
+token0_blk1 position=0 state_k_positions=1 state_v_positions=1 attention_probs=1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+reference_attention position=0 state_k_positions=1 state_v_positions=1 attention_probs=1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+poc17_phase name=cold_token1 event_begin=12
+token1_blk1 position=1 state_k_positions=2 state_v_positions=2 attention_probs=0.327327,0.672673,0.410489,0.589511,0.566064,0.433936,0.327192,0.672808,0.932766,0.0672338,0.599507,0.400493,0.505362,0.494638,0.744735,0.255265,0.50687,0.49313,0.00836671,0.991633,0.754869,0.245131,0.650014,0.349986,0.537805,0.462195,0.554964,0.445036,0.523342,0.476658,0.56235,0.43765,
+reference_attention position=1 state_k_positions=2 state_v_positions=2 attention_probs=0.327327,0.672673,0.410489,0.589511,0.566064,0.433936,0.327192,0.672808,0.932766,0.0672338,0.599507,0.400493,0.505362,0.494638,0.744735,0.255265,0.50687,0.49313,0.00836671,0.991633,0.754869,0.245131,0.650014,0.349986,0.537805,0.462195,0.554964,0.445036,0.523342,0.476658,0.56235,0.43765,
+failure_source_reads=12 failure_injections=12
+target_block_failure mode=early-failure target_block=1 earlier_block_completed=YES later_blocks_executed=NO final_output=INVALID resident_bytes_after_teardown=0 execution_leases_after_teardown=0 materialization_resources_after_teardown=0 runtime_state_resources_after_teardown=0 policy_decisions=0 policy_candidates_evaluated=0 policy_cpu_time_ns=0 policy_max_decision_ns=0 cleanup=PASS failure_injections=12 completed_blocks=0 later_block_count=0 failure_source_reads=12

@@ -1,0 +1,15 @@
+python3 scripts/qualify_cost_aware_residency_poc20.py
+vbuf_deep_stack_poc19 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-cost-aware-residency-poc20-x86 normal 8 67108864 lru
+vbuf_deep_stack_poc19 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-cost-aware-residency-poc20-x86 normal 8 67108864 cost-aware
+vbuf_deep_stack_poc19 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-cost-aware-residency-poc20-x86 normal 8 134217728 lru
+vbuf_deep_stack_poc19 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-cost-aware-residency-poc20-x86 normal 8 134217728 cost-aware
+vbuf_deep_stack_poc19 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-cost-aware-residency-poc20-x86 normal 8 8388608 cost-aware
+vbuf_deep_stack_poc19 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-cost-aware-residency-poc20-x86 normal 8 268435456 cost-aware
+vbuf_deep_stack_poc19 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-cost-aware-residency-poc20-x86 early-failure 8 134217728 cost-aware
+vbuf_deep_stack_poc19 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-cost-aware-residency-poc20-x86 middle-failure 8 134217728 cost-aware
+vbuf_deep_stack_poc19 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-cost-aware-residency-poc20-x86 late-failure 8 134217728 cost-aware
+python3 scripts/report_cost_aware_residency_poc20.py
+cmake --build /tmp/opencode/vbuf-poc19-build -j2
+ctest --output-on-failure
+git diff --check
+ccc index

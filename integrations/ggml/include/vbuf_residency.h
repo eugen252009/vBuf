@@ -44,9 +44,35 @@ struct ResidencyTraceEvent {
 
 const char * residency_event_name(ResidencyEventKind kind);
 
+enum class ResidencyReplacementPolicyKind {
+    LRU,
+    CostAware,
+};
+
+struct ResidencyReplacementCandidate {
+    uint32_t tensor_ref = UINT32_MAX;
+    uint64_t bytes = 0;
+    uint32_t active_leases = 0;
+    uint64_t last_request_ordinal = 0;
+    uint64_t observed_request_count = 0;
+    uint64_t reacquire_cost_bytes = 0;
+};
+
+class ResidencyReplacementPolicy {
+public:
+    virtual ~ResidencyReplacementPolicy() = default;
+    virtual uint32_t choose(const std::vector<ResidencyReplacementCandidate> & candidates,
+        uint64_t current_request_ordinal) const = 0;
+    virtual const char * name() const = 0;
+};
+
+std::shared_ptr<const ResidencyReplacementPolicy> make_residency_replacement_policy(
+    ResidencyReplacementPolicyKind kind);
+
 class TensorResidencyStore final {
 public:
-    explicit TensorResidencyStore(uint64_t max_resident_bytes);
+    explicit TensorResidencyStore(uint64_t max_resident_bytes,
+        ResidencyReplacementPolicyKind policy_kind = ResidencyReplacementPolicyKind::LRU);
     ~TensorResidencyStore();
 
     const ResidentTensor * lookup(uint32_t tensor_ref, const std::string & tensor_name = {});
@@ -67,6 +93,11 @@ public:
     size_t resident_count() const { return entries_.size(); }
     uint64_t active_lease_bytes() const;
     uint32_t active_lease_count() const;
+    const char * replacement_policy_name() const { return replacement_policy_->name(); }
+    uint64_t policy_decisions() const { return policy_decisions_; }
+    uint64_t policy_candidates_evaluated() const { return policy_candidates_evaluated_; }
+    uint64_t policy_cpu_time_ns() const { return policy_cpu_time_ns_; }
+    uint64_t policy_max_decision_ns() const { return policy_max_decision_ns_; }
     const std::vector<ResidencyTraceEvent> & trace() const { return trace_; }
 
 private:
@@ -78,9 +109,17 @@ private:
     uint64_t max_resident_bytes_ = 0;
     uint64_t resident_bytes_ = 0;
     uint64_t clock_ = 0;
+    uint64_t request_ordinal_ = 0;
     std::unordered_map<uint32_t, ResidentTensor> entries_;
     std::unordered_map<uint32_t, std::string> names_;
+    std::unordered_map<uint32_t, uint64_t> last_request_ordinal_;
+    std::unordered_map<uint32_t, uint64_t> observed_request_count_;
     std::vector<ResidencyTraceEvent> trace_;
+    std::shared_ptr<const ResidencyReplacementPolicy> replacement_policy_;
+    uint64_t policy_decisions_ = 0;
+    uint64_t policy_candidates_evaluated_ = 0;
+    uint64_t policy_cpu_time_ns_ = 0;
+    uint64_t policy_max_decision_ns_ = 0;
 };
 
 // Retains completed materialization buffers in TensorResidencyStore while

@@ -1,0 +1,50 @@
+{
+  "8_lru": {
+    "evictions_never_reused": 275,
+    "evictions_reused": 645,
+    "bytes_evicted_then_reused": 516276224,
+    "median_reuse_distance_after_eviction": 2413
+  },
+  "8_cost": {
+    "evictions_never_reused": 278,
+    "evictions_reused": 645,
+    "bytes_evicted_then_reused": 516276224,
+    "median_reuse_distance_after_eviction": 2503
+  },
+  "64_lru": {
+    "evictions_never_reused": 204,
+    "evictions_reused": 645,
+    "bytes_evicted_then_reused": 516276224,
+    "median_reuse_distance_after_eviction": 1636
+  },
+  "64_cost": {
+    "evictions_never_reused": 236,
+    "evictions_reused": 592,
+    "bytes_evicted_then_reused": 433733632,
+    "median_reuse_distance_after_eviction": 2452.5
+  },
+  "128_lru": {
+    "evictions_never_reused": 120,
+    "evictions_reused": 645,
+    "bytes_evicted_then_reused": 516276224,
+    "median_reuse_distance_after_eviction": 720
+  },
+  "128_cost": {
+    "evictions_never_reused": 176,
+    "evictions_reused": 457,
+    "bytes_evicted_then_reused": 288225280,
+    "median_reuse_distance_after_eviction": 2007
+  },
+  "256_lru": {
+    "evictions_never_reused": 0,
+    "evictions_reused": 0,
+    "bytes_evicted_then_reused": 0,
+    "median_reuse_distance_after_eviction": 0
+  },
+  "256_cost": {
+    "evictions_never_reused": 0,
+    "evictions_reused": 0,
+    "bytes_evicted_then_reused": 0,
+    "median_reuse_distance_after_eviction": 0
+  }
+}

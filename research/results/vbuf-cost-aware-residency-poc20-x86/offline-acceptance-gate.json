@@ -1,0 +1,16 @@
+{
+  "64": {
+    "lru_reload_bytes": 516276224,
+    "min_reload_bytes": 319285248,
+    "cost_aware_reload_bytes": 496019456,
+    "saved_vs_lru": 20256768,
+    "headroom_capture_percent": 10.283094389054654
+  },
+  "128": {
+    "lru_reload_bytes": 516276224,
+    "min_reload_bytes": 118007808,
+    "cost_aware_reload_bytes": 343769088,
+    "saved_vs_lru": 172507136,
+    "headroom_capture_percent": 43.314289828094225
+  }
+}

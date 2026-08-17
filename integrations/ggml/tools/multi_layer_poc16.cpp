@@ -391,7 +391,12 @@ int main(int argc, char ** argv) {
     if (argc > 4 && std::string(argv[4]) == "inventory") return 0;
     auto lease = model_lease(all.handle);
     const std::string mode = argc > 4 ? argv[4] : "";
+    const std::string policy_name = argc > 7 ? argv[7] : "lru";
+    const ResidencyReplacementPolicyKind policy_kind = policy_name == "cost-aware"
+        ? ResidencyReplacementPolicyKind::CostAware : ResidencyReplacementPolicyKind::LRU;
     std::printf("mode=%s\n", mode.empty() ? "normal" : mode.c_str());
+    std::printf("replacement_policy=%s\n", policy_kind == ResidencyReplacementPolicyKind::CostAware
+        ? "COST_AWARE" : "LRU");
     std::shared_ptr<RangeSource> source = std::make_shared<HttpRangeSource>(argv[2]);
     std::shared_ptr<MultiSelectiveFailureSource> selected_failure;
     uint32_t failure_block = 2;
@@ -424,7 +429,7 @@ int main(int argc, char ** argv) {
     auto backing = std::make_shared<LocalVbufRangeMaterializer>(source);
     const uint64_t residency_capacity = argc > 6
         ? static_cast<uint64_t>(std::strtoull(argv[6], nullptr, 10)) : 8 * 1024 * 1024;
-    auto residency = std::make_shared<TensorResidencyStore>(residency_capacity);
+    auto residency = std::make_shared<TensorResidencyStore>(residency_capacity, policy_kind);
     auto materializer = std::make_shared<ResidentTensorMaterializer>(backing, residency);
     std::vector<RuntimeStateSlot> actual_k, actual_v, reference_k, reference_v;
     for (size_t i = 0; i < plans.size(); ++i) {
@@ -451,11 +456,16 @@ int main(int argc, char ** argv) {
                 "later_blocks_executed=NO "
                 "final_output=INVALID resident_bytes_after_teardown=%llu execution_leases_after_teardown=%u "
                 "materialization_resources_after_teardown=%llu runtime_state_resources_after_teardown=0 "
-                "cleanup=PASS failure_injections=%u completed_blocks=%zu later_block_count=0 "
-                "failure_source_reads=%u\n", mode.c_str(),
+                "policy_decisions=%llu policy_candidates_evaluated=%llu policy_cpu_time_ns=%llu "
+                "policy_max_decision_ns=%llu cleanup=PASS failure_injections=%u completed_blocks=%zu "
+                "later_block_count=0 failure_source_reads=%u\n", mode.c_str(),
                 failure_block,
                 static_cast<unsigned long long>(residency->resident_bytes()), leases_before_teardown,
                 static_cast<unsigned long long>(inflight_before_teardown),
+                static_cast<unsigned long long>(residency->policy_decisions()),
+                static_cast<unsigned long long>(residency->policy_candidates_evaluated()),
+                static_cast<unsigned long long>(residency->policy_cpu_time_ns()),
+                static_cast<unsigned long long>(residency->policy_max_decision_ns()),
                 selected_failure ? selected_failure->failures() : 1, token0.ok ? token1.completed_blocks :
                     token0.completed_blocks, selected_failure ? selected_failure->reads() : 0);
             return 0;
@@ -508,6 +518,12 @@ int main(int argc, char ** argv) {
         "total_bytes_transcoded=0 model_artifact_mutated=NO architecture_specific_runtime_logic=NO "
         "vbuf_format_change_required=NO\n");
     print_residency_summary(plans, *residency);
+    std::printf("policy_decisions=%llu policy_candidates_evaluated=%llu policy_cpu_time_ns=%llu "
+        "policy_max_decision_ns=%llu\n",
+        static_cast<unsigned long long>(residency->policy_decisions()),
+        static_cast<unsigned long long>(residency->policy_candidates_evaluated()),
+        static_cast<unsigned long long>(residency->policy_cpu_time_ns()),
+        static_cast<unsigned long long>(residency->policy_max_decision_ns()));
     print_poc17_trace(plans, *residency);
     const uint64_t resident_before_teardown = residency->resident_bytes();
     const uint32_t leases_before_teardown = residency->active_lease_count();
