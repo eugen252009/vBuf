@@ -1,0 +1,21 @@
+invalid_state state_failure position=1 error=state position capacity exceeded
+block_tensor name=blk.1.attn_norm.weight id=13 offset=96126272 bytes=8192 layout=DIRECT
+block_tensor name=blk.1.attn_q.weight id=15 offset=96134480 bytes=1228800 layout=DIRECT
+block_tensor name=blk.1.attn_kv_a_mqa.weight id=10 offset=97363296 bytes=230400 layout=DIRECT
+block_tensor name=blk.1.attn_kv_a_norm.weight id=11 offset=97593704 bytes=2048 layout=DIRECT
+block_tensor name=blk.1.attn_kv_b.weight id=12 offset=97595768 bytes=409600 layout=DIRECT
+block_tensor name=blk.1.attn_output.weight id=14 offset=98005384 bytes=1081344 layout=DIRECT
+block_tensor name=blk.1.ffn_norm.weight id=21 offset=99086736 bytes=8192 layout=DIRECT
+block_tensor name=blk.1.ffn_gate_inp.weight id=19 offset=99094944 bytes=524288 layout=DIRECT
+block_tensor name=blk.1.ffn_gate_shexp.weight id=20 offset=99619248 bytes=1126400 layout=DIRECT
+block_tensor name=blk.1.ffn_up_shexp.weight id=23 offset=100745664 bytes=1126400 layout=DIRECT
+block_tensor name=blk.1.ffn_down_shexp.weight id=17 offset=101872080 bytes=1892352 layout=DIRECT
+block_boundary=input->attention_residual(ffn_inp)->ffn_norm->router_top6->routed_merge->shared_expert->residual->output
+fixtures=dtype:F32 dimensions:[2048,1] token0:one_hot(0) token1:one_hot(1) positions:0,1
+invalid_seed position=0 state_k_positions=1 state_v_positions=1 attention_probs=1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+attention_timing tensor=blk.1.attn_norm.weight payload_ready_ns=8640987346471 first_consumer_start_ns=8641059318377 payload_to_first_consumer_ns=71971906
+attention_timing tensor=blk.1.attn_q.weight payload_ready_ns=8641168382527 first_consumer_start_ns=8641240705025 payload_to_first_consumer_ns=72322498
+attention_timing tensor=blk.1.attn_kv_a_mqa.weight payload_ready_ns=8641350479116 first_consumer_start_ns=8641422892013 payload_to_first_consumer_ns=72412897
+attention_timing tensor=blk.1.attn_kv_a_norm.weight payload_ready_ns=8641531331033 first_consumer_start_ns=8641603575459 payload_to_first_consumer_ns=72244426
+attention_timing tensor=blk.1.attn_kv_b.weight payload_ready_ns=8641713218071 first_consumer_start_ns=8641785751068 payload_to_first_consumer_ns=72532997
+invalid_state_failure position=1 capacity=1 attention_success=NO ffn_executed=NO block_output=INVALID resources_after_teardown=0 cleanup=PASS

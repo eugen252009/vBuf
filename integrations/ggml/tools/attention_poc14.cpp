@@ -1,3 +1,5 @@
+#ifndef VBUF_POC14_INCLUDED
+#define VBUF_POC14_INCLUDED
 #define VBUF_POC12_LIBRARY_ONLY
 #include "multi_expert_moe_poc12.cpp"
 #undef VBUF_POC12_LIBRARY_ONLY
@@ -23,6 +25,7 @@ struct AttentionTensors {
 };
 
 struct TokenData {
+    std::vector<float> normalized;
     std::vector<float> q_nope;
     std::vector<float> q_pe;
     std::vector<float> k;
@@ -96,7 +99,8 @@ OpResult run_op(const Meta & meta, const Activation & input, TensorWaveOpKind ki
     std::unique_ptr<OffsetMaterializer> offset;
     TensorMaterializer * active_materializer = nullptr;
     if (materializer != nullptr) {
-        offset = std::make_unique<OffsetMaterializer>(materializer, static_cast<uint32_t>(meta.id * 10));
+        // Keep attention graph-local references disjoint from the FFN expert slice namespace.
+        offset = std::make_unique<OffsetMaterializer>(materializer, 1000U + static_cast<uint32_t>(meta.id * 10));
         offset->request(graph.router, persistent_ref(meta), meta.view.payload_len);
         active_materializer = offset.get();
     }
@@ -195,9 +199,11 @@ TokenData compute_token(const AttentionTensors & tensors, const Activation & inp
     const char * label, bool no_jit_fallback = false) {
     constexpr float epsilon = 1e-6f;
     constexpr uint32_t heads = 16, q_head = 192, nope = 128, rope = 64, value = 128;
+    TokenData data;
     const OpResult norm = run_op(tensors.norm, input, TensorWaveOpKind::RmsNorm, lease,
         materializer, "attention_rms_norm", epsilon, no_jit_fallback);
     if (norm.error != AdapterError::None) return {};
+    data.normalized = norm.values;
     const Activation normalized{ norm.values, { 2048, 1 } };
     const OpResult q_result = run_op(tensors.q, normalized, TensorWaveOpKind::MulMat, lease,
         materializer, "attention_q", 0.0f, no_jit_fallback);
@@ -215,7 +221,6 @@ TokenData compute_token(const AttentionTensors & tensors, const Activation & inp
     const OpResult kv_b_result = run_op(tensors.kv_b, kv_norm_input, TensorWaveOpKind::MulMat, lease,
         materializer, "attention_kv_b", 0.0f, no_jit_fallback);
     if (kv_b_result.error != AdapterError::None) return {};
-    TokenData data;
     data.q_nope.resize(heads * nope);
     data.q_pe.resize(heads * rope);
     data.k.resize(heads * q_head);
@@ -231,8 +236,12 @@ TokenData compute_token(const AttentionTensors & tensors, const Activation & inp
         std::copy(key_rope.begin(), key_rope.end(), data.k.begin() + head * q_head + nope);
         for (uint32_t i = 0; i < value; ++i) data.v[head * value + i] = kv_b_result.values[head * 256 + nope + i];
     }
-    k_state->append(data.k);
-    v_state->append(data.v);
+    std::string state_error;
+    if (position != k_state->size() || position != v_state->size() ||
+        !k_state->append(data.k, &state_error) || !v_state->append(data.v, &state_error)) {
+        std::fprintf(stderr, "%s state_failure position=%u error=%s\n", label, position, state_error.c_str());
+        return {};
+    }
     std::vector<float> probabilities;
     data.context = attention_context(data.q_nope, data.q_pe, *k_state, *v_state,
         1.0f / std::sqrt(192.0f), &probabilities);
@@ -256,6 +265,7 @@ float max_difference(const std::vector<float> & lhs, const std::vector<float> & 
 
 } // namespace
 
+#ifndef VBUF_POC14_LIBRARY_ONLY
 int main(int argc, char ** argv) {
     if (argc < 4 || argc > 5) {
         std::fprintf(stderr, "usage: attention_poc14 <vbuf> <endpoint> <capture-dir> [failure]\n");
@@ -364,3 +374,5 @@ int main(int argc, char ** argv) {
         max_difference(actual1.output, reference1.output) <= 1e-5f &&
         max_difference(actual1.context, absent_context) > 1e-6f ? 0 : 15;
 }
+#endif
+#endif // VBUF_POC14_INCLUDED

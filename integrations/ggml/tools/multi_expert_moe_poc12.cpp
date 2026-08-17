@@ -1,3 +1,5 @@
+#ifndef VBUF_POC12_INCLUDED
+#define VBUF_POC12_INCLUDED
 #define main vbuf_poc11_qualification_main
 #include "router_driven_moe_poc11.cpp"
 #undef main
@@ -34,7 +36,9 @@ private:
 
 struct RoutedResult {
     TopKSelection selection;
+    std::vector<float> logits;
     std::vector<float> weights;
+    uint64_t first_consumer_start_ns = 0;
 };
 
 std::vector<float> normalized_selected_weights(const std::vector<float> & logits,
@@ -62,6 +66,8 @@ RoutedResult route_activation(RouterGraph & graph, const Activation & activation
     const std::vector<float> reference = reference_scores(mapped_weights, input_dim, expert_count, activation);
     if (!parity(logits, reference, "router_score_parity")) throw std::runtime_error("router parity failed");
     RoutedResult result;
+    result.logits = logits;
+    result.first_consumer_start_ns = runtime.first_consumer_start_ns;
     std::string error;
     if (!deterministic_top_k(logits, expert_count, k, &result.selection, &error))
         throw std::runtime_error(error);
@@ -86,6 +92,7 @@ struct MultiRun {
     size_t source_policy_calls = 0;
     size_t evictions = 0;
     size_t resident_tensors_after = 0;
+    uint64_t first_consumer_start_ns = 0;
 };
 
 std::string ids_text(const TopKSelection & selection) {
@@ -157,6 +164,9 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
         const RunResult actual = execute_expert(actual_graph, activation.view(), lease,
             &offset, no_jit_fallback);
         result.actual.push_back(floats(actual.output));
+        if (result.first_consumer_start_ns == 0 ||
+            (actual.first_consumer_start_ns != 0 && actual.first_consumer_start_ns < result.first_consumer_start_ns))
+            result.first_consumer_start_ns = actual.first_consumer_start_ns;
         result.ok = result.ok && actual.error == AdapterError::None && reference.error == AdapterError::None;
         if (actual.error == AdapterError::None && reference.error == AdapterError::None)
             result.ok = result.ok && parity(result.actual.back(), result.reference.back(), "expert_parity");
@@ -318,3 +328,4 @@ int main(int argc, char ** argv) {
         a_replay.ok && a_replay_merge ? 0 : 15;
 }
 #endif
+#endif // VBUF_POC12_INCLUDED

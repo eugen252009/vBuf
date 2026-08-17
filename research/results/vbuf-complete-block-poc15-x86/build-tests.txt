@@ -1,0 +1,9 @@
+POC10=PASS
+POC11=PASS
+POC12=PASS
+POC13=PASS
+POC14=PASS
+POC15=PASS
+x86_ctest=13/13 PASS
+materializer_reload_contract=PASS
+git_diff_check=PASS

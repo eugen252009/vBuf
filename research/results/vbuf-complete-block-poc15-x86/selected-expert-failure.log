@@ -1,0 +1,38 @@
+expert_detail=storage span does not contain the complete tensor payload
+block_tensor name=blk.1.attn_norm.weight id=13 offset=96126272 bytes=8192 layout=DIRECT
+block_tensor name=blk.1.attn_q.weight id=15 offset=96134480 bytes=1228800 layout=DIRECT
+block_tensor name=blk.1.attn_kv_a_mqa.weight id=10 offset=97363296 bytes=230400 layout=DIRECT
+block_tensor name=blk.1.attn_kv_a_norm.weight id=11 offset=97593704 bytes=2048 layout=DIRECT
+block_tensor name=blk.1.attn_kv_b.weight id=12 offset=97595768 bytes=409600 layout=DIRECT
+block_tensor name=blk.1.attn_output.weight id=14 offset=98005384 bytes=1081344 layout=DIRECT
+block_tensor name=blk.1.ffn_norm.weight id=21 offset=99086736 bytes=8192 layout=DIRECT
+block_tensor name=blk.1.ffn_gate_inp.weight id=19 offset=99094944 bytes=524288 layout=DIRECT
+block_tensor name=blk.1.ffn_gate_shexp.weight id=20 offset=99619248 bytes=1126400 layout=DIRECT
+block_tensor name=blk.1.ffn_up_shexp.weight id=23 offset=100745664 bytes=1126400 layout=DIRECT
+block_tensor name=blk.1.ffn_down_shexp.weight id=17 offset=101872080 bytes=1892352 layout=DIRECT
+block_boundary=input->attention_residual(ffn_inp)->ffn_norm->router_top6->routed_merge->shared_expert->residual->output
+fixtures=dtype:F32 dimensions:[2048,1] token0:one_hot(0) token1:one_hot(1) positions:0,1
+failure_reference position=0 state_k_positions=1 state_v_positions=1 attention_probs=1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+attention_timing tensor=blk.1.attn_norm.weight payload_ready_ns=8644286035830 first_consumer_start_ns=8644360894502 payload_to_first_consumer_ns=74858672
+attention_timing tensor=blk.1.attn_q.weight payload_ready_ns=8644470119884 first_consumer_start_ns=8644544023305 payload_to_first_consumer_ns=73903421
+attention_timing tensor=blk.1.attn_kv_a_mqa.weight payload_ready_ns=8644652996126 first_consumer_start_ns=8644724996013 payload_to_first_consumer_ns=71999887
+attention_timing tensor=blk.1.attn_kv_a_norm.weight payload_ready_ns=8644835266427 first_consumer_start_ns=8644908492825 payload_to_first_consumer_ns=73226398
+attention_timing tensor=blk.1.attn_kv_b.weight payload_ready_ns=8645017525259 first_consumer_start_ns=8645090537097 payload_to_first_consumer_ns=73011838
+attention_timing tensor=blk.1.attn_output.weight payload_ready_ns=8645200936551 first_consumer_start_ns=8645273534930 payload_to_first_consumer_ns=72598379
+selected_failure_attention position=0 state_k_positions=1 state_v_positions=1 attention_probs=1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_score_parity max_abs=1.43051e-06 max_rel=2.50091e-05 mean_abs=3.50527e-07 tolerance=1e-5
+selected_weight_parity max_abs=7.45058e-08 max_rel=9.6258e-07 mean_abs=5.09123e-08 tolerance=1e-5
+selected_failure topk_ids=56,11,50,34,3,47 normalized_weights=0.314496,0.213122,0.188313,0.119806,0.0868612,0.0774022,
+selected_failure_routed expert_rank=0 expert_id=56 router_rank=0 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=168 score_preserved=YES
+selected_failure_routed expert_id=56 selected_range tensor=blk.1.ffn_gate_exps.weight offset=135303648 bytes=563200 layout=DIRECT
+selected_failure_routed expert_id=56 selected_range tensor=blk.1.ffn_up_exps.weight offset=171348464 bytes=563200 layout=DIRECT
+selected_failure_routed expert_id=56 selected_range tensor=blk.1.ffn_down_exps.weight offset=266686976 bytes=1622016 layout=DIRECT
+selected_failure_routed prefetch expert_id=56 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+selected_failure_routed prefetch expert_id=56 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+selected_failure_routed prefetch expert_id=56 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+selected_failure_routed expert_id=56 consumer_wait=not_instrumented acquire_release=recorded peak_active=563200 peak_resident=4056064
+selected_failure_routed expert_id=56 execution=FAILED final_merge=NOT_EXECUTED
+selected_failure_routed residency_hits=2 residency_misses=3 source_reads=1 materialization_requests=1 source_policy_calls=3 evictions=0 resident_tensors_after=9
+selected_failure selected_expert_failure final_output=INVALID final_composition=NOT_EXECUTED resources_after_teardown=0
+selected_expert_failure expert_id=56 final_output=INVALID shared_final_composition=NO resources_after_teardown=0 result=PASS

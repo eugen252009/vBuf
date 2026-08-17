@@ -1,0 +1,566 @@
+block_tensor name=blk.1.attn_norm.weight id=13 offset=96126272 bytes=8192 layout=DIRECT
+block_tensor name=blk.1.attn_q.weight id=15 offset=96134480 bytes=1228800 layout=DIRECT
+block_tensor name=blk.1.attn_kv_a_mqa.weight id=10 offset=97363296 bytes=230400 layout=DIRECT
+block_tensor name=blk.1.attn_kv_a_norm.weight id=11 offset=97593704 bytes=2048 layout=DIRECT
+block_tensor name=blk.1.attn_kv_b.weight id=12 offset=97595768 bytes=409600 layout=DIRECT
+block_tensor name=blk.1.attn_output.weight id=14 offset=98005384 bytes=1081344 layout=DIRECT
+block_tensor name=blk.1.ffn_norm.weight id=21 offset=99086736 bytes=8192 layout=DIRECT
+block_tensor name=blk.1.ffn_gate_inp.weight id=19 offset=99094944 bytes=524288 layout=DIRECT
+block_tensor name=blk.1.ffn_gate_shexp.weight id=20 offset=99619248 bytes=1126400 layout=DIRECT
+block_tensor name=blk.1.ffn_up_shexp.weight id=23 offset=100745664 bytes=1126400 layout=DIRECT
+block_tensor name=blk.1.ffn_down_shexp.weight id=17 offset=101872080 bytes=1892352 layout=DIRECT
+block_boundary=input->attention_residual(ffn_inp)->ffn_norm->router_top6->routed_merge->shared_expert->residual->output
+fixtures=dtype:F32 dimensions:[2048,1] token0:one_hot(0) token1:one_hot(1) positions:0,1
+attention_timing tensor=blk.1.attn_norm.weight payload_ready_ns=9335972030415 first_consumer_start_ns=9336043392672 payload_to_first_consumer_ns=71362257
+attention_timing tensor=blk.1.attn_q.weight payload_ready_ns=9336148985620 first_consumer_start_ns=9336218954904 payload_to_first_consumer_ns=69969284
+attention_timing tensor=blk.1.attn_kv_a_mqa.weight payload_ready_ns=9336323495389 first_consumer_start_ns=9336392908181 payload_to_first_consumer_ns=69412792
+attention_timing tensor=blk.1.attn_kv_a_norm.weight payload_ready_ns=9336497198564 first_consumer_start_ns=9336566519606 payload_to_first_consumer_ns=69321042
+attention_timing tensor=blk.1.attn_kv_b.weight payload_ready_ns=9336670922071 first_consumer_start_ns=9336742114028 payload_to_first_consumer_ns=71191957
+attention_timing tensor=blk.1.attn_output.weight payload_ready_ns=9336849992622 first_consumer_start_ns=9336920812868 payload_to_first_consumer_ns=70820246
+token0 position=0 state_k_positions=1 state_v_positions=1 attention_probs=1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+reference_attention position=0 state_k_positions=1 state_v_positions=1 attention_probs=1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+attention_normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+attention_residual_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_score_parity max_abs=1.43051e-06 max_rel=2.50091e-05 mean_abs=3.50527e-07 tolerance=1e-5
+selected_weight_parity max_abs=7.45058e-08 max_rel=9.6258e-07 mean_abs=5.09123e-08 tolerance=1e-5
+token0 topk_ids=56,11,50,34,3,47 normalized_weights=0.314496,0.213122,0.188313,0.119806,0.0868612,0.0774022,
+token0_routed expert_rank=0 expert_id=56 router_rank=0 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=168 score_preserved=YES
+token0_routed expert_id=56 selected_range tensor=blk.1.ffn_gate_exps.weight offset=135303648 bytes=563200 layout=DIRECT
+token0_routed expert_id=56 selected_range tensor=blk.1.ffn_up_exps.weight offset=171348464 bytes=563200 layout=DIRECT
+token0_routed expert_id=56 selected_range tensor=blk.1.ffn_down_exps.weight offset=266686976 bytes=1622016 layout=DIRECT
+token0_routed prefetch expert_id=56 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=56 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=56 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token0_routed expert_id=56 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=6241280
+token0_routed expert_rank=1 expert_id=11 router_rank=1 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=33 score_preserved=YES
+token0_routed expert_id=11 selected_range tensor=blk.1.ffn_gate_exps.weight offset=109959648 bytes=563200 layout=DIRECT
+token0_routed expert_id=11 selected_range tensor=blk.1.ffn_up_exps.weight offset=146004464 bytes=563200 layout=DIRECT
+token0_routed expert_id=11 selected_range tensor=blk.1.ffn_down_exps.weight offset=193696256 bytes=1622016 layout=DIRECT
+token0_routed prefetch expert_id=11 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=11 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=11 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token0_routed expert_id=11 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=7752704
+token0_routed expert_rank=2 expert_id=50 router_rank=2 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=150 score_preserved=YES
+token0_routed expert_id=50 selected_range tensor=blk.1.ffn_gate_exps.weight offset=131924448 bytes=563200 layout=DIRECT
+token0_routed expert_id=50 selected_range tensor=blk.1.ffn_up_exps.weight offset=167969264 bytes=563200 layout=DIRECT
+token0_routed expert_id=50 selected_range tensor=blk.1.ffn_down_exps.weight offset=256954880 bytes=1622016 layout=DIRECT
+token0_routed prefetch expert_id=50 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=50 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=50 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token0_routed expert_id=50 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+token0_routed expert_rank=3 expert_id=34 router_rank=3 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=102 score_preserved=YES
+token0_routed expert_id=34 selected_range tensor=blk.1.ffn_gate_exps.weight offset=122913248 bytes=563200 layout=DIRECT
+token0_routed expert_id=34 selected_range tensor=blk.1.ffn_up_exps.weight offset=158958064 bytes=563200 layout=DIRECT
+token0_routed expert_id=34 selected_range tensor=blk.1.ffn_down_exps.weight offset=231002624 bytes=1622016 layout=DIRECT
+token0_routed prefetch expert_id=34 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=34 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=34 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token0_routed expert_id=34 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+token0_routed expert_rank=4 expert_id=3 router_rank=4 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=9 score_preserved=YES
+token0_routed expert_id=3 selected_range tensor=blk.1.ffn_gate_exps.weight offset=105454048 bytes=563200 layout=DIRECT
+token0_routed expert_id=3 selected_range tensor=blk.1.ffn_up_exps.weight offset=141498864 bytes=563200 layout=DIRECT
+token0_routed expert_id=3 selected_range tensor=blk.1.ffn_down_exps.weight offset=180720128 bytes=1622016 layout=DIRECT
+token0_routed prefetch expert_id=3 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=3 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=3 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token0_routed expert_id=3 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+token0_routed expert_rank=5 expert_id=47 router_rank=5 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=141 score_preserved=YES
+token0_routed expert_id=47 selected_range tensor=blk.1.ffn_gate_exps.weight offset=130234848 bytes=563200 layout=DIRECT
+token0_routed expert_id=47 selected_range tensor=blk.1.ffn_up_exps.weight offset=166279664 bytes=563200 layout=DIRECT
+token0_routed expert_id=47 selected_range tensor=blk.1.ffn_down_exps.weight offset=252088832 bytes=1622016 layout=DIRECT
+token0_routed prefetch expert_id=47 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=47 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token0_routed prefetch expert_id=47 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token0_routed expert_id=47 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+token0_routed residency_hits=36 residency_misses=42 source_reads=18 materialization_requests=18 source_policy_calls=18 evictions=17 resident_tensors_after=9
+routed_merge_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+shared_expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+pre_residual_composition_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+final_layer_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token0 shared_expert=REQUIRED shared_graph_created=YES residual_add=YES final_composition=PASS
+ffn_timing tensor=blk.1.ffn_gate_inp.weight payload_ready_ns=9337205684568 first_consumer_start_ns=9337275214721 payload_to_first_consumer_ns=69530153
+ffn_timing tensor=blk.1.ffn_gate_shexp.weight payload_ready_ns=9340569674876 first_consumer_start_ns=9340640397353 payload_to_first_consumer_ns=70722477
+ffn_timing tensor=blk.1.ffn_gate_exps.weight payload_ready_ns=9337381216490 first_consumer_start_ns=9337451033754 payload_to_first_consumer_ns=69817264
+token0 full_layer_residency_hits=46 misses=51 evictions=23 source_reads=23 source_bytes=21168128 materialization_requests=23 resident_tensors_after=6
+token0 full_layer_peak_active_persistent_bytes=1892352 full_layer_peak_resident_bytes=8245248
+token0 first_payload_to_shared_compute_start_ns=3505329880 execution_ready_to_consumer_ns=NOT_INSTRUMENTED payload_to_first_useful_compute=NOT_INSTRUMENTED
+normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_score_parity max_abs=1.43051e-06 max_rel=2.50091e-05 mean_abs=3.50527e-07 tolerance=1e-5
+selected_weight_parity max_abs=7.45058e-08 max_rel=9.6258e-07 mean_abs=5.09123e-08 tolerance=1e-5
+reference_ffn topk_ids=56,11,50,34,3,47 normalized_weights=0.314496,0.213122,0.188313,0.119806,0.0868612,0.0774022,
+reference_ffn_routed expert_rank=0 expert_id=56 router_rank=0 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=168 score_preserved=YES
+reference_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_gate_exps.weight offset=135303648 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_up_exps.weight offset=171348464 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_down_exps.weight offset=266686976 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=56 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=3280896
+reference_ffn_routed expert_rank=1 expert_id=11 router_rank=1 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=33 score_preserved=YES
+reference_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_gate_exps.weight offset=109959648 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_up_exps.weight offset=146004464 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_down_exps.weight offset=193696256 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=11 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=6029312
+reference_ffn_routed expert_rank=2 expert_id=50 router_rank=2 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=150 score_preserved=YES
+reference_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_gate_exps.weight offset=131924448 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_up_exps.weight offset=167969264 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_down_exps.weight offset=256954880 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=50 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+reference_ffn_routed expert_rank=3 expert_id=34 router_rank=3 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=102 score_preserved=YES
+reference_ffn_routed expert_id=34 selected_range tensor=blk.1.ffn_gate_exps.weight offset=122913248 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=34 selected_range tensor=blk.1.ffn_up_exps.weight offset=158958064 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=34 selected_range tensor=blk.1.ffn_down_exps.weight offset=231002624 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=34 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=34 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=34 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=34 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+reference_ffn_routed expert_rank=4 expert_id=3 router_rank=4 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=9 score_preserved=YES
+reference_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_gate_exps.weight offset=105454048 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_up_exps.weight offset=141498864 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_down_exps.weight offset=180720128 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=3 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+reference_ffn_routed expert_rank=5 expert_id=47 router_rank=5 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=141 score_preserved=YES
+reference_ffn_routed expert_id=47 selected_range tensor=blk.1.ffn_gate_exps.weight offset=130234848 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=47 selected_range tensor=blk.1.ffn_up_exps.weight offset=166279664 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=47 selected_range tensor=blk.1.ffn_down_exps.weight offset=252088832 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=47 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=47 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=47 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=47 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+reference_ffn_routed residency_hits=36 residency_misses=42 source_reads=18 materialization_requests=18 source_policy_calls=18 evictions=11 resident_tensors_after=9
+routed_merge_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+shared_expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+pre_residual_composition_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+final_layer_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn shared_expert=REQUIRED shared_graph_created=YES residual_add=YES final_composition=PASS
+ffn_timing tensor=blk.1.ffn_gate_inp.weight payload_ready_ns=9341288363783 first_consumer_start_ns=9341359097470 payload_to_first_consumer_ns=70733687
+ffn_timing tensor=blk.1.ffn_gate_shexp.weight payload_ready_ns=9344701203646 first_consumer_start_ns=9344774310181 payload_to_first_consumer_ns=73106535
+ffn_timing tensor=blk.1.ffn_gate_exps.weight payload_ready_ns=9341467918087 first_consumer_start_ns=9341539865337 payload_to_first_consumer_ns=71947250
+reference_ffn full_layer_residency_hits=46 misses=51 evictions=17 source_reads=23 source_bytes=21168128 materialization_requests=23 resident_tensors_after=6
+reference_ffn full_layer_peak_active_persistent_bytes=1892352 full_layer_peak_resident_bytes=8245248
+reference_ffn first_payload_to_shared_compute_start_ns=3558296898 execution_ready_to_consumer_ns=NOT_INSTRUMENTED payload_to_first_useful_compute=NOT_INSTRUMENTED
+ffn_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+ffn_normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_logits_composed_parity max_abs=1.43051e-06 max_rel=2.50091e-05 mean_abs=3.50527e-07 tolerance=1e-5
+routed_aggregate_composed_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+shared_expert_composed_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+ffn_pre_residual_composed_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+block_output_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token0 selected_experts=56,11,50,34,3,47 normalized_weights=0.314496,0.213122,0.188313,0.119806,0.0868612,0.0774022,
+attention_timing tensor=blk.1.attn_norm.weight payload_ready_ns=9335972030415 first_consumer_start_ns=9345310077395 payload_to_first_consumer_ns=9338046980
+attention_timing tensor=blk.1.attn_q.weight payload_ready_ns=9336148985620 first_consumer_start_ns=9345488218816 payload_to_first_consumer_ns=9339233196
+attention_timing tensor=blk.1.attn_kv_a_mqa.weight payload_ready_ns=9336323495389 first_consumer_start_ns=9345668230762 payload_to_first_consumer_ns=9344735373
+attention_timing tensor=blk.1.attn_kv_a_norm.weight payload_ready_ns=9336497198564 first_consumer_start_ns=9345847307745 payload_to_first_consumer_ns=9350109181
+attention_timing tensor=blk.1.attn_kv_b.weight payload_ready_ns=9336670922071 first_consumer_start_ns=9346025182845 payload_to_first_consumer_ns=9354260774
+attention_timing tensor=blk.1.attn_output.weight payload_ready_ns=9336849992622 first_consumer_start_ns=9346203516576 payload_to_first_consumer_ns=9353523954
+token1 position=1 state_k_positions=2 state_v_positions=2 attention_probs=0.327327,0.672673,0.410489,0.589511,0.566064,0.433936,0.327192,0.672808,0.932766,0.0672338,0.599507,0.400493,0.505362,0.494638,0.744735,0.255265,0.50687,0.49313,0.00836671,0.991633,0.754869,0.245131,0.650014,0.349986,0.537805,0.462195,0.554964,0.445036,0.523342,0.476658,0.56235,0.43765,
+reference_attention position=1 state_k_positions=2 state_v_positions=2 attention_probs=0.327327,0.672673,0.410489,0.589511,0.566064,0.433936,0.327192,0.672808,0.932766,0.0672338,0.599507,0.400493,0.505362,0.494638,0.744735,0.255265,0.50687,0.49313,0.00836671,0.991633,0.754869,0.245131,0.650014,0.349986,0.537805,0.462195,0.554964,0.445036,0.523342,0.476658,0.56235,0.43765,
+attention_normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+attention_residual_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_score_parity max_abs=2.86102e-06 max_rel=5.82025e-06 mean_abs=3.96627e-07 tolerance=1e-5
+selected_weight_parity max_abs=2.38419e-07 max_rel=1.73796e-06 mean_abs=1.21693e-07 tolerance=1e-5
+token1 topk_ids=56,29,11,3,50,26 normalized_weights=0.431742,0.24147,0.103862,0.0857397,0.0713288,0.0658583,
+token1_routed expert_rank=0 expert_id=56 router_rank=0 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=168 score_preserved=YES
+token1_routed expert_id=56 selected_range tensor=blk.1.ffn_gate_exps.weight offset=135303648 bytes=563200 layout=DIRECT
+token1_routed expert_id=56 selected_range tensor=blk.1.ffn_up_exps.weight offset=171348464 bytes=563200 layout=DIRECT
+token1_routed expert_id=56 selected_range tensor=blk.1.ffn_down_exps.weight offset=266686976 bytes=1622016 layout=DIRECT
+token1_routed prefetch expert_id=56 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=56 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=56 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token1_routed expert_id=56 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8133632
+token1_routed expert_rank=1 expert_id=29 router_rank=1 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=87 score_preserved=YES
+token1_routed expert_id=29 selected_range tensor=blk.1.ffn_gate_exps.weight offset=120097248 bytes=563200 layout=DIRECT
+token1_routed expert_id=29 selected_range tensor=blk.1.ffn_up_exps.weight offset=156142064 bytes=563200 layout=DIRECT
+token1_routed expert_id=29 selected_range tensor=blk.1.ffn_down_exps.weight offset=222892544 bytes=1622016 layout=DIRECT
+token1_routed prefetch expert_id=29 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=29 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=29 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token1_routed expert_id=29 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=7752704
+token1_routed expert_rank=2 expert_id=11 router_rank=2 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=33 score_preserved=YES
+token1_routed expert_id=11 selected_range tensor=blk.1.ffn_gate_exps.weight offset=109959648 bytes=563200 layout=DIRECT
+token1_routed expert_id=11 selected_range tensor=blk.1.ffn_up_exps.weight offset=146004464 bytes=563200 layout=DIRECT
+token1_routed expert_id=11 selected_range tensor=blk.1.ffn_down_exps.weight offset=193696256 bytes=1622016 layout=DIRECT
+token1_routed prefetch expert_id=11 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=11 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=11 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token1_routed expert_id=11 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+token1_routed expert_rank=3 expert_id=3 router_rank=3 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=9 score_preserved=YES
+token1_routed expert_id=3 selected_range tensor=blk.1.ffn_gate_exps.weight offset=105454048 bytes=563200 layout=DIRECT
+token1_routed expert_id=3 selected_range tensor=blk.1.ffn_up_exps.weight offset=141498864 bytes=563200 layout=DIRECT
+token1_routed expert_id=3 selected_range tensor=blk.1.ffn_down_exps.weight offset=180720128 bytes=1622016 layout=DIRECT
+token1_routed prefetch expert_id=3 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=3 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=3 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token1_routed expert_id=3 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+token1_routed expert_rank=4 expert_id=50 router_rank=4 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=150 score_preserved=YES
+token1_routed expert_id=50 selected_range tensor=blk.1.ffn_gate_exps.weight offset=131924448 bytes=563200 layout=DIRECT
+token1_routed expert_id=50 selected_range tensor=blk.1.ffn_up_exps.weight offset=167969264 bytes=563200 layout=DIRECT
+token1_routed expert_id=50 selected_range tensor=blk.1.ffn_down_exps.weight offset=256954880 bytes=1622016 layout=DIRECT
+token1_routed prefetch expert_id=50 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=50 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=50 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token1_routed expert_id=50 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+token1_routed expert_rank=5 expert_id=26 router_rank=5 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=78 score_preserved=YES
+token1_routed expert_id=26 selected_range tensor=blk.1.ffn_gate_exps.weight offset=118407648 bytes=563200 layout=DIRECT
+token1_routed expert_id=26 selected_range tensor=blk.1.ffn_up_exps.weight offset=154452464 bytes=563200 layout=DIRECT
+token1_routed expert_id=26 selected_range tensor=blk.1.ffn_down_exps.weight offset=218026496 bytes=1622016 layout=DIRECT
+token1_routed prefetch expert_id=26 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=26 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+token1_routed prefetch expert_id=26 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token1_routed expert_id=26 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+token1_routed residency_hits=36 residency_misses=42 source_reads=18 materialization_requests=18 source_policy_calls=18 evictions=20 resident_tensors_after=9
+routed_merge_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+shared_expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+pre_residual_composition_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+final_layer_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token1 shared_expert=REQUIRED shared_graph_created=YES residual_add=YES final_composition=PASS
+ffn_timing tensor=blk.1.ffn_gate_inp.weight payload_ready_ns=9346489382511 first_consumer_start_ns=9346561075512 payload_to_first_consumer_ns=71693001
+ffn_timing tensor=blk.1.ffn_gate_shexp.weight payload_ready_ns=9349916601884 first_consumer_start_ns=9349989783128 payload_to_first_consumer_ns=73181244
+ffn_timing tensor=blk.1.ffn_gate_exps.weight payload_ready_ns=9346669601838 first_consumer_start_ns=9346742080310 payload_to_first_consumer_ns=72478472
+token1 full_layer_residency_hits=46 misses=51 evictions=26 source_reads=23 source_bytes=21168128 materialization_requests=23 resident_tensors_after=6
+token1 full_layer_peak_active_persistent_bytes=1892352 full_layer_peak_resident_bytes=8245248
+token1 first_payload_to_shared_compute_start_ns=3568727445 execution_ready_to_consumer_ns=NOT_INSTRUMENTED payload_to_first_useful_compute=NOT_INSTRUMENTED
+normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_score_parity max_abs=2.86102e-06 max_rel=5.82025e-06 mean_abs=3.96627e-07 tolerance=1e-5
+selected_weight_parity max_abs=2.38419e-07 max_rel=1.73796e-06 mean_abs=1.21693e-07 tolerance=1e-5
+reference_ffn topk_ids=56,29,11,3,50,26 normalized_weights=0.431742,0.24147,0.103862,0.0857397,0.0713288,0.0658583,
+reference_ffn_routed expert_rank=0 expert_id=56 router_rank=0 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=168 score_preserved=YES
+reference_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_gate_exps.weight offset=135303648 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_up_exps.weight offset=171348464 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_down_exps.weight offset=266686976 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=56 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=3280896
+reference_ffn_routed expert_rank=1 expert_id=29 router_rank=1 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=87 score_preserved=YES
+reference_ffn_routed expert_id=29 selected_range tensor=blk.1.ffn_gate_exps.weight offset=120097248 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=29 selected_range tensor=blk.1.ffn_up_exps.weight offset=156142064 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=29 selected_range tensor=blk.1.ffn_down_exps.weight offset=222892544 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=29 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=29 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=29 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=29 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=6029312
+reference_ffn_routed expert_rank=2 expert_id=11 router_rank=2 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=33 score_preserved=YES
+reference_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_gate_exps.weight offset=109959648 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_up_exps.weight offset=146004464 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_down_exps.weight offset=193696256 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=11 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+reference_ffn_routed expert_rank=3 expert_id=3 router_rank=3 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=9 score_preserved=YES
+reference_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_gate_exps.weight offset=105454048 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_up_exps.weight offset=141498864 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_down_exps.weight offset=180720128 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=3 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+reference_ffn_routed expert_rank=4 expert_id=50 router_rank=4 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=150 score_preserved=YES
+reference_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_gate_exps.weight offset=131924448 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_up_exps.weight offset=167969264 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_down_exps.weight offset=256954880 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=50 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+reference_ffn_routed expert_rank=5 expert_id=26 router_rank=5 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=78 score_preserved=YES
+reference_ffn_routed expert_id=26 selected_range tensor=blk.1.ffn_gate_exps.weight offset=118407648 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=26 selected_range tensor=blk.1.ffn_up_exps.weight offset=154452464 bytes=563200 layout=DIRECT
+reference_ffn_routed expert_id=26 selected_range tensor=blk.1.ffn_down_exps.weight offset=218026496 bytes=1622016 layout=DIRECT
+reference_ffn_routed prefetch expert_id=26 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=26 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+reference_ffn_routed prefetch expert_id=26 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn_routed expert_id=26 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+reference_ffn_routed residency_hits=36 residency_misses=42 source_reads=18 materialization_requests=18 source_policy_calls=18 evictions=11 resident_tensors_after=9
+routed_merge_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+shared_expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+pre_residual_composition_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+final_layer_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+reference_ffn shared_expert=REQUIRED shared_graph_created=YES residual_add=YES final_composition=PASS
+ffn_timing tensor=blk.1.ffn_gate_inp.weight payload_ready_ns=9350645698797 first_consumer_start_ns=9350718779572 payload_to_first_consumer_ns=73080775
+ffn_timing tensor=blk.1.ffn_gate_shexp.weight payload_ready_ns=9354064833210 first_consumer_start_ns=9354136364669 payload_to_first_consumer_ns=71531459
+ffn_timing tensor=blk.1.ffn_gate_exps.weight payload_ready_ns=9350827215369 first_consumer_start_ns=9350899120340 payload_to_first_consumer_ns=71904971
+reference_ffn full_layer_residency_hits=46 misses=51 evictions=17 source_reads=23 source_bytes=21168128 materialization_requests=23 resident_tensors_after=6
+reference_ffn full_layer_peak_active_persistent_bytes=1892352 full_layer_peak_resident_bytes=8245248
+reference_ffn first_payload_to_shared_compute_start_ns=3564805738 execution_ready_to_consumer_ns=NOT_INSTRUMENTED payload_to_first_useful_compute=NOT_INSTRUMENTED
+ffn_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+ffn_normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_logits_composed_parity max_abs=2.86102e-06 max_rel=5.82025e-06 mean_abs=3.96627e-07 tolerance=1e-5
+routed_aggregate_composed_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+shared_expert_composed_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+ffn_pre_residual_composed_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+block_output_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+token1 selected_experts=56,29,11,3,50,26 normalized_weights=0.431742,0.24147,0.103862,0.0857397,0.0713288,0.0658583,
+BLOCK_REFERENCE_PARITY_TOKEN_0=PASS BLOCK_REFERENCE_PARITY_TOKEN_1=PASS
+attention_to_ffn_boundary_parity=PASS
+negative_seed position=0 state_k_positions=1 state_v_positions=1 attention_probs=1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+attention_timing tensor=blk.1.attn_output.weight payload_ready_ns=9354600852311 first_consumer_start_ns=9354671544428 payload_to_first_consumer_ns=70692117
+normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_score_parity max_abs=2.20537e-06 max_rel=0.000445609 mean_abs=4.20609e-07 tolerance=1e-5
+selected_weight_parity max_abs=2.08616e-07 max_rel=1.14132e-06 mean_abs=1.15484e-07 tolerance=1e-5
+negative_block topk_ids=29,56,40,52,1,28 normalized_weights=0.426834,0.14757,0.143617,0.107627,0.0877523,0.0865999,
+negative_block_routed expert_rank=0 expert_id=29 router_rank=0 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=87 score_preserved=YES
+negative_block_routed expert_id=29 selected_range tensor=blk.1.ffn_gate_exps.weight offset=120097248 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=29 selected_range tensor=blk.1.ffn_up_exps.weight offset=156142064 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=29 selected_range tensor=blk.1.ffn_down_exps.weight offset=222892544 bytes=1622016 layout=DIRECT
+negative_block_routed prefetch expert_id=29 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=29 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=29 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+negative_block_routed expert_id=29 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=4362240
+negative_block_routed expert_rank=1 expert_id=56 router_rank=1 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=168 score_preserved=YES
+negative_block_routed expert_id=56 selected_range tensor=blk.1.ffn_gate_exps.weight offset=135303648 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=56 selected_range tensor=blk.1.ffn_up_exps.weight offset=171348464 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=56 selected_range tensor=blk.1.ffn_down_exps.weight offset=266686976 bytes=1622016 layout=DIRECT
+negative_block_routed prefetch expert_id=56 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=56 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=56 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+negative_block_routed expert_id=56 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=7110656
+negative_block_routed expert_rank=2 expert_id=40 router_rank=2 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=120 score_preserved=YES
+negative_block_routed expert_id=40 selected_range tensor=blk.1.ffn_gate_exps.weight offset=126292448 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=40 selected_range tensor=blk.1.ffn_up_exps.weight offset=162337264 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=40 selected_range tensor=blk.1.ffn_down_exps.weight offset=240734720 bytes=1622016 layout=DIRECT
+negative_block_routed prefetch expert_id=40 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=40 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=40 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+negative_block_routed expert_id=40 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+negative_block_routed expert_rank=3 expert_id=52 router_rank=3 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=156 score_preserved=YES
+negative_block_routed expert_id=52 selected_range tensor=blk.1.ffn_gate_exps.weight offset=133050848 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=52 selected_range tensor=blk.1.ffn_up_exps.weight offset=169095664 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=52 selected_range tensor=blk.1.ffn_down_exps.weight offset=260198912 bytes=1622016 layout=DIRECT
+negative_block_routed prefetch expert_id=52 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=52 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=52 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+negative_block_routed expert_id=52 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+negative_block_routed expert_rank=4 expert_id=1 router_rank=4 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=3 score_preserved=YES
+negative_block_routed expert_id=1 selected_range tensor=blk.1.ffn_gate_exps.weight offset=104327648 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=1 selected_range tensor=blk.1.ffn_up_exps.weight offset=140372464 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=1 selected_range tensor=blk.1.ffn_down_exps.weight offset=177476096 bytes=1622016 layout=DIRECT
+negative_block_routed prefetch expert_id=1 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=1 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=1 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+negative_block_routed expert_id=1 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+negative_block_routed expert_rank=5 expert_id=28 router_rank=5 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=84 score_preserved=YES
+negative_block_routed expert_id=28 selected_range tensor=blk.1.ffn_gate_exps.weight offset=119534048 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=28 selected_range tensor=blk.1.ffn_up_exps.weight offset=155578864 bytes=563200 layout=DIRECT
+negative_block_routed expert_id=28 selected_range tensor=blk.1.ffn_down_exps.weight offset=221270528 bytes=1622016 layout=DIRECT
+negative_block_routed prefetch expert_id=28 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=28 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+negative_block_routed prefetch expert_id=28 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+negative_block_routed expert_id=28 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+negative_block_routed residency_hits=36 residency_misses=42 source_reads=18 materialization_requests=18 source_policy_calls=18 evictions=12 resident_tensors_after=9
+routed_merge_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+shared_expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+pre_residual_composition_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+final_layer_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+negative_block shared_expert=REQUIRED shared_graph_created=YES residual_add=YES final_composition=PASS
+ffn_timing tensor=blk.1.ffn_gate_inp.weight payload_ready_ns=9354957841287 first_consumer_start_ns=9355028804325 payload_to_first_consumer_ns=70963038
+ffn_timing tensor=blk.1.ffn_gate_shexp.weight payload_ready_ns=9358368835040 first_consumer_start_ns=9358440100259 payload_to_first_consumer_ns=71265219
+ffn_timing tensor=blk.1.ffn_gate_exps.weight payload_ready_ns=9355137010572 first_consumer_start_ns=9355208795172 payload_to_first_consumer_ns=71784600
+negative_block full_layer_residency_hits=46 misses=51 evictions=18 source_reads=23 source_bytes=21168128 materialization_requests=23 resident_tensors_after=6
+negative_block full_layer_peak_active_persistent_bytes=1892352 full_layer_peak_resident_bytes=8245248
+negative_block first_payload_to_shared_compute_start_ns=3553715050 execution_ready_to_consumer_ns=NOT_INSTRUMENTED payload_to_first_useful_compute=NOT_INSTRUMENTED
+full_block_state_influence_max_abs_delta=1.44486 state_influence=PASS
+state_bytes_after_token0=20480 state_bytes_after_token1=40960 append_update_count=4 read_count=96 cleanup=PASS
+cold_block_source_reads=58 attention_source_bytes=5920768 ffn_always_source_bytes=9355264 routed_expert_source_bytes=32980992 total_source_bytes=48257024
+attention_timing tensor=blk.1.attn_norm.weight payload_ready_ns=9335972030415 first_consumer_start_ns=9358980371023 payload_to_first_consumer_ns=23008340608
+attention_timing tensor=blk.1.attn_q.weight payload_ready_ns=9336148985620 first_consumer_start_ns=9359159526660 payload_to_first_consumer_ns=23010541040
+attention_timing tensor=blk.1.attn_kv_a_mqa.weight payload_ready_ns=9336323495389 first_consumer_start_ns=9359339229247 payload_to_first_consumer_ns=23015733858
+attention_timing tensor=blk.1.attn_kv_a_norm.weight payload_ready_ns=9336497198564 first_consumer_start_ns=9359519027454 payload_to_first_consumer_ns=23021828890
+attention_timing tensor=blk.1.attn_kv_b.weight payload_ready_ns=9336670922071 first_consumer_start_ns=9359697498409 payload_to_first_consumer_ns=23026576338
+attention_timing tensor=blk.1.attn_output.weight payload_ready_ns=9336849992622 first_consumer_start_ns=9359877742748 payload_to_first_consumer_ns=23027750126
+warm_token0 position=0 state_k_positions=1 state_v_positions=1 attention_probs=1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_score_parity max_abs=1.43051e-06 max_rel=2.50091e-05 mean_abs=3.50527e-07 tolerance=1e-5
+selected_weight_parity max_abs=7.45058e-08 max_rel=9.6258e-07 mean_abs=5.09123e-08 tolerance=1e-5
+warm_token0_ffn topk_ids=56,11,50,34,3,47 normalized_weights=0.314496,0.213122,0.188313,0.119806,0.0868612,0.0774022,
+warm_token0_ffn_routed expert_rank=0 expert_id=56 router_rank=0 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=168 score_preserved=YES
+warm_token0_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_gate_exps.weight offset=135303648 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_up_exps.weight offset=171348464 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_down_exps.weight offset=266686976 bytes=1622016 layout=DIRECT
+warm_token0_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token0_ffn_routed expert_id=56 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8133632
+warm_token0_ffn_routed expert_rank=1 expert_id=11 router_rank=1 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=33 score_preserved=YES
+warm_token0_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_gate_exps.weight offset=109959648 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_up_exps.weight offset=146004464 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_down_exps.weight offset=193696256 bytes=1622016 layout=DIRECT
+warm_token0_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token0_ffn_routed expert_id=11 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=7752704
+warm_token0_ffn_routed expert_rank=2 expert_id=50 router_rank=2 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=150 score_preserved=YES
+warm_token0_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_gate_exps.weight offset=131924448 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_up_exps.weight offset=167969264 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_down_exps.weight offset=256954880 bytes=1622016 layout=DIRECT
+warm_token0_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token0_ffn_routed expert_id=50 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+warm_token0_ffn_routed expert_rank=3 expert_id=34 router_rank=3 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=102 score_preserved=YES
+warm_token0_ffn_routed expert_id=34 selected_range tensor=blk.1.ffn_gate_exps.weight offset=122913248 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=34 selected_range tensor=blk.1.ffn_up_exps.weight offset=158958064 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=34 selected_range tensor=blk.1.ffn_down_exps.weight offset=231002624 bytes=1622016 layout=DIRECT
+warm_token0_ffn_routed prefetch expert_id=34 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=34 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=34 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token0_ffn_routed expert_id=34 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+warm_token0_ffn_routed expert_rank=4 expert_id=3 router_rank=4 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=9 score_preserved=YES
+warm_token0_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_gate_exps.weight offset=105454048 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_up_exps.weight offset=141498864 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_down_exps.weight offset=180720128 bytes=1622016 layout=DIRECT
+warm_token0_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token0_ffn_routed expert_id=3 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+warm_token0_ffn_routed expert_rank=5 expert_id=47 router_rank=5 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=141 score_preserved=YES
+warm_token0_ffn_routed expert_id=47 selected_range tensor=blk.1.ffn_gate_exps.weight offset=130234848 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=47 selected_range tensor=blk.1.ffn_up_exps.weight offset=166279664 bytes=563200 layout=DIRECT
+warm_token0_ffn_routed expert_id=47 selected_range tensor=blk.1.ffn_down_exps.weight offset=252088832 bytes=1622016 layout=DIRECT
+warm_token0_ffn_routed prefetch expert_id=47 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=47 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token0_ffn_routed prefetch expert_id=47 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token0_ffn_routed expert_id=47 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+warm_token0_ffn_routed residency_hits=36 residency_misses=42 source_reads=18 materialization_requests=18 source_policy_calls=18 evictions=20 resident_tensors_after=9
+routed_merge_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+shared_expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+pre_residual_composition_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+final_layer_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token0_ffn shared_expert=REQUIRED shared_graph_created=YES residual_add=YES final_composition=PASS
+ffn_timing tensor=blk.1.ffn_gate_inp.weight payload_ready_ns=9360166653775 first_consumer_start_ns=9360238421907 payload_to_first_consumer_ns=71768132
+ffn_timing tensor=blk.1.ffn_gate_shexp.weight payload_ready_ns=9363592940730 first_consumer_start_ns=9363665453922 payload_to_first_consumer_ns=72513192
+ffn_timing tensor=blk.1.ffn_gate_exps.weight payload_ready_ns=9360347398417 first_consumer_start_ns=9360419697888 payload_to_first_consumer_ns=72299471
+warm_token0_ffn full_layer_residency_hits=46 misses=51 evictions=26 source_reads=23 source_bytes=21168128 materialization_requests=23 resident_tensors_after=6
+warm_token0_ffn full_layer_peak_active_persistent_bytes=1892352 full_layer_peak_resident_bytes=8245248
+warm_token0_ffn first_payload_to_shared_compute_start_ns=3571022628 execution_ready_to_consumer_ns=NOT_INSTRUMENTED payload_to_first_useful_compute=NOT_INSTRUMENTED
+attention_timing tensor=blk.1.attn_norm.weight payload_ready_ns=9335972030415 first_consumer_start_ns=9364209313371 payload_to_first_consumer_ns=28237282956
+attention_timing tensor=blk.1.attn_q.weight payload_ready_ns=9336148985620 first_consumer_start_ns=9364389720521 payload_to_first_consumer_ns=28240734901
+attention_timing tensor=blk.1.attn_kv_a_mqa.weight payload_ready_ns=9336323495389 first_consumer_start_ns=9364571456126 payload_to_first_consumer_ns=28247960737
+attention_timing tensor=blk.1.attn_kv_a_norm.weight payload_ready_ns=9336497198564 first_consumer_start_ns=9364753372631 payload_to_first_consumer_ns=28256174067
+attention_timing tensor=blk.1.attn_kv_b.weight payload_ready_ns=9336670922071 first_consumer_start_ns=9364937189941 payload_to_first_consumer_ns=28266267870
+attention_timing tensor=blk.1.attn_output.weight payload_ready_ns=9336849992622 first_consumer_start_ns=9365117866162 payload_to_first_consumer_ns=28267873540
+warm_token1 position=1 state_k_positions=2 state_v_positions=2 attention_probs=0.327327,0.672673,0.410489,0.589511,0.566064,0.433936,0.327192,0.672808,0.932766,0.0672338,0.599507,0.400493,0.505362,0.494638,0.744735,0.255265,0.50687,0.49313,0.00836671,0.991633,0.754869,0.245131,0.650014,0.349986,0.537805,0.462195,0.554964,0.445036,0.523342,0.476658,0.56235,0.43765,
+normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_score_parity max_abs=2.86102e-06 max_rel=5.82025e-06 mean_abs=3.96627e-07 tolerance=1e-5
+selected_weight_parity max_abs=2.38419e-07 max_rel=1.73796e-06 mean_abs=1.21693e-07 tolerance=1e-5
+warm_token1_ffn topk_ids=56,29,11,3,50,26 normalized_weights=0.431742,0.24147,0.103862,0.0857397,0.0713288,0.0658583,
+warm_token1_ffn_routed expert_rank=0 expert_id=56 router_rank=0 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=168 score_preserved=YES
+warm_token1_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_gate_exps.weight offset=135303648 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_up_exps.weight offset=171348464 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=56 selected_range tensor=blk.1.ffn_down_exps.weight offset=266686976 bytes=1622016 layout=DIRECT
+warm_token1_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=56 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token1_ffn_routed expert_id=56 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8133632
+warm_token1_ffn_routed expert_rank=1 expert_id=29 router_rank=1 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=87 score_preserved=YES
+warm_token1_ffn_routed expert_id=29 selected_range tensor=blk.1.ffn_gate_exps.weight offset=120097248 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=29 selected_range tensor=blk.1.ffn_up_exps.weight offset=156142064 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=29 selected_range tensor=blk.1.ffn_down_exps.weight offset=222892544 bytes=1622016 layout=DIRECT
+warm_token1_ffn_routed prefetch expert_id=29 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=29 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=29 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token1_ffn_routed expert_id=29 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=7752704
+warm_token1_ffn_routed expert_rank=2 expert_id=11 router_rank=2 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=33 score_preserved=YES
+warm_token1_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_gate_exps.weight offset=109959648 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_up_exps.weight offset=146004464 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=11 selected_range tensor=blk.1.ffn_down_exps.weight offset=193696256 bytes=1622016 layout=DIRECT
+warm_token1_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=11 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token1_ffn_routed expert_id=11 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+warm_token1_ffn_routed expert_rank=3 expert_id=3 router_rank=3 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=9 score_preserved=YES
+warm_token1_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_gate_exps.weight offset=105454048 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_up_exps.weight offset=141498864 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=3 selected_range tensor=blk.1.ffn_down_exps.weight offset=180720128 bytes=1622016 layout=DIRECT
+warm_token1_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=3 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token1_ffn_routed expert_id=3 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+warm_token1_ffn_routed expert_rank=4 expert_id=50 router_rank=4 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=150 score_preserved=YES
+warm_token1_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_gate_exps.weight offset=131924448 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_up_exps.weight offset=167969264 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=50 selected_range tensor=blk.1.ffn_down_exps.weight offset=256954880 bytes=1622016 layout=DIRECT
+warm_token1_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=50 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token1_ffn_routed expert_id=50 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+warm_token1_ffn_routed expert_rank=5 expert_id=26 router_rank=5 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=78 score_preserved=YES
+warm_token1_ffn_routed expert_id=26 selected_range tensor=blk.1.ffn_gate_exps.weight offset=118407648 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=26 selected_range tensor=blk.1.ffn_up_exps.weight offset=154452464 bytes=563200 layout=DIRECT
+warm_token1_ffn_routed expert_id=26 selected_range tensor=blk.1.ffn_down_exps.weight offset=218026496 bytes=1622016 layout=DIRECT
+warm_token1_ffn_routed prefetch expert_id=26 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=26 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+warm_token1_ffn_routed prefetch expert_id=26 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token1_ffn_routed expert_id=26 consumer_wait=not_instrumented acquire_release=recorded peak_active=1622016 peak_resident=8245248
+warm_token1_ffn_routed residency_hits=36 residency_misses=42 source_reads=18 materialization_requests=18 source_policy_calls=18 evictions=20 resident_tensors_after=9
+routed_merge_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+shared_expert_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+pre_residual_composition_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+final_layer_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+warm_token1_ffn shared_expert=REQUIRED shared_graph_created=YES residual_add=YES final_composition=PASS
+ffn_timing tensor=blk.1.ffn_gate_inp.weight payload_ready_ns=9365406514201 first_consumer_start_ns=9365478334112 payload_to_first_consumer_ns=71819911
+ffn_timing tensor=blk.1.ffn_gate_shexp.weight payload_ready_ns=9368852642340 first_consumer_start_ns=9368924975103 payload_to_first_consumer_ns=72332763
+ffn_timing tensor=blk.1.ffn_gate_exps.weight payload_ready_ns=9365587388802 first_consumer_start_ns=9365659342854 payload_to_first_consumer_ns=71954052
+warm_token1_ffn full_layer_residency_hits=46 misses=51 evictions=26 source_reads=23 source_bytes=21168128 materialization_requests=23 resident_tensors_after=6
+warm_token1_ffn full_layer_peak_active_persistent_bytes=1892352 full_layer_peak_resident_bytes=8245248
+warm_token1_ffn first_payload_to_shared_compute_start_ns=3589579141 execution_ready_to_consumer_ns=NOT_INSTRUMENTED payload_to_first_useful_compute=NOT_INSTRUMENTED
+warm_block_source_reads=58 attention_source_bytes=5920768 ffn_always_source_bytes=9355264 routed_expert_source_bytes=32980992 total_source_bytes=48257024
+warm_block_token0_parity=PASS warm_block_token1_parity=PASS warm_source_reads=58 warm_source_bytes=48257024
+token0_token1_expert_intersection=4 newly_required_expert_slices=2 retained_expert_slices=4 evicted_slices=2 reloads=0
+attention_persistent_bytes=2960384 ffn_always_required_bytes=4677632 routed_expert_logical_bytes=21987328 total_block_logical_persistent_bytes=29625344 peak_active_fraction=0.0638761
+peak_active_persistent_bytes=1892352 peak_resident_bytes=8363008 copied_bytes=0 repacked_bytes=0 transcoded_bytes=0
+unselected_expert_graphs_created=0 unselected_expert_tensors_acquired=0 unselected_expert_source_reads=0 unselected_expert_materializations=0 whole_model_load=NO whole_packed_expert_tensor_load=NO whole_block_weight_buffer=NO cross_sublayer_last_consumer_release=PASS runtime_state_separate_from_vbuf=YES architecture_specific_runtime_logic=NO model_artifact_mutated=NO vbuf_layout_change_required=NO vbuf_format_change_required=NO payload_to_first_consumer_instrumented=YES

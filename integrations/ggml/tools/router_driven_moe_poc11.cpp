@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -101,7 +102,13 @@ struct RunResult {
     AdapterError error = AdapterError::None;
     std::vector<uint8_t> output;
     TensorWaveReport report;
+    uint64_t first_consumer_start_ns = 0;
 };
+
+uint64_t execution_now_ns() {
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+}
 
 struct Activation {
     std::vector<float> values;
@@ -197,6 +204,7 @@ RunResult execute(RouterGraph & graph, const VbufTensorView & input,
     uint64_t storage_calls = 0;
     std::string detail;
     std::vector<int64_t> shape;
+    uint64_t first_consumer_start_ns = 0;
     const auto provider = [lease, &storage_calls, no_jit_fallback](const VbufTensorView & view) {
         ++storage_calls;
         if (no_jit_fallback) return VbufBorrowedStorage{};
@@ -207,7 +215,12 @@ RunResult execute(RouterGraph & graph, const VbufTensorView & input,
             static_cast<uint64_t>(address - base), lease };
     };
     result.error = graph.executor->execute(input, provider, &result.output, &shape,
-        &result.report, &detail, {}, materializer, {});
+        &result.report, &detail, {}, materializer,
+        [&](const char *, const char * phase) {
+            if (std::string(phase) == "start" && first_consumer_start_ns == 0)
+                first_consumer_start_ns = execution_now_ns();
+        });
+    result.first_consumer_start_ns = first_consumer_start_ns;
     if (result.error != AdapterError::None) std::fprintf(stderr, "router_detail=%s\n", detail.c_str());
     return result;
 }
@@ -219,6 +232,7 @@ RunResult execute_expert(ExpertGraph & graph, const VbufTensorView & input,
     uint64_t storage_calls = 0;
     std::string detail;
     std::vector<int64_t> shape;
+    uint64_t first_consumer_start_ns = 0;
     const auto provider = [lease, &storage_calls, no_jit_fallback](const VbufTensorView & view) {
         ++storage_calls;
         if (no_jit_fallback) return VbufBorrowedStorage{};
@@ -239,7 +253,12 @@ RunResult execute_expert(ExpertGraph & graph, const VbufTensorView & input,
         }
     };
     result.error = graph.executor->execute(input, provider, &result.output, &shape,
-        &result.report, &detail, observer, materializer, {});
+        &result.report, &detail, observer, materializer,
+        [&](const char *, const char * phase) {
+            if (std::string(phase) == "start" && first_consumer_start_ns == 0)
+                first_consumer_start_ns = execution_now_ns();
+        });
+    result.first_consumer_start_ns = first_consumer_start_ns;
     if (result.error != AdapterError::None) std::fprintf(stderr, "expert_detail=%s\n", detail.c_str());
     return result;
 }

@@ -26,5 +26,8 @@ int main() {
     assert(materializer.state(0) == vbuf_ggml::MaterializationState::Released);
     assert(materializer.active_inflight_bytes() == 0);
     assert(materializer.active_ready_bytes() == 0);
+    assert(materializer.request(0, tensor, sizeof(source)));
+    assert(materializer.wait(0) == vbuf_ggml::MaterializationState::Ready);
+    materializer.release(0);
     return 0;
 }

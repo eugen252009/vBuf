@@ -227,6 +227,10 @@ if(VBUF_ML_LIBRARY)
     add_executable(vbuf_attention_poc14 tools/attention_poc14.cpp)
     target_compile_features(vbuf_attention_poc14 PRIVATE cxx_std_17)
     target_link_libraries(vbuf_attention_poc14 PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_complete_block_poc15 tools/complete_block_poc15.cpp)
+    target_compile_features(vbuf_complete_block_poc15 PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_complete_block_poc15 PRIVATE vbuf_region_executor)
 endif()
 
 message(STATUS "vBuf native substrate")

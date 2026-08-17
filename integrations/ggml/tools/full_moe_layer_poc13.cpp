@@ -1,3 +1,5 @@
+#ifndef VBUF_POC13_INCLUDED
+#define VBUF_POC13_INCLUDED
 #define VBUF_POC12_LIBRARY_ONLY
 #include "multi_expert_moe_poc12.cpp"
 #undef VBUF_POC12_LIBRARY_ONLY
@@ -63,6 +65,21 @@ struct LayerRun {
     uint64_t execution_end_ns = 0;
     uint64_t peak_active_persistent = 0;
     uint64_t peak_resident = 0;
+    std::vector<float> normalized_input;
+    std::vector<float> reference_normalized_input;
+    std::vector<float> router_logits;
+    std::vector<float> reference_router_logits;
+    std::vector<float> routed_aggregate;
+    std::vector<float> reference_routed_aggregate;
+    std::vector<float> shared_output;
+    std::vector<float> reference_shared_output;
+    std::vector<float> pre_residual;
+    std::vector<float> reference_pre_residual;
+    TopKSelection selection;
+    std::vector<float> weights;
+    uint64_t router_first_consumer_start_ns = 0;
+    uint64_t routed_first_consumer_start_ns = 0;
+    uint64_t shared_first_consumer_start_ns = 0;
 };
 
 class SelectiveFailureSource final : public RangeSource {
@@ -89,6 +106,23 @@ private:
     uint64_t offset_;
 };
 
+void print_payload_timing(const std::vector<MaterializationTraceEvent> & trace, size_t begin,
+    const char * tensor_name, uint64_t first_consumer_start_ns) {
+    for (size_t i = begin; i < trace.size(); ++i) {
+        const auto & event = trace[i];
+        if (event.event == "STATE" && event.state == MaterializationState::Ready &&
+            event.tensor_name == tensor_name) {
+            const bool ordered = first_consumer_start_ns >= event.timestamp_ns;
+            std::printf("ffn_timing tensor=%s payload_ready_ns=%llu first_consumer_start_ns=%llu "
+                "payload_to_first_consumer_ns=%s\n", tensor_name,
+                static_cast<unsigned long long>(event.timestamp_ns),
+                static_cast<unsigned long long>(first_consumer_start_ns),
+                ordered ? std::to_string(first_consumer_start_ns - event.timestamp_ns).c_str() : "INVALID");
+            return;
+        }
+    }
+}
+
 LayerRun run_layer(const Metadata & metadata, const Activation & input,
     const std::shared_ptr<const void> & lease,
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
@@ -112,6 +146,8 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     const std::vector<float> norm_values = floats(norm_actual.output);
     const std::vector<float> norm_reference = rmsnorm_reference(input,
         reinterpret_cast<const float *>(norm_meta.view.payload), width, epsilon);
+    result.normalized_input = norm_values;
+    result.reference_normalized_input = norm_reference;
     const bool norm_ok = norm_actual.error == AdapterError::None &&
         (!no_jit_fallback || norm_materializer.state(norm_graph.router) != MaterializationState::Failed) &&
         parity(norm_values, norm_reference, "normalized_input_parity");
@@ -129,6 +165,11 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     RoutedResult routed = route_activation(router_graph, normalized, lease,
         &router_materializer, router_weights, width, 64, 6);
     const std::vector<float> reference_logits = reference_scores(router_weights, width, 64, normalized);
+    result.router_logits = routed.logits;
+    result.reference_router_logits = reference_logits;
+    result.selection = routed.selection;
+    result.weights = routed.weights;
+    result.router_first_consumer_start_ns = routed.first_consumer_start_ns;
     TopKSelection reference_selection;
     std::string topk_error;
     deterministic_top_k(reference_logits, 64, 6, &reference_selection, &topk_error);
@@ -153,6 +194,9 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
         &routed_actual, &merge_error) && weighted_merge(routed_run.reference, routed.weights,
         &routed_reference, &merge_error) && parity(routed_actual, routed_reference,
         "routed_merge_parity");
+    result.routed_aggregate = routed_actual;
+    result.reference_routed_aggregate = routed_reference;
+    result.routed_first_consumer_start_ns = routed_run.first_consumer_start_ns;
     result.ok = result.ok && routed_merge_ok;
 
     const ExpertTensor shared_gate = shared_tensor(lookup(metadata, "blk.1.ffn_gate_shexp.weight"));
@@ -172,6 +216,9 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
         shared_reference.error == AdapterError::None &&
         parity(shared_actual_values, shared_reference_values, "shared_expert_parity");
     result.ok = result.ok && shared_ok;
+    result.shared_output = shared_actual_values;
+    result.reference_shared_output = shared_reference_values;
+    result.shared_first_consumer_start_ns = shared_actual.first_consumer_start_ns;
 
     std::vector<float> composed_actual, composed_reference, final_actual;
     const bool compose_ok = weighted_merge({ routed_actual, shared_actual_values }, { 1.0f, 1.0f },
@@ -184,14 +231,22 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
         { 1.0f, 1.0f }, &final_reference, &merge_error) &&
         parity(final_actual, final_reference, "final_layer_parity");
     result.ok = result.ok && compose_ok && reference_compose_ok;
+    result.pre_residual = composed_actual;
+    result.reference_pre_residual = composed_reference;
     result.peak_active_persistent = std::max({ norm_actual.report.peak_active_weight_bytes,
         routed_run.peak_active, shared_actual.report.peak_active_weight_bytes });
-    result.peak_resident = residency->resident_bytes();
+    result.peak_resident = std::max(routed_run.peak_resident, residency->resident_bytes());
     result.final_output = std::move(final_actual);
     result.reference_output = std::move(final_reference);
     std::printf("%s shared_expert=REQUIRED shared_graph_created=YES "
         "residual_add=YES final_composition=PASS\n", label.c_str());
     const auto trace = materializer->trace();
+    print_payload_timing(trace, trace_before, "blk.1.ffn_gate_inp.weight",
+        result.router_first_consumer_start_ns);
+    print_payload_timing(trace, trace_before, "blk.1.ffn_gate_shexp.weight",
+        result.shared_first_consumer_start_ns);
+    print_payload_timing(trace, trace_before, "blk.1.ffn_gate_exps.weight",
+        result.routed_first_consumer_start_ns);
     size_t source_reads = 0;
     uint64_t source_bytes = 0;
     size_t materialization_requests = 0;
@@ -229,6 +284,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
 
 } // namespace
 
+#ifndef VBUF_POC13_LIBRARY_ONLY
 int main(int argc, char ** argv) {
     if (argc < 4 || argc > 6) {
         std::fprintf(stderr, "usage: full_moe_layer_poc13 <vbuf> <endpoint> <capture-dir> "
@@ -317,3 +373,5 @@ int main(int argc, char ** argv) {
         a_warm.ok ? "PASS" : "FAIL", a_replay.ok ? "PASS" : "FAIL");
     return a_cold.ok && a_warm.ok && b_run.ok && a_replay.ok ? 0 : 15;
 }
+#endif
+#endif // VBUF_POC13_INCLUDED

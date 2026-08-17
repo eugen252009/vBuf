@@ -122,7 +122,12 @@ LocalVbufRangeMaterializer::~LocalVbufRangeMaterializer() {
 bool LocalVbufRangeMaterializer::request(
     uint32_t tensor_ref, const PersistentTensorRef & tensor, uint64_t byte_budget) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    if (impl_->requests.count(tensor_ref) != 0 ||
+    const auto existing = impl_->requests.find(tensor_ref);
+    if (existing != impl_->requests.end() &&
+        existing->second->state != MaterializationState::Released &&
+        existing->second->state != MaterializationState::Failed) return false;
+    if (existing != impl_->requests.end()) impl_->requests.erase(existing);
+    if (
         tensor.view.payload_len > byte_budget ||
         impl_->inflight_bytes + impl_->ready_bytes + tensor.view.payload_len > byte_budget) {
         return false;

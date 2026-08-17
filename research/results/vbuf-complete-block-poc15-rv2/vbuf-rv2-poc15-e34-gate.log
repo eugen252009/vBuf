@@ -1,0 +1,8 @@
+ready bytes=563200
+payload_hash=13405ab226059835
+materialization event=STATE state=IN_FLIGHT timestamp_ns=8768381787524 first_byte_ns=0 bytes=563200 returned=0 source=range-source local= remote=
+materialization event=WAIT_START state=IN_FLIGHT timestamp_ns=8768382606299 first_byte_ns=0 bytes=563200 returned=0 source=range-source local= remote=
+materialization event=STATE state=READY timestamp_ns=8768427090028 first_byte_ns=8768418352579 bytes=563200 returned=563200 source=http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf local=192.168.188.50:45221 remote=192.168.188.2:80
+materialization event=WAIT_END state=READY timestamp_ns=8768427990051 first_byte_ns=8768418352579 bytes=563200 returned=563200 source=http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf local=192.168.188.50:45221 remote=192.168.188.2:80
+materialization event=STATE state=RELEASED timestamp_ns=8768428526124 first_byte_ns=8768418352579 bytes=563200 returned=563200 source=http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf local=192.168.188.50:45221 remote=192.168.188.2:80
+resources_after_teardown=0
