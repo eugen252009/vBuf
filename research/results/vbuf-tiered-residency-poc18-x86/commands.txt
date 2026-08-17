@@ -1,0 +1,7 @@
+cargo build --release --manifest-path rust/Cargo.toml -p vbuf-ml
+cmake -S integrations/ggml -B /tmp/opencode/vbuf-poc18-build -DVBUF_ML_LIBRARY=/home/eugen/projekte/vBuf/rust/target/release/libvbuf_ml.so -DVBUF_ENABLE_CUDA=OFF -DVBUF_BUILD_PROBES=ON
+cmake --build /tmp/opencode/vbuf-poc18-build -j2
+ctest --test-dir /tmp/opencode/vbuf-poc18-build --output-on-failure
+python3 scripts/qualify_tiered_residency_poc18.py research/results/vbuf-residency-policy-poc17-x86/baseline-trace.log --output-dir research/results/vbuf-tiered-residency-poc18-x86
+git diff --check
+ccc index

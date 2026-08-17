@@ -1,0 +1,3 @@
+COMMIT_STATE=UNCOMMITTED
+PREEXISTING_POC16_POC17_WORK=preserved
+POC18_WORK=generic tier contract, generation contract, tests, exact request replay, and evidence

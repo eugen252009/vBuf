@@ -1,0 +1,7494 @@
+{
+  "flat_8m": {
+    "promotions": [],
+    "demotions": []
+  },
+  "flat_40m": {
+    "promotions": [],
+    "demotions": []
+  },
+  "tiered_8_plus_8m": {
+    "promotions": [
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      }
+    ],
+    "demotions": [
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      }
+    ]
+  },
+  "tiered_8_plus_16m": {
+    "promotions": [
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      }
+    ],
+    "demotions": [
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      }
+    ]
+  },
+  "tiered_8_plus_32m": {
+    "promotions": [
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      }
+    ],
+    "demotions": [
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      }
+    ]
+  },
+  "tiered_8_plus_56m": {
+    "promotions": [
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30160,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30160,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      }
+    ],
+    "demotions": [
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30160,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      }
+    ]
+  },
+  "tiered_8_plus_64m": {
+    "promotions": [
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10169,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10034,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10010,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10601,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20112,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20055,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20133,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20160,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20070,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20601,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30181,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30007,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30160,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30106,
+        "bytes": 563200,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30601,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101130,
+        "bytes": 8192,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101150,
+        "bytes": 1228800,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101100,
+        "bytes": 230400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101110,
+        "bytes": 2048,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101120,
+        "bytes": 409600,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101140,
+        "bytes": 1081344,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10500,
+        "bytes": 8192,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10501,
+        "bytes": 524288,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10168,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10169,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10033,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10034,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10151,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10009,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10010,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10600,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10601,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202670,
+        "bytes": 8192,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202690,
+        "bytes": 1228800,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202640,
+        "bytes": 230400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202650,
+        "bytes": 2048,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202660,
+        "bytes": 409600,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202680,
+        "bytes": 1081344,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20500,
+        "bytes": 8192,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20501,
+        "bytes": 524288,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20054,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20055,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20111,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20112,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20159,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20160,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20132,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20133,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20069,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20070,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20600,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20601,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303790,
+        "bytes": 8192,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303810,
+        "bytes": 1228800,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303760,
+        "bytes": 230400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303770,
+        "bytes": 2048,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303780,
+        "bytes": 409600,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303800,
+        "bytes": 1081344,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30500,
+        "bytes": 8192,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30501,
+        "bytes": 524288,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30180,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30181,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30006,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30007,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30105,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30106,
+        "bytes": 563200,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30600,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30601,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "prior_requests": 8,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101130,
+        "bytes": 8192,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101150,
+        "bytes": 1228800,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101100,
+        "bytes": 230400,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101110,
+        "bytes": 2048,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101120,
+        "bytes": 409600,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 101140,
+        "bytes": 1081344,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10500,
+        "bytes": 8192,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10501,
+        "bytes": 524288,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10168,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10169,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10034,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10009,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10010,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10150,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10151,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10600,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10601,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202670,
+        "bytes": 8192,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202690,
+        "bytes": 1228800,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202640,
+        "bytes": 230400,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202650,
+        "bytes": 2048,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202660,
+        "bytes": 409600,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 202680,
+        "bytes": 1081344,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20500,
+        "bytes": 8192,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20501,
+        "bytes": 524288,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20111,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20112,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20054,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20055,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20132,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20133,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20159,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20160,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20069,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20070,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20600,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20601,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303790,
+        "bytes": 8192,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303810,
+        "bytes": 1228800,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303760,
+        "bytes": 230400,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303770,
+        "bytes": 2048,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303780,
+        "bytes": 409600,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 303800,
+        "bytes": 1081344,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30500,
+        "bytes": 8192,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30501,
+        "bytes": 524288,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30180,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30181,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30006,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30007,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30160,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 4,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30105,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30106,
+        "bytes": 563200,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 3,
+        "prior_requests": 2,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30600,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 3,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30601,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 6,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "prior_requests": 12,
+        "generation": "OLD",
+        "reason": "old_reuse"
+      }
+    ],
+    "demotions": [
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 0,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10169,
+        "bytes": 563200,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10034,
+        "bytes": 563200,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10010,
+        "bytes": 563200,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10601,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20112,
+        "bytes": 563200,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20055,
+        "bytes": 563200,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20133,
+        "bytes": 563200,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20160,
+        "bytes": 563200,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20070,
+        "bytes": 563200,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20601,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30181,
+        "bytes": 563200,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30007,
+        "bytes": 563200,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30160,
+        "bytes": 563200,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 1,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30106,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30047,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30179,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30601,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101130,
+        "bytes": 8192,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101150,
+        "bytes": 1228800,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101100,
+        "bytes": 230400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101110,
+        "bytes": 2048,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101120,
+        "bytes": 409600,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101140,
+        "bytes": 1081344,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10500,
+        "bytes": 8192,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10501,
+        "bytes": 524288,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10168,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10169,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10033,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10034,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10151,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10104,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10009,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10010,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10143,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10600,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10601,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202670,
+        "bytes": 8192,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202690,
+        "bytes": 1228800,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202640,
+        "bytes": 230400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202650,
+        "bytes": 2048,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202660,
+        "bytes": 409600,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202680,
+        "bytes": 1081344,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20500,
+        "bytes": 8192,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20501,
+        "bytes": 524288,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20054,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20055,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20111,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20112,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20159,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20160,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20132,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20133,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20069,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20070,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20185,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20600,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20601,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303790,
+        "bytes": 8192,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303810,
+        "bytes": 1228800,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303760,
+        "bytes": 230400,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303770,
+        "bytes": 2048,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303780,
+        "bytes": 409600,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303800,
+        "bytes": 1081344,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30500,
+        "bytes": 8192,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30501,
+        "bytes": 524288,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30180,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30181,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30006,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30007,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30059,
+        "bytes": 1622016,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30105,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30106,
+        "bytes": 563200,
+        "epoch": 2,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30107,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30029,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30600,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30601,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101130,
+        "bytes": 8192,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101150,
+        "bytes": 1228800,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101100,
+        "bytes": 230400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101110,
+        "bytes": 2048,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101120,
+        "bytes": 409600,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 101140,
+        "bytes": 1081344,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10500,
+        "bytes": 8192,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10501,
+        "bytes": 524288,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10168,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10169,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10170,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10089,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10034,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10035,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10009,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10010,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10011,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10150,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10151,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10152,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10080,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10600,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10601,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 10602,
+        "bytes": 1892352,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202670,
+        "bytes": 8192,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202690,
+        "bytes": 1228800,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202640,
+        "bytes": 230400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202650,
+        "bytes": 2048,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202660,
+        "bytes": 409600,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 202680,
+        "bytes": 1081344,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20500,
+        "bytes": 8192,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20501,
+        "bytes": 524288,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20111,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20112,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20113,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20054,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20055,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20056,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20132,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20133,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20134,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20159,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20160,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20069,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20070,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20071,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20149,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20600,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20601,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 20602,
+        "bytes": 1126400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303790,
+        "bytes": 8192,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303810,
+        "bytes": 1228800,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303760,
+        "bytes": 230400,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303770,
+        "bytes": 2048,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303780,
+        "bytes": 409600,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 303800,
+        "bytes": 1081344,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30500,
+        "bytes": 8192,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30501,
+        "bytes": 524288,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30180,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30181,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30182,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30006,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30007,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30008,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30160,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30161,
+        "bytes": 1622016,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30105,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      },
+      {
+        "ref": 30106,
+        "bytes": 563200,
+        "epoch": 3,
+        "reason": "hot_pressure"
+      }
+    ]
+  }
+}

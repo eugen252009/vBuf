@@ -1,0 +1,29 @@
+{
+  "flat_8m": {},
+  "flat_40m": {},
+  "tiered_8_plus_8m": {
+    "generation_new": 4,
+    "generation_young": 4,
+    "generation_old": 6
+  },
+  "tiered_8_plus_16m": {
+    "generation_new": 13,
+    "generation_young": 7,
+    "generation_old": 7
+  },
+  "tiered_8_plus_32m": {
+    "generation_new": 20,
+    "generation_young": 13,
+    "generation_old": 13
+  },
+  "tiered_8_plus_56m": {
+    "generation_new": 35,
+    "generation_young": 20,
+    "generation_old": 21
+  },
+  "tiered_8_plus_64m": {
+    "generation_new": 6,
+    "generation_young": 7,
+    "generation_old": 76
+  }
+}
