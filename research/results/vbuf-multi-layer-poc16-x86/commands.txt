@@ -1,0 +1,3 @@
+cmake -S integrations/ggml -B /tmp/opencode/vbuf-ggml-region-x86 -DVBUF_ML_LIBRARY=/home/eugen/projekte/vBuf/rust/target/release/libvbuf_ml.so -DVBUF_ENABLE_CUDA=OFF -DVBUF_BUILD_PROBES=ON
+cmake --build /tmp/opencode/vbuf-ggml-region-x86 --target vbuf_multi_layer_poc16 -j2
+vbuf_multi_layer_poc16 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf research/results/vbuf-moe-tensor-wave-poc10-x86

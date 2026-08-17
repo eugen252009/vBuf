@@ -109,6 +109,7 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
     const std::shared_ptr<ResidentTensorMaterializer> & shared_materializer,
     const std::shared_ptr<TensorResidencyStore> & residency, const std::string & label,
     const std::shared_ptr<RangeSource> & source, bool preload_gates,
+    uint32_t namespace_base = 0,
     bool no_jit_fallback = false) {
     MultiRun result;
     result.selected_bytes = 0;
@@ -119,7 +120,7 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
         const ExpertTensor gate = make_expert(lookup(metadata, "blk.1.ffn_gate_exps.weight"), expert);
         const ExpertTensor up = make_expert(lookup(metadata, "blk.1.ffn_up_exps.weight"), expert);
         const ExpertTensor down = make_expert(lookup(metadata, "blk.1.ffn_down_exps.weight"), expert);
-        const uint32_t base = expert * 3;
+        const uint32_t base = namespace_base + expert * 3;
         result.selected_bytes += gate.bytes + up.bytes + down.bytes;
         std::printf("%s expert_rank=%zu expert_id=%u router_rank=%zu graph_created=YES "
             "graph_refs=gate:0,up:1,down:2 storage_ref_base=%u score_preserved=YES\n", label.c_str(), rank,
@@ -288,7 +289,7 @@ int main(int argc, char ** argv) {
         auto fail_residency = std::make_shared<TensorResidencyStore>(8 * 1024 * 1024);
         auto fail_materializer = std::make_shared<ResidentTensorMaterializer>(fail_backing, fail_residency);
         const MultiRun failed = execute_selected(metadata, routed_a.selection, activation_a, lease,
-            fail_materializer, fail_residency, "selected_expert_failure", fail_source, false, true);
+            fail_materializer, fail_residency, "selected_expert_failure", fail_source, false, 0, true);
         std::printf("selected_expert_failure expert_id=%u tensor_ref=1 failed_state=FAILED "
             "consuming_op_executed=NO final_merge=NOT_EXECUTED incomplete_discarded=YES "
             "resources_after_teardown=0\n", routed_a.selection.ids.front());

@@ -1,0 +1,7 @@
+full_x86_ctest=15/15 PASS
+multi_layer_state_contract=PASS
+multi_layer_core_x86=PASS
+git_diff_check=PASS
+ccc_index=PASS
+middle_block_failure_modes=NOT_QUALIFIED
+rv2_replay=PASS (102 exact ranges)

@@ -128,7 +128,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
     const std::shared_ptr<TensorResidencyStore> & residency,
     const std::shared_ptr<RangeSource> & source, const std::string & label,
-    bool preload_gates, bool no_jit_fallback = false) {
+    bool preload_gates, uint32_t namespace_base = 0, bool no_jit_fallback = false) {
     constexpr uint32_t width = 2048;
     constexpr float epsilon = 1e-6f;
     LayerRun result;
@@ -140,7 +140,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     const PersistentTensorRef router_ref = full_ref(router_meta);
 
     RouterGraph norm_graph = build_norm_graph(norm_ref);
-    OffsetMaterializer norm_materializer(materializer, 500);
+    OffsetMaterializer norm_materializer(materializer, namespace_base + 500);
     norm_materializer.request(norm_graph.router, norm_ref, norm_ref.view.payload_len);
     const RunResult norm_actual = execute(norm_graph, input.view(), lease, &norm_materializer);
     const std::vector<float> norm_values = floats(norm_actual.output);
@@ -159,7 +159,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     Activation normalized{ norm_values, { width, 1 } };
 
     RouterGraph router_graph = build_router_graph(router_ref);
-    OffsetMaterializer router_materializer(materializer, 501);
+    OffsetMaterializer router_materializer(materializer, namespace_base + 501);
     router_materializer.request(router_graph.router, router_ref, router_ref.view.payload_len);
     const float * router_weights = reinterpret_cast<const float *>(router_meta.view.payload);
     RoutedResult routed = route_activation(router_graph, normalized, lease,
@@ -181,7 +181,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     std::printf("\n");
 
     MultiRun routed_run = execute_selected(metadata, routed.selection, normalized, lease,
-        materializer, residency, label + "_routed", source, preload_gates, no_jit_fallback);
+        materializer, residency, label + "_routed", source, preload_gates, namespace_base, no_jit_fallback);
     result.ok = result.ok && routed_run.ok;
     if (!routed_run.ok) {
         std::printf("%s selected_expert_failure final_output=INVALID final_composition=NOT_EXECUTED "
@@ -205,7 +205,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     ExpertGraph shared_reference_graph = build_expert_graph(shared_gate, shared_up, shared_down);
     const RunResult shared_reference = execute_expert(shared_reference_graph, normalized.view(), lease, nullptr);
     ExpertGraph shared_actual_graph = build_expert_graph(shared_gate, shared_up, shared_down);
-    OffsetMaterializer shared_materializer(materializer, 600);
+    OffsetMaterializer shared_materializer(materializer, namespace_base + 600);
     result.execution_start_ns = clock_ns();
     const RunResult shared_actual = execute_expert(shared_actual_graph, normalized.view(), lease,
         &shared_materializer, no_jit_fallback);
@@ -338,7 +338,7 @@ int main(int argc, char ** argv) {
     auto materializer = std::make_shared<ResidentTensorMaterializer>(backing, residency);
     if (failure) {
         const LayerRun failed = run_layer(metadata, input_a, lease, materializer, residency, source,
-            failure_kind, true, true);
+            failure_kind, true, 0, true);
         if (failure_kind == "always-failure") {
             std::printf("always_required_tensor_failure tensor=blk.1.ffn_norm.weight failed_state=FAILED "
                 "dependent_execution=NO final_output=INVALID resources_after_teardown=0\n");

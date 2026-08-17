@@ -207,7 +207,7 @@ int main(int argc, char ** argv) {
         const TokenData actual_attention = compute_token(attention, token0, 0, &actual_k, &actual_v,
             lease, failed_materializer, "selected_failure_attention");
         const LayerRun failed = run_layer(metadata, Activation{ actual_attention.output, { 2048, 1 } }, lease,
-            failed_materializer, failed_residency, failed_source, "selected_failure", false, true);
+            failed_materializer, failed_residency, failed_source, "selected_failure", false, 0, true);
         std::printf("selected_expert_failure expert_id=%u final_output=INVALID shared_final_composition=NO "
             "resources_after_teardown=0 result=%s\n", expert, failed.ok ? "FAIL" : "PASS");
         return failed.ok || actual_attention.output.empty() ? 15 : 0;
