@@ -34,6 +34,7 @@ const char * tensor_wave_op_name(TensorWaveOpKind kind) {
     case TensorWaveOpKind::RmsNorm: return "RMSNorm";
     case TensorWaveOpKind::MulMat: return "MatMul";
     case TensorWaveOpKind::SwiGlu: return "SwiGLU";
+    case TensorWaveOpKind::Dequantize: return "Dequantize";
     }
     return "Unknown";
 }
@@ -307,6 +308,8 @@ AdapterError TensorDependencyExecutor::execute(
             result = ggml_mul_mat(context, tensors.at(0), tensors.at(1));
         } else if (operation.kind == TensorWaveOpKind::SwiGlu) {
             result = ggml_swiglu_split(context, tensors.at(0), tensors.at(1));
+        } else if (operation.kind == TensorWaveOpKind::Dequantize) {
+            result = ggml_cast(context, tensors.at(0), GGML_TYPE_F32);
         }
         if (result == nullptr) {
             ggml_free(context);

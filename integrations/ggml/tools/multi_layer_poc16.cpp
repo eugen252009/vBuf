@@ -125,6 +125,11 @@ std::map<uint32_t, TraceIdentity> trace_identities(const std::vector<LayerPlan> 
     std::map<uint32_t, TraceIdentity> identities;
     for (const LayerPlan & plan : plans) {
         const uint32_t ns = plan.namespace_base;
+        if (plan.block_id == 0) {
+            for (const Meta & tensor : plan.metadata.tensors)
+                add_trace_identity(&identities, tensor.id, tensor, "dense_block");
+            continue;
+        }
         const Meta norm = lookup(plan.metadata, "blk.1.ffn_norm.weight");
         const Meta router = lookup(plan.metadata, "blk.1.ffn_gate_inp.weight");
         add_trace_identity(&identities, ns + 500, norm, "norm");
@@ -276,6 +281,156 @@ void print_residency_summary(const std::vector<LayerPlan> & plans,
             static_cast<unsigned long long>(entry.second.evictions));
 }
 
+ExpertTensor dense_tensor(const Meta & meta) {
+    if (meta.view.rank != 2) throw std::runtime_error("dense tensor is not rank two");
+    ExpertTensor result;
+    result.name = std::string(meta.view.name, meta.view.name_len);
+    result.id = meta.id;
+    result.representation = meta.view.representation;
+    result.dimensions = { meta.view.dimensions[0], meta.view.dimensions[1] };
+    result.payload = meta.view.payload;
+    result.offset = meta.offset;
+    result.bytes = meta.view.payload_len;
+    return result;
+}
+
+ExpertGraph build_embedding_graph(const ExpertTensor & row) {
+    ExpertGraph graph;
+    graph.executor = std::make_unique<TensorDependencyExecutor>();
+    const uint32_t input = graph.executor->add_input("embedding_scale");
+    graph.gate = graph.executor->add_persistent(row.ref());
+    const uint32_t output = graph.executor->add_value("embedding_output", true);
+    graph.executor->set_external_output(output);
+    graph.executor->add_operation({ "embedding_row_dequantize", TensorWaveOpKind::Dequantize,
+        { { TensorWaveRef::Kind::Persistent, graph.gate } }, output });
+    return graph;
+}
+
+ExpertGraph build_output_graph(const Meta & norm, const Meta & output) {
+    ExpertGraph graph;
+    graph.executor = std::make_unique<TensorDependencyExecutor>();
+    const uint32_t input = graph.executor->add_input("transformer_output");
+    graph.gate = graph.executor->add_persistent(full_ref(norm));
+    graph.up = graph.executor->add_persistent(full_ref(output));
+    const uint32_t normalized = graph.executor->add_value("final_norm");
+    const uint32_t logits = graph.executor->add_value("logits", true);
+    graph.executor->set_external_output(logits);
+    graph.executor->add_operation({ "final_rms_norm", TensorWaveOpKind::RmsNorm,
+        { { TensorWaveRef::Kind::Value, input },
+          { TensorWaveRef::Kind::Persistent, graph.gate } }, normalized, 1e-6f });
+    graph.executor->add_operation({ "output_projection", TensorWaveOpKind::MulMat,
+        { { TensorWaveRef::Kind::Persistent, graph.up },
+          { TensorWaveRef::Kind::Value, normalized } }, logits });
+    return graph;
+}
+
+ExpertTensor embedding_row(const Meta & full, uint32_t token) {
+    if (full.view.rank != 2 || full.view.dimensions[0] != 2048 || token >= full.view.dimensions[1])
+        throw std::runtime_error("unexpected embedding geometry");
+    const uint64_t row_bytes = full.view.payload_len / full.view.dimensions[1];
+    ExpertTensor result;
+    result.name = std::string(full.view.name, full.view.name_len);
+    result.id = full.id + 1000000 + token;
+    result.representation = full.view.representation;
+    result.dimensions = { full.view.dimensions[0], 1 };
+    result.payload = full.view.payload;
+    result.offset = full.offset;
+    result.slice_offset = row_bytes * token;
+    result.bytes = row_bytes;
+    return result;
+}
+
+Activation run_embedding(const Meta & full, uint32_t token,
+    const std::shared_ptr<const void> & lease,
+    const std::shared_ptr<ResidentTensorMaterializer> & materializer,
+    const char * label) {
+    const ExpertTensor row = embedding_row(full, token);
+    ExpertGraph actual_graph = build_embedding_graph(row);
+    ExpertGraph reference_graph = build_embedding_graph(row);
+    const Activation scale{ { 1.0f }, { 1, 1 } };
+    OffsetMaterializer scoped_materializer(materializer, 800000 + token * 100);
+    const RunResult actual = execute_expert(actual_graph, scale.view(), lease, &scoped_materializer);
+    const RunResult reference = execute_expert(reference_graph, scale.view(), lease, nullptr);
+    const std::vector<float> actual_values = floats(actual.output);
+    const std::vector<float> reference_values = floats(reference.output);
+    if (actual.error != AdapterError::None || reference.error != AdapterError::None ||
+        !parity(actual_values, reference_values, label))
+        throw std::runtime_error(std::string(label) + " failed");
+    return { actual_values, { 2048, 1 } };
+}
+
+std::vector<float> run_output_head(const Meta & norm, const Meta & output,
+    const Activation & hidden, const std::shared_ptr<const void> & lease,
+    const std::shared_ptr<ResidentTensorMaterializer> & materializer,
+    const char * label, uint32_t materializer_base) {
+    ExpertGraph actual_graph = build_output_graph(norm, output);
+    ExpertGraph reference_graph = build_output_graph(norm, output);
+    OffsetMaterializer scoped_materializer(materializer, materializer_base);
+    const RunResult actual = execute_expert(actual_graph, hidden.view(), lease, &scoped_materializer);
+    const RunResult reference = execute_expert(reference_graph, hidden.view(), lease, nullptr);
+    const std::vector<float> actual_values = floats(actual.output);
+    const std::vector<float> reference_values = floats(reference.output);
+    if (actual.error != AdapterError::None || reference.error != AdapterError::None ||
+        !parity(actual_values, reference_values, label))
+        throw std::runtime_error(std::string(label) + " failed");
+    return actual_values;
+}
+
+LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
+    const std::shared_ptr<const void> & lease,
+    const std::shared_ptr<ResidentTensorMaterializer> & materializer,
+    const std::shared_ptr<TensorResidencyStore> & residency,
+    const std::shared_ptr<RangeSource> &, const std::string & label) {
+    constexpr uint32_t width = 2048;
+    constexpr float epsilon = 1e-6f;
+    LayerRun result;
+    const Meta norm_meta = lookup(plan.metadata, "blk.1.ffn_norm.weight");
+    const PersistentTensorRef norm_ref = full_ref(norm_meta);
+    RouterGraph norm_graph = build_norm_graph(norm_ref);
+    OffsetMaterializer norm_materializer(materializer, plan.namespace_base + 500);
+    norm_materializer.request(norm_graph.router, norm_ref, norm_ref.view.payload_len);
+    const RunResult norm_actual = execute(norm_graph, input.view(), lease, &norm_materializer);
+    const std::vector<float> norm_values = floats(norm_actual.output);
+    const std::vector<float> norm_reference = rmsnorm_reference(input,
+        reinterpret_cast<const float *>(norm_meta.view.payload), width, epsilon);
+    result.normalized_input = norm_values;
+    result.reference_normalized_input = norm_reference;
+    result.ok = norm_actual.error == AdapterError::None &&
+        parity(norm_values, norm_reference, (label + "_normalized_input_parity").c_str());
+    if (!result.ok) return result;
+
+    const ExpertTensor gate = dense_tensor(lookup(plan.metadata, "blk.1.ffn_gate.weight"));
+    const ExpertTensor up = dense_tensor(lookup(plan.metadata, "blk.1.ffn_up.weight"));
+    const ExpertTensor down = dense_tensor(lookup(plan.metadata, "blk.1.ffn_down.weight"));
+    ExpertGraph actual_graph = build_expert_graph(gate, up, down);
+    OffsetMaterializer dense_materializer(materializer, plan.namespace_base + 700);
+    dense_materializer.request(actual_graph.gate, gate.ref(), gate.bytes);
+    dense_materializer.request(actual_graph.up, up.ref(), up.bytes);
+    dense_materializer.request(actual_graph.down, down.ref(), down.bytes);
+    const RunResult actual = execute_expert(actual_graph, Activation{ norm_values, { width, 1 } }.view(),
+        lease, &dense_materializer);
+    ExpertGraph reference_graph = build_expert_graph(gate, up, down);
+    const RunResult reference = execute_expert(reference_graph,
+        Activation{ norm_values, { width, 1 } }.view(), lease, nullptr);
+    const std::vector<float> actual_values = floats(actual.output);
+    const std::vector<float> reference_values = floats(reference.output);
+    result.ok = actual.error == AdapterError::None && reference.error == AdapterError::None &&
+        parity(actual_values, reference_values, (label + "_dense_ffn_parity").c_str());
+    std::string merge_error;
+    result.final_output.resize(width);
+    result.reference_output.resize(width);
+    if (!weighted_merge({ actual_values, input.values }, { 1.0f, 1.0f }, &result.final_output,
+            &merge_error) || !weighted_merge({ reference_values, input.values }, { 1.0f, 1.0f },
+            &result.reference_output, &merge_error) ||
+        !parity(result.final_output, result.reference_output, (label + "_residual_parity").c_str()))
+        result.ok = false;
+    result.peak_active_persistent = std::max(norm_actual.report.peak_active_weight_bytes,
+        actual.report.peak_active_weight_bytes);
+    result.peak_resident = residency->resident_bytes();
+    std::printf("%s dense_block=YES final_composition=%s\n", label.c_str(), result.ok ? "PASS" : "FAIL");
+    return result;
+}
+
 SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation & input,
     uint32_t position, std::vector<RuntimeStateSlot> * actual_k,
     std::vector<RuntimeStateSlot> * actual_v, std::vector<RuntimeStateSlot> * reference_k,
@@ -311,10 +466,13 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
             return result;
         }
         const std::string block_label = std::string(label) + "_blk" + std::to_string(plan.block_id);
-        const LayerRun actual_ffn = run_layer(plan.metadata,
-            Activation{ actual_attention.output, { 2048, 1 } }, lease,
-            reference_only ? nullptr : materializer, reference_only ? nullptr : residency,
-            source, block_label, false, plan.namespace_base);
+        const Activation ffn_input{ actual_attention.output, { 2048, 1 } };
+        const bool dense_block = plan.block_id == 0;
+        const LayerRun actual_ffn = dense_block
+            ? run_dense_layer(plan, ffn_input, lease, reference_only ? nullptr : materializer,
+                reference_only ? nullptr : residency, source, block_label)
+            : run_layer(plan.metadata, ffn_input, lease, reference_only ? nullptr : materializer,
+                reference_only ? nullptr : residency, source, block_label, false, plan.namespace_base);
         if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == failure_block) {
             result.ok = false;
             return result;
@@ -324,10 +482,12 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         auto ref_backing = std::make_shared<LocalVbufRangeMaterializer>(ref_source);
         auto ref_residency = std::make_shared<TensorResidencyStore>(8 * 1024 * 1024);
         auto ref_materializer = std::make_shared<ResidentTensorMaterializer>(ref_backing, ref_residency);
-        const LayerRun reference_ffn = run_layer(plan.metadata,
-            Activation{ reference_attention.output, { 2048, 1 } }, lease,
-            ref_materializer, ref_residency, ref_source, "reference_" + block_label, false,
-            plan.namespace_base);
+        const Activation reference_ffn_input{ reference_attention.output, { 2048, 1 } };
+        const LayerRun reference_ffn = dense_block
+            ? run_dense_layer(plan, reference_ffn_input, lease, ref_materializer, ref_residency,
+                ref_source, "reference_" + block_label)
+            : run_layer(plan.metadata, reference_ffn_input, lease, ref_materializer, ref_residency,
+                ref_source, "reference_" + block_label, false, plan.namespace_base);
         if (!reference_only) {
             parity(actual_attention.output, reference_attention.output,
                 (block_label + "_attention_parity").c_str());
@@ -363,24 +523,28 @@ int main(int argc, char ** argv) {
     catch (const std::exception & error) { std::fprintf(stderr, "%s\n", error.what()); return 3; }
     std::vector<LayerPlan> plans;
     const uint32_t block_count = argc > 5 ? static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10)) : 3;
+    const bool full_inventory = argc > 4 && std::string(argv[4]) == "inventory-full";
+    const bool full_stack = argc > 4 && std::string(argv[4]) == "full-stack";
     if (block_count < 3) {
         std::fprintf(stderr, "block count must be at least 3\n");
         return 2;
     }
     try {
-        for (uint32_t block = 1; block <= block_count; ++block)
-            plans.push_back(make_plan(all, block, block * 10000));
+        const uint32_t first_block = full_inventory || full_stack ? 0 : 1;
+        for (uint32_t block = first_block; block < first_block + block_count; ++block)
+            plans.push_back(make_plan(all, block, (block + 1) * 10000));
     } catch (const std::exception & error) {
         std::fprintf(stderr, "block_plan_failure=%s\n", error.what());
         return 4;
     }
-    std::printf("block_range=blk.1..blk.%u block_count=%u attention=MLA_NON_SPLIT_KV "
-        "ffn=real_sparse_top6_shared geometry=2048\n", block_count, block_count);
-    std::printf("fixtures=dtype:F32 dimensions:[2048,1] token0:one_hot(0) token1:one_hot(1) positions:0,1\n");
+    std::printf("block_range=blk.%u..blk.%u block_count=%u attention=MLA_NON_SPLIT_KV "
+        "ffn=real_sparse_top6_shared geometry=2048\n", full_inventory || full_stack ? 0 : 1,
+        full_inventory || full_stack ? block_count - 1 : block_count, block_count);
+    std::printf("fixtures=token_ids:[0,1] embedding_rows=quantized dimensions:[2048,1] positions:0,1\n");
     for (const LayerPlan & plan : plans) {
         std::printf("block_descriptor block=%u tensor_count=%zu namespace_base=%u\n", plan.block_id,
             plan.metadata.tensors.size(), plan.namespace_base);
-        if (argc > 4 && std::string(argv[4]) == "inventory") {
+        if (argc > 4 && (std::string(argv[4]) == "inventory" || full_inventory)) {
             for (const Meta & tensor : plan.metadata.tensors)
                 std::printf("block=%u tensor=%s offset=%llu bytes=%llu\n", plan.block_id,
                     std::string(tensor.view.name, tensor.view.name_len).c_str(),
@@ -388,7 +552,19 @@ int main(int argc, char ** argv) {
                     static_cast<unsigned long long>(tensor.view.payload_len));
         }
     }
-    if (argc > 4 && std::string(argv[4]) == "inventory") return 0;
+    if (full_inventory) {
+        for (const Meta & tensor : all.tensors) {
+            const std::string name(tensor.view.name, tensor.view.name_len);
+            if (name.rfind("blk.", 0) != 0)
+                std::printf("model_tensor tensor=%s representation=%u rank=%u dimensions=%llu,%llu offset=%llu bytes=%llu\n", name.c_str(),
+                    tensor.view.representation, tensor.view.rank,
+                    static_cast<unsigned long long>(tensor.view.rank > 0 ? tensor.view.dimensions[0] : 0),
+                    static_cast<unsigned long long>(tensor.view.rank > 1 ? tensor.view.dimensions[1] : 0),
+                    static_cast<unsigned long long>(tensor.offset),
+                    static_cast<unsigned long long>(tensor.view.payload_len));
+        }
+    }
+    if (argc > 4 && (std::string(argv[4]) == "inventory" || full_inventory)) return 0;
     auto lease = model_lease(all.handle);
     const std::string mode = argc > 4 ? argv[4] : "";
     const std::string policy_name = argc > 7 ? argv[7] : "lru";
@@ -431,17 +607,31 @@ int main(int argc, char ** argv) {
         ? static_cast<uint64_t>(std::strtoull(argv[6], nullptr, 10)) : 8 * 1024 * 1024;
     auto residency = std::make_shared<TensorResidencyStore>(residency_capacity, policy_kind);
     auto materializer = std::make_shared<ResidentTensorMaterializer>(backing, residency);
+    if (mode == "embedding-only") {
+        const Meta embedding = lookup(all, "token_embd.weight");
+        run_embedding(embedding, 0, model_lease(all.handle), materializer, "embedding_only_parity");
+        run_embedding(embedding, 1, model_lease(all.handle), materializer, "embedding_only_token1_parity");
+        std::printf("embedding_only=PASS\n");
+        return 0;
+    }
     std::vector<RuntimeStateSlot> actual_k, actual_v, reference_k, reference_v;
     for (size_t i = 0; i < plans.size(); ++i) {
         actual_k.emplace_back(16 * 192, 2); actual_v.emplace_back(16 * 128, 2);
         reference_k.emplace_back(16 * 192, 2); reference_v.emplace_back(16 * 128, 2);
     }
+    const Meta embedding_meta = lookup(all, "token_embd.weight");
+    const Meta output_norm_meta = lookup(all, "output_norm.weight");
+    const Meta output_meta = lookup(all, "output.weight");
+    const Activation embedded_token0 = run_embedding(embedding_meta, 0, lease, materializer,
+        "token0_embedding_parity");
+    const Activation embedded_token1 = run_embedding(embedding_meta, 1, lease, materializer,
+        "token1_embedding_parity");
     std::printf("poc17_phase name=cold_token0 event_begin=%zu\n", residency->trace().size());
-    const SequenceRun token0 = run_sequence(plans, one_hot(0, 2048), 0, &actual_k, &actual_v,
+    const SequenceRun token0 = run_sequence(plans, embedded_token0, 0, &actual_k, &actual_v,
         &reference_k, &reference_v, lease, materializer, residency, source, "token0", false,
         selected_failure.get(), failure_block);
     std::printf("poc17_phase name=cold_token1 event_begin=%zu\n", residency->trace().size());
-    const SequenceRun token1 = run_sequence(plans, one_hot(1, 2048), 1, &actual_k, &actual_v,
+    const SequenceRun token1 = run_sequence(plans, embedded_token1, 1, &actual_k, &actual_v,
         &reference_k, &reference_v, lease, materializer, residency, source, "token1", false,
         selected_failure.get(), failure_block);
     if (selected_failure != nullptr)
@@ -476,6 +666,15 @@ int main(int argc, char ** argv) {
     parity(token0.output.values, token0.reference_output.values, "multi_layer_token0_final_parity");
     parity(token1.output.values, token1.reference_output.values, "multi_layer_token1_final_parity");
     std::printf("MULTI_LAYER_REFERENCE_PARITY_TOKEN_0=PASS MULTI_LAYER_REFERENCE_PARITY_TOKEN_1=PASS\n");
+    const std::vector<float> logits0 = run_output_head(output_norm_meta, output_meta, token0.output,
+        lease, materializer, "token0_logits_parity", 900000);
+    const std::vector<float> logits1 = run_output_head(output_norm_meta, output_meta, token1.output,
+        lease, materializer, "token1_logits_parity", 910000);
+    const auto greedy = [](const std::vector<float> & logits) {
+        return static_cast<uint32_t>(std::max_element(logits.begin(), logits.end()) - logits.begin());
+    };
+    std::printf("token0_greedy_next=%u token1_greedy_next=%u logits_vocab=%zu\n",
+        greedy(logits0), greedy(logits1), logits0.size());
     for (size_t layer = 0; layer < plans.size(); ++layer) {
         std::printf("layer=%u token0_selected=%s token1_selected=%s state_bytes_token0=%llu state_bytes_token1=%llu\n",
             plans[layer].block_id, ids_text(TopKSelection{ token0.selected[layer] }).c_str(),
@@ -492,10 +691,14 @@ int main(int argc, char ** argv) {
         warm_rk.emplace_back(16 * 192, 2); warm_rv.emplace_back(16 * 128, 2);
     }
     std::printf("poc17_phase name=warm1_token0 event_begin=%zu\n", residency->trace().size());
-    const SequenceRun warm0 = run_sequence(plans, one_hot(0, 2048), 0, &warm_k, &warm_v,
+    const Activation warm_embedded_token0 = run_embedding(embedding_meta, 0, lease, materializer,
+        "warm_token0_embedding_parity");
+    const SequenceRun warm0 = run_sequence(plans, warm_embedded_token0, 0, &warm_k, &warm_v,
         &warm_rk, &warm_rv, lease, materializer, residency, source, "warm_token0");
     std::printf("poc17_phase name=warm1_token1 event_begin=%zu\n", residency->trace().size());
-    const SequenceRun warm1 = run_sequence(plans, one_hot(1, 2048), 1, &warm_k, &warm_v,
+    const Activation warm_embedded_token1 = run_embedding(embedding_meta, 1, lease, materializer,
+        "warm_token1_embedding_parity");
+    const SequenceRun warm1 = run_sequence(plans, warm_embedded_token1, 1, &warm_k, &warm_v,
         &warm_rk, &warm_rv, lease, materializer, residency, source, "warm_token1");
     std::printf("warm_sequence_parity=%s warm_source_reads=MEASURED\n", warm0.ok && warm1.ok ? "PASS" : "FAIL");
     std::printf("configured_residency_capacity_bytes=%llu cold_source_reads=MEASURED "

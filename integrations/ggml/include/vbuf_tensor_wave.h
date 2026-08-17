@@ -16,6 +16,7 @@ enum class TensorWaveOpKind {
     RmsNorm,
     MulMat,
     SwiGlu,
+    Dequantize,
 };
 
 struct TensorWaveRef {
