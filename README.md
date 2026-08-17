@@ -1,5 +1,7 @@
 # vBuf (Vector-Buffer) ⚡
 
+**Current milestone:** [`model-is-working`](https://github.com/eugen252009/vBuf/tree/model-is-working)
+
 vBuf is a generic binary block format for checked, mmap-friendly, direct native consumption.
 
 ## vBuf-ML research overview
