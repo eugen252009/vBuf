@@ -1,0 +1,5 @@
+host=orangepirv2
+architecture=riscv64
+source_a=192.168.188.50 -> 192.168.188.2
+source_b=192.168.188.42 -> 192.168.188.40
+ggml_compute=NOT_EXECUTED_existing_RVV_FP16_blocker

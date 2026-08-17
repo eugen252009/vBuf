@@ -1,0 +1,48 @@
+selected_expert_id=0 layer=1
+selected_tensor=blk.1.ffn_gate_exps.weight tensor_ref=18 offset=103764448 length=563200 representation=5 dimensions=[2048,1408]
+selected_tensor=blk.1.ffn_up_exps.weight tensor_ref=22 offset=139809264 length=563200 representation=5 dimensions=[2048,1408]
+selected_tensor=blk.1.ffn_down_exps.weight tensor_ref=16 offset=175854080 length=1622016 representation=7 dimensions=[1408,2048]
+unselected_expert_tensor_requests=0
+initial_residency resident=blk.1.ffn_gate_exps.weight nonresident=blk.1.ffn_up_exps.weight,blk.1.ffn_down_exps.weight resident_bytes=563200
+graph_mapping gate_tensor_ref=0 up_tensor_ref=1 down_tensor_ref=2 created_after_expert_selection=YES
+prefetch label=cold-mixed completed=0 candidates=3
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_gate_exps.weight distance=0 resident=1
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_up_exps.weight distance=0 resident=0
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_down_exps.weight distance=2 resident=0
+prefetch label=cold-mixed completed=1 candidates=2
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_up_exps.weight distance=0 resident=0
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_down_exps.weight distance=2 resident=0
+prefetch label=cold-mixed completed=2 candidates=1
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_down_exps.weight distance=1 resident=0
+prefetch label=cold-mixed completed=3 candidates=1
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_down_exps.weight distance=0 resident=0
+prefetch label=warm completed=0 candidates=3
+prefetch_candidate label=warm tensor=blk.1.ffn_gate_exps.weight distance=0 resident=1
+prefetch_candidate label=warm tensor=blk.1.ffn_up_exps.weight distance=0 resident=1
+prefetch_candidate label=warm tensor=blk.1.ffn_down_exps.weight distance=2 resident=0
+prefetch label=warm completed=1 candidates=2
+prefetch_candidate label=warm tensor=blk.1.ffn_up_exps.weight distance=0 resident=1
+prefetch_candidate label=warm tensor=blk.1.ffn_down_exps.weight distance=2 resident=0
+prefetch label=warm completed=2 candidates=1
+prefetch_candidate label=warm tensor=blk.1.ffn_down_exps.weight distance=1 resident=0
+prefetch label=warm completed=3 candidates=1
+prefetch_candidate label=warm tensor=blk.1.ffn_down_exps.weight distance=0 resident=0
+source_policy_calls=2 warm_source_policy_calls=0
+warm_network_requests=0 warm_materializations=0
+parity max_abs=0 max_rel=0 mean_abs=0 threshold=1e-5
+parity max_abs=0 max_rel=0 mean_abs=0 threshold=1e-5
+reference_parity=PASS
+lifetime tensor=blk.1.ffn_gate_exps.weight tensor_id=18 consumers=1 acquire_step=1 release_step=1
+lifetime tensor=blk.1.ffn_up_exps.weight tensor_id=22 consumers=1 acquire_step=2 release_step=2
+lifetime tensor=blk.1.ffn_down_exps.weight tensor_id=16 consumers=1 acquire_step=4 release_step=4
+materialization_event tensor=blk.1.ffn_up_exps.weight event=STATE state=IN_FLIGHT timestamp_ns=1026689889735 first_byte_ns=0 bytes=563200 returned=0 source=range-source
+materialization_event tensor=blk.1.ffn_up_exps.weight event=WAIT_START state=IN_FLIGHT timestamp_ns=1026690446682 first_byte_ns=0 bytes=563200 returned=0 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+materialization_event tensor=blk.1.ffn_up_exps.weight event=STATE state=READY timestamp_ns=1026691801356 first_byte_ns=1026690814681 bytes=563200 returned=563200 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+materialization_event tensor=blk.1.ffn_up_exps.weight event=WAIT_END state=READY timestamp_ns=1026692210134 first_byte_ns=1026690814681 bytes=563200 returned=563200 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+materialization_event tensor=blk.1.ffn_up_exps.weight event=STATE state=RELEASED timestamp_ns=1026692733142 first_byte_ns=1026690814681 bytes=563200 returned=563200 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+materialization_event tensor=blk.1.ffn_down_exps.weight event=STATE state=IN_FLIGHT timestamp_ns=1026693418659 first_byte_ns=0 bytes=1622016 returned=0 source=range-source
+materialization_event tensor=blk.1.ffn_down_exps.weight event=WAIT_START state=IN_FLIGHT timestamp_ns=1026694178716 first_byte_ns=1026694181726 bytes=1622016 returned=0 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+materialization_event tensor=blk.1.ffn_down_exps.weight event=STATE state=READY timestamp_ns=1026696967794 first_byte_ns=1026694181726 bytes=1622016 returned=1622016 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+materialization_event tensor=blk.1.ffn_down_exps.weight event=WAIT_END state=READY timestamp_ns=1026697365062 first_byte_ns=1026694181726 bytes=1622016 returned=1622016 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+materialization_event tensor=blk.1.ffn_down_exps.weight event=STATE state=RELEASED timestamp_ns=1026697880440 first_byte_ns=1026694181726 bytes=1622016 returned=1622016 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+source_trace_events=10 resident_bytes=2748416 peak_active_weight_bytes=1622016 resources_after_teardown=0

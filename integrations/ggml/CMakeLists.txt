@@ -184,6 +184,10 @@ if(VBUF_ML_LIBRARY)
     add_executable(vbuf_tensor_wave_poc3 tools/tensor_wave_poc3.cpp)
     target_compile_features(vbuf_tensor_wave_poc3 PRIVATE cxx_std_17)
     target_link_libraries(vbuf_tensor_wave_poc3 PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_moe_tensor_wave_poc10 tools/moe_tensor_wave_poc10.cpp)
+    target_compile_features(vbuf_moe_tensor_wave_poc10 PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_moe_tensor_wave_poc10 PRIVATE vbuf_region_executor)
 endif()
 
 message(STATUS "vBuf native substrate")

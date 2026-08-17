@@ -1,0 +1,19 @@
+execute_detail=storage span does not contain the complete tensor payload
+selected expert execution failed: STORAGE_RANGE_MISMATCH
+selected_expert_id=0 layer=1
+selected_tensor=blk.1.ffn_gate_exps.weight tensor_ref=18 offset=103764448 length=563200 representation=5 dimensions=[2048,1408]
+selected_tensor=blk.1.ffn_up_exps.weight tensor_ref=22 offset=139809264 length=563200 representation=5 dimensions=[2048,1408]
+selected_tensor=blk.1.ffn_down_exps.weight tensor_ref=16 offset=175854080 length=1622016 representation=7 dimensions=[1408,2048]
+unselected_expert_tensor_requests=0
+initial_residency resident=blk.1.ffn_gate_exps.weight nonresident=blk.1.ffn_up_exps.weight,blk.1.ffn_down_exps.weight resident_bytes=563200
+graph_mapping gate_tensor_ref=0 up_tensor_ref=1 down_tensor_ref=2 created_after_expert_selection=YES
+prefetch label=cold-mixed completed=0 candidates=3
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_gate_exps.weight distance=0 resident=1
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_up_exps.weight distance=0 resident=0
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_down_exps.weight distance=2 resident=0
+prefetch label=cold-mixed completed=1 candidates=2
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_up_exps.weight distance=0 resident=0
+prefetch_candidate label=cold-mixed tensor=blk.1.ffn_down_exps.weight distance=2 resident=0
+failure_materialization tensor=blk.1.ffn_up_exps.weight event=STATE state=IN_FLIGHT source=range-source
+failure_materialization tensor=blk.1.ffn_up_exps.weight event=STATE state=FAILED source=http://127.0.0.1:18999/DeepSeek-V2-Lite.IQ1_S.vbuf
+failure_path_clean=PASS incomplete_destination_discarded=YES selected_expert_op_executed=NO resources_after_teardown=0

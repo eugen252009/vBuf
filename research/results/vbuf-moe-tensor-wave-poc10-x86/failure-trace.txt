@@ -1,0 +1,5 @@
+selected_tensor=blk.1.ffn_up_exps.weight
+failure_state=FAILED
+selected_expert_op_executed=NO
+incomplete_destination_discarded=YES
+resources_after_teardown=0

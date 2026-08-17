@@ -1,0 +1,6 @@
+selected_expert=0
+selected_tensor_ranges=3
+unselected_expert_ranges_requested=0
+payload_identity=PASS
+resources_after_teardown=0
+rv2_moe_compute=NOT_EXECUTED

@@ -1,0 +1,10 @@
+selected_expert=0
+graph_refs=gate:0,up:1,down:2
+initial_residency=gate resident; up nonresident; down nonresident
+cold_source_selection_decisions=2
+cold_http_misses=2
+warm_source_policy_calls=0
+warm_network_requests=0
+warm_materializations=0
+unselected_expert_requests=0
+unselected_expert_source_reads=0

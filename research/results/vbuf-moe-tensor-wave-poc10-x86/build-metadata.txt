@@ -1,0 +1,6 @@
+architecture=x86_64
+CPU_REPACK=OFF
+CUDA=OFF
+router_compute=NO
+router_output=injected
+vbuf_format_change=NO
