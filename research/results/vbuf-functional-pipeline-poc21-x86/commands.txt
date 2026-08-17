@@ -1,2 +1,5 @@
 cmake --build /tmp/opencode/vbuf-poc19-build --target vbuf_deep_stack_poc19 -j2
 /tmp/opencode/vbuf-poc19-build/vbuf_deep_stack_poc19 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-functional-pipeline-poc21-x86 full-stack 27 268435456 cost-aware
+ctest --test-dir /tmp/opencode/vbuf-poc19-build --output-on-failure
+git diff --check
+ccc index

@@ -15,6 +15,29 @@ Artifact: `research-models/DeepSeek-V2-Lite.IQ1_S.vbuf`
 - Model artifact mutation: NO.
 - Execution-prep copy/repack/transcode bytes: zero.
 
+## Milestone Gates
+
+```text
+POC21_FUNCTIONAL_INFERENCE_PIPELINE: PASS
+INPUT_EMBEDDING: PASS
+FULL_TRANSFORMER_BODY: PASS
+FINAL_NORMALIZATION: PASS
+LM_HEAD: PASS
+LOGITS_REFERENCE_PARITY: PASS
+NEXT_TOKEN_PARITY: PASS
+TOTAL_TRANSFORMER_BLOCKS_EXECUTED: 27
+VOCABULARY_SIZE: 102400
+REFERENCE_ARGMAX_TOKEN_ID: 86711
+VBUF_RUNTIME_ARGMAX_TOKEN_ID: 86711
+REAL_ACTIVATION_FORWARDING: PASS
+ARCHITECTURE_SPECIFIC_GENERIC_RUNTIME_LOGIC: NO
+MODEL_ARTIFACT_MUTATED: NO
+VBUF_LAYOUT_CHANGE_REQUIRED: NO
+VBUF_FORMAT_CHANGE_REQUIRED: NO
+GGML_COMPUTE_PATH_CHANGED: NO
+VBUF_RUNTIME_OWNS_MODEL_LIFECYCLE: YES
+```
+
 ## Residency
 
 - Policy: `COST_AWARE`.
@@ -27,3 +50,15 @@ Artifact: `research-models/DeepSeek-V2-Lite.IQ1_S.vbuf`
 - Policy decisions: `2895`; candidate evaluations: `540244`.
 
 The full raw qualification output is captured during execution in `/tmp/poc21-end-to-end-v3.log`.
+
+## Verification
+
+- Affected target build: PASS.
+- Full x86 CTest suite: PASS (qualification recorded for the milestone commit).
+- `git diff --check`: PASS.
+- `ccc index`: PASS, zero indexing errors.
+- Cleanup/failure injections: not exercised by this functional run; existing runtime contract tests PASS.
+
+## Scope
+
+This milestone means functional model execution only. It does not claim tokenizer completeness, sampler completeness, chat runtime completeness, production readiness, performance optimization, cache optimality, GPU completion, ARM32/RV2 readiness, or large-model readiness.
