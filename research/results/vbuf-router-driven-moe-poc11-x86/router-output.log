@@ -1,0 +1,8 @@
+router_tensor=blk.1.ffn_gate_inp.weight tensor_ref=19 representation=0 dimensions=[2048,64] offset=99094944 length=524288
+real_expert_count=64 top_k=6 activation_source=DETERMINISTIC_FIXTURE
+activation_a_one_hot_index=0 activation_b_one_hot_index=1
+activation_a_selected_ids=37,21,31,54,6,33
+activation_b_selected_ids=3,53,47,5,20,35
+router_score_parity=PASS topk_id_parity=PASS routing_changes_active_working_set=PASS
+router_cold_source_reads=1 router_warm_source_reads=0 router_residency_hit=PASS
+architecture_specific_runtime_logic=NO

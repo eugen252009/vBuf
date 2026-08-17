@@ -1,0 +1,6 @@
+ggml_commit=2d191b5dee1a591c41ee8a653ce42bfcd9c8716d
+CPU_REPACK=OFF
+CUDA=OFF
+x86_ctest=12/12 PASS
+weighted_merge_contract=PASS
+git_diff_check=PASS

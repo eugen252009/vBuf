@@ -1,0 +1,10 @@
+RV2_MULTI_EXPERT_COMPUTE=NOT_EXECUTED
+RV2_MULTI_EXPERT_TRANSPORT=PASS
+selected_ranges=36
+unselected_ranges=0
+whole_packed_tensor_loads=0
+selected_bytes=32980992
+actual_source_bytes=32980992
+striped_bytes=0
+single_source_bytes=32980992
+cleanup=PASS

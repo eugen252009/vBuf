@@ -1,0 +1,59 @@
+router_tensor=blk.1.ffn_gate_inp.weight tensor_ref=19 representation=0 dimensions=[2048,64] offset=99094944 length=524288
+real_expert_count=64 top_k=6 activation_source=DETERMINISTIC_FIXTURE
+activation_a_one_hot_index=0 activation_b_one_hot_index=1
+router_score_parity_a max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+activation_a_selected_ids=37,21,31,54,6,33, selected_scores=0.130859,0.125,0.124512,0.115723,0.104492,0.0996094, boundary_score=0.0996094
+router_score_parity_b max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+activation_b_selected_ids=3,53,47,5,20,35, selected_scores=0.0776367,0.0708008,0.0566406,0.0532227,0.0449219,0.0397949, boundary_score=0.0397949
+router_cold_source_reads=1 router_warm_source_reads=0 router_residency_hit=PASS router_materializations=0
+router_materialization event=STATE state=IN_FLIGHT offset=99094944 length=524288 returned=0 source=range-source
+router_materialization event=WAIT_START state=IN_FLIGHT offset=99094944 length=524288 returned=0 source=range-source
+router_materialization event=STATE state=READY offset=99094944 length=524288 returned=524288 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+router_materialization event=WAIT_END state=READY offset=99094944 length=524288 returned=524288 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+router_materialization event=STATE state=RELEASED offset=99094944 length=524288 returned=524288 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+router_lifetime tensor=blk.1.ffn_gate_inp.weight consumers=1 acquire_step=1 release_step=1
+router_graph_ref=0
+activation_a_selected_expert=37
+activation_a_selected_range tensor=blk.1.ffn_gate_exps.weight offset=124602848 length=563200
+activation_a_selected_range tensor=blk.1.ffn_up_exps.weight offset=160647664 length=563200
+activation_a_selected_range tensor=blk.1.ffn_down_exps.weight offset=235868672 length=1622016
+activation_a_dynamic_graph_created_after_selection=YES graph_refs=gate:0,up:1,down:2
+expert_reference_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+activation_a_lifetime tensor=blk.1.ffn_gate_exps.weight consumers=1 acquire_step=1 release_step=1
+activation_a_lifetime tensor=blk.1.ffn_up_exps.weight consumers=1 acquire_step=2 release_step=2
+activation_a_lifetime tensor=blk.1.ffn_down_exps.weight consumers=1 acquire_step=4 release_step=4
+activation_a_materialization event=STATE state=IN_FLIGHT offset=160647664 length=563200 returned=0 source=range-source
+activation_a_materialization event=WAIT_START state=IN_FLIGHT offset=160647664 length=563200 returned=563200 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_a_materialization event=STATE state=READY offset=160647664 length=563200 returned=563200 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_a_materialization event=WAIT_END state=READY offset=160647664 length=563200 returned=563200 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_a_materialization event=STATE state=RELEASED offset=160647664 length=563200 returned=563200 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_a_materialization event=STATE state=IN_FLIGHT offset=235868672 length=1622016 returned=0 source=range-source
+activation_a_materialization event=WAIT_START state=IN_FLIGHT offset=235868672 length=1622016 returned=1622016 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_a_materialization event=STATE state=READY offset=235868672 length=1622016 returned=1622016 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_a_materialization event=WAIT_END state=READY offset=235868672 length=1622016 returned=1622016 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_a_materialization event=STATE state=RELEASED offset=235868672 length=1622016 returned=1622016 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_a_unselected_expert_tensors_acquired=0 activation_a_unselected_expert_source_reads=0 activation_a_materializer_events=10 resources_after_teardown=0
+activation_b_selected_expert=3
+activation_b_selected_range tensor=blk.1.ffn_gate_exps.weight offset=105454048 length=563200
+activation_b_selected_range tensor=blk.1.ffn_up_exps.weight offset=141498864 length=563200
+activation_b_selected_range tensor=blk.1.ffn_down_exps.weight offset=180720128 length=1622016
+activation_b_dynamic_graph_created_after_selection=YES graph_refs=gate:0,up:1,down:2
+expert_reference_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+activation_b_lifetime tensor=blk.1.ffn_gate_exps.weight consumers=1 acquire_step=1 release_step=1
+activation_b_lifetime tensor=blk.1.ffn_up_exps.weight consumers=1 acquire_step=2 release_step=2
+activation_b_lifetime tensor=blk.1.ffn_down_exps.weight consumers=1 acquire_step=4 release_step=4
+activation_b_materialization event=STATE state=IN_FLIGHT offset=141498864 length=563200 returned=0 source=range-source
+activation_b_materialization event=WAIT_START state=IN_FLIGHT offset=141498864 length=563200 returned=563200 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_b_materialization event=STATE state=READY offset=141498864 length=563200 returned=563200 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_b_materialization event=WAIT_END state=READY offset=141498864 length=563200 returned=563200 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_b_materialization event=STATE state=RELEASED offset=141498864 length=563200 returned=563200 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_b_materialization event=STATE state=IN_FLIGHT offset=180720128 length=1622016 returned=0 source=range-source
+activation_b_materialization event=WAIT_START state=IN_FLIGHT offset=180720128 length=1622016 returned=1622016 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_b_materialization event=STATE state=READY offset=180720128 length=1622016 returned=1622016 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_b_materialization event=WAIT_END state=READY offset=180720128 length=1622016 returned=1622016 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_b_materialization event=STATE state=RELEASED offset=180720128 length=1622016 returned=1622016 source=http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf
+activation_b_unselected_expert_tensors_acquired=0 activation_b_unselected_expert_source_reads=0 activation_b_materializer_events=10 resources_after_teardown=0
+router_score_parity=PASS topk_id_parity=PASS routing_changes_active_working_set=PASS
+router_failure_prevents_expert_execution=PASS invalid_topk_fails_closed=PASS
+router_persistent_layout=DIRECT vbuf_layout_change_required=NO vbuf_format_change_required=NO
+architecture_specific_runtime_logic=NO rv2_router_compute=NOT_EXECUTED

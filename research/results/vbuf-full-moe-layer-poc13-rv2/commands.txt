@@ -1,0 +1,5 @@
+striping_transport single <offset> <length> http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf 192.168.188.50
+replayed_ranges=41
+always_required_ranges=5
+selected_expert_ranges=36
+unselected_ranges=0

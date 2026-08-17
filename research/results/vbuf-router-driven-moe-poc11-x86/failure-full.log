@@ -1,0 +1,5 @@
+router_tensor=blk.1.ffn_gate_inp.weight tensor_ref=19 representation=0 dimensions=[2048,64] offset=99094944 length=524288
+real_expert_count=64 top_k=6 activation_source=DETERMINISTIC_FIXTURE
+activation_a_one_hot_index=0 activation_b_one_hot_index=1
+router_detail=storage span does not contain the complete tensor payload
+router_failure state=FAILED router_computation=NOT_EXECUTED expert_graph_created=NO expert_source_reads=0 resources_after_teardown=0

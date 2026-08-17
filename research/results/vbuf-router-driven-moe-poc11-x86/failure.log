@@ -1,0 +1,2 @@
+router_detail=storage span does not contain the complete tensor payload
+router_failure state=FAILED router_computation=NOT_EXECUTED expert_graph_created=NO expert_source_reads=0 resources_after_teardown=0

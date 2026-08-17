@@ -1,0 +1,6 @@
+cmake -S integrations/ggml -B /tmp/opencode/vbuf-ggml-region-x86 -DVBUF_ML_LIBRARY=/home/eugen/projekte/vBuf/rust/target/release/libvbuf_ml.so -DVBUF_ENABLE_CUDA=OFF -DVBUF_BUILD_PROBES=ON
+cmake --build /tmp/opencode/vbuf-ggml-region-x86 -j2
+ctest --test-dir /tmp/opencode/vbuf-ggml-region-x86 --output-on-failure
+python3 scripts/range_server.py --file research-models/DeepSeek-V2-Lite.IQ1_S.vbuf --port 18090
+vbuf_router_driven_moe_poc11 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090/DeepSeek-V2-Lite.IQ1_S.vbuf research/results/vbuf-moe-tensor-wave-poc10-x86
+vbuf_router_driven_moe_poc11 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18999/DeepSeek-V2-Lite.IQ1_S.vbuf research/results/vbuf-moe-tensor-wave-poc10-x86 failure

@@ -1,0 +1,24 @@
+layer=blk.1 semantics=ffn_inp->rms_norm->routed_top6->shared_silu_ffn->add->residual_add
+structural_open_cold_ns=2111710124 structural_open_warm_ns=6805793 structural_records=377 payload_bytes_touched=NOT_MEASURED
+layer_tensor name=blk.1.ffn_norm.weight id=21 representation=0 rank=1 offset=99086736 bytes=8192 dimensions=2048, layout=DIRECT
+layer_tensor name=blk.1.ffn_gate_inp.weight id=19 representation=0 rank=2 offset=99094944 bytes=524288 dimensions=2048,64, layout=DIRECT
+layer_tensor name=blk.1.ffn_gate_shexp.weight id=20 representation=5 rank=2 offset=99619248 bytes=1126400 dimensions=2048,2816, layout=DIRECT
+layer_tensor name=blk.1.ffn_up_shexp.weight id=23 representation=5 rank=2 offset=100745664 bytes=1126400 dimensions=2048,2816, layout=DIRECT
+layer_tensor name=blk.1.ffn_down_shexp.weight id=17 representation=4 rank=2 offset=101872080 bytes=1892352 dimensions=2816,2048, layout=DIRECT
+normalized_input_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_score_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+selected_weight_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+selected-failure topk_ids=37,21,31,54,6,33 normalized_weights=0.182863,0.175766,0.175188,0.16509,0.153029,0.148064,
+selected-failure_routed expert_rank=0 expert_id=37 router_rank=0 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=111 score_preserved=YES
+selected-failure_routed expert_id=37 selected_range tensor=blk.1.ffn_gate_exps.weight offset=124602848 bytes=563200 layout=DIRECT
+selected-failure_routed expert_id=37 selected_range tensor=blk.1.ffn_up_exps.weight offset=160647664 bytes=563200 layout=DIRECT
+selected-failure_routed expert_id=37 selected_range tensor=blk.1.ffn_down_exps.weight offset=235868672 bytes=1622016 layout=DIRECT
+selected-failure_routed prefetch expert_id=37 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+selected-failure_routed prefetch expert_id=37 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+selected-failure_routed prefetch expert_id=37 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_detail=storage span does not contain the complete tensor payload
+selected-failure_routed expert_id=37 consumer_wait=not_instrumented acquire_release=recorded peak_active=563200 peak_resident=1095680
+selected-failure_routed expert_id=37 execution=FAILED final_merge=NOT_EXECUTED
+selected-failure_routed residency_hits=3 residency_misses=2 source_reads=0 materialization_requests=1 source_policy_calls=2 evictions=0 resident_tensors_after=3
+selected-failure selected_expert_failure final_output=INVALID final_composition=NOT_EXECUTED resources_after_teardown=0
+selected_expert_failure expert_id=37 tensor=blk.1.ffn_up_exps.weight failed_state=FAILED consuming_op_executed=NO final_composition=NOT_EXECUTED final_output=INVALID resources_after_teardown=0

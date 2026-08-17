@@ -1,0 +1,9 @@
+layer=blk.1 semantics=ffn_inp->rms_norm->routed_top6->shared_silu_ffn->add->residual_add
+structural_open_cold_ns=2109811638 structural_open_warm_ns=6216516 structural_records=377 payload_bytes_touched=NOT_MEASURED
+layer_tensor name=blk.1.ffn_norm.weight id=21 representation=0 rank=1 offset=99086736 bytes=8192 dimensions=2048, layout=DIRECT
+layer_tensor name=blk.1.ffn_gate_inp.weight id=19 representation=0 rank=2 offset=99094944 bytes=524288 dimensions=2048,64, layout=DIRECT
+layer_tensor name=blk.1.ffn_gate_shexp.weight id=20 representation=5 rank=2 offset=99619248 bytes=1126400 dimensions=2048,2816, layout=DIRECT
+layer_tensor name=blk.1.ffn_up_shexp.weight id=23 representation=5 rank=2 offset=100745664 bytes=1126400 dimensions=2048,2816, layout=DIRECT
+layer_tensor name=blk.1.ffn_down_shexp.weight id=17 representation=4 rank=2 offset=101872080 bytes=1892352 dimensions=2816,2048, layout=DIRECT
+always-failure normalization_failure final_output=INVALID resources_after_teardown=0
+always_required_tensor_failure tensor=blk.1.ffn_norm.weight failed_state=FAILED dependent_execution=NO final_output=INVALID resources_after_teardown=0

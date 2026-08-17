@@ -1,0 +1,18 @@
+router_tensor=blk.1.ffn_gate_inp.weight dimensions=[2048,64] offset=99094944 bytes=524288 top_k=6 expert_count=64
+weighting_rule=softmax_all_logits_then_selected_topk_renormalize
+router_score_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+router_score_parity max_abs=0 max_rel=0 mean_abs=0 tolerance=1e-5
+activation_a_topk=37,21,31,54,6,33 scores=0.130859,0.125,0.124512,0.115723,0.104492,0.0996094, normalized_weights=0.169033,0.168045,0.167963,0.166493,0.164634,0.163832,
+activation_b_topk=3,53,47,5,20,35 scores=0.0776367,0.0708008,0.0566406,0.0532227,0.0449219,0.0397949, normalized_weights=0.170098,0.168939,0.166564,0.165995,0.164623,0.163781,
+selected_expert_failure expert_rank=0 expert_id=37 router_rank=0 graph_created=YES graph_refs=gate:0,up:1,down:2 storage_ref_base=111 score_preserved=YES
+selected_expert_failure expert_id=37 selected_range tensor=blk.1.ffn_gate_exps.weight offset=124602848 bytes=563200 layout=DIRECT
+selected_expert_failure expert_id=37 selected_range tensor=blk.1.ffn_up_exps.weight offset=160647664 bytes=563200 layout=DIRECT
+selected_expert_failure expert_id=37 selected_range tensor=blk.1.ffn_down_exps.weight offset=235868672 bytes=1622016 layout=DIRECT
+selected_expert_failure prefetch expert_id=37 tensor=blk.1.ffn_gate_exps.weight dependency_distance=0
+selected_expert_failure prefetch expert_id=37 tensor=blk.1.ffn_up_exps.weight dependency_distance=0
+selected_expert_failure prefetch expert_id=37 tensor=blk.1.ffn_down_exps.weight dependency_distance=2
+expert_detail=storage span does not contain the complete tensor payload
+selected_expert_failure expert_id=37 consumer_wait=not_instrumented acquire_release=recorded peak_active=563200 peak_resident=0
+selected_expert_failure expert_id=37 execution=FAILED final_merge=NOT_EXECUTED
+selected_expert_failure residency_hits=0 residency_misses=3 source_reads=0 materialization_requests=1 source_policy_calls=3 evictions=0 resident_tensors_after=0
+selected_expert_failure expert_id=37 tensor_ref=1 failed_state=FAILED consuming_op_executed=NO final_merge=NOT_EXECUTED incomplete_discarded=YES resources_after_teardown=0

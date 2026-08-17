@@ -1,0 +1,10 @@
+router_compute=NOT_EXECUTED
+selection_source=X86_POC11_REPLAY
+activation_a_selected_top1=37
+activation_b_selected_top1=3
+selected_ranges_requested=6
+unselected_ranges_requested=0
+payload_identity=PASS
+source_binding=PASS
+resources_after_teardown=0
+rv2_router_driven_transport=PASS

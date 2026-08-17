@@ -1,0 +1,6 @@
+striping_transport single 124602848 563200 http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf 192.168.188.50
+striping_transport single 160647664 563200 http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf 192.168.188.50
+striping_transport single 235868672 1622016 http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf 192.168.188.50
+striping_transport single 105454048 563200 http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf 192.168.188.50
+striping_transport single 141498864 563200 http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf 192.168.188.50
+striping_transport single 180720128 1622016 http://192.168.188.2/models/DeepSeek-V2-Lite.IQ1_S.vbuf 192.168.188.50

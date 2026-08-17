@@ -91,7 +91,10 @@ add_library(vbuf_region_executor STATIC
     src/vbuf_range_source.cpp
     src/vbuf_source_selection.cpp
     src/vbuf_residency.cpp
-    src/vbuf_striped_materializer.cpp)
+    src/vbuf_striped_materializer.cpp
+    src/vbuf_topk.cpp
+    src/vbuf_weighted_merge.cpp
+    src/vbuf_runtime_state.cpp)
 target_compile_features(vbuf_region_executor PUBLIC cxx_std_17)
 target_include_directories(vbuf_region_executor
     PUBLIC include
@@ -150,6 +153,18 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_striped_materializer_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_striped_materializer_contract PRIVATE vbuf_region_executor)
 
+    add_executable(vbuf_topk_contract tests/topk_contract.cpp)
+    target_compile_features(vbuf_topk_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_topk_contract PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_weighted_merge_contract tests/weighted_merge_contract.cpp)
+    target_compile_features(vbuf_weighted_merge_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_weighted_merge_contract PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_runtime_state_contract tests/runtime_state_contract.cpp)
+    target_compile_features(vbuf_runtime_state_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_runtime_state_contract PRIVATE vbuf_region_executor)
+
     add_executable(vbuf_striping_transport tools/striping_transport.cpp)
     target_compile_features(vbuf_striping_transport PRIVATE cxx_std_17)
     target_link_libraries(vbuf_striping_transport PRIVATE vbuf_region_executor)
@@ -174,6 +189,9 @@ if(VBUF_BUILD_PROBES)
         COMMAND vbuf_residency_contract)
     add_test(NAME vbuf_striped_materializer_contract
         COMMAND vbuf_striped_materializer_contract)
+    add_test(NAME vbuf_topk_contract COMMAND vbuf_topk_contract)
+    add_test(NAME vbuf_weighted_merge_contract COMMAND vbuf_weighted_merge_contract)
+    add_test(NAME vbuf_runtime_state_contract COMMAND vbuf_runtime_state_contract)
 endif()
 
 if(VBUF_ML_LIBRARY)
@@ -188,6 +206,22 @@ if(VBUF_ML_LIBRARY)
     add_executable(vbuf_moe_tensor_wave_poc10 tools/moe_tensor_wave_poc10.cpp)
     target_compile_features(vbuf_moe_tensor_wave_poc10 PRIVATE cxx_std_17)
     target_link_libraries(vbuf_moe_tensor_wave_poc10 PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_router_driven_moe_poc11 tools/router_driven_moe_poc11.cpp)
+    target_compile_features(vbuf_router_driven_moe_poc11 PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_router_driven_moe_poc11 PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_multi_expert_moe_poc12 tools/multi_expert_moe_poc12.cpp)
+    target_compile_features(vbuf_multi_expert_moe_poc12 PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_multi_expert_moe_poc12 PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_full_moe_layer_poc13 tools/full_moe_layer_poc13.cpp)
+    target_compile_features(vbuf_full_moe_layer_poc13 PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_full_moe_layer_poc13 PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_attention_poc14 tools/attention_poc14.cpp)
+    target_compile_features(vbuf_attention_poc14 PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_attention_poc14 PRIVATE vbuf_region_executor)
 endif()
 
 message(STATUS "vBuf native substrate")
