@@ -4,6 +4,17 @@
 
 vBuf is a generic binary block format for checked, mmap-friendly, direct native consumption.
 
+## Why vBuf?
+
+- **Faster structural readiness** — a qualified control measured vBuf `MODEL_READY` at about `0.262 s` versus GGUF at about `20.003 s`; first useful compute was later, at about `36.145 s`, so this is not a universal TTFT claim.
+- **Smaller active working sets** — in a qualified CPU_REPACK case, llama used a shared `~2.53 GiB` backend allocation while vBuf reproduced the same tensor execution with a `~12.0 MiB` tensor-local materialization.
+- **Selective materialization** — tensors are independently addressable and can be acquired from local or ranged sources without making the full artifact resident.
+- **Backend-specific only when necessary** — the persistent representation stays backend-neutral; transformations such as CPU_REPACK occur when the selected backend requires a different execution representation.
+- **Backend-policy independence** — using a backend kernel does not require inheriting that backend's model-wide allocation or lifetime policy.
+- **Large artifact, bounded working set** — persistent model size, resident cache, and active execution memory are separate quantities; execution only needs the currently required materialized ranges to fit.
+- **Backend-neutral persistence** — CPU and GPU execution layouts can differ without changing the persistent vBuf representation.
+- **Cross-architecture validation** — exercised in qualification environments on x86_64, riscv64/RVV, and ARM32 hard-float; this does not claim complete compute support on every platform.
+
 ## vBuf-ML research overview
 
 The vBuf-ML work investigates a different way to run models whose logical weight
