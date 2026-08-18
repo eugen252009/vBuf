@@ -1,0 +1,10 @@
+{
+  "llama_tensor_local_repacked_bytes": 12607488,
+  "llama_tensor_local_repacked_hash": "3d8b9543543e6e57",
+  "llama_packed_hash_scope": "BLK0_DOWN_ONLY",
+  "vbuf_tensor_local_repacked_bytes": 12607488,
+  "vbuf_tensor_local_repacked_hash": "3d8b9543543e6e57",
+  "tensor_local_repacked_storage_parity": "PASS",
+  "first_packed_diff_offset": "NONE",
+  "first_packed_diff_block": "NONE"
+}

@@ -1,0 +1,6 @@
+cmake -S integrations/ggml -B /tmp/opencode/vbuf-poc19-build -DVBUF_ENABLE_CUDA=OFF
+cmake --build /tmp/opencode/vbuf-poc19-build --target vbuf_autoregressive_poc22 vbuf_deep_stack_poc19 -j2
+/tmp/opencode/vbuf-poc19-build/vbuf_autoregressive_poc22 research-models/DeepSeek-V2-Lite.IQ1_S.vbuf http://127.0.0.1:18090 research/results/vbuf-autoregressive-generation-poc22-x86 full-stack 27 268435456 cost-aware 0 4
+ctest --test-dir /tmp/opencode/vbuf-poc19-build --output-on-failure
+git diff --check
+ccc index

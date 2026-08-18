@@ -1,0 +1,9 @@
+Fatal: cannot change to '/tmp/llama.cpp-step21': No such file or directory
+Traceback (most recent call last):
+  File "/home/eugen/projekte/vBuf/scripts/qualify_step21_runtime.py", line 58, in <module>
+    if __name__ == "__main__": main()
+  File "/home/eugen/projekte/vBuf/scripts/qualify_step21_runtime.py", line 11, in main
+    commit=subprocess.check_output(["git","-C",str(upstream),"rev-parse","HEAD"],text=True).strip()
+subprocess.CalledProcessError: Command '['git', '-C', '/tmp/llama.cpp-step21', 'rev-parse', 'HEAD']' returned non-zero exit status 128.
+
+exit_code=1

@@ -1,0 +1,16 @@
+{
+  "llama": {
+    "thread_count": 2,
+    "assigned_weight_offsets": [0, 1575936, 3151872, 4727808, 6303744, 7879680, 9455616, 11031552],
+    "assigned_output_ranges": "8 ranges of 256 rows",
+    "q8_slice_offset": 0
+  },
+  "vbuf": {
+    "thread_count": 2,
+    "assigned_weight_offsets": [0, 1575936, 3151872, 4727808, 6303744, 7879680, 9455616, 11031552],
+    "assigned_output_ranges": "8 ranges of 256 rows",
+    "q8_slice_offset": 0
+  },
+  "thread_partition_parity": "PASS",
+  "scheduling_order_parity": "NOT_REQUIRED"
+}

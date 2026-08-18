@@ -1,0 +1,16 @@
+{
+  "packed_weight_hash_parity": "PASS",
+  "q8_hash_parity": "PASS",
+  "workspace_parity": "PASS",
+  "geometry_parity": "PASS",
+  "weight_offset_parity": "PASS",
+  "q8_offset_parity": "PASS",
+  "dst_offset_parity": "PASS",
+  "dst_descriptor_parity": "PASS",
+  "dst_initialization_parity": "NOT_REQUIRED: kernel overwrites every output element",
+  "ggml_compute_context_parity": "PASS: same effective wsize, thread count, operand offsets, and op geometry",
+  "kernel_call_state_parity": "PASS",
+  "semantic_kernel_entry_parity": "PASS",
+  "first_kernel_call_state_diff": "NONE",
+  "scheduling_order": "may differ; assigned ranges are identical"
+}

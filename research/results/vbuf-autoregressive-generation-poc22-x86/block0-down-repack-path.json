@@ -1,0 +1,17 @@
+{
+  "source": "blk.0.ffn_down.weight",
+  "runtime_alias": "blk.1.ffn_down.weight",
+  "persistent_tensor_id": 10006,
+  "source_offset": 83518776,
+  "source_bytes": 12607488,
+  "logical_type": "IQ4_NL",
+  "logical_shape": [10944, 2048],
+  "raw_payload_hash": "0c7bdf85b162206b",
+  "llama_repack_trigger": "CPU repack buffer type selected for GGML_OP_MUL_MAT when optimal repack traits exist",
+  "llama_repack_function": "ggml_backend_cpu_repack_buffer_set_tensor -> tensor_traits->repack",
+  "llama_execution_trait": "iq4_nl_8x8_q8_0",
+  "vbuf_diagnostic_function": "BorrowedGgmlTensor::bind_cpu_repacked",
+  "vbuf_repack_trait_observed": "iq4_nl_8x8",
+  "diagnostic_source_identity": "PASS",
+  "persistent_bytes_changed": false
+}

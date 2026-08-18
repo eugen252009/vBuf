@@ -12,6 +12,17 @@
 
 namespace {
 
+uint64_t audit_f32_hash(const std::vector<float> & values) {
+    uint64_t hash = 1469598103934665603ULL;
+    for (float value : values) {
+        uint32_t bits = 0;
+        std::memcpy(&bits, &value, sizeof(bits));
+        hash ^= bits;
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
 class MultiSelectiveFailureSource final : public RangeSource {
 public:
     MultiSelectiveFailureSource(std::shared_ptr<RangeSource> delegate, std::set<uint64_t> offsets)
@@ -86,11 +97,23 @@ LayerPlan make_plan(const Metadata & all, uint32_t block_id, uint32_t namespace_
 
 struct SequenceRun {
     bool ok = true;
+    bool router_parity = true;
     size_t completed_blocks = 0;
     uint64_t peak_active_persistent = 0;
     Activation output;
     Activation reference_output;
     std::vector<std::vector<float>> block_outputs;
+    std::vector<std::vector<float>> attention_normalized;
+    std::vector<std::vector<float>> attention_outputs;
+    std::vector<std::vector<float>> attention_q_nope;
+    std::vector<std::vector<float>> attention_q_pe;
+    std::vector<std::vector<float>> attention_k;
+    std::vector<std::vector<float>> attention_v;
+    std::vector<std::vector<float>> attention_values;
+    std::vector<std::vector<float>> attention_context;
+    std::vector<std::vector<float>> ffn_inputs;
+    std::vector<std::vector<float>> ffn_normalized;
+    std::vector<std::vector<float>> ffn_outputs;
     std::vector<std::vector<uint32_t>> selected;
     std::vector<std::vector<float>> weights;
 };
@@ -384,6 +407,12 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
     constexpr uint32_t width = 2048;
     constexpr float epsilon = 1e-6f;
     LayerRun result;
+    if (std::getenv("VBUF_AUDIT_FFN_NORM") != nullptr && plan.block_id == 0) {
+        std::printf("VBUF_FFN_NORM_EXEC_INPUT logical_hash=%016llx first8=",
+            static_cast<unsigned long long>(audit_f32_hash(input.values)));
+        for (size_t i = 0; i < 8; ++i) std::printf("%s%.9g", i ? "," : "", input.values[i]);
+        std::printf("\n");
+    }
     const Meta norm_meta = lookup(plan.metadata, "blk.1.ffn_norm.weight");
     const PersistentTensorRef norm_ref = full_ref(norm_meta);
     RouterGraph norm_graph = build_norm_graph(norm_ref);
@@ -391,6 +420,13 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
     norm_materializer.request(norm_graph.router, norm_ref, norm_ref.view.payload_len);
     const RunResult norm_actual = execute(norm_graph, input.view(), lease, &norm_materializer);
     const std::vector<float> norm_values = floats(norm_actual.output);
+    if (std::getenv("VBUF_AUDIT_FFN_NORM") != nullptr && plan.block_id == 0) {
+        const RunResult norm_unmaterialized = execute(norm_graph, input.view(), lease, nullptr);
+        const std::vector<float> unmaterialized_values = floats(norm_unmaterialized.output);
+        std::printf("VBUF_FFN_NORM_UNMATERIALIZED first8=");
+        for (size_t i = 0; i < 8; ++i) std::printf("%s%.9g", i ? "," : "", unmaterialized_values[i]);
+        std::printf("\n");
+    }
     const std::vector<float> norm_reference = rmsnorm_reference(input,
         reinterpret_cast<const float *>(norm_meta.view.payload), width, epsilon);
     result.normalized_input = norm_values;
@@ -467,9 +503,16 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         }
         const std::string block_label = std::string(label) + "_blk" + std::to_string(plan.block_id);
         const Activation ffn_input{ actual_attention.output, { 2048, 1 } };
+        std::vector<float> ffn_input_with_residual(2048);
+        for (size_t i = 0; i < ffn_input_with_residual.size(); ++i)
+            ffn_input_with_residual[i] = actual_attention.output[i] + actual.values[i];
         const bool dense_block = plan.block_id == 0;
+        const Activation dense_ffn_input{ ffn_input_with_residual, { 2048, 1 } };
+        if (dense_block && std::getenv("VBUF_AUDIT_FFN_NORM") != nullptr &&
+            audit_f32_hash(dense_ffn_input.values) != audit_f32_hash(ffn_input_with_residual))
+            throw std::runtime_error("block-0 dense FFN input wiring invariant failed");
         const LayerRun actual_ffn = dense_block
-            ? run_dense_layer(plan, ffn_input, lease, reference_only ? nullptr : materializer,
+            ? run_dense_layer(plan, dense_ffn_input, lease, reference_only ? nullptr : materializer,
                 reference_only ? nullptr : residency, source, block_label)
             : run_layer(plan.metadata, ffn_input, lease, reference_only ? nullptr : materializer,
                 reference_only ? nullptr : residency, source, block_label, false, plan.namespace_base);
@@ -482,11 +525,15 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         auto ref_backing = std::make_shared<LocalVbufRangeMaterializer>(ref_source);
         auto ref_residency = std::make_shared<TensorResidencyStore>(8 * 1024 * 1024);
         auto ref_materializer = std::make_shared<ResidentTensorMaterializer>(ref_backing, ref_residency);
-        const Activation reference_ffn_input{ reference_attention.output, { 2048, 1 } };
+        std::vector<float> reference_ffn_input_with_residual(2048);
+        for (size_t i = 0; i < reference_ffn_input_with_residual.size(); ++i)
+            reference_ffn_input_with_residual[i] = reference_attention.output[i] + reference.values[i];
+        const Activation reference_dense_ffn_input{ reference_ffn_input_with_residual, { 2048, 1 } };
         const LayerRun reference_ffn = dense_block
-            ? run_dense_layer(plan, reference_ffn_input, lease, ref_materializer, ref_residency,
+            ? run_dense_layer(plan, reference_dense_ffn_input, lease, ref_materializer, ref_residency,
                 ref_source, "reference_" + block_label)
-            : run_layer(plan.metadata, reference_ffn_input, lease, ref_materializer, ref_residency,
+            : run_layer(plan.metadata, Activation{ reference_attention.output, { 2048, 1 } }, lease,
+                ref_materializer, ref_residency,
                 ref_source, "reference_" + block_label, false, plan.namespace_base);
         if (!reference_only) {
             parity(actual_attention.output, reference_attention.output,
@@ -495,9 +542,21 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
                 (block_label + "_block_parity").c_str());
         }
         result.selected.push_back(actual_ffn.selection.ids);
+        result.attention_normalized.push_back(actual_attention.normalized);
+        result.attention_outputs.push_back(actual_attention.output);
+        result.attention_q_nope.push_back(actual_attention.q_nope);
+        result.attention_q_pe.push_back(actual_attention.q_pe);
+        result.attention_k.push_back(actual_attention.k);
+        result.attention_v.push_back(actual_attention.v);
+        result.attention_values.push_back(actual_attention.v);
+        result.attention_context.push_back(actual_attention.context);
+        result.ffn_inputs.push_back(std::move(ffn_input_with_residual));
+        result.ffn_normalized.push_back(actual_ffn.normalized_input);
+        result.ffn_outputs.push_back(actual_ffn.final_output);
+        result.router_parity = result.router_parity && actual_ffn.selection.ids == reference_ffn.selection.ids;
         result.weights.push_back(actual_ffn.weights);
         result.block_outputs.push_back(actual_ffn.final_output);
-        result.ok = result.ok && actual_ffn.ok;
+        result.ok = result.ok && actual_ffn.ok && actual_ffn.selection.ids == reference_ffn.selection.ids;
         result.peak_active_persistent = std::max(result.peak_active_persistent,
             actual_ffn.peak_active_persistent);
         if (!actual_ffn.ok) return result;
@@ -513,6 +572,7 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
 
 } // namespace
 
+#ifndef VBUF_POC16_LIBRARY_ONLY
 int main(int argc, char ** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: multi_layer_poc16 <vbuf> <endpoint> <capture-dir>\n");
@@ -740,3 +800,4 @@ int main(int argc, char ** argv) {
         static_cast<unsigned long long>(inflight_before_teardown));
     return 0;
 }
+#endif

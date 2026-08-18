@@ -82,6 +82,10 @@ public:
         const VbufBorrowedStorage & storage,
         std::string * detail = nullptr);
 
+    AdapterError bind_cpu_repacked(
+        const VbufBorrowedStorage & storage,
+        std::string * detail = nullptr);
+
     AdapterError bind_cpu_exact(
         std::shared_ptr<const void> lease = {},
         std::string * detail = nullptr);

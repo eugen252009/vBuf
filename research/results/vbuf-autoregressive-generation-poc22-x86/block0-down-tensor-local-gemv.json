@@ -1,0 +1,7 @@
+{
+  "llama": {"kernel": "ggml_gemv_iq4_nl_8x8_q8_0", "family": "iq4_nl_8x8_q8_0", "n": 10944, "nr": 1, "nc": 256, "bs": 2048, "threads": 2},
+  "vbuf": {"kernel": "ggml_gemv_iq4_nl_8x8_q8_0", "family": "iq4_nl_8x8_q8_0", "n": 10944, "nr": 1, "nc": 256, "bs": 2048, "threads": 2},
+  "gemv_geometry_parity": "PASS",
+  "partitioning": "8 chunks of 256 output rows for the 2048-row result",
+  "specialized_kernel_executed": "YES"
+}

@@ -1,0 +1,10 @@
+{
+  "llama_internal_kernel_variant": "AVX2_LUT_GEMV",
+  "vbuf_internal_kernel_variant": "AVX2_LUT_GEMV",
+  "llama_compile_avx2": "YES",
+  "vbuf_compile_avx2": "YES",
+  "internal_kernel_variant_parity": "PASS",
+  "gemv_vs_gemm": "GEMV for nr=1; outer trait family is iq4_nl_8x8_q8_0",
+  "fallback_taken": "NO",
+  "tile_geometry": "8x8 LUT AVX kernel"
+}

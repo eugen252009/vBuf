@@ -1,0 +1,6 @@
+{
+  "llama_block0_output_hash": "b6abb7f25111c5c5",
+  "vbuf_block0_output_hash": "da99f361ffb91a36",
+  "status": "NOT_REACHED",
+  "reason": "dense FFN output diverged first"
+}

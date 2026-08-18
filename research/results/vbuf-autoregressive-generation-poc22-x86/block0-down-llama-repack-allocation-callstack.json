@@ -1,0 +1,20 @@
+{
+  "pinned_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "call_chain": [
+    "llama_model_load_from_file_impl (src/llama.cpp:366)",
+    "llama_model_base::load_tensors (src/llama-model.cpp:1624)",
+    "ggml_backend_alloc_ctx_tensors_from_buft (ggml/src/ggml-alloc.c:1243)",
+    "ggml_backend_alloc_ctx_tensors_from_buft_impl (ggml/src/ggml-alloc.c:1188,1202)",
+    "alloc_tensor_range (ggml/src/ggml-alloc.c:1131)",
+    "ggml_backend_cpu_repack_buffer_type_alloc_buffer (ggml/src/ggml-cpu/repack.cpp:4751)",
+    "ggml_backend_buft_alloc_buffer (ggml/src/ggml-backend.cpp:38)",
+    "ggml_backend_cpu_buffer_type_alloc_buffer (ggml/src/ggml-backend.cpp:2365)"
+  ],
+  "allocation_function": "ggml_backend_cpu_repack_buffer_type_alloc_buffer",
+  "caller": "alloc_tensor_range",
+  "buffer_type": "CPU_REPACK",
+  "requested_bytes": 2711642112,
+  "allocation_value_regression": "PASS",
+  "allocation_call_stack_captured": "YES",
+  "origin_classification": "model_load_context_buffer_planning"
+}

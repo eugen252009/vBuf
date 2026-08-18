@@ -1,0 +1,20 @@
+python3 scripts/qualify_step21_runtime.py --root /home/eugen/projekte/vBuf --output-dir /tmp/poc22-oracle-investigation
+
+Expected external checkout:
+/tmp/llama.cpp-step21
+
+Pinned commit:
+4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c
+
+Expected artifacts in the existing Step 21 harness:
+Qwen3-0.6B-BF16/Q8_0 GGUF and vBuf pairs; no DeepSeek POC22 mode is defined.
+
+Canonical preparation:
+python3 scripts/prepare_step21_llama.py --upstream-root /tmp/llama.cpp-step21
+
+Canonical build:
+cmake -S /tmp/llama.cpp-step21 -B /tmp/llama.cpp-step21-build -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF -DGGML_NATIVE=ON
+cmake --build /tmp/llama.cpp-step21-build --target llama -j2
+
+DeepSeek two-position oracle:
+/tmp/step21-qualification-canonical research-models/DeepSeek-V2-Lite.IQ1_S.gguf research-models/DeepSeek-V2-Lite.IQ1_S.vbuf deepseek-generation 0 2

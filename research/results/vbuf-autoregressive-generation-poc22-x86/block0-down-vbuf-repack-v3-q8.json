@@ -1,0 +1,9 @@
+{
+  "common_f32_swiglu_input_hash": "c6ee5d5d36e9c861",
+  "llama_q8_0_input_hash": "d2fd48314bc644ab",
+  "llama_q8_0_bytes": 11628,
+  "vbuf_q8_0_input_hash": "NOT_REACHED",
+  "vbuf_q8_0_bytes": "NOT_REACHED",
+  "q8_0_preparation_parity": "NOT_REACHED",
+  "q8_0_storage_hash_parity": "NOT_REACHED"
+}

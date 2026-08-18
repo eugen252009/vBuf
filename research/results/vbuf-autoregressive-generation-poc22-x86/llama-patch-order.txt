@@ -1,0 +1,8 @@
+Historical order was not a mechanically reproducible cumulative series:
+0001 -> 0002 overlaps in src/llama-model-loader.cpp; 0003 has stale hunk counts.
+
+Canonical order:
+1. Start at pinned commit 4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c.
+2. Run scripts/prepare_step21_llama.py --upstream-root <fresh-checkout>.
+3. The script applies only 0000-pinned-step21-canonical.patch with git apply --check.
+4. Verify prepared source delta SHA-256.

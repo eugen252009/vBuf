@@ -1,0 +1,7 @@
+{
+  "status": "NOT_EXECUTED",
+  "reason": "pinned external checkout was absent when the canonical harness was reproduced",
+  "model": "research-models/DeepSeek-V2-Lite.IQ1_S.gguf",
+  "expected_from_native_reference": [86711, 86711, 86711, 86711],
+  "llama_sequence": null
+}

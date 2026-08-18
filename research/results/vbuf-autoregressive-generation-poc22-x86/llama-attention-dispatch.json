@@ -1,0 +1,36 @@
+{
+  "pinned_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "active_backend": "CPU",
+  "current_graph_op": "ggml_flash_attn_ext",
+  "current_k_type": "GGML_TYPE_F16",
+  "current_v_type": "GGML_TYPE_F16",
+  "default_context_types": {
+    "type_k": "GGML_TYPE_F16",
+    "type_v": "GGML_TYPE_F16"
+  },
+  "graph_cast": {
+    "file": "src/llama-graph.cpp",
+    "lines": "2523-2542",
+    "condition": "cparams.flash_attn",
+    "casts": ["F32 -> F16 K", "F32 -> F16 V"]
+  },
+  "precision_parameter": {
+    "name": "dst->op_params[3] / GGML_PREC_F32",
+    "llama_value": "GGML_PREC_F32",
+    "meaning": "F32 accumulation/precision mode, not F32 KV-cache storage"
+  },
+  "cpu_path": {
+    "function": "ggml_compute_forward_flash_attn_ext_f16",
+    "dispatcher": "ggml_compute_forward_flash_attn_ext",
+    "f32_kv_supported": true,
+    "f32_accumulation": true,
+    "selection": "V type F32 selects VKQ32/F32 accumulation branch"
+  },
+  "et_path": {
+    "function": "ggml_et_op_flash_attn_ext",
+    "f32_kernel": "flash_attn_ext_f32",
+    "active": false
+  },
+  "first_failed_f32_requirement": "context KV cache types remain F16; graph receives F16 cache views before flash dispatch",
+  "canonical_patch_touches_attention_precision": false
+}

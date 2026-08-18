@@ -1,0 +1,30 @@
+{
+  "mode_a": {
+    "description": "canonical prepared pin, default F16 KV cache and graph casts",
+    "vcur_cont_hash": "9e37b0a2234c59cf",
+    "kqv_out_hash": "50293333ac9ee383",
+    "attn_out_hash": "f0fe17cdbad2f808"
+  },
+  "mode_b": {
+    "description": "temporary diagnostic: F32 type_k/type_v plus graph cast disabled",
+    "vcur_cont_hash": "9e37b0a2234c59cf",
+    "kqv_out_hash": "9e37b0a2234c59cf",
+    "attn_out_hash": "c415092f31bd2d54",
+    "context_hash_equal_to_v": true,
+    "context_max_abs_vs_v": 0,
+    "context_max_rel_vs_v": 0,
+    "hash_equal": true,
+    "numeric_parity": "PASS"
+  },
+  "vbuf": {
+    "context_hash": "9e37b0a2234c59cf",
+    "attn_out_hash": "c415092f31bd2d54",
+    "blk0_output_hash": "9d1c4fbd3b3566c2"
+  },
+  "after_f32": {
+    "attn_out_parity": "PASS",
+    "blk0_output_parity": "FAIL",
+    "llama_blk0_output_hash": "b6abb7f25111c5c5",
+    "position0_logits": "NOT_RUN"
+  }
+}

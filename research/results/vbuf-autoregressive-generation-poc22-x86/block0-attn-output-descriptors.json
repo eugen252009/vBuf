@@ -1,0 +1,30 @@
+{
+  "tensor_mapping": {
+    "llama_name": "blk.0.attn_output.weight",
+    "vbuf_source_name": "blk.0.attn_output.weight",
+    "vbuf_runtime_alias": "blk.1.attn_output.weight",
+    "mapping": "PASS"
+  },
+  "weight": {
+    "shape": [2048, 2048],
+    "logical_elements": 4194304,
+    "type": "GGML_TYPE_IQ2_XXS",
+    "representation": 10,
+    "bytes": 1081344,
+    "gguf_payload_offset": 239009312,
+    "vbuf_payload_offset": 73673984,
+    "llama_ne": [2048, 2048, 1, 1],
+    "llama_nb": [66, 528, 1081344, 1081344],
+    "vbuf_ne": [2048, 2048],
+    "vbuf_nb": "TensorWave logical descriptor; no ggml nb array",
+    "data_alignment_mod_4096": 3616,
+    "descriptor_geometry_match": true
+  },
+  "raw_payload": {
+    "sha256_gguf": "a434525333668d360c4843bb76ae4f84e437b9aff998c4035b2b3f49ddeae5bb",
+    "sha256_vbuf": "a434525333668d360c4843bb76ae4f84e437b9aff998c4035b2b3f49ddeae5bb",
+    "fnv1a_gguf": "7497b69957a16f50",
+    "fnv1a_vbuf": "7497b69957a16f50",
+    "match": true
+  }
+}

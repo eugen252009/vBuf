@@ -1,0 +1,22 @@
+{
+  "audit": "COMPLETE",
+  "first_divergent_stage": "BLOCK_0_ATTENTION_COMPOSITION_BEFORE_OUTPUT_PROJECTION",
+  "original_projection_claim": "DIAGNOSTIC_BOUNDARY_MISIDENTIFIED",
+  "weight_payload_match": true,
+  "immediate_projection_input_match": false,
+  "output_projection_input_source_llama": "kqv_out-0 after ggml_flash_attn_ext",
+  "output_projection_input_source_vbuf": "attention_context after F32 scalar attention",
+  "llama_attention_cast": "F32 K/V cast to F16 before ggml_flash_attn_ext",
+  "independent_single_token_reference": "value vector because sole attention probability is 1",
+  "reference_matches": {
+    "vbuf": true,
+    "llama": false
+  },
+  "root_cause_class": "GGML_KERNEL",
+  "bug_side": "LLAMA_PIN",
+  "bug_cause": "The pinned llama flash-attention path casts F32 K/V to F16 and produces a different position-0 attention output than the F32 scalar reference; the output projection receives this changed operand.",
+  "minimal_fix": "NONE_YET; do not change the pin or runtime until an explicit precision/compatibility policy is approved",
+  "diagnostic_capture_changed_execution": false,
+  "diagnostic_copy_bytes": 16384,
+  "four_position_run": "NOT_EXECUTED"
+}

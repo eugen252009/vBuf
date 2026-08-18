@@ -1,0 +1,8 @@
+{
+  "boundary": "block0_attention_to_dense_ffn",
+  "actual_consumer_operand": "dense_ffn_input",
+  "actual_consumer_hash": "fd017832a837be21",
+  "post_attention_residual_hash": "fd017832a837be21",
+  "wiring": "PASS",
+  "fix": "pass attention_output + residual input to run_dense_layer for block 0"
+}

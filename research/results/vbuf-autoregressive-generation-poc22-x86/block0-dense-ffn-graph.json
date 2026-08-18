@@ -1,0 +1,14 @@
+{
+  "normalized_input_hash": "eb47e70beeb6404b",
+  "operation_sequence": [
+    {"node": "up", "op": "ggml_mul_mat", "inputs": ["blk.0.ffn_up.weight", "ffn_norm"], "output": "ffn_up"},
+    {"node": "gate", "op": "ggml_mul_mat", "inputs": ["blk.0.ffn_gate.weight", "ffn_norm"], "output": "ffn_gate"},
+    {"node": "activation_composition", "op": "silu(gate) * up", "inputs": ["ffn_gate", "ffn_up"], "output": "ffn_swiglu"},
+    {"node": "down", "op": "ggml_mul_mat", "inputs": ["blk.0.ffn_down.weight", "ffn_swiglu"], "output": "ffn_out"}
+  ],
+  "llama_source": "deepseek2.cpp:652-660; llama-graph.cpp:1707-1780",
+  "vbuf_source": "router_driven_moe_poc11.cpp:168-192",
+  "bias": false,
+  "scaling": false,
+  "semantics_identified": true
+}

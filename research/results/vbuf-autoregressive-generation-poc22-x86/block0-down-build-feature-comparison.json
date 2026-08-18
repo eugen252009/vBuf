@@ -1,0 +1,20 @@
+{
+  "llama": {
+    "ggml_commit": "4c1a0af40",
+    "library": "/tmp/opencode/llama.cpp-step21-local-build/bin/libggml-cpu.so",
+    "compiler": "/usr/bin/c++ 14.2.0",
+    "cpu_flags": "-march=native",
+    "compile_macros": ["GGML_USE_CPU_REPACK", "GGML_USE_LLAMAFILE", "GGML_USE_OPENMP"],
+    "runtime_variant": "AVX2_LUT_GEMV"
+  },
+  "vbuf": {
+    "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+    "library": "/tmp/opencode/vbuf-poc19-build/ggml/src/libggml-cpu.so",
+    "compiler": "/usr/bin/c++ 14.2.0",
+    "cpu_flags": "-march=native",
+    "compile_macros": ["GGML_USE_CPU_REPACK"],
+    "runtime_variant": "AVX2_LUT_GEMV"
+  },
+  "ggml_kernel_build_identity_parity": "PARTIAL: different ggml revisions and surrounding flags, same implicated AVX2 kernel variant",
+  "cpu_feature_dispatch_parity": "PASS: both compile and enter AVX2 LUT path"
+}

@@ -1,0 +1,9 @@
+{
+  "boundary": "block0_attention_to_dense_ffn",
+  "actual_consumer_operand": "actual_attention.output",
+  "actual_consumer_hash": "c415092f31bd2d54",
+  "post_attention_residual_hash": "fd017832a837be21",
+  "wiring": "FAIL",
+  "previous_ffn_input_parity_claim": "INVALID",
+  "reason": "the stored residual boundary was compared instead of the actual RMSNorm operand"
+}

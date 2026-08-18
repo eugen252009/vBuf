@@ -1,0 +1,8 @@
+{
+  "unit": "first 256-output GEMV tile",
+  "llama_first8": [0.0278193168, -0.00984827895, 0.0321797282, -0.0381709933, 0.0239735749, -0.0324588083, -0.0156342536, 0.0299322587],
+  "vbuf_first8": [0.0278193168, -0.00984827895, 0.0321797282, -0.0381709933, 0.0239735749, -0.0324588083, -0.0156342536, 0.0299322587],
+  "first_output_unit_identified": "YES",
+  "first_output_unit_parity": "PASS",
+  "first_partial_accumulator_diff": "NONE"
+}

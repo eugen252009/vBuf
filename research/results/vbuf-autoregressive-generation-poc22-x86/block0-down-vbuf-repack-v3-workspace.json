@@ -1,0 +1,11 @@
+{
+  "llama_workspace_bytes": "UNKNOWN",
+  "vbuf_workspace_bytes": "NOT_REACHED",
+  "llama_workspace_alignment": "UNKNOWN",
+  "vbuf_workspace_alignment": "NOT_REACHED",
+  "thread_local_scratch": "UNKNOWN",
+  "shared_scratch": "UNKNOWN",
+  "thread_count": "UNKNOWN",
+  "workspace_contract_parity": "FAIL: required llama workspace state was not captured",
+  "pre_execution_contract_gate": "FAIL"
+}

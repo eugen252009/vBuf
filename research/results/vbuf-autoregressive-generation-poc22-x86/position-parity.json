@@ -1,0 +1,6 @@
+[
+  {"position": 0, "input_token": 0, "reference_argmax": 86711, "runtime_argmax": 86711, "logits_max_abs": 0},
+  {"position": 1, "input_token": 86711, "reference_argmax": 86711, "runtime_argmax": 86711, "logits_max_abs": 0},
+  {"position": 2, "input_token": 86711, "reference_argmax": 86711, "runtime_argmax": 86711, "logits_max_abs": 0},
+  {"position": 3, "input_token": 86711, "reference_argmax": 86711, "runtime_argmax": 86711, "logits_max_abs": 0}
+]

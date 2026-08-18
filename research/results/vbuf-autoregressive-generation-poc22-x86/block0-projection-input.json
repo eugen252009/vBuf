@@ -1,0 +1,29 @@
+{
+  "llama": {
+    "source": "kqv_out-0",
+    "elements": 2048,
+    "shape": [2048, 1],
+    "dtype": "F32",
+    "ne": [2048, 1, 1, 1],
+    "nb": [4, 8192, 8192, 8192],
+    "logical_f32_hash": "50293333ac9ee383",
+    "first8": [0.0120239258, -0.00514984131, 0.0311431885, 0.00433731079, -0.00498199463, -0.0133285522, 0.0114059448, 0.00226020813]
+  },
+  "vbuf": {
+    "source": "attention_context",
+    "elements": 2048,
+    "shape": [2048, 1],
+    "dtype": "F32",
+    "logical_f32_hash": "9e37b0a2234c59cf",
+    "first8": [0.0120244212, -0.00515118148, 0.0311453342, 0.00433723722, -0.00498362351, -0.0133314226, 0.0114051234, 0.00226012385]
+  },
+  "comparison": {
+    "parity": "FAIL",
+    "max_abs": 9.88245e-05,
+    "max_rel": 0.0154622,
+    "mean_abs": 4.11948e-06,
+    "first_diff_index": 0,
+    "vbuf_attention_value_hash": "9e37b0a2234c59cf",
+    "vbuf_attention_value_to_context": "PASS"
+  }
+}

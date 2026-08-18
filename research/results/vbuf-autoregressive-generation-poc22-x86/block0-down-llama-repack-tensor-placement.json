@@ -1,0 +1,14 @@
+{
+  "buffer_base": "same as blk.0 data pointer in audit run; address not stable across runs",
+  "tensor_data_pointer": "0x7f31749f9040 (first run only)",
+  "buffer_offset": 0,
+  "allocated_span_start": 0,
+  "allocated_span_end_exclusive": 12607488,
+  "allocated_span_bytes": 12607488,
+  "alignment": 32,
+  "padding_after": 0,
+  "previous_buffer_tensor": "NONE",
+  "next_buffer_tensor": "blk.1.ffn_down_exps.weight",
+  "next_tensor_offset": 12607488,
+  "placement_parity_across_two_runs": "PASS for offsets/spans; addresses intentionally differ"
+}

@@ -1,0 +1,9 @@
+{
+  "hypothesis": "IQ4_NL raw versus iq4_nl_8x8 execution representation solely explains the down mismatch",
+  "raw_control": "7e-8 difference from llama",
+  "repacked_result": "NaN",
+  "causality_confirmed": false,
+  "reason": "the diagnostic repacked buffer produced an invalid execution result and did not establish descriptor equivalence",
+  "next_experiment": "capture pinned llama post-set_tensor storage and workspace/second-operand state, then validate vBuf against that contract before compute",
+  "permanent_fix_applied": false
+}

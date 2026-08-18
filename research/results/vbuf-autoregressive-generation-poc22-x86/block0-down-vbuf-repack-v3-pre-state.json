@@ -1,0 +1,34 @@
+{
+  "experiment": "vbuf_repack_intervention_3",
+  "persistent_source": {
+    "name": "blk.0.ffn_down.weight",
+    "runtime_alias": "blk.1.ffn_down.weight",
+    "tensor_id": 10006,
+    "source_offset": 83518776,
+    "source_bytes": 12607488,
+    "source_hash": "0c7bdf85b162206b",
+    "logical_type": "IQ4_NL",
+    "logical_shape": [10944, 2048]
+  },
+  "persistent_source_identity_parity": "PASS",
+  "buffer_type": "CPU_REPACK",
+  "buffer_type_parity": "PASS",
+  "buffer_selection_contract_parity": "FAIL: vBuf directly requests CPU_REPACK for the diagnostic down operation; llama selection predicates were not reproduced as a complete selection decision",
+  "pre_set_tensor": {
+    "type": "IQ4_NL",
+    "ne": [10944, 2048, 1, 1],
+    "nb": [18, 6156, 12607488, 12607488],
+    "nbytes": 12607488,
+    "data_pointer": "NOT_CAPTURED",
+    "buffer": "NOT_ALLOCATED",
+    "buffer_type": "CPU_REPACK",
+    "view_src": "NOT_CAPTURED",
+    "view_offs": "NOT_CAPTURED",
+    "op": "expert_down_matmul",
+    "buffer_offset": "NOT_ALLOCATED"
+  },
+  "pre_set_tensor_state_parity": "UNKNOWN: llama pre-set data pointer/buffer state not captured",
+  "run_exit": "stopped before buffer allocation/set_tensor",
+  "first_strict_contract_failure": "BUFFER_SELECTION_CONTRACT_PARITY",
+  "first_runtime_gate_failure": "REPACK_ALLOCATION_PARITY"
+}

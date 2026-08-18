@@ -1,0 +1,20 @@
+{
+  "llama_f32_norm_hash": "eb47e70beeb6404b",
+  "vbuf_norm_hash": "eb47e70beeb6404b",
+  "max_abs": 0.0,
+  "max_rel": 0.0,
+  "mean_abs": 0.0,
+  "reference_matches_llama": true,
+  "reference_matches_vbuf": true,
+  "status": "PASS",
+  "first_values": [
+    0.0454158038,
+    -0.021822283,
+    0.0309605319,
+    0.0232947059,
+    -0.0333764032,
+    -0.0253460407,
+    0.040342126,
+    0.0123842219
+  ]
+}

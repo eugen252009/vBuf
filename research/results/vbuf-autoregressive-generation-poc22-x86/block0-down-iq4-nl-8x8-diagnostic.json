@@ -1,0 +1,11 @@
+{
+  "down_input_hash": "c6ee5d5d36e9c861",
+  "repack_source_identity": "PASS",
+  "repack_trait_observed": "iq4_nl_8x8_q8_0",
+  "repacked_vbuf_hash": "ffa708c5b7d2070b",
+  "repacked_first_values": ["nan", "-nan", "nan", "-nan"],
+  "repacked_vs_llama_max_abs": "NaN",
+  "repacked_vs_llama_mean_abs": "NaN",
+  "repacked_down_parity": "FAIL",
+  "intervention_valid": false
+}

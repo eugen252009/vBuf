@@ -17,6 +17,7 @@ set(VBUF_ML_LIBRARY "" CACHE FILEPATH
 set(VBUF_ML_INCLUDE_DIR "" CACHE PATH
     "Directory containing vBuf-ML native headers, if needed")
 option(VBUF_ENABLE_CUDA "Build the pinned ggml CUDA backend" OFF)
+option(VBUF_ENABLE_CPU_REPACK "Build ggml CPU_REPACK for opt-in contract audits" OFF)
 option(VBUF_BUILD_PROBES "Build disposable substrate qualification probes" ON)
 
 include(FetchContent)
@@ -73,7 +74,7 @@ set(GGML_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GGML_BACKEND_DL OFF CACHE BOOL "" FORCE)
 set(GGML_CPU ON CACHE BOOL "" FORCE)
-set(GGML_CPU_REPACK OFF CACHE BOOL "" FORCE)
+set(GGML_CPU_REPACK ${VBUF_ENABLE_CPU_REPACK} CACHE BOOL "" FORCE)
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 set(GGML_BLAS OFF CACHE BOOL "" FORCE)
 set(GGML_ACCELERATE OFF CACHE BOOL "" FORCE)
@@ -259,6 +260,10 @@ if(VBUF_ML_LIBRARY)
     add_executable(vbuf_deep_stack_poc19 tools/multi_layer_poc16.cpp)
     target_compile_features(vbuf_deep_stack_poc19 PRIVATE cxx_std_17)
     target_link_libraries(vbuf_deep_stack_poc19 PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_autoregressive_poc22 tools/autoregressive_poc22.cpp)
+    target_compile_features(vbuf_autoregressive_poc22 PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_autoregressive_poc22 PRIVATE vbuf_region_executor)
 endif()
 
 message(STATUS "vBuf native substrate")

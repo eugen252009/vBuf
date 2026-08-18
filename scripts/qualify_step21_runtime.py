@@ -1,23 +1,29 @@
 #!/usr/bin/env python3
 """Run the pinned CPU consumer parity qualification after applying the fork patch."""
 from __future__ import annotations
-import argparse, csv, json, os, subprocess, tempfile
+import argparse, csv, hashlib, json, os, subprocess, tempfile
 from pathlib import Path
 PINNED = "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c"
+CANONICAL_PATCH_SHA256 = "b365448a51b9e2801d8b86269317e9396a975f19c9562d9534ed34de25e7cb38"
 
 def run(command, env): return subprocess.run(command, text=True, capture_output=True, check=True, env=env)
 def main() -> int:
     p=argparse.ArgumentParser(); p.add_argument("--root",type=Path,default=Path(__file__).resolve().parents[1]); p.add_argument("--upstream-root",type=Path,default=Path("/tmp/llama.cpp-step21")); p.add_argument("--build-dir",type=Path,default=Path("/tmp/llama.cpp-step21-vbuf-build")); p.add_argument("--output-dir",type=Path,default=None); a=p.parse_args(); root=a.root.resolve(); upstream=a.upstream_root.resolve(); build=a.build_dir.resolve(); out=(a.output_dir or root/"benchmark-results/vbuf-ml-step21").resolve(); out.mkdir(parents=True,exist_ok=True)
     commit=subprocess.check_output(["git","-C",str(upstream),"rev-parse","HEAD"],text=True).strip()
     if commit != PINNED: raise SystemExit(f"wrong pinned checkout: {commit}")
-    patch=root/"patches/llama.cpp/0001-user-metadata-tensor-source.patch"
-    subprocess.run(["git","-C",str(upstream),"apply","--reverse","--check",str(patch)],check=True)
+    canonical_patch=root/"patches/llama.cpp/0000-pinned-step21-canonical.patch"
+    if hashlib.sha256(canonical_patch.read_bytes()).hexdigest() != CANONICAL_PATCH_SHA256:
+        raise SystemExit("canonical pinned llama patch hash mismatch")
+    subprocess.run(["git","-C",str(upstream),"add","-N","src/llama-model-source.h"],check=True)
+    prepared_diff=subprocess.check_output(["git","-C",str(upstream),"diff","--binary",PINNED])
+    if hashlib.sha256(prepared_diff).hexdigest() != CANONICAL_PATCH_SHA256:
+        raise SystemExit("upstream tree is not prepared by the canonical pinned llama patch")
     subprocess.run(["cargo","build","--manifest-path",str(root/"rust/Cargo.toml"),"-p","vbuf-ml"],cwd=root,check=True)
     env=dict(os.environ,LD_LIBRARY_PATH=f"{root/'rust/target/debug'}:{build/'bin'}")
     with tempfile.TemporaryDirectory() as td:
         probe=Path(td)/"step21-qualification"
-        includes=[f"-I{upstream/'include'}",f"-I{upstream/'ggml/include'}",f"-I{root/'integrations/llama.cpp'}"]
-        sources=[root/"integrations/llama.cpp/step21_qualification.cpp",root/"integrations/llama.cpp/llama_vbuf_loader.cpp",root/"integrations/llama.cpp/vbuf_ml_adapter.cpp"]
+        includes=[f"-I{upstream/'include'}",f"-I{upstream/'src'}",f"-I{upstream/'ggml/include'}",f"-I{root/'integrations/llama.cpp'}"]
+        sources=[root/"integrations/llama.cpp/step21_qualification.cpp",root/"integrations/llama.cpp/llama_vbuf_loader.cpp",root/"integrations/llama.cpp/vbuf_ml_adapter.cpp",root/"integrations/llama.cpp/vbuf_direct_source.cpp"]
         cmd=["g++","-O2","-std=c++17",*includes,*map(str,sources),f"-L{root/'rust/target/debug'}",f"-L{build/'bin'}","-lvbuf_ml","-lllama","-lggml","-lggml-cpu","-lggml-base","-lpthread","-ldl","-lm",f"-Wl,-rpath,{root/'rust/target/debug'}",f"-Wl,-rpath,{build/'bin'}","-o",str(probe)]
         subprocess.run(cmd,check=True)
         rows=[]; metadata_rows=[]; logit_rows=[]; generation=[]

@@ -1,0 +1,10 @@
+{
+  "artifact": "research-models/DeepSeek-V2-Lite.IQ1_S.vbuf",
+  "seed_token_ids": [0],
+  "positions": 4,
+  "capacity_bytes": 268435456,
+  "replacement_policy": "COST_AWARE",
+  "block_range": "blk.0..blk.26",
+  "tokenizer_native": false,
+  "sampler": "greedy_argmax"
+}

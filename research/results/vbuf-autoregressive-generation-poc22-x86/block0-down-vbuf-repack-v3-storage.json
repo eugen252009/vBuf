@@ -1,0 +1,18 @@
+{
+  "allocation_gate": {
+    "llama_alloc_bytes": 2711642112,
+    "vbuf_alloc_bytes": 12607488,
+    "llama_alignment": 32,
+    "vbuf_alignment": "NOT_REACHED",
+    "parity": "FAIL",
+    "status": "observed after the selection-contract failure; no allocation was performed by the corrected gate"
+  },
+  "set_tensor_invocation": "NOT_REACHED",
+  "vbuf_repacked_storage_bytes": "NOT_REACHED",
+  "vbuf_repacked_storage_hash": "NOT_REACHED",
+  "expected_llama_storage_hash": "3d8b9543543e6e57",
+  "repacked_storage_hash_parity": "NOT_REACHED",
+  "first_repack_storage_diff_offset": "NOT_REACHED",
+  "kernel_consumed_storage_parity": "NOT_REACHED",
+  "specialized_kernel_executed": "NO"
+}

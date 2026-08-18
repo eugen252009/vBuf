@@ -1,0 +1,12 @@
+{
+  "owner_type": "ggml_backend_buffer_t backed by CPU buffer allocation",
+  "owner_pointer_observed": "0x5577c514a300",
+  "owner_scope": "one ggml_context and one CPU_REPACK buffer",
+  "owner_lifetime": "stored in llama_model::pimpl->ctxs_bufs until model destruction",
+  "allocation_scope": "SHARED_BUFFER",
+  "buffer_type": "CPU_REPACK",
+  "allocation_request_bytes": 2711642112,
+  "physical_allocator": "ggml_aligned_malloc via ggml_backend_cpu_buffer_type_alloc_buffer",
+  "set_tensor_executed": "NO: audit exited after placement and before model data loading",
+  "allocation_owner_identified": "YES"
+}

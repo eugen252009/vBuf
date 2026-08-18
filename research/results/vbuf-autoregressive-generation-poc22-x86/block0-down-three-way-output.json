@@ -1,0 +1,11 @@
+{
+  "raw_vbuf_down_hash": "a5e4a18f6771bf94",
+  "llama_down_hash": "22960c20497db497",
+  "repacked_vbuf_down_hash": "NOT_RUN",
+  "raw_vs_llama_max_abs": 7.45058e-08,
+  "repacked_vs_llama_max_abs": "NOT_RUN",
+  "repacked_vs_llama_max_rel": "NOT_RUN",
+  "repacked_vs_llama_mean_abs": "NOT_RUN",
+  "raw_path_regression": "PASS",
+  "intervention_3_valid": "NO"
+}

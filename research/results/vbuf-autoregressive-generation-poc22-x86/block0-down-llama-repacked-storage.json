@@ -1,0 +1,12 @@
+{
+  "captured": true,
+  "source": "blk.0.ffn_down.weight",
+  "source_payload_hash": "0c7bdf85b162206b",
+  "storage_bytes": 12607488,
+  "storage_hash": "3d8b9543543e6e57",
+  "storage_dump": "/tmp/poc22-llama-repacked-down.bin",
+  "data_offset": 0,
+  "buffer_type": "CPU_REPACK",
+  "trait": "iq4_nl_8x8_q8_0",
+  "required_for_valid_experiment": true
+}

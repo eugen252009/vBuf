@@ -1,0 +1,11 @@
+{
+  "status": "DOWNSTREAM_OF_FIRST_DIVERGENCE",
+  "llama_attn_out_hash": "f0fe17cdbad2f808",
+  "vbuf_attn_out_hash": "c415092f31bd2d54",
+  "elements": 2048,
+  "max_abs": null,
+  "max_rel": null,
+  "mean_abs": null,
+  "first_diff_index": null,
+  "reason": "The audit stopped after proving the immediate projection inputs differ; output-vector numeric comparison is not needed for root-cause attribution."
+}

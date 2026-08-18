@@ -1,0 +1,5 @@
+{
+  "seed_token": 0,
+  "next_tokens": [86711, 86711, 86711, 86711],
+  "full_sequence_parity": "PASS"
+}

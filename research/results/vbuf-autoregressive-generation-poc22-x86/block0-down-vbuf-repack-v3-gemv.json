@@ -1,0 +1,6 @@
+{
+  "llama": {"kernel": "ggml_gemm_iq4_nl_8x8_q8_0", "n": 10944, "nr": 1, "nc": 256, "bs": 2048},
+  "vbuf": "NOT_REACHED",
+  "gemv_geometry_parity": "NOT_REACHED",
+  "specialized_kernel_executed": "NO"
+}

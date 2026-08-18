@@ -1,0 +1,30 @@
+{
+  "common_input": "eb47e70beeb6404b",
+  "up": {
+    "llama_hash": "073e364656538d4f",
+    "vbuf_hash": "073e364656538d4f",
+    "max_abs": 0.0,
+    "parity": "PASS"
+  },
+  "gate": {
+    "llama_hash": "47cadd5e611817d8",
+    "vbuf_hash": "47cadd5e611817d8",
+    "max_abs": 0.0,
+    "parity": "PASS"
+  },
+  "swiglu": {
+    "llama_hash": "c6ee5d5d36e9c861",
+    "vbuf_hash": "c6ee5d5d36e9c861",
+    "max_abs": 0.0,
+    "parity": "PASS"
+  },
+  "down": {
+    "llama_hash": "22960c20497db497",
+    "vbuf_hash": "a5e4a18f6771bf94",
+    "max_abs": 7.45058e-08,
+    "max_rel": 0.000152464,
+    "mean_abs": 6.11762e-09,
+    "first_diff_index": 0,
+    "parity": "FAIL_BITWISE"
+  }
+}

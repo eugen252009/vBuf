@@ -1,0 +1,25 @@
+{
+  "status": "STOPPED_AT_IMMEDIATE_INPUT_MISMATCH",
+  "reference": {
+    "operation": "single-token scalar attention followed by identity output-projection input",
+    "mathematical_reason": "with one key, softmax(score) = 1, so context = V",
+    "matches_vbuf": true,
+    "matches_llama_kqv_out": false
+  },
+  "input_comparison": {
+    "vbuf_attention_value_hash": "9e37b0a2234c59cf",
+    "vbuf_context_hash": "9e37b0a2234c59cf",
+    "llama_vcur_cont_hash": "9e37b0a2234c59cf",
+    "llama_kqv_out_hash": "50293333ac9ee383",
+    "max_abs": 9.88245e-05,
+    "max_rel": 0.0154622,
+    "mean_abs": 4.11948e-06,
+    "first_diff_index": 0
+  },
+  "weight_math": {
+    "dequantized_weight_parity": "NOT_RUN_STOPPED_AT_INPUT",
+    "direct_matrix_parity": "NOT_RUN_STOPPED_AT_INPUT",
+    "transposed_matrix_parity": "NOT_RUN_STOPPED_AT_INPUT",
+    "multiply_convention_match": "NOT_RUN_STOPPED_AT_INPUT"
+  }
+}

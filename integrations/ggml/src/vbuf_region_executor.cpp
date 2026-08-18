@@ -3,7 +3,10 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <limits>
+
+extern ggml_backend_buffer_type_t ggml_backend_cpu_repack_buffer_type(void);
 
 namespace vbuf_ggml {
 namespace {
@@ -38,6 +41,15 @@ void set_detail(std::string * detail, const char * message) {
     if (detail != nullptr) {
         *detail = message;
     }
+}
+
+uint64_t audit_hash(const uint8_t * data, size_t size) {
+    uint64_t hash = 1469598103934665603ULL;
+    for (size_t index = 0; index < size; ++index) {
+        hash ^= data[index];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
 }
 
 } // namespace
@@ -241,6 +253,79 @@ AdapterError BorrowedGgmlTensor::bind_cpu(
         backend_ = nullptr;
         set_detail(detail, "CPU external buffer tensor allocation failed");
         return AdapterError::BackendAllocationFailed;
+    }
+    lease_ = storage.lease;
+    return AdapterError::None;
+}
+
+AdapterError BorrowedGgmlTensor::bind_cpu_repacked(
+    const VbufBorrowedStorage & storage,
+    std::string * detail) {
+    if (buffer_ != nullptr || storage.base == nullptr || storage.size == 0 ||
+        storage.payload_offset > storage.size || geometry_.nbytes > storage.size - storage.payload_offset ||
+        storage.base + storage.payload_offset != payload_) {
+        set_detail(detail, "repacked tensor storage span mismatch");
+        return AdapterError::StorageRangeMismatch;
+    }
+    backend_ = ggml_backend_init_by_type(GGML_BACKEND_DEVICE_TYPE_CPU, nullptr);
+    if (backend_ == nullptr) {
+        set_detail(detail, "CPU backend initialization failed");
+        return AdapterError::BackendUnavailable;
+    }
+    const ggml_backend_buffer_type_t repack_buft = ::ggml_backend_cpu_repack_buffer_type();
+    if (repack_buft == nullptr) {
+        ggml_backend_free(backend_); backend_ = nullptr;
+        set_detail(detail, "CPU repack buffer type unavailable");
+        return AdapterError::BackendUnavailable;
+    }
+    const size_t allocation_size = ggml_backend_buft_get_alloc_size(repack_buft, tensor_);
+    if (std::getenv("VBUF_AUDIT_REPACKED_DOWN") != nullptr)
+        std::fprintf(stderr, "REPACK_DESCRIPTOR raw_nbytes=%zu alloc_bytes=%zu ne0=%lld ne1=%lld nb0=%zu nb1=%zu\n",
+            geometry_.nbytes, allocation_size, static_cast<long long>(tensor_->ne[0]),
+            static_cast<long long>(tensor_->ne[1]), tensor_->nb[0], tensor_->nb[1]);
+    if (std::getenv("VBUF_REPACK_V3_GATE_ONLY") != nullptr &&
+        allocation_size != 2711642112ULL) {
+        std::fprintf(stderr,
+            "VBUF_REPACK_V3_FIRST_FAILED_GATE=REPACK_ALLOCATION_PARITY "
+            "llama_alloc_bytes=2711642112 vbuf_alloc_bytes=%zu alignment=UNKNOWN\n",
+            allocation_size);
+        set_detail(detail, "vBuf intervention 3 stopped before set_tensor: allocation contract mismatch");
+        ggml_backend_free(backend_);
+        backend_ = nullptr;
+        return AdapterError::BackendAllocationFailed;
+    }
+    buffer_ = ggml_backend_buft_alloc_buffer(repack_buft, allocation_size);
+    if (buffer_ == nullptr) {
+        ggml_backend_free(backend_); backend_ = nullptr;
+        set_detail(detail, "CPU repack buffer allocation failed");
+        return AdapterError::BackendAllocationFailed;
+    }
+    void * base = ggml_backend_buffer_get_base(buffer_);
+    if (base == nullptr || ggml_backend_tensor_alloc(buffer_, tensor_, base) != GGML_STATUS_SUCCESS) {
+        ggml_backend_buffer_free(buffer_); buffer_ = nullptr;
+        ggml_backend_free(backend_); backend_ = nullptr;
+        set_detail(detail, "CPU repack tensor initialization failed");
+        return AdapterError::BackendAllocationFailed;
+    }
+    ggml_backend_tensor_set(tensor_, payload_, 0, geometry_.nbytes);
+    if (std::getenv("VBUF_AUDIT_REPACKED_DOWN") != nullptr) {
+        const uint8_t * data = static_cast<const uint8_t *>(tensor_->data);
+        std::fprintf(stderr,
+            "VBUF_REPACK_V3_STORAGE bytes=%zu hash=%016llx data_offset=0 data=%p base=%p\n",
+            geometry_.nbytes,
+            static_cast<unsigned long long>(audit_hash(data, geometry_.nbytes)),
+            tensor_->data, base);
+        std::fprintf(stderr, "REPACK_STORAGE_FIRST16=");
+        for (size_t i = 0; i < 16; ++i) std::fprintf(stderr, "%s%02x", i ? ":" : "", data[i]);
+        std::fprintf(stderr, "\n");
+        static FILE * packed_dump = nullptr;
+        if (packed_dump == nullptr) {
+            packed_dump = std::fopen("/tmp/opencode/vbuf-packed.bin", "wb");
+            if (packed_dump != nullptr) {
+                std::fwrite(data, 1, geometry_.nbytes, packed_dump);
+                std::fflush(packed_dump);
+            }
+        }
     }
     lease_ = storage.lease;
     return AdapterError::None;

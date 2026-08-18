@@ -1,0 +1,7 @@
+{
+  "invariant": "actual_dense_ffn_consumer_input == post_attention_residual_output",
+  "post_attention_residual_hash": "fd017832a837be21",
+  "actual_dense_ffn_input_hash": "fd017832a837be21",
+  "status": "PASS",
+  "observation": "captured at the TensorWave ffn_rms_norm input boundary"
+}

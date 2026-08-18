@@ -1,0 +1,11 @@
+{
+  "cpu_repack_total_buffer_bytes": 2711642112,
+  "blk0_down_logical_bytes": 12607488,
+  "blk0_down_packed_bytes": 12607488,
+  "blk0_down_percent_of_buffer": 0.464939231627,
+  "previous_llama_value_scope": "shared CPU_REPACK buffer for 27 model weight tensors in one ggml context",
+  "previous_vbuf_value_scope": "single diagnostic tensor-local allocation request",
+  "previous_allocation_parity_comparison": "INVALID",
+  "comparison_classification": "INVALID_CROSS_SCOPE_COMPARISON",
+  "supersedes_previous_interpretation": "yes: the 2.7 GB versus 12.6 MB comparison was not tensor-local parity"
+}

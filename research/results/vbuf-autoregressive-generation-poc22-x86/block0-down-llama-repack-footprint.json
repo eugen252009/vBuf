@@ -1,0 +1,9 @@
+{
+  "logical_source_bytes": 12607488,
+  "packed_tensor_storage_bytes": 12607488,
+  "kernel_consumed_weight_bytes": 12607488,
+  "packed_footprint_identified": "YES from prior pinned llama post-set_tensor capture",
+  "buffer_allocated_span_bytes": 12607488,
+  "packed_vs_logical_bytes": "equal in the observed tensor-local storage capture",
+  "set_tensor_in_this_audit": "NO"
+}

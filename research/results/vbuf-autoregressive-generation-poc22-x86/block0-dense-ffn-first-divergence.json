@@ -1,0 +1,15 @@
+{
+  "first_divergent_stage": "DOWN_PROJECTION",
+  "first_divergent_input": "ffn_swiglu",
+  "first_divergent_input_parity": "PASS",
+  "llama_input_hash": "c6ee5d5d36e9c861",
+  "vbuf_input_hash": "c6ee5d5d36e9c861",
+  "llama_output_hash": "22960c20497db497",
+  "vbuf_output_hash": "a5e4a18f6771bf94",
+  "llama_down_execution_note": "blk.0.ffn_down.weight repacked with iq4_nl_8x8",
+  "vbuf_down_execution_note": "raw IQ4_NL descriptor",
+  "descriptor_parity": "FAIL",
+  "weight_payload_cross_side_parity": "NOT_INDEPENDENTLY_CAPTURED",
+  "root_cause_class": "DENSE_FFN_DOWN_DESCRIPTOR",
+  "permanent_fix_applied": false
+}

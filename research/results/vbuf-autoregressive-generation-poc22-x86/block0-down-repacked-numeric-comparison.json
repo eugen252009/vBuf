@@ -1,0 +1,14 @@
+{
+  "llama_output_hash_elementwise_float_bits": "22960c20497db497",
+  "vbuf_repacked_output_hash_elementwise_float_bits": "22960c20497db497",
+  "vbuf_repacked_output_hash_byte_audit": "822669b42e16cde2",
+  "hash_domain_note": "byte-wise and element-wise FNV hashes are different domains",
+  "repacked_vs_llama_max_abs": 0.0,
+  "repacked_vs_llama_max_rel": 0.0,
+  "repacked_vs_llama_mean_abs": 0.0,
+  "repacked_vs_llama_first_diff_index": "NONE",
+  "repacked_vs_raw_max_abs": 7.45058059692e-08,
+  "repacked_vs_raw_mean_abs": 6.11761930003e-09,
+  "repacked_vs_raw_first_diff_index": 0,
+  "repacked_numerical_comparison_captured": "YES"
+}

@@ -1,0 +1,20 @@
+{
+  "path": "pinned llama CPU_REPACK",
+  "kernel_entry": "ggml_gemv_iq4_nl_8x8_q8_0",
+  "packed_weight_hash": "3d8b9543543e6e57",
+  "q8_hash": "d2fd48314bc644ab",
+  "weight_offset_sequence": [0, 1575936, 3151872, 4727808, 6303744, 7879680, 9455616, 11031552],
+  "q8_offset": 0,
+  "dst_offset": 0,
+  "n": 10944,
+  "nr": 1,
+  "nc": 256,
+  "bs": 2048,
+  "ith": "0 and 1 across calls",
+  "nth": 2,
+  "workspace_bytes": 11756,
+  "dst_descriptor": {"type":"F32","nb":[4,8192,8192,8192]},
+  "internal_variant": "AVX2_LUT_GEMV",
+  "compile_avx2": "YES",
+  "absolute_pointers": "run-specific; excluded from semantic comparison"
+}

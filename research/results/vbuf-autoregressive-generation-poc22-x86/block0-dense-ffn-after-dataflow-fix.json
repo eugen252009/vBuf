@@ -1,0 +1,7 @@
+{
+  "llama_dense_ffn_output_hash": "22960c20497db497",
+  "vbuf_dense_ffn_output_hash": "566e627ca93abae9",
+  "status": "FAIL",
+  "first_divergent_stage": "DENSE_FFN",
+  "projection_decomposition": false
+}

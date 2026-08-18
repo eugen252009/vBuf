@@ -1,0 +1,15 @@
+{
+  "llama_post_set_tensor_descriptor": {
+    "type": "IQ4_NL",
+    "ne": [10944, 2048, 1, 1],
+    "nb": [18, 6156, 12607488, 12607488],
+    "nbytes": 12607488,
+    "data_offset": 0,
+    "buffer_type": "CPU_REPACK",
+    "extra_nonnull": true
+  },
+  "vbuf_post_set_tensor_descriptor": "NOT_REACHED",
+  "public_descriptor_parity": "NOT_REACHED",
+  "public_raw_style_descriptor_with_repacked_storage": "UNKNOWN",
+  "previous_stale_descriptor_hypothesis": "UNRESOLVED"
+}

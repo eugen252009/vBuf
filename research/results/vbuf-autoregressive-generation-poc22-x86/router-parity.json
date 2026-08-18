@@ -1,0 +1,9 @@
+{
+  "result": "PASS",
+  "blocks_per_position": 27,
+  "selected_expert_trace": "recurrence-trace.json",
+  "unselected_expert_graphs_created": 0,
+  "unselected_expert_tensors_acquired": 0,
+  "unselected_expert_source_reads": 0,
+  "unselected_expert_materializations": 0
+}

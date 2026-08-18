@@ -1,0 +1,13 @@
+{
+  "intervention_1": {"description": "partial trait-path reproduction", "result": "NaN", "valid": false},
+  "intervention_2": {
+    "description": "CPU_REPACK buffer allocation plus set_tensor path",
+    "trait_reached": "iq4_nl_8x8_q8_0",
+    "result": "NaN",
+    "valid": false,
+    "pre_execution_gate": "FAIL",
+    "reason": "physical storage, descriptor, second-operand, and workspace equivalence were not proven"
+  },
+  "causality_confirmed": false,
+  "permanent_fix_applied": false
+}

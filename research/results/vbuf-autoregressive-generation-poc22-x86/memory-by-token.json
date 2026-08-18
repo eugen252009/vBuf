@@ -1,0 +1,7 @@
+{
+  "peak_active_persistent_bytes": [12607488, 12607488, 12607488, 12607488],
+  "peak_resident_bytes": [268120064, 267624448, 267128832, 267128832],
+  "activation_bytes": "NOT_INSTRUMENTED",
+  "backend_workspace_bytes": "NOT_INSTRUMENTED",
+  "active_average_median_p95_p99_bytes": "NOT_INSTRUMENTED"
+}

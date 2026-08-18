@@ -1,0 +1,9 @@
+{
+  "captured": true,
+  "source_identity": "blk.0.ffn_down.weight, tensor_id=10006, offset=83518776, bytes=12607488, raw_hash=0c7bdf85b162206b",
+  "allocation_bytes": 12607488,
+  "public_descriptor": {"ne": [10944, 2048], "nb": [18, 6156], "nbytes": 12607488},
+  "first16": "29:91:5c:91:8d:0f:70:0f:40:91:32:0e:ef:10:68:91",
+  "storage_hash": "NOT_CAPTURED",
+  "structural_equivalence": "UNKNOWN"
+}

@@ -1,0 +1,18 @@
+{
+  "pinned_llama_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "tensor_local_cpu_repack_supported_by_api": "YES",
+  "context_wide_allocator_required_by_cpu_repack": "NO",
+  "tensor_local_buffer_creation_api": "ggml_backend_cpu_repack_buffer_type -> ggml_backend_buft_alloc_buffer -> ggml_backend_cpu_buffer_type_alloc_buffer",
+  "buffer_init": "ggml_backend_cpu_repack_buffer_init_tensor sets tensor->extra to ggml_repack_get_optimal_repack_type(tensor)",
+  "set_tensor": "ggml_backend_cpu_repack_buffer_set_tensor asserts offset=0 and size=ggml_nbytes(tensor), then calls tensor_traits->repack(tensor,data,size)",
+  "trait_work_size": "ggml_row_size(Q8_0, ggml_nelements(op->src[1])) for GGML_OP_MUL_MAT",
+  "cross_tensor_storage_dependency": "NO",
+  "cross_tensor_dependency_basis": [
+    "repack receives only tensor, source pointer, and tensor-local data_size",
+    "kernel receives tensor-local src0 pointer plus per-operation wdata",
+    "no neighboring tensor lookup or buffer-global table in the observed path"
+  ],
+  "standalone_object_test": "PASS",
+  "vbuf_set_tensor_executed_in_standalone_test": "YES",
+  "specialized_kernel_executed_in_standalone_object_test": "NO"
+}

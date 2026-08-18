@@ -1,0 +1,6 @@
+{
+  "reference_kind": "independent_native_vbuf_reference_graph",
+  "external_pinned_llama_oracle": "NOT_EXECUTED",
+  "seed_token": 0,
+  "next_tokens": [86711, 86711, 86711, 86711]
+}

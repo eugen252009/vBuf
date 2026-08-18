@@ -1,0 +1,41 @@
+{
+  "gate": {
+    "source_name": "blk.0.ffn_gate.weight",
+    "runtime_alias": "blk.1.ffn_gate.weight",
+    "tensor_id": 10007,
+    "representation": 5,
+    "type": "IQ1_S",
+    "shape": [2048, 10944],
+    "source_offset": 74763544,
+    "payload_bytes": 4377600,
+    "raw_hash": "9a2e2c0393e01fbd",
+    "bound_hash": "9a2e2c0393e01fbd",
+    "internal_binding": "PASS"
+  },
+  "up": {
+    "source_name": "blk.0.ffn_up.weight",
+    "runtime_alias": "blk.1.ffn_up.weight",
+    "tensor_id": 10009,
+    "representation": 5,
+    "type": "IQ1_S",
+    "shape": [2048, 10944],
+    "source_offset": 79141160,
+    "payload_bytes": 4377600,
+    "raw_hash": "6468c29135accca6",
+    "bound_hash": "6468c29135accca6",
+    "internal_binding": "PASS"
+  },
+  "down": {
+    "source_name": "blk.0.ffn_down.weight",
+    "runtime_alias": "blk.1.ffn_down.weight",
+    "tensor_id": 10006,
+    "representation": 7,
+    "type": "IQ4_NL",
+    "shape": [10944, 2048],
+    "source_offset": 83518776,
+    "payload_bytes": 12607488,
+    "raw_hash": "0c7bdf85b162206b",
+    "bound_hash": "0c7bdf85b162206b",
+    "internal_binding": "PASS"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "common_down_input_hash": "c6ee5d5d36e9c861",
+  "llama_q8_0_temp_bytes": 11628,
+  "llama_q8_0_hash": "d2fd48314bc644ab",
+  "vbuf_q8_0_temp_bytes": 11628,
+  "vbuf_q8_0_hash": "d2fd48314bc644ab",
+  "q8_geometry": {"block_type": "Q8_0", "row_bytes": 11628, "rows": 1},
+  "q8_0_preparation_parity": "PASS",
+  "q8_0_storage_hash_parity": "PASS"
+}

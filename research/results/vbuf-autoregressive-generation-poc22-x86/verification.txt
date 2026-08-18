@@ -1,0 +1,10 @@
+POC22 affected target build: PASS
+POC21 target build: PASS
+POC22 native recurrence trace: PASS, 4 positions, internal reference graph parity
+Pinned llama.cpp/GGUF autoregressive oracle: NOT_EXECUTED; pinned checkout unavailable
+Repeat determinism run: PASS, two independent runs produced the same four-token sequence
+Full x86 CTest: PASS, 17/17
+git diff --check: PASS
+ccc index: PASS, after final documentation/index refresh
+POC22 overall status: BLOCKED pending pinned llama/GGUF oracle and recurrence-specific failure injection
+push: NO

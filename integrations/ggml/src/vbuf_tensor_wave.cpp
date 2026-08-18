@@ -1,11 +1,24 @@
 #include "vbuf_tensor_wave.h"
 #include "vbuf_materializer.h"
+#include "ggml-cpu.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
 #include <limits>
 #include <unordered_map>
 
 namespace vbuf_ggml {
+
+namespace {
+uint64_t audit_hash(const uint8_t * data, size_t size) {
+    uint64_t hash = 1469598103934665603ULL;
+    for (size_t i = 0; i < size; ++i) { hash ^= data[i]; hash *= 1099511628211ULL; }
+    return hash;
+}
+}
 namespace {
 
 void set_detail(std::string * detail, const char * message) {
@@ -285,19 +298,88 @@ AdapterError TensorDependencyExecutor::execute(
                 storage = storage_provider(*view);
                 trace.input_values_consumed.push_back(values_[input_ref.index].name);
             }
+            if (std::getenv("VBUF_AUDIT_FFN_NORM") != nullptr &&
+                operation.op_id == "ffn_rms_norm" && input_ref.kind == TensorWaveRef::Kind::Persistent) {
+                const PersistentTensorRef & persistent = persistent_[input_ref.index];
+                const uint8_t * actual = storage.base + storage.payload_offset;
+                std::fprintf(stderr,
+                    "FFN_NORM_WEIGHT_AUDIT name=%s tensor_id=%llu source_offset=%llu "
+                    "representation=%u rank=%u elements=%llu bytes=%llu raw_hash=%016llx "
+                    "bound_hash=%016llx bound_representation=%u bound_rank=%u\n",
+                    persistent.name.c_str(), static_cast<unsigned long long>(persistent.tensor_id),
+                    static_cast<unsigned long long>(persistent.source_offset), persistent.view.representation,
+                    persistent.view.rank, static_cast<unsigned long long>(persistent.view.payload_len / sizeof(float)),
+                    static_cast<unsigned long long>(persistent.view.payload_len),
+                    static_cast<unsigned long long>(audit_hash(persistent.view.payload, persistent.view.payload_len)),
+                    static_cast<unsigned long long>(audit_hash(actual, view->payload_len)),
+                    view->representation, view->rank);
+                if (view->payload_len >= 8 * sizeof(float)) {
+                    const float * values = reinterpret_cast<const float *>(actual);
+                    std::fprintf(stderr, "FFN_NORM_WEIGHT_AUDIT_FIRST8=%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g\n",
+                        values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7]);
+                }
+            }
+            if (std::getenv("VBUF_AUDIT_DENSE_FFN") != nullptr &&
+                (operation.op_id == "expert_up_matmul" || operation.op_id == "expert_gate_matmul" ||
+                 operation.op_id == "expert_down_matmul") && input_ref.kind == TensorWaveRef::Kind::Persistent) {
+                const PersistentTensorRef & persistent = persistent_[input_ref.index];
+                const uint8_t * actual = storage.base + storage.payload_offset;
+                std::fprintf(stderr,
+                    "DENSE_FFN_WEIGHT_AUDIT op=%s name=%s tensor_id=%llu source_offset=%llu "
+                    "representation=%u rank=%u dims=%llu,%llu bytes=%llu raw_hash=%016llx bound_hash=%016llx\n",
+                    operation.op_id.c_str(), persistent.name.c_str(),
+                    static_cast<unsigned long long>(persistent.tensor_id),
+                    static_cast<unsigned long long>(persistent.source_offset), persistent.view.representation,
+                    persistent.view.rank, static_cast<unsigned long long>(persistent.view.dimensions[0]),
+                    static_cast<unsigned long long>(persistent.view.dimensions[1]),
+                    static_cast<unsigned long long>(persistent.view.payload_len),
+                    static_cast<unsigned long long>(audit_hash(persistent.view.payload, persistent.view.payload_len)),
+                    static_cast<unsigned long long>(audit_hash(actual, view->payload_len)));
+            }
             auto tensor = BorrowedGgmlTensor::create(*view, &input_error, error_detail);
             if (!tensor) {
                 ggml_free(context);
                 return input_error;
             }
-            const AdapterError binding_error = tensor->bind_cpu(storage, error_detail);
+            const bool diagnostic_repack = std::getenv("VBUF_AUDIT_REPACKED_DOWN") != nullptr &&
+                operation.op_id == "expert_down_matmul" && input_ref.kind == TensorWaveRef::Kind::Persistent &&
+                persistent_[input_ref.index].name == "blk.1.ffn_down.weight";
+            const AdapterError binding_error = diagnostic_repack
+                ? tensor->bind_cpu_repacked(storage, error_detail)
+                : tensor->bind_cpu(storage, error_detail);
             if (binding_error != AdapterError::None) {
                 ggml_free(context);
                 return binding_error;
             }
+            if (std::getenv("VBUF_REPACK_V3_GATE_ONLY") != nullptr && diagnostic_repack) {
+                const ggml_tensor * repacked = tensor->tensor();
+                std::fprintf(stderr,
+                    "VBUF_REPACK_V3_POST_SET type=%s ne=[%lld,%lld,%lld,%lld] "
+                    "nb=[%zu,%zu,%zu,%zu] nbytes=%zu data=%p buffer=%p\n",
+                    ggml_type_name(repacked->type),
+                    static_cast<long long>(repacked->ne[0]), static_cast<long long>(repacked->ne[1]),
+                    static_cast<long long>(repacked->ne[2]), static_cast<long long>(repacked->ne[3]),
+                    repacked->nb[0], repacked->nb[1], repacked->nb[2], repacked->nb[3],
+                    ggml_nbytes(repacked), repacked->data, tensor->buffer());
+                std::fprintf(stderr,
+                    "VBUF_REPACK_V3_FIRST_FAILED_GATE=WORKSPACE_CONTRACT_PARITY "
+                    "llama_workspace_bytes=UNKNOWN vbuf_workspace_bytes=UNKNOWN\n");
+                ggml_free(context);
+                set_detail(error_detail, "vBuf intervention 3 stopped before kernel: workspace contract unknown");
+                return AdapterError::BackendAllocationFailed;
+            }
             backend = tensor->backend();
+            if (std::getenv("VBUF_AUDIT_LOCAL_KERNEL") != nullptr) {
+                ggml_backend_cpu_set_n_threads(backend, 2);
+            }
             tensors.emplace(static_cast<uint32_t>(&input_ref - operation.inputs.data()), tensor->tensor());
             borrowed.push_back(std::move(tensor));
+        }
+        if (std::getenv("VBUF_AUDIT_FFN_NORM") != nullptr && operation.op_id == "ffn_rms_norm") {
+            std::vector<float> input_values(ggml_nelements(tensors.at(0)));
+            ggml_backend_tensor_get(tensors.at(0), input_values.data(), 0, input_values.size() * sizeof(float));
+            std::fprintf(stderr, "FFN_NORM_INPUT_FIRST8=%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g\n",
+                input_values[0], input_values[1], input_values[2], input_values[3], input_values[4], input_values[5], input_values[6], input_values[7]);
         }
 
         ggml_tensor * result = nullptr;
@@ -329,11 +411,38 @@ AdapterError TensorDependencyExecutor::execute(
             return AdapterError::BackendAllocationFailed;
         }
         ggml_backend_synchronize(backend);
+        if (std::getenv("VBUF_AUDIT_FFN_NORM") != nullptr && operation.op_id == "ffn_rms_norm") {
+            ggml_tensor * unweighted = result->src[0];
+            std::vector<float> values(ggml_nelements(unweighted));
+            ggml_backend_tensor_get(unweighted, values.data(), 0, values.size() * sizeof(float));
+            std::fprintf(stderr, "FFN_NORM_UNWEIGHTED_FIRST8=%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g\n",
+                values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7]);
+        }
         if (execution_observer) execution_observer(operation.op_id.c_str(), "end");
 
         RuntimeValue produced;
         produced.bytes = std::make_shared<std::vector<uint8_t>>(ggml_nbytes(result));
         ggml_backend_tensor_get(result, produced.bytes->data(), 0, produced.bytes->size());
+        if (std::getenv("VBUF_AUDIT_DENSE_FFN") != nullptr &&
+            (operation.op_id == "expert_up_matmul" || operation.op_id == "expert_gate_matmul" ||
+             operation.op_id == "expert_swiglu" || operation.op_id == "expert_down_matmul")) {
+            const size_t count = produced.bytes->size() / sizeof(float);
+            const float * values = reinterpret_cast<const float *>(produced.bytes->data());
+            bool finite = true;
+            for (size_t index = 0; index < count; ++index) finite = finite && std::isfinite(values[index]);
+            std::fprintf(stderr, "DENSE_FFN_BOUNDARY op=%s elements=%zu hash=%016llx first8=",
+                operation.op_id.c_str(), count,
+                static_cast<unsigned long long>(audit_hash(produced.bytes->data(), produced.bytes->size())));
+            for (size_t i = 0; i < std::min<size_t>(8, count); ++i)
+                std::fprintf(stderr, "%s%.9g", i ? "," : "", values[i]);
+            std::fprintf(stderr, " finite=%s\n", finite ? "YES" : "NO");
+            const char * file = operation.op_id == "expert_up_matmul" ? "/tmp/poc22-vbuf-ffn-up.f32" :
+                operation.op_id == "expert_gate_matmul" ? "/tmp/poc22-vbuf-ffn-gate.f32" :
+                operation.op_id == "expert_swiglu" ? "/tmp/poc22-vbuf-ffn-swiglu.f32" :
+                "/tmp/poc22-vbuf-ffn-out.f32";
+            std::ofstream(file, std::ios::binary).write(
+                reinterpret_cast<const char *>(produced.bytes->data()), produced.bytes->size());
+        }
         produced.dimensions = std::make_shared<std::vector<uint64_t>>();
         produced.dimensions->assign(result->ne, result->ne + GGML_MAX_DIMS);
         produced.view = { 0, 2, produced.dimensions->data(), produced.bytes->data(),

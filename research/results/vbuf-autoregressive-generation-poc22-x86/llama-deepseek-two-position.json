@@ -1,0 +1,15 @@
+{
+  "status": "FAIL_EXPECTED_SEQUENCE_MISMATCH",
+  "model": "research-models/DeepSeek-V2-Lite.IQ1_S.gguf",
+  "pinned_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "vocab_size": 102400,
+  "positions": [
+    {"position": 0, "input_token": 0, "argmax_token": 19304, "logits_hash": "53224aeaaba8bfd4"},
+    {"position": 1, "input_token": 19304, "argmax_token": 19304, "logits_hash": "dafdf133e1f6f048"}
+  ],
+  "generated": [19304, 19304],
+  "expected_from_existing_native_evidence": [86711, 86711],
+  "context_reused": true,
+  "generated_token_feedback": true,
+  "four_position_run": "NOT_EXECUTED_AFTER_FIRST_DIVERGENCE"
+}

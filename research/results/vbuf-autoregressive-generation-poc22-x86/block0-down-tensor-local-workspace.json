@@ -1,0 +1,12 @@
+{
+  "llama_threads": 2,
+  "vbuf_threads": 2,
+  "q8_temp_bytes": 11628,
+  "cache_line_slack_per_thread": 64,
+  "llama_workspace_bytes": 11756,
+  "vbuf_workspace_bytes": 11756,
+  "thread_local_scratch": "kernel uses stack-local sum arrays; no separate backend scratch",
+  "shared_scratch": "none beyond q8 temporary and CPU plan slack",
+  "no_separate_workspace": "YES",
+  "workspace_contract_parity": "PASS"
+}

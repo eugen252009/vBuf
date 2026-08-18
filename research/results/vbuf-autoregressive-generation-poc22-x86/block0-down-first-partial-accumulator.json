@@ -1,0 +1,6 @@
+{
+  "traced": false,
+  "reason": "direct pinned and vBuf microkernel calls with identical packed/Q8 buffers produced bitwise-identical full output",
+  "first_partial_accumulator_diff": "NONE",
+  "accumulation_order_parity": "PASS for the implicated AVX2 LUT kernel"
+}

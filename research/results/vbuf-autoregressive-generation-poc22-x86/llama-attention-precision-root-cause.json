@@ -1,0 +1,20 @@
+{
+  "root_cause_class": "ATTENTION_PRECISION_POLICY",
+  "causality_confirmed": true,
+  "active_backend": "CPU",
+  "f32_path_present_at_pin": true,
+  "f32_path": "CPU ggml_compute_forward_flash_attn_ext_f16 with F32 K/V and F32 accumulation",
+  "why_not_selected": "llama_context defaults type_k/type_v to F16 and flash graph explicitly casts F32 K/V to F16",
+  "cast_inserted_by": "LLAMA_GRAPH plus context KV-cache type policy",
+  "backend_rejection": false,
+  "canonical_patch_precision_regression": false,
+  "pristine_pin_has_same_f16_behavior": true,
+  "f16_path_intent": "INTENTIONAL_DEFAULT_POLICY",
+  "f32_diagnostic_context_parity": "PASS",
+  "attn_out_parity_after_f32": "PASS",
+  "blk0_output_parity_after_f32": "FAIL",
+  "permanent_fix_applied": false,
+  "pin_update_required": false,
+  "vbuf_runtime_changed": false,
+  "four_position_run": "NOT_EXECUTED"
+}

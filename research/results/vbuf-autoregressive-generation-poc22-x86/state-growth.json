@@ -1,0 +1,10 @@
+{
+  "state_bytes_before_after": [
+    {"position": 0, "before": 0, "after": 552960, "added": 552960},
+    {"position": 1, "before": 552960, "after": 1105920, "added": 552960},
+    {"position": 2, "before": 1105920, "after": 1658880, "added": 552960},
+    {"position": 3, "before": 1658880, "after": 2211840, "added": 552960}
+  ],
+  "state_alias_violations": 0,
+  "state_bytes_per_additional_token": 552960
+}

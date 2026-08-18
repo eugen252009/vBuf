@@ -1,0 +1,23 @@
+{
+  "buffer_type_name": "CPU_REPACK",
+  "selection_function": "ggml_backend_cpu_repack_buffer_type",
+  "selection_contract": "GGML_OP_MUL_MAT, rank-2 IQ4_NL source, optimal repack trait, F32 second operand",
+  "allocation_function": "ggml_backend_cpu_repack_buffer_type_alloc_buffer",
+  "set_tensor_function": "ggml_backend_cpu_repack_buffer_set_tensor",
+  "repack_function": "tensor_traits->repack",
+  "trait": "iq4_nl_8x8_q8_0",
+  "source_type": "IQ4_NL",
+  "source_shape": [10944, 2048],
+  "source_nbytes": 12607488,
+  "selection_identified": true,
+  "buffer_type_identified": true,
+  "set_tensor_contract_identified": true,
+  "descriptor_dependencies": ["tensor->type", "tensor->ne[]", "tensor->data", "data_size", "buffer type extra trait"]
+  ,"observed_allocation_bytes": 2711642112
+  ,"observed_alignment": 32
+  ,"observed_storage_bytes": 12607488
+  ,"observed_storage_hash": "3d8b9543543e6e57"
+  ,"observed_public_descriptor": {"type": "IQ4_NL", "ne": [10944, 2048, 1, 1], "nb": [18, 6156, 12607488, 12607488], "data_offset": 0}
+  ,"observed_buffer_name": "CPU_REPACK"
+  ,"observed_extra_nonnull": true
+}

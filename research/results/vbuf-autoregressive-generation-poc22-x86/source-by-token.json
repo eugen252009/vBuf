@@ -1,0 +1,8 @@
+{
+  "source_bytes": [608192512, 608192512, 608192512, 512583680],
+  "reload_bytes": [0, 573193216, 581439136, 507817632],
+  "total_tracked_source_bytes": 2337161216,
+  "total_tracked_reload_bytes": 1662449984,
+  "capacity_bytes": 268435456,
+  "policy": "COST_AWARE"
+}

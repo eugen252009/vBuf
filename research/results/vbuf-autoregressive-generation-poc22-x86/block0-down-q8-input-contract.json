@@ -1,0 +1,7 @@
+{
+  "llama_second_operand": "F32 SwiGLU input; CPU repack extra-buffer path prepares the kernel-side Q8_0 operand",
+  "vbuf_second_operand": "F32 SwiGLU input; same CPU backend attempted to prepare the kernel-side operand",
+  "input_hash": "c6ee5d5d36e9c861",
+  "llama_observed_kernel": {"name": "LLAMA_GEMV_IQ4_NL_8X8", "n": 10944, "nr": 1, "nc": 256, "bs": 2048, "q8_bytes": 11628, "q8_hash": "d2fd48314bc644ab"},
+  "preparation_parity": "NOT_PROVEN; LLAMA CONTRACT CAPTURED"
+}

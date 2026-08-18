@@ -1,0 +1,10 @@
+{
+  "down_input_hash": "c6ee5d5d36e9c861",
+  "llama_hash": "22960c20497db497",
+  "raw_vbuf_hash": "a5e4a18f6771bf94",
+  "max_abs": 7.45058e-08,
+  "max_rel": 0.000152464,
+  "mean_abs": 6.11762e-09,
+  "first_diff_index": 0,
+  "raw_path_regression": "PASS"
+}

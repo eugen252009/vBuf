@@ -1,0 +1,7 @@
+{
+  "size_parity": "UNKNOWN",
+  "hash_parity": "UNKNOWN",
+  "first_diff_offset": "UNKNOWN",
+  "semantic_parity": "UNKNOWN",
+  "stop_reason": "llama physical storage was not captured; diagnostic vBuf execution produced NaN"
+}
