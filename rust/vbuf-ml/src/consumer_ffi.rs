@@ -241,7 +241,11 @@ pub unsafe extern "C" fn vbuf_ml_consumer_metadata(handle: *const VbufMlConsumer
         let moe = (*handle).model.view().moe.as_ref().map(|directory| directory.parameters());
         let expert_feed_forward_length = (*handle).model.deepseek_moe_loader().map_or(0, |loader| loader.expert_feed_forward_length as u32);
         let kv_lora_rank = (*handle).model.view().directory.get("blk.0.attn_kv_a_norm.weight").and_then(|tensor| tensor.dimensions.first()).copied().unwrap_or(0) as u32;
-        let rope_dimension = (*handle).model.view().directory.get("blk.0.attn_kv_a_mqa.weight").and_then(|tensor| tensor.dimensions.get(1)).copied().unwrap_or(0).saturating_sub(u64::from(kv_lora_rank)) as u32;
+        let rope_dimension = if value.architecture == "qwen3" {
+            value.key_head_dimension as u32
+        } else {
+            (*handle).model.view().directory.get("blk.0.attn_kv_a_mqa.weight").and_then(|tensor| tensor.dimensions.get(1)).copied().unwrap_or(0).saturating_sub(u64::from(kv_lora_rank)) as u32
+        };
         let leading_dense_block_count = (0..value.layer_count).take_while(|layer| (*handle).model.view().directory.get(&format!("blk.{layer}.ffn_gate_inp.weight")).is_none()).count() as u32;
         *info = VbufMlModelMetadataInfo { context_length: value.context_length, embedding_length: value.embedding_length, layer_count: value.layer_count, head_count: value.head_count, kv_head_count: value.kv_head_count, key_head_dimension: value.key_head_dimension, value_head_dimension: value.value_head_dimension, feed_forward_length: value.feed_forward_length, normalization_epsilon: value.normalization_epsilon, rope_theta: value.rope_theta, expert_count: moe.map_or(0, |parameters| parameters.expert_count), expert_used_count: moe.map_or(0, |parameters| parameters.active_expert_count), expert_shared_count: moe.map_or(0, |parameters| parameters.shared_expert_count), expert_feed_forward_length, leading_dense_block_count, kv_lora_rank, rope_dimension, vocabulary_size: (*handle).model.tokenizer_count().unwrap_or(0) as u32 }; OK
     })).unwrap_or(VALIDATION_ERROR)

@@ -89,6 +89,7 @@ static void set_model_metadata(gguf_context * meta, VbufRuntime & source) {
     gguf_set_val_u32(meta, "qwen3.attention.value_length", static_cast<uint32_t>(info.value_head_dimension));
     gguf_set_val_f32(meta, "qwen3.attention.layer_norm_rms_epsilon", static_cast<float>(info.normalization_epsilon));
     gguf_set_val_f32(meta, "qwen3.rope.freq_base", static_cast<float>(info.rope_theta));
+    gguf_set_val_u32(meta, "qwen3.rope.dimension_count", info.rope_dimension);
 
     source.phase("model_metadata_projection", model_start, step21a_clock::now());
     auto vocab_start = step21a_clock::now();

@@ -1,0 +1,65 @@
+{
+  "phase": "A",
+  "status": "passed",
+  "device": {
+    "model": "Pixel 7 Pro",
+    "android": "17",
+    "abi": "arm64-v8a"
+  },
+  "artifact": {
+    "path": "research-models/Qwen3-0.6B-Q8_0.vbuf",
+    "bytes": 637925504,
+    "sha256": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998"
+  },
+  "apk": {
+    "path": "integrations/android-vbuf-chat/app/build/outputs/apk/debug/app-debug.apk",
+    "sha256": "eb0d3b6cba32d164203c9f5409098925ca5b59449c72e802d7f017422f2e14c5"
+  },
+  "gates": {
+    "adb_install": true,
+    "private_model_copy": true,
+    "native_library_load": true,
+    "vbuf_model_open": {
+      "result": "OPEN_OK qwen3",
+      "load_ms": 1594
+    },
+    "tokenization": true,
+    "prompt_decode": true,
+    "logits": true,
+    "autoregressive_generation": {
+      "result": ", and I'm going to be the one to answer your questions. Please make",
+      "max_tokens": 16,
+      "elapsed_ms": 20560,
+      "generated_token_count": 16,
+      "first_real_token": true,
+      "output_visible_in_ui": true
+    }
+  },
+  "memory": {
+    "native_heap_pss_kib": 734044,
+    "total_pss_kib": 1494872
+  },
+  "runtime_requirements": {
+    "android_inference_worker_stack_bytes": 8388608,
+    "generic_vbuf_stack_policy_changed": false
+  },
+  "qwen3_rope_dimension_projection": {
+    "classification": "VALIDATED_GENERIC_DERIVATION",
+    "authoritative_value": "key_head_dimension",
+    "relation": "qwen3 rope dimension equals key head dimension",
+    "host_rope_dimension": 128,
+    "android_rope_dimension": 128,
+    "parity": "PASS"
+  },
+  "failure_chronology": [
+    { "failure": "libc++_shared.so unavailable", "classification": "Android packaging/build issue", "resolved": true },
+    { "failure": "SIGSEGV during vbuf_ml_consumer_open", "classification": "Android worker stack exhaustion", "resolved": true },
+    { "failure": "Qwen3 RoPE dimension projection mismatch", "classification": "backend metadata projection issue", "resolved": true }
+  ],
+  "notes": [
+    "HTTP Range loading is intentionally not exercised in Phase A.",
+    "The Android worker uses an 8 MiB stack because the parser exceeded the default executor thread stack.",
+    "Qwen3 RoPE dimension is projected in vbuf-ML from the authoritative key-head dimension; no guessed constant or persistent-format change is used.",
+    "Phase A proves local Android ARM64 compute. Remote HTTP Range loading remains unqualified."
+  ]
+}

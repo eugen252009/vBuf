@@ -165,7 +165,7 @@ shared normalized discovery digest is
 | Bounded materialization | PASS | PASS | PASS | PASS |
 | Committed FFI materialization | PASS | PASS | PASS | PASS |
 | Real ggml descriptor | PASS | NOT_QUALIFIED | NOT_QUALIFIED | NOT_QUALIFIED |
-| Bounded ggml compute | PASS | NOT_QUALIFIED | NOT_QUALIFIED | NOT_QUALIFIED |
+| Bounded ggml compute | PASS | NOT_QUALIFIED | PASS (Android local) | NOT_QUALIFIED |
 | Full external token path | NOT_RUN | NOT_QUALIFIED | NOT_QUALIFIED | NOT_QUALIFIED |
 
 Hardware identities and detailed raw results:
@@ -178,6 +178,11 @@ Hardware identities and detailed raw results:
 The table proves storage, source, addressing, materialization, and committed
 FFI portability. It does not imply that every architecture has a qualified
 llama/ggml backend or token-generation path.
+
+The ARM64 Android local-compute result is a separate Phase A proof: the Pixel 7
+Pro opened the local Qwen3-0.6B vBuf artifact and completed bounded real
+autoregressive generation. It does not qualify ARM64 remote/external token
+generation; see [`Android Phase A evidence`](research/results/vbuf-android-arm64-chat-poc/).
 
 ## Shared 32B Proof
 
