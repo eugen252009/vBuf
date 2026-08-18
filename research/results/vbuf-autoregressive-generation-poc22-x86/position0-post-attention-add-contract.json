@@ -1,0 +1,35 @@
+{
+  "diagnostic_mode": "F32_KV",
+  "kv_precision": "F32",
+  "reference_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "operation": "ADD(cur, inpSA)",
+  "llama": {
+    "source_graph": "src/models/deepseek2.cpp:648-650",
+    "backend": "ggml CPU",
+    "implementation": "ggml_compute_forward_add -> ggml_compute_forward_add_non_quantized -> binary_op<op_add>",
+    "implementation_source": "ggml/src/ggml-cpu/ops.cpp:654-666; ggml/src/ggml-cpu/binary-ops.cpp:9-11,50-112,116-142",
+    "types": ["F32", "F32", "F32"],
+    "shapes": [[2048,1,1,1],[2048,1,1,1],[2048,1,1,1]],
+    "strides": [[4,8192,8192,8192],[4,8192,8192,8192],[4,8192,8192,8192]],
+    "broadcast": "none",
+    "aliasing": "out-of-place",
+    "threading": "standard ggml compute params; single-row contiguous operation",
+    "cpu_dispatch": "non-quantized F32 binary add; no quantized path"
+  },
+  "vbuf": {
+    "source_graph": "integrations/ggml/tools/multi_layer_poc16.cpp:505-508",
+    "backend": "native C++ CPU loop",
+    "implementation": "ffn_input_with_residual[i] = actual_attention.output[i] + actual.values[i]",
+    "types": ["float32", "float32", "float32"],
+    "shapes": [[2048,1],[2048,1],[2048,1]],
+    "strides": [[4,8192],[4,8192],[4,8192]],
+    "broadcast": "none",
+    "aliasing": "out-of-place vector",
+    "threading": "single host loop"
+  },
+  "parity": {
+    "descriptor_contract": "PASS",
+    "execution_path": "PASS",
+    "destination": "PASS"
+  }
+}

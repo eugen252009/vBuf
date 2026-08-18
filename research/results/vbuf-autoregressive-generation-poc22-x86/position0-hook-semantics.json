@@ -1,0 +1,22 @@
+{
+  "reference_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "diagnostic_mode": "F32_KV",
+  "kv_precision": "F32",
+  "hash_algorithm": "FNV-1a",
+  "hash_domain": "raw IEEE-754 F32 bit patterns in element order",
+  "hook": "ffn_inp-0",
+  "source_file": "src/models/deepseek2.cpp",
+  "function": "llama_model_deepseek2::graph::graph",
+  "location": "lines 648-649",
+  "attachment": "callback immediately after ggml_add construction",
+  "captured_variable": "ffn_inp",
+  "captured_op": "ADD",
+  "producer_inputs": ["cur = attention output", "inpSA = inpL = pre-attention residual"],
+  "semantic_role": "post-attention residual",
+  "direct_ffn_rmsnorm_operand": true,
+  "actual_ffn_rmsnorm_input_hash": "fd017832a837be21",
+  "hook_hash": "fd017832a837be21",
+  "label_accurate": true,
+  "previous_label_interpretation": "SUPERSEDED_MIXED_MODE_F16_TRACE_HASH",
+  "notes": "The label is accurate in pinned llama graph terms; the F32-KV ADD capture matches the corrected vBuf residual."
+}

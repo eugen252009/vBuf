@@ -1,0 +1,95 @@
+{
+  "scope": {
+    "token": 0,
+    "position": 0,
+    "pinned_llama_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+    "diagnostic_mode": "F32_KV",
+    "kv_precision": "F32",
+    "reference_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+    "hash_algorithm": "FNV-1a",
+    "hash_domain": "raw IEEE-754 F32 bit patterns in element order",
+    "element_type": "F32",
+    "element_count": 2048,
+    "byte_length": 8192
+  },
+  "llama": {
+    "cur": {
+      "name": "attn_out-0 (temporary capture alias for cur)",
+      "producer": "build_attn attention output",
+      "type": "F32",
+      "ne": [2048, 1, 1, 1],
+      "nb": [4, 8192, 8192, 8192],
+      "nbytes": 8192,
+      "hash": "c415092f31bd2d54",
+      "buffer_type": "CPU host",
+      "view_state": "contiguous; no view transform at ADD",
+      "data_pointer_relative_offset": "NOT_EXPOSED_BY_CAPTURE_CALLBACK"
+    },
+    "inpSA": {
+      "name": "Vcur-0 (temporary capture alias for inpSA)",
+      "producer": "inpSA aliases inpL block input",
+      "type": "F32",
+      "ne": [2048, 1, 1, 1],
+      "nb": [4, 8192, 8192, 8192],
+      "nbytes": 8192,
+      "hash": "69c5d6519b190f83",
+      "buffer_type": "CPU host",
+      "view_state": "contiguous; no view transform at ADD",
+      "data_pointer_relative_offset": "NOT_EXPOSED_BY_CAPTURE_CALLBACK"
+    },
+    "add_output": {
+      "name": "ffn_inp-0",
+      "type": "F32",
+      "ne": [2048, 1, 1, 1],
+      "nb": [4, 8192, 8192, 8192],
+      "nbytes": 8192,
+      "hash": "fd017832a837be21",
+      "aliasing": "out-of-place"
+    }
+  },
+  "vbuf": {
+    "cur": {
+      "node": "actual_attention.output",
+      "producer": "compute_token attention output",
+      "type": "float32",
+      "shape": [2048, 1],
+      "strides_bytes": [4, 8192],
+      "nbytes": 8192,
+      "hash": "c415092f31bd2d54",
+      "buffer_type": "CPU host vector",
+      "view_state": "contiguous"
+    },
+    "inpSA": {
+      "node": "actual.values",
+      "producer": "run_sequence input Activation / block-0 embedding",
+      "type": "float32",
+      "shape": [2048, 1],
+      "strides_bytes": [4, 8192],
+      "nbytes": 8192,
+      "hash": "69c5d6519b190f83",
+      "buffer_type": "CPU host vector",
+      "view_state": "contiguous"
+    },
+    "add_output": {
+      "node": "ffn_input_with_residual",
+      "producer": "float32 loop at multi_layer_poc16.cpp:506-508",
+      "type": "float32",
+      "shape": [2048, 1],
+      "strides_bytes": [4, 8192],
+      "nbytes": 8192,
+      "hash": "fd017832a837be21",
+      "aliasing": "out-of-place vector"
+    }
+  },
+  "parity": {
+    "cur_hash": "PASS",
+    "cur_descriptor": "PASS",
+    "inpsa_hash": "PASS",
+    "inpsa_descriptor": "PASS",
+    "hash_domain": "PASS",
+    "add_descriptor_contract": "PASS",
+    "add_execution_path": "PASS",
+    "add_destination": "PASS",
+    "add_output": "PASS"
+  }
+}

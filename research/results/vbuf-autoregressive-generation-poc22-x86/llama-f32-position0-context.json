@@ -1,30 +1,61 @@
 {
-  "mode_a": {
-    "description": "canonical prepared pin, default F16 KV cache and graph casts",
-    "vcur_cont_hash": "9e37b0a2234c59cf",
-    "kqv_out_hash": "50293333ac9ee383",
-    "attn_out_hash": "f0fe17cdbad2f808"
+  "qualification": {
+    "token": 0,
+    "position": 0,
+    "pinned_llama_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+    "llama_diagnostic_mode": "F32_KV",
+    "diagnostic_mode": "F32_KV",
+    "kv_precision": "F32",
+    "reference_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+    "hash_algorithm": "FNV-1a",
+    "hash_domain": "raw IEEE-754 F32 bit patterns in element order",
+    "element_type": "F32",
+    "embedding_parity": "PASS",
+    "qkv_parity": "PASS",
+    "attention_context_parity": "PASS",
+    "attention_output_parity": "PASS",
+    "attention_output_hash": "c415092f31bd2d54",
+    "first_external_divergence_boundary": "NONE_YET_AT_ADD",
+    "llama_ffn_inp_0_hash": "fd017832a837be21",
+    "vbuf_ffn_input_hash": "fd017832a837be21",
+    "ffn_inp_is_direct_ffn_rmsnorm_operand": true,
+    "actual_ffn_rmsnorm_input_hash": "fd017832a837be21",
+    "post_attention_residual_hash": "fd017832a837be21",
+    "ffn_input_boundary_root_cause_class": "NONE_AT_POST_ATTENTION_ADD",
+    "comparison_stopped_at_first_divergence": true,
+    "later_boundaries_qualified": false,
+    "position0_external_oracle": "CONVERGED_THROUGH_POST_ATTENTION_ADD_DOWNSTREAM_UNQUALIFIED",
+    "new_divergence_confirmed": false,
+    "previous_f16_trace_ffn_inp_0_hash": "3d607311e32ecf27",
+    "previous_f16_trace_status": "SUPERSEDED_MIXED_MODE_EVIDENCE",
+    "previous_3d607_evidence": "SUPERSEDED",
+    "previous_3d607_mode": "DEFAULT_F16_KV",
+    "mixed_mode_comparison_valid": false,
+    "divergence_4_confirmed": false,
+    "divergence_4_status": "SUPERSEDED_MIXED_MODE_EVIDENCE",
+    "divergence_4_cause": "CROSS_CONFIGURATION_EVIDENCE_MIXUP"
   },
-  "mode_b": {
-    "description": "temporary diagnostic: F32 type_k/type_v plus graph cast disabled",
-    "vcur_cont_hash": "9e37b0a2234c59cf",
-    "kqv_out_hash": "9e37b0a2234c59cf",
-    "attn_out_hash": "c415092f31bd2d54",
-    "context_hash_equal_to_v": true,
-    "context_max_abs_vs_v": 0,
-    "context_max_rel_vs_v": 0,
-    "hash_equal": true,
-    "numeric_parity": "PASS"
+  "diagnostic_context": {
+    "mode_a": {
+      "description": "canonical prepared pin, default F16 KV cache and graph casts",
+      "vcur_cont_hash": "9e37b0a2234c59cf",
+      "kqv_out_hash": "50293333ac9ee383",
+      "attn_out_hash": "f0fe17cdbad2f808"
+    },
+    "mode_b": {
+      "description": "temporary diagnostic: F32 type_k/type_v plus graph cast disabled",
+      "vcur_cont_hash": "9e37b0a2234c59cf",
+      "kqv_out_hash": "9e37b0a2234c59cf",
+      "attn_out_hash": "c415092f31bd2d54",
+      "context_hash_equal_to_v": true,
+      "context_max_abs_vs_v": 0,
+      "context_max_rel_vs_v": 0,
+      "hash_equal": true,
+      "numeric_parity": "PASS"
+    }
   },
-  "vbuf": {
-    "context_hash": "9e37b0a2234c59cf",
-    "attn_out_hash": "c415092f31bd2d54",
-    "blk0_output_hash": "9d1c4fbd3b3566c2"
-  },
-  "after_f32": {
-    "attn_out_parity": "PASS",
-    "blk0_output_parity": "FAIL",
-    "llama_blk0_output_hash": "b6abb7f25111c5c5",
-    "position0_logits": "NOT_RUN"
+  "downstream_scope": {
+    "qualified": false,
+    "reason": "downstream boundaries were outside the bounded ADD qualification scope"
   }
 }

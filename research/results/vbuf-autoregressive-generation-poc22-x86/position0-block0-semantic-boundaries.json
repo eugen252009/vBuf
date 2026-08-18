@@ -1,0 +1,30 @@
+{
+  "token": 0,
+  "position": 0,
+  "reference_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "diagnostic_mode": "F32_KV",
+  "kv_precision": "F32",
+  "hash_domain": "FNV-1a over raw IEEE-754 F32 bit patterns in tensor order",
+  "boundaries": [
+    {"semantic_name":"block_input_residual","llama_node":"inpL / inpSA","op":"INPUT_ALIAS","hash":"69c5d6519b190f83","producer":"token embedding","consumer":"attn_norm-0; ffn_inp ADD","source":"src/models/deepseek2.cpp:454,470-474"},
+    {"semantic_name":"attention_rmsnorm_input","llama_node":"inpL","op":"RMS_NORM input","hash":"69c5d6519b190f83","producer":"embedding","consumer":"attn_norm-0","source":"src/models/deepseek2.cpp:474"},
+    {"semantic_name":"attention_rmsnorm_output","llama_node":"attn_norm-0","op":"RMS_NORM + weight","hash":"c92b4d34c0160a28","producer":"build_norm","consumer":"Q/K/V projections","source":"src/models/deepseek2.cpp:474-475"},
+    {"semantic_name":"q","llama_node":"q-0","op":"MUL_MAT","hash":"ddc768f806ab7888","producer":"attn_norm-0","consumer":"Q construction","source":"src/models/deepseek2.cpp:524"},
+    {"semantic_name":"k","llama_node":"Kcur-0","op":"CONCAT / RoPE","hash":"fa9bffc62bd69b63","producer":"KV projection and views","consumer":"attention","source":"src/models/deepseek2.cpp:626-641"},
+    {"semantic_name":"v","llama_node":"Vcur_cont-0","op":"CONTIGUOUS","hash":"9e37b0a2234c59cf","producer":"V view","consumer":"attention","source":"src/models/deepseek2.cpp:617-624"},
+    {"semantic_name":"attention_context","llama_node":"kqv_out-0","op":"FLASH_ATTN_EXT output","hash":"9e37b0a2234c59cf","producer":"attention","consumer":"output projection","source":"src/models/deepseek2.cpp:602-604 or :639-641"},
+    {"semantic_name":"attention_output","llama_node":"cur before ffn_inp","op":"attention output projection","hash":"c415092f31bd2d54","producer":"build_attn","consumer":"ffn_inp ADD","source":"src/models/deepseek2.cpp:602-604 or :639-641"},
+    {"semantic_name":"post_attention_residual","llama_node":"ffn_inp-0","op":"ADD","hash":"fd017832a837be21","producer":"ADD(cur, inpSA)","consumer":"FFN RMSNorm; post-FFN residual ADD","source":"src/models/deepseek2.cpp:648-652,692"},
+    {"semantic_name":"actual_ffn_rmsnorm_input","llama_node":"ffn_inp","op":"RMS_NORM input","hash":"fd017832a837be21","producer":"ffn_inp ADD","consumer":"RMS_NORM","source":"src/models/deepseek2.cpp:651; src/llama-graph.cpp:1556-1565"},
+    {"semantic_name":"ffn_rmsnorm_output","llama_node":"ffn_norm-0","op":"RMS_NORM + MUL(weight)","hash":"NOT_QUALIFIED","producer":"RMS_NORM","consumer":"dense FFN","source":"src/models/deepseek2.cpp:651-659","parity_qualified":false},
+    {"semantic_name":"ffn_gate_up_inputs","llama_node":"ffn_norm-0 output","op":"FFN input","hash":"NOT_QUALIFIED","producer":"ffn_norm-0","consumer":"dense FFN gate/up","source":"src/models/deepseek2.cpp:654-659","parity_qualified":false}
+  ],
+  "comparison": {
+    "vbuf_corrected_post_attention_residual_hash":"fd017832a837be21",
+    "semantic_match":"YES",
+    "hash_match":"YES",
+    "previous_3d607_evidence":"SUPERSEDED_DEFAULT_F16_KV_TRACE",
+    "first_true_external_divergence":"NONE_YET_AT_ADD",
+    "downstream_parity_claims_after_divergence":"NO"
+  }
+}

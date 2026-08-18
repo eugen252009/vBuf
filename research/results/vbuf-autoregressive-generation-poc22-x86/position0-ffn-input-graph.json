@@ -1,0 +1,73 @@
+{
+  "scope": {
+    "token": 0,
+    "position": 0,
+    "pinned_llama_commit": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+    "diagnostic_mode": "F32_KV",
+    "kv_precision": "F32",
+    "hash_algorithm": "FNV-1a",
+    "hash_domain": "raw IEEE-754 F32 bit patterns in element order",
+    "element_type": "F32",
+    "downstream_parity_claims": false
+  },
+  "creation_site": {
+    "file": "src/models/deepseek2.cpp",
+    "function": "llama_model_deepseek2::graph::graph",
+    "line": 648,
+    "variable": "ffn_inp",
+    "expression": "ggml_add(ctx0, cur, inpSA)",
+    "op": "ADD",
+    "type": "F32",
+    "ne": [2048, 1, 1, 1],
+    "nb": [4, 8192, 8192, 8192],
+    "hash": "fd017832a837be21",
+    "previous_default_f16_trace_hash": "3d607311e32ecf27",
+    "previous_hash_status": "SUPERSEDED_MIXED_MODE_EVIDENCE"
+  },
+  "producer": {
+    "op": "ADD",
+    "inputs": [
+      {"variable":"cur","semantic_role":"attention_output","hash":"c415092f31bd2d54","source":"src/models/deepseek2.cpp:602-604 or :639-641"},
+      {"variable":"inpSA","semantic_role":"pre_attention_residual / inpL","hash":"69c5d6519b190f83","source":"src/models/deepseek2.cpp:470-474"}
+    ]
+  },
+  "consumers": [
+    {"op":"RMS_NORM","node":"cur","purpose":"block-0 FFN RMSNorm input","source":"src/models/deepseek2.cpp:651-652"},
+    {"op":"ADD","node":"cur","purpose":"post-FFN residual composition","source":"src/models/deepseek2.cpp:692"},
+    {"op":"CALLBACK","node":"ffn_inp-0","purpose":"diagnostic capture immediately after construction","source":"src/models/deepseek2.cpp:649"}
+  ],
+  "actual_ffn_rmsnorm_input": {
+    "node": "ffn_inp",
+    "producer": "ADD(cur, inpSA)",
+    "hash": "fd017832a837be21",
+    "matches_ffn_inp_0": true,
+    "matches_vbuf_corrected": true
+  },
+  "l_out_0": {
+    "semantic_role": "final block-0 output after FFN residual ADD and build_cvec",
+    "producer": "ADD(FFN output, ffn_inp), then build_cvec",
+    "source": "src/models/deepseek2.cpp:692-695",
+    "hash": "NOT_QUALIFIED",
+    "parity_qualified": false
+  },
+  "ffn_norm_0": {
+    "semantic_role": "RMSNorm output after weight multiplication",
+    "input_node": "ffn_inp",
+    "producer": "RMS_NORM followed by MUL(weight)",
+    "source": "src/models/deepseek2.cpp:651-652; src/llama-graph.cpp:1556-1588",
+    "hash": "NOT_QUALIFIED",
+    "parity_qualified": false
+  },
+  "classification": {
+    "ffn_inp_hook_location_identified": true,
+    "ffn_inp_hook_semantic_label_accurate": true,
+    "ffn_inp_is_direct_ffn_rmsnorm_operand": true,
+    "post_attention_residual_identified": true,
+    "post_attention_residual_matches_ffn_inp_0": true,
+    "post_attention_residual_matches_vbuf_corrected": true,
+    "root_cause_class": "NONE_AT_POST_ATTENTION_ADD",
+    "new_divergence_confirmed": false,
+    "previous_external_ffn_inp_0": "SUPERSEDED_MIXED_MODE_EVIDENCE",
+    "first_true_external_divergence_boundary": "NONE_YET_AT_ADD"
+  }
+}

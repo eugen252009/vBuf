@@ -11,7 +11,10 @@ The bounded diagnostic set `type_k=GGML_TYPE_F32`, `type_v=GGML_TYPE_F32` in the
 - context numerical parity: exact, max absolute error `0`
 - attention output: `c415092f31bd2d54`, matching vBuf
 
-Block 0 did not fully reconverge: diagnostic llama `l_out-0` was `b6abb7f25111c5c5`, while vBuf was `9d1c4fbd3b3566c2`. The audit stops there; no position-0 logits or later blocks were run in the F32 diagnostic.
+The completed F32-KV position-0 ADD qualification matches both operands and
+the post-attention residual bit-for-bit. The earlier `ffn_inp-0` mismatch was
+from the default F16 trace and is superseded mixed-mode evidence. No later
+block, output, or logit boundary is qualified by the bounded ADD audit.
 
 ## Source Findings
 
