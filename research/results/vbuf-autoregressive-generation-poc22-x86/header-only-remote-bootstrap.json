@@ -1,0 +1,54 @@
+{
+  "primary_motivation": "REMOTE_BOOTSTRAP",
+  "source_artifact": {
+    "path": "research-models/Qwen3-0.6B-Q8_0.vbuf",
+    "bytes": 637925504,
+    "sha256": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998"
+  },
+  "bootstrap": {
+    "path": "model.headers.vbuf (research derivative)",
+    "bytes": 24288,
+    "sha256": "a0ad89c4338e57d6a47ace787b90901a1c11355e204c4d325cafa82b12d58102",
+    "size_ratio": 0.0000380734,
+    "valid_vbuf": true,
+    "generic_reader_validation": "PASS",
+    "payload_bytes_copied": 0
+  },
+  "metadata_discovery": {
+    "structural_digest": "b80a77bbe074dc9e",
+    "header_structural_digest": "b80a77bbe074dc9e",
+    "structural_parity": "PASS",
+    "complete_current_vbuf_ml_discovery_parity": "NOT_QUALIFIED",
+    "reason": "TensorDirectory currently resolves local CheckedRange values and has no external source_id TensorRef seam"
+  },
+  "http": {
+    "server": "scripts/range_server.py",
+    "range_used": true,
+    "full_source_downloaded": false,
+    "requests_before_first_payload": 2,
+    "bootstrap_request": {"start": 0, "end": 24287, "bytes": 24288, "status": 206},
+    "first_tensor_request": {"start": 171965160, "end": 173079271, "bytes": 1114112, "status": 206},
+    "bytes_to_metadata_ready": 24288,
+    "bytes_to_first_payload_request": 1138400,
+    "first_tensor_range_resolved_from_bootstrap_only": true,
+    "source_parsed_before_resolution": false
+  },
+  "file_source": {
+    "same_range": true,
+    "range_bytes_match_http": true,
+    "supported_by_same_bootstrap": true
+  },
+  "source_identity_design": {
+    "optional_source_hash_supported": true,
+    "hash_storage": "BINARY",
+    "hash_required_for_valid_vbuf": false,
+    "hash_primary_purpose": "SOURCE_ARTIFACT_IDENTITY",
+    "multiple_hash_headers_allowed": true,
+    "source_uri_alone_stable_identity": false
+  },
+  "arm32": {
+    "full_artifact_mapping_required": false,
+    "persistent_offsets": "u64"
+  },
+  "status": "STRUCTURAL_REMOTE_BOOTSTRAP_PROVEN; COMPLETE_SEMANTIC_BOOTSTRAP_PENDING_EXTERNAL_TENSORREF_DESIGN"
+}

@@ -1,0 +1,78 @@
+{
+  "status": "complete",
+  "primary_motivation": "REMOTE_BOOTSTRAP",
+  "recommendation": "INVESTIGATE_FURTHER",
+  "hardware": {
+    "os": "Debian Linux 6.12.101",
+    "architecture": "x86_64",
+    "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+    "logical_cpus": 16,
+    "compiler": "rustc 1.95.0 LLVM 22.1.2",
+    "optimization": "cargo build --release",
+    "revision": "5c276b0a97082d4432306f5c12510dbf20163a8e"
+  },
+  "method": {
+    "warmups": 3,
+    "samples": 10,
+    "cache": "warm process/file-backed cache",
+    "hash_algorithm": "FNV-1a",
+    "hash_domain": "raw IEEE-754 F32 bit patterns in element order",
+    "element_type": "F32",
+    "base_steps": [8, 16, 32, 64, 128, 256],
+    "header_counts": [32, 128, 377, 1000, 10000]
+  },
+  "actual_337": {
+    "source_bytes": 637925504,
+    "header_only_artifact_bytes": 24288,
+    "canonical_digest": "b80a77bbe074dc9e",
+    "header_scalar_digest": "b80a77bbe074dc9e",
+    "header_simd_digest": "b80a77bbe074dc9e",
+    "canonical_metadata_digest": "b80a77bbe074dc9e",
+    "header_only_metadata_digest": "b80a77bbe074dc9e",
+    "medians_ms": {
+      "current_canonical": 0.016849,
+      "header_only_generic_vbuf": 0.019990,
+      "header_only_scalar": 0.016500,
+      "header_only_simd": 0.019355,
+      "header_only_direct": 0.016500,
+      "header_only_nano": 0.020385
+    },
+    "p95_ms": {
+      "current_canonical": 0.0172,
+      "header_only_generic_vbuf": 0.0201,
+      "header_only_scalar": 0.0166,
+      "header_only_simd": 0.0195,
+      "header_only_direct": 0.0167,
+      "header_only_nano": 0.0212
+    }
+  },
+  "qualification": {
+    "semantic_metadata_parity": "PASS",
+    "header_only_vbuf_validation": "PASS",
+    "generic_vbuf_reader_can_open": "YES",
+    "layout_benefit_confirmed": "NO",
+    "simd_benefit_confirmed": "NO",
+    "nano_benefit_confirmed": "NO",
+    "simd_crossover_header_count": "NONE",
+    "nano_crossover_header_count": "NONE",
+    "cold_cache_measured": false,
+    "remote_source_benefit": "MEASURED_STRUCTURAL_ONLY",
+    "full_model_artifact_bytes": 637925504,
+    "header_only_vbuf_bytes": 24288,
+    "bootstrap_size_ratio": 0.0000380734,
+    "bytes_transferred_to_metadata_ready_header_only": 24288,
+    "bytes_transferred_to_first_payload_request": 1138400,
+    "bytes_transferred_to_first_useful_compute": "NOT_MEASURED",
+    "http_range_used": true,
+    "full_source_downloaded": false,
+    "first_tensor_offset": 171965160,
+    "first_tensor_length": 1114112,
+    "first_tensor_range_resolved_from_bootstrap_only": true,
+    "source_artifact_parsed_before_range_resolution": false,
+    "full_source_required_before_range_resolution": false,
+    "file_source_supported_by_same_bootstrap": true,
+    "http_source_supported_by_same_bootstrap": true,
+    "complete_vbuf_ml_discovery_semantic_parity": "NOT_QUALIFIED",
+    "generic_external_tensorref_seam": "MISSING"
+  }
+}

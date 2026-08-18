@@ -1,0 +1,66 @@
+{
+  "status": "complete",
+  "scope": "structural header-only vBuf scaling only",
+  "models": {
+    "qwen3_0_6b": {
+      "name": "Qwen3-0.6B-Q8_0.vbuf",
+      "path": "research-models/Qwen3-0.6B-Q8_0.vbuf",
+      "full_bytes": 637925504,
+      "sha256": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998",
+      "header_only_bytes": 24288,
+      "physical_block_count": 337,
+      "tensor_directory_entries": 310,
+      "model_metadata_entries": 11,
+      "bootstrap_bytes": 64,
+      "tensor_directory_bytes": 13933,
+      "tokenizer_metadata_bytes": 164,
+      "metadata_digest": "b80a77bbe074dc9e"
+    },
+    "qwen3_32b": {
+      "name": "Qwen3-32B-Q8_0.vbuf",
+      "path": "research-models/Qwen3-32B-Q8_0.vbuf",
+      "full_bytes": 34816197376,
+      "sha256": "84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d",
+      "header_only_bytes": 52872,
+      "physical_block_count": 734,
+      "tensor_directory_entries": 707,
+      "model_metadata_entries": 11,
+      "bootstrap_bytes": 96,
+      "tensor_directory_bytes": 31900,
+      "tokenizer_metadata_bytes": 164,
+      "metadata_digest": "f895f4ffd1c04420"
+    }
+  },
+  "growth": {
+    "full_model_size_growth": 54.5772149847,
+    "header_only_size_growth": 2.17687747036,
+    "physical_header_growth": 2.17804154303,
+    "tensor_entry_growth": 2.28064516129,
+    "header_only_grows_sublinear_to_model_bytes": true
+  },
+  "ratios": {
+    "qwen3_0_6b_bootstrap_ratio": 0.0000380734,
+    "qwen3_0_6b_bootstrap_percent": 0.00380734,
+    "qwen3_0_6b_full_to_bootstrap_factor": 26265.0487,
+    "qwen3_32b_bootstrap_ratio": 0.00000151860352,
+    "qwen3_32b_bootstrap_percent": 0.000151860,
+    "qwen3_32b_full_to_bootstrap_factor": 658499.7234
+  },
+  "gates": {
+    "header_only_32b_valid_vbuf": true,
+    "generic_vbuf_reader_opens": true,
+    "structural_validation": "PASS",
+    "model_payload_bytes_copied": 0,
+    "complete_vbuf_ml_discovery_parity": "NOT_QUALIFIED",
+    "simd_rebenchmarked": false,
+    "nano_rebenchmarked": false,
+    "original_vbuf_remains_authoritative": true
+  },
+  "classification": {
+    "remote_bootstrap_scaling": "STRONGLY_FAVORABLE",
+    "array_like_metadata_scaling": "YES",
+    "primary_size_driver": "PHYSICAL_HEADERS",
+    "overall_recommendation": "INVESTIGATE_FURTHER",
+    "next_step": "EXTERNAL_SOURCE_DESCRIPTOR_TENSORREF_SEAM"
+  }
+}

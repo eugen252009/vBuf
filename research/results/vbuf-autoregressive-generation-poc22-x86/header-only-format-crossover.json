@@ -1,0 +1,11 @@
+{
+  "tested_header_counts": [32, 128, 377, 1000, 10000],
+  "tested_base_steps": [8, 16, 32, 64, 128, 256],
+  "simd_crossover_header_count": "NONE",
+  "nano_crossover_header_count": "NONE",
+  "direct_arithmetic_preferred_for_dense_regions": true,
+  "generic_to_scalar_fast_path": "approximately neutral at small BaseStep; scalar/direct slower at larger BaseStep in this POC",
+  "scalar_to_simd": "no positive crossover",
+  "nano": "construction/enumeration overhead exceeded direct traversal",
+  "conclusion": "No measured crossover justifies a production SIMD or Nano fast path."
+}
