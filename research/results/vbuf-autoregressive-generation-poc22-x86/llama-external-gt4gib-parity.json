@@ -1,0 +1,17 @@
+{
+  "status": "PASS_RUST_FFI_BOUNDARY_ONLY",
+  "artifact": "research-models/Qwen3-32B-Q8_0.vbuf",
+  "semantic_bootstrap": "/tmp/opencode/header-only-bench/qwen32.semantic.vbuf",
+  "source_id": 1,
+  "offset": 6056603320,
+  "length": 5570560,
+  "representation": 2,
+  "ggml_type": "GGML_TYPE_Q8_0",
+  "dimensions": [5120, 1024],
+  "payload_sha256": "bfb4d69b99058c659ce075ec794b5d923b8a513ab6b7745a042383aa8dac13bf",
+  "u64_offset_preserved": true,
+  "usize_truncation": false,
+  "full_source_mapped": false,
+  "rust_ffi_source_diagnostic": "PASS",
+  "ggml_boundary": "NOT_REACHED"
+}

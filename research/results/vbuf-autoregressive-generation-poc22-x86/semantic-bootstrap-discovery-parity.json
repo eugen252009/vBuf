@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "normal_parser": "BorrowedModelView::parse_with_sources",
+  "qwen3_0_6b": {
+    "full_artifact_discovery_digest": "b7dd6780cb78545a1471a2893e37049ad42359ee50ce7bfca4dec53d5aeebbbd",
+    "bootstrap_discovery_digest": "b7dd6780cb78545a1471a2893e37049ad42359ee50ce7bfca4dec53d5aeebbbd",
+    "match": true,
+    "payload_bytes_fetched_during_discovery": 0,
+    "source_artifact_parsed_before_range": false
+  },
+  "qwen3_32b": {
+    "full_artifact_discovery_digest": "f731868eafcd1830244c4dbb28c198b13a204e468adb1d89859c127eccce1f3f",
+    "bootstrap_discovery_digest": "f731868eafcd1830244c4dbb28c198b13a204e468adb1d89859c127eccce1f3f",
+    "match": true,
+    "payload_bytes_fetched_during_discovery": 0,
+    "source_artifact_parsed_before_range": false
+  },
+  "digest_scope": [
+    "model metadata values",
+    "tensor names",
+    "tensor shapes",
+    "representations",
+    "normalized authoritative payload offsets and lengths",
+    "token text",
+    "token types and scores",
+    "merge pairs",
+    "special-token controls"
+  ],
+  "source_id_normalization": "SELF and external source IDs are normalized to authoritative offset/length identity"
+}

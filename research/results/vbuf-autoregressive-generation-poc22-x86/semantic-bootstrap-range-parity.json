@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "qwen3_0_6b": [
+    { "ordinal": 0, "offset": 171965160, "length": 1114112, "type": 2, "dimensions": [1024, 1024], "sha256": "6ddf2536fa0d822a56bed013a1c5348a7a1c515c410e47645b1c4da57e133b98" },
+    { "ordinal": 155, "offset": 524221120, "length": 512, "type": 0, "dimensions": [128], "sha256": "a40aab9b087e420bb3b81d53a8924f8253caaa45ff5bf0556e0cd93be4879a7d" },
+    { "ordinal": 309, "offset": 4425912, "length": 165306368, "type": 2, "dimensions": [1024, 151936], "sha256": "98a8baa5023c260fb83a5e4897e17cfbd89f20ba0f27ce356d61ee9dc517f690" }
+  ],
+  "qwen3_32b": [
+    { "ordinal": 0, "offset": 875561240, "length": 5570560, "type": 2, "dimensions": [5120, 1024], "sha256": "837fc968d99159608e2aced336e042b2af1482f8ec9acfce5553a85f17b8fbd2" },
+    { "ordinal": 353, "offset": 20569091712, "length": 512, "type": 0, "dimensions": [128], "sha256": "b091e791c4c42cfc55db556ae8b8bb398ba78baee6d61c6e73cafeb5401572df" },
+    { "ordinal": 706, "offset": 4443880, "length": 826531840, "type": 2, "dimensions": [5120, 151936], "sha256": "d8b93d1194b2618ce8db54fb89cb5a094428885d7d1415eaa0ba88d520813152" },
+    { "ordinal": 22, "offset": 6056603320, "length": 5570560, "type": 2, "dimensions": [5120, 1024], "sha256": "bfb4d69b99058c659ce075ec794b5d923b8a513ab6b7745a042383aa8dac13bf", "offset_above_4gib": true }
+  ],
+  "file_source_tensor_byte_parity": "PASS",
+  "u64_offset_above_4gib": "PASS",
+  "usize_truncation": "NO"
+}

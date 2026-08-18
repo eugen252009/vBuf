@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "llama_revision": "4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "ggml_revision": "embedded-in-llama@4c1a0af40d88c7fbb3b15c85bf2e8016d1d5b64c",
+  "artifact": "research-models/Qwen3-32B-Q8_0.vbuf",
+  "semantic_bootstrap": "/tmp/opencode/header-only-bench/qwen32.semantic.vbuf",
+  "source_id": 1,
+  "tensor_ordinal": 22,
+  "logical_offset": 6056603320,
+  "payload_length": 5570560,
+  "representation": "GGML_Q8_0",
+  "ggml_type": "GGML_TYPE_Q8_0",
+  "dimensions": [5120, 1024],
+  "payload_sha256": "bfb4d69b99058c659ce075ec794b5d923b8a513ab6b7745a042383aa8dac13bf",
+  "external_ggml_descriptor_hash": "98df89a8e04c83d7",
+  "descriptor_binding": "PASS",
+  "full_source_mapped": false,
+  "usize_truncation": false,
+  "logical_offset_crossed_ffi_as_u64": true,
+  "materialized_length_checked": true
+}

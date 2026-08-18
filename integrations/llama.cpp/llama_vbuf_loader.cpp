@@ -26,9 +26,15 @@ static double elapsed_us(step21a_clock::time_point start, step21a_clock::time_po
 static bool trace_enabled() { static const bool enabled = std::getenv("VBUF_STEP22A_TRACE") != nullptr; return enabled; }
 
 struct VbufRuntime {
+    struct PayloadBinding {
+        const uint8_t * data = nullptr;
+        uint64_t bytes = 0;
+        uint64_t source_id = 0;
+        uint64_t source_offset = 0;
+        std::shared_ptr<const void> lease;
+    };
     VbufMlConsumerHandle * handle = nullptr;
-    std::unordered_map<std::string, const uint8_t *> payloads;
-    std::unordered_map<std::string, size_t> sizes;
+    std::unordered_map<std::string, PayloadBinding> payloads;
     std::map<std::string, double> phases;
     uint64_t ffi_calls = 0;
     uint64_t ffi_bytes = 0;
@@ -53,7 +59,9 @@ struct VbufRuntime {
             ++ffi_calls;
             if (vbuf_ml_consumer_tensor_info(handle, i, &info, name, sizeof(name)) != 0) throw std::runtime_error("vBuf tensor descriptor failed");
             ffi_bytes += std::strlen(name);
-            payloads.emplace(name, info.payload); sizes.emplace(name, static_cast<size_t>(info.payload_len));
+            VbufMlTensorSourceInfo source_info{};
+            if (vbuf_ml_consumer_tensor_source(handle, i, &source_info) != 0) throw std::runtime_error("vBuf tensor source descriptor failed");
+            payloads.emplace(name, PayloadBinding { info.payload, info.payload_len, source_info.source_id, source_info.offset, {} });
         }
         phase("cpp_tensor_inventory", inventory_start, step21a_clock::now());
     }
@@ -170,8 +178,8 @@ static void set_tensor_data(ggml_tensor * tensor, void * userdata) {
     ++source.tensor_callbacks;
     auto it = source.payloads.find(ggml_get_name(tensor));
     if (it == source.payloads.end()) throw std::runtime_error(std::string("vBuf payload is missing: ") + ggml_get_name(tensor));
-    if (source.sizes.at(it->first) != ggml_nbytes(tensor)) throw std::runtime_error(std::string("vBuf payload does not match GGML tensor: ") + ggml_get_name(tensor) + " expected=" + std::to_string(ggml_nbytes(tensor)) + " actual=" + std::to_string(source.sizes.at(it->first)));
-    tensor->data = const_cast<uint8_t *>(it->second);
+    if (it->second.bytes != ggml_nbytes(tensor)) throw std::runtime_error(std::string("vBuf payload does not match GGML tensor: ") + ggml_get_name(tensor) + " expected=" + std::to_string(ggml_nbytes(tensor)) + " actual=" + std::to_string(it->second.bytes));
+    tensor->data = const_cast<uint8_t *>(it->second.data);
     source.payload_attachment_us += elapsed_us(callback_start, step21a_clock::now());
 }
 

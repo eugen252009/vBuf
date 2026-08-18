@@ -68,6 +68,13 @@ pub struct VbufMlTensorInfo {
 }
 
 #[repr(C)]
+pub struct VbufMlTensorSourceInfo {
+    pub source_id: u64,
+    pub offset: u64,
+    pub length: u64,
+}
+
+#[repr(C)]
 pub struct VbufMlModelMetadataInfo {
     pub context_length: u64,
     pub embedding_length: u64,
@@ -106,6 +113,18 @@ pub unsafe extern "C" fn vbuf_ml_consumer_open(path: *const c_char) -> *mut Vbuf
     })).unwrap_or(std::ptr::null_mut())
 }
 
+/// Opens a semantic bootstrap using its persisted SourceMetadata profile.
+/// This performs discovery only; it does not materialize external payloads.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_open_metadata(path: *const c_char) -> *mut VbufMlConsumerHandle {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if path.is_null() { return std::ptr::null_mut(); }
+        let Ok(path) = CStr::from_ptr(path).to_str() else { return std::ptr::null_mut(); };
+        let Ok(model) = BorrowedModel::open_persistent(path) else { return std::ptr::null_mut(); };
+        Box::into_raw(Box::new(VbufMlConsumerHandle { model, token_views: std::sync::OnceLock::new(), merge_views: std::sync::OnceLock::new(), tensor_views: std::sync::OnceLock::new(), runtime_indexes: std::sync::OnceLock::new() }))
+    })).unwrap_or(std::ptr::null_mut())
+}
+
 /// # Safety
 /// `handle` must be a pointer returned by `vbuf_ml_consumer_open` and not
 /// previously closed.
@@ -132,7 +151,17 @@ pub unsafe extern "C" fn vbuf_ml_consumer_tensor_physical_range(handle: *const V
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
         if handle.is_null() || offset.is_null() || length.is_null() { return INVALID_ARGUMENT; }
         let Some(tensor) = (*handle).model.view.directory.tensors().get(index as usize) else { return VALIDATION_ERROR; };
-        *offset = tensor.range.offset(); *length = tensor.range.length(); OK
+        *offset = tensor.payload.offset(); *length = tensor.payload.length(); OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_tensor_source(handle: *const VbufMlConsumerHandle, index: u64, info: *mut VbufMlTensorSourceInfo) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || info.is_null() { return INVALID_ARGUMENT; }
+        let Some(tensor) = (*handle).model.view.directory.tensors().get(index as usize) else { return VALIDATION_ERROR; };
+        *info = VbufMlTensorSourceInfo { source_id: tensor.payload.source_id().value(), offset: tensor.payload.offset(), length: tensor.payload.length() };
+        OK
     })).unwrap_or(VALIDATION_ERROR)
 }
 
@@ -172,6 +201,33 @@ pub unsafe extern "C" fn vbuf_ml_consumer_tensor_info(handle: *const VbufMlConsu
         std::ptr::copy_nonoverlapping(bytes.as_ptr(), name_buffer.cast::<u8>(), bytes.len()); *name_buffer.add(bytes.len()) = 0;
         if shape.len() > 16 { return VALIDATION_ERROR; }
         (*info).representation = match kind { ConsumerTensorType::F32 => 0, ConsumerTensorType::Bf16 => 1, ConsumerTensorType::Q8_0 => 2, ConsumerTensorType::Q4_0 => 3, ConsumerTensorType::Q2_K => 4, ConsumerTensorType::IQ1_S => 5, ConsumerTensorType::Q4_K => 6, ConsumerTensorType::IQ4_NL => 7, ConsumerTensorType::IQ4_XS => 8, ConsumerTensorType::Q3_K => 9, ConsumerTensorType::IQ2_XXS => 10, ConsumerTensorType::IQ2_XS => 11, ConsumerTensorType::IQ2_S => 12, ConsumerTensorType::Q5_K => 13 }; (*info).rank = shape.len() as u8; (*info).dimensions = [0; 16]; (&mut (*info).dimensions)[..shape.len()].copy_from_slice(&shape); (*info).payload = payload.as_ptr(); (*info).payload_len = payload.len() as u64; OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// Returns tensor metadata without requiring payload bytes to be locally mapped.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_tensor_descriptor(handle: *const VbufMlConsumerHandle, index: u64, info: *mut VbufMlTensorInfo, name_buffer: *mut c_char, name_capacity: usize) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || info.is_null() || name_buffer.is_null() { return INVALID_ARGUMENT; }
+        let Some(tensor) = (*handle).model.view.directory.tensors().get(index as usize) else { return VALIDATION_ERROR; };
+        let bytes = tensor.name.as_bytes(); if bytes.len().checked_add(1).is_none_or(|needed| needed > name_capacity) { return BUFFER_TOO_SMALL; }
+        if tensor.dimensions.len() > 16 { return VALIDATION_ERROR; }
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), name_buffer.cast::<u8>(), bytes.len()); *name_buffer.add(bytes.len()) = 0;
+        (*info).representation = match tensor.representation { crate::TensorRepresentation::CanonicalPrimitive => 0, crate::TensorRepresentation::Bf16 => 1, crate::TensorRepresentation::GgmlQ8_0 => 2, crate::TensorRepresentation::GgmlQ4_0 => 3, crate::TensorRepresentation::GgmlQ2_K => 4, crate::TensorRepresentation::GgmlIQ1_S => 5, crate::TensorRepresentation::GgmlQ4_K => 6, crate::TensorRepresentation::GgmlIQ4_NL => 7, crate::TensorRepresentation::GgmlIQ4_XS => 8, crate::TensorRepresentation::GgmlQ3_K => 9, crate::TensorRepresentation::GgmlIQ2_XXS => 10, crate::TensorRepresentation::GgmlIQ2_XS => 11, crate::TensorRepresentation::GgmlIQ2_S => 12, crate::TensorRepresentation::GgmlQ5_K => 13 };
+        (*info).rank = tensor.dimensions.len() as u8; (*info).dimensions = [0; 16]; (&mut (*info).dimensions)[..tensor.dimensions.len()].copy_from_slice(&tensor.dimensions); (*info).payload = std::ptr::null(); (*info).payload_len = tensor.payload.length(); OK
+    })).unwrap_or(VALIDATION_ERROR)
+}
+
+/// Binds an already-materialized byte span to a validated tensor descriptor.
+/// No source resolution or I/O occurs in this function.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_tensor_info_with_bytes(handle: *const VbufMlConsumerHandle, index: u64, materialized: *const u8, materialized_len: u64, info: *mut VbufMlTensorInfo, name_buffer: *mut c_char, name_capacity: usize) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if materialized.is_null() && materialized_len != 0 { return INVALID_ARGUMENT; }
+        let status = vbuf_ml_consumer_tensor_descriptor(handle, index, info, name_buffer, name_capacity);
+        if status != OK || (*info).payload_len != materialized_len { return VALIDATION_ERROR; }
+        (*info).payload = materialized;
+        OK
     })).unwrap_or(VALIDATION_ERROR)
 }
 
@@ -307,7 +363,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_tensor_views(handle: *const VbufMlCons
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
         if handle.is_null() || views.is_null() || count.is_null() { return INVALID_ARGUMENT; }
         let handle = &*handle;
-         let table = handle.tensor_views.get_or_init(|| handle.model.view().directory.tensors().iter().map(|tensor| VbufMlTensorView { name: tensor.name.as_ptr().cast(), name_len: tensor.name.len() as u64, representation: match tensor.representation { crate::TensorRepresentation::CanonicalPrimitive => 0, crate::TensorRepresentation::Bf16 => 1, crate::TensorRepresentation::GgmlQ8_0 => 2, crate::TensorRepresentation::GgmlQ4_0 => 3, crate::TensorRepresentation::GgmlQ2_K => 4, crate::TensorRepresentation::GgmlIQ1_S => 5, crate::TensorRepresentation::GgmlQ4_K => 6, crate::TensorRepresentation::GgmlIQ4_NL => 7, crate::TensorRepresentation::GgmlIQ4_XS => 8, crate::TensorRepresentation::GgmlQ3_K => 9, crate::TensorRepresentation::GgmlIQ2_XXS => 10, crate::TensorRepresentation::GgmlIQ2_XS => 11, crate::TensorRepresentation::GgmlIQ2_S => 12, crate::TensorRepresentation::GgmlQ5_K => 13 }, rank: tensor.dimensions.len() as u8, dimensions: tensor.dimensions.as_ptr(), payload: tensor.range.bytes().as_ptr(), payload_len: tensor.range.bytes().len() as u64 }).collect());
+         let table = handle.tensor_views.get_or_init(|| handle.model.view().directory.tensors().iter().map(|tensor| VbufMlTensorView { name: tensor.name.as_ptr().cast(), name_len: tensor.name.len() as u64, representation: match tensor.representation { crate::TensorRepresentation::CanonicalPrimitive => 0, crate::TensorRepresentation::Bf16 => 1, crate::TensorRepresentation::GgmlQ8_0 => 2, crate::TensorRepresentation::GgmlQ4_0 => 3, crate::TensorRepresentation::GgmlQ2_K => 4, crate::TensorRepresentation::GgmlIQ1_S => 5, crate::TensorRepresentation::GgmlQ4_K => 6, crate::TensorRepresentation::GgmlIQ4_NL => 7, crate::TensorRepresentation::GgmlIQ4_XS => 8, crate::TensorRepresentation::GgmlQ3_K => 9, crate::TensorRepresentation::GgmlIQ2_XXS => 10, crate::TensorRepresentation::GgmlIQ2_XS => 11, crate::TensorRepresentation::GgmlIQ2_S => 12, crate::TensorRepresentation::GgmlQ5_K => 13 }, rank: tensor.dimensions.len() as u8, dimensions: tensor.dimensions.as_ptr(), payload: tensor.range.as_ref().map_or(std::ptr::null(), |range| range.bytes().as_ptr()), payload_len: tensor.range.as_ref().map_or(0, |range| range.bytes().len() as u64) }).collect());
         *views = table.as_ptr(); *count = table.len() as u64; OK
     })).unwrap_or(VALIDATION_ERROR)
 }

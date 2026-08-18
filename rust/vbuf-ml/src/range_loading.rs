@@ -9,6 +9,7 @@ use std::marker::PhantomData;
 use std::io;
 use std::path::Path;
 use vbuf_layout::{ByteRange, RangeError};
+use crate::source::{SourceId, TensorRef};
 use crate::tensor_directory::{TensorDescriptor, TensorDirectory};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -20,13 +21,14 @@ pub enum Coalescing {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PhysicalRange {
+    pub source_id: SourceId,
     pub offset: u64,
     pub length: u64,
 }
 
 impl PhysicalRange {
     pub fn end(self) -> Result<u64, RangeLoadError> { self.offset.checked_add(self.length).ok_or(RangeLoadError::ArithmeticOverflow) }
-    fn from_byte_range(range: ByteRange) -> Self { Self { offset: range.offset(), length: range.length() } }
+    fn from_tensor_ref(reference: TensorRef) -> Self { Self { source_id: reference.source_id(), offset: reference.offset(), length: reference.length() } }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -34,7 +36,7 @@ pub struct SelectedTensor<'source> {
     ordinal: usize,
     key_id: u16,
     occurrence: u16,
-    payload: ByteRange,
+    payload: TensorRef,
     _provenance: PhantomData<&'source ()>,
 }
 
@@ -42,7 +44,8 @@ impl SelectedTensor<'_> {
     pub fn ordinal(&self) -> usize { self.ordinal }
     pub fn key_id(&self) -> u16 { self.key_id }
     pub fn occurrence(&self) -> u16 { self.occurrence }
-    pub fn payload_range(&self) -> ByteRange { self.payload }
+    pub fn payload_ref(&self) -> TensorRef { self.payload }
+    pub fn payload_range(&self) -> ByteRange { self.payload.range() }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -66,6 +69,7 @@ pub enum RangeLoadError {
     HostIndexOverflow,
     SelectionOutOfBounds,
     Io,
+    UnknownSource,
 }
 
 impl fmt::Display for RangeLoadError {
@@ -77,6 +81,7 @@ impl fmt::Display for RangeLoadError {
             Self::HostIndexOverflow => "partial-loading range exceeds host indexing",
             Self::SelectionOutOfBounds => "tensor selection is out of bounds",
             Self::Io => "positioned range read failed",
+            Self::UnknownSource => "tensor source ID is not resolved",
         })
     }
 }
@@ -107,31 +112,31 @@ pub fn select_tensor_ordinals<'source>(directory: &'source TensorDirectory<'_>, 
     let mut selected = Vec::with_capacity(ordinals.len());
     for &ordinal in ordinals {
         let tensor = directory.tensors().get(ordinal).ok_or(RangeLoadError::SelectionOutOfBounds)?;
-        selected.push(SelectedTensor { ordinal, key_id: tensor.key_id, occurrence: tensor.occurrence, payload: tensor.range.range(), _provenance: PhantomData });
+        selected.push(SelectedTensor { ordinal, key_id: tensor.key_id, occurrence: tensor.occurrence, payload: tensor.payload, _provenance: PhantomData });
     }
     Ok(selected)
 }
 
 fn selected_from_descriptor<'source>(directory: &'source TensorDirectory<'_>, tensor: &TensorDescriptor<'_>) -> Result<SelectedTensor<'source>, RangeLoadError> {
     let ordinal = directory.tensors().iter().position(|candidate| std::ptr::eq(candidate, tensor)).ok_or(RangeLoadError::SelectionOutOfBounds)?;
-    Ok(SelectedTensor { ordinal, key_id: tensor.key_id, occurrence: tensor.occurrence, payload: tensor.range.range(), _provenance: PhantomData })
+    Ok(SelectedTensor { ordinal, key_id: tensor.key_id, occurrence: tensor.occurrence, payload: tensor.payload, _provenance: PhantomData })
 }
 
 impl<'source> ReadPlan<'source> {
     pub fn build(selected: &[SelectedTensor<'source>], coalescing: Coalescing) -> Result<Self, RangeLoadError> {
         if selected.is_empty() { return Ok(Self { targets: Vec::new(), reads: Vec::new() }); }
-        let mut order: Vec<(usize, ByteRange)> = selected.iter().enumerate().map(|(index, target)| (index, target.payload)).collect();
-        order.sort_by_key(|(_, range)| (range.offset(), range.end()));
+        let mut order: Vec<(usize, TensorRef)> = selected.iter().enumerate().map(|(index, target)| (index, target.payload)).collect();
+        order.sort_by_key(|(_, range)| (range.source_id(), range.offset(), range.end()));
         let mut reads: Vec<PhysicalRange> = Vec::new();
         let mut owners: Vec<(usize, usize, u64)> = Vec::new();
         for (selection_index, range) in order {
-            let candidate = PhysicalRange::from_byte_range(range);
+            let candidate = PhysicalRange::from_tensor_ref(range);
             let mut merged = false;
             if let Some((read_index, current)) = reads.iter_mut().enumerate().next_back() {
                 let current_end = current.end()?;
                 let gap = candidate.offset.saturating_sub(current_end);
                 let overlap = candidate.offset < current_end;
-                let allowed = overlap || match coalescing { Coalescing::None => false, Coalescing::ExactAdjacent => candidate.offset <= current_end, Coalescing::Gap(limit) => gap <= limit };
+                let allowed = candidate.source_id == current.source_id && (overlap || match coalescing { Coalescing::None => false, Coalescing::ExactAdjacent => candidate.offset <= current_end, Coalescing::Gap(limit) => gap <= limit });
                 if allowed {
                     let new_end = current_end.max(candidate.end()?);
                     current.length = new_end.checked_sub(current.offset).ok_or(RangeLoadError::ArithmeticOverflow)?;
@@ -162,6 +167,20 @@ pub trait RangeSource {
     fn read_exact_at(&self, offset: u64, destination: &mut [u8]) -> Result<(), RangeLoadError>;
 }
 
+pub trait SourceResolver {
+    fn resolve(&self, source_id: SourceId) -> Option<&dyn RangeSource>;
+}
+
+pub struct SourceSet<'a> { entries: Vec<(SourceId, &'a dyn RangeSource)> }
+
+impl<'a> SourceSet<'a> {
+    pub fn new(entries: Vec<(SourceId, &'a dyn RangeSource)>) -> Self { Self { entries } }
+}
+
+impl SourceResolver for SourceSet<'_> {
+    fn resolve(&self, source_id: SourceId) -> Option<&dyn RangeSource> { self.entries.iter().find(|(id, _)| *id == source_id).map(|(_, source)| *source) }
+}
+
 #[derive(Debug)]
 pub struct LoadedRead {
     pub range: PhysicalRange,
@@ -185,8 +204,13 @@ impl LoadedPlan {
 }
 
 pub fn execute_plan<S: RangeSource>(source: &S, plan: &ReadPlan<'_>) -> Result<LoadedPlan, RangeLoadError> {
+    execute_plan_with_sources(&SourceSet::new(vec![(SourceId::SELF, source)]), plan)
+}
+
+pub fn execute_plan_with_sources<R: SourceResolver>(sources: &R, plan: &ReadPlan<'_>) -> Result<LoadedPlan, RangeLoadError> {
     let mut reads = Vec::with_capacity(plan.reads.len());
     for &range in &plan.reads {
+        let source = sources.resolve(range.source_id).ok_or(RangeLoadError::UnknownSource)?;
         let end = range.end()?;
         if end > source.len() { return Err(RangeLoadError::OutsideSource); }
         let length = usize::try_from(range.length).map_err(|_| RangeLoadError::HostIndexOverflow)?;
@@ -263,7 +287,8 @@ mod tests {
     use super::*;
 
     fn target(ordinal: usize, offset: u64, length: u64) -> SelectedTensor<'static> {
-        SelectedTensor { ordinal, key_id: ordinal as u16, occurrence: 0, payload: ByteRange::new(offset, length).unwrap(), _provenance: PhantomData }
+        let source = crate::source::SourceDescriptor::self_artifact(u64::MAX);
+        SelectedTensor { ordinal, key_id: ordinal as u16, occurrence: 0, payload: TensorRef::new(&source, offset, length).unwrap(), _provenance: PhantomData }
     }
 
     #[test]
@@ -272,8 +297,8 @@ mod tests {
         let b = target(1, 14, 3);
         let c = target(2, 18, 2);
         let exact = ReadPlan::build(&[a, b, c], Coalescing::ExactAdjacent).unwrap();
-        assert_eq!(exact.reads(), &[PhysicalRange { offset: 10, length: 7 }, PhysicalRange { offset: 18, length: 2 }]);
+        assert_eq!(exact.reads(), &[PhysicalRange { source_id: SourceId::SELF, offset: 10, length: 7 }, PhysicalRange { source_id: SourceId::SELF, offset: 18, length: 2 }]);
         let gap = ReadPlan::build(&[a, b, c], Coalescing::Gap(1)).unwrap();
-        assert_eq!(gap.reads(), &[PhysicalRange { offset: 10, length: 10 }]);
+        assert_eq!(gap.reads(), &[PhysicalRange { source_id: SourceId::SELF, offset: 10, length: 10 }]);
     }
 }

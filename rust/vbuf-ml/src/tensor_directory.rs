@@ -1,7 +1,8 @@
 use crate::bootstrap::Bootstrap;
 use crate::error::{MlError, MlErrorCode};
 use crate::region_roles::RegionRole;
-use crate::representations::{representation_from_id, validate_tensor_representation, TensorRepresentation};
+use crate::representations::{representation_from_id, validate_external_tensor_representation, validate_tensor_representation, TensorRepresentation};
+use crate::source::{SourceId, SourceRegistry, TensorRef};
 use vbuf_core::v06::{V06Physical, V06Semantic, ValidatedV06};
 use vbuf_layout::CheckedRange;
 
@@ -37,7 +38,8 @@ pub struct TensorDescriptor<'a> {
     pub key_id: u16,
     pub occurrence: u16,
     pub block_index: usize,
-    pub range: CheckedRange<'a>,
+    pub range: Option<CheckedRange<'a>>,
+    pub payload: TensorRef,
 }
 
 #[derive(Debug)]
@@ -47,6 +49,11 @@ pub struct TensorDirectory<'a> {
 
 impl<'a> TensorDirectory<'a> {
     pub fn parse(validated: &ValidatedV06<'a>, bootstrap: &Bootstrap<'a>) -> Result<Self, MlError> {
+        let registry = SourceRegistry::new(vec![SourceRegistry::self_descriptor(validated.bytes().len() as u64)]).map_err(|_| MlError::new(MlErrorCode::MalformedTensorDirectory, "self source registry is invalid"))?;
+        Self::parse_with_sources(validated, bootstrap, &registry, &[])
+    }
+
+    pub fn parse_with_sources(validated: &ValidatedV06<'a>, bootstrap: &Bootstrap<'a>, sources: &SourceRegistry, external: &[(u16, u16, TensorRef)]) -> Result<Self, MlError> {
         let region = bootstrap.region(RegionRole::TensorDirectory).ok_or_else(|| MlError::new(MlErrorCode::TensorDirectoryMissing, "bootstrap has no tensor directory role"))?;
         let block = validated.blocks().get(region.block_index).ok_or_else(|| MlError::new(MlErrorCode::TensorReferenceMissing, "tensor directory block index is absent"))?;
         if block.semantic != V06Semantic::Opaque || block.physical != V06Physical::Array || block.bit_width != 8 || block.continuation {
@@ -68,7 +75,23 @@ impl<'a> TensorDirectory<'a> {
             if target.continuation {
                 return Err(MlError::new(MlErrorCode::TensorRepresentationMismatch, "continuation tensor values are not supported by profile 0.1"));
             }
-            validate_tensor_representation(raw.representation, &raw.dimensions, target)?;
+            let payload = if let Some((_, _, payload)) = external.iter().find(|(key_id, occurrence, _)| *key_id == raw.key_id && *occurrence == raw.occurrence) {
+                *payload
+            } else {
+                let self_source = sources.get(SourceId::SELF).ok_or_else(|| MlError::new(MlErrorCode::TensorReferenceMissing, "self source descriptor is absent"))?;
+                TensorRef::new(self_source, target.payload_start, target.payload_len).map_err(|_| MlError::new(MlErrorCode::TensorReferenceMissing, "canonical self range is not source-bounded"))?
+            };
+            if payload.source_id() == SourceId::SELF && target.payload_len != 0 {
+                validate_tensor_representation(raw.representation, &raw.dimensions, target)?;
+            } else {
+                validate_external_tensor_representation(raw.representation, &raw.dimensions, target, payload.length())?;
+            }
+            if payload.source_id() == SourceId::SELF && payload.length() != target.payload_len {
+                return Err(MlError::new(MlErrorCode::TensorPayloadSizeMismatch, "external tensor range length does not match canonical tensor geometry"));
+            }
+            if sources.get(payload.source_id()).is_none() {
+                return Err(MlError::new(MlErrorCode::TensorReferenceMissing, "tensor source ID is not registered"));
+            }
             tensors.push(TensorDescriptor {
                 name,
                 dimensions: raw.dimensions,
@@ -76,7 +99,8 @@ impl<'a> TensorDirectory<'a> {
                 key_id: raw.key_id,
                 occurrence: raw.occurrence,
                 block_index: target_index,
-                range: validated.payload_range(target_index)?,
+                range: if payload.source_id() == SourceId::SELF { Some(validated.payload_range(target_index)?) } else { None },
+                payload,
             });
         }
         Ok(Self { tensors })

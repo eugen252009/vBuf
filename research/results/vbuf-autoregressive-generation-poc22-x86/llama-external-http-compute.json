@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "transport": "controlled HTTP Range server",
+  "semantic_bootstrap_local": "/tmp/opencode/header-only-bench/qwen06.semantic.vbuf",
+  "artifact": "Qwen3-0.6B-Q8_0.vbuf",
+  "source_id": 1,
+  "range": { "offset": 524221120, "length": 512 },
+  "http_content_range": "bytes 524221120-524221631/637925504",
+  "http_request_count": 1,
+  "http_bytes_transferred": 512,
+  "payload_sha256": "a40aab9b087e420bb3b81d53a8924f8253caaa45ff5bf0556e0cd93be4879a7d",
+  "compute_operation": "ggml_sum",
+  "local_output": 220.409927,
+  "http_external_output": 220.409927,
+  "output_exact_match": true,
+  "full_source_downloaded": false,
+  "cpp_source_io": false
+}

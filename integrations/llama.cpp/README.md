@@ -75,14 +75,19 @@ GGML_Q8_0          → GGML_TYPE_Q8_0
 
 Model metadata, vocabulary, token types/scores, numeric merge ranks, special
 IDs, `add_bos`, and chat-template storage are projected into the existing GGUF
-metadata API. Tensor payloads are checked against runtime-created GGML tensor
-byte sizes and attached directly from the validated vBuf mmap.
+metadata API. Local tensor payloads are checked against runtime-created GGML
+tensor byte sizes and retain the validated vBuf mmap fast path. The additive
+materialization boundary also accepts an already-materialized external span
+with an exact length and lease; source resolution remains outside C++.
 
 ## Ownership
 
 `llama_model_load_vbuf` retains a vBuf consumer handle in an adapter registry
-keyed by `llama_model *`. The handle owns the mmap and must be released with
-`llama_model_free_vbuf`; GGML tensor backing pointers remain valid until then.
+keyed by `llama_model *`. The handle owns the local mmap and must be released
+with `llama_model_free_vbuf`; GGML tensor backing pointers remain valid until
+then. External materialized descriptors carry an independent lease through the
+same source-independent pointer/length boundary. C++ does not resolve
+`SourceId`, locators, or ranges.
 
 ## Qualification
 

@@ -40,7 +40,7 @@ impl<'a> RangeSource for RecordingSource<'a> {
         let end = usize::try_from(end).map_err(|_| RangeLoadError::HostIndexOverflow)?;
         let source = self.bytes.get(start..end).ok_or(RangeLoadError::OutsideSource)?;
         destination.copy_from_slice(source);
-        self.calls.borrow_mut().push(PhysicalRange { offset, length: destination.len() as u64 });
+        self.calls.borrow_mut().push(PhysicalRange { source_id: vbuf_ml::SourceId::SELF, offset, length: destination.len() as u64 });
         Ok(())
     }
 }

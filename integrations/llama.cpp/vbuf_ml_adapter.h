@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -16,6 +18,7 @@ struct VbufMlTensorInfo {
     const uint8_t * payload;
     uint64_t payload_len;
 };
+struct VbufMlTensorSourceInfo { uint64_t source_id; uint64_t offset; uint64_t length; };
 struct VbufMlModelMetadataInfo {
     uint64_t context_length;
     uint64_t embedding_length;
@@ -37,14 +40,21 @@ struct VbufMlModelMetadataInfo {
     uint32_t vocabulary_size;
 };
 VbufMlConsumerHandle * vbuf_ml_consumer_open(const char * path);
+VbufMlConsumerHandle * vbuf_ml_consumer_open_metadata(const char * path);
 void vbuf_ml_consumer_close(VbufMlConsumerHandle * handle);
 uint32_t vbuf_ml_consumer_tensor_count(const VbufMlConsumerHandle *, uint64_t * count);
 uint32_t vbuf_ml_consumer_token_count(const VbufMlConsumerHandle *, uint64_t * count);
 uint32_t vbuf_ml_consumer_token_type(const VbufMlConsumerHandle *, uint64_t index, int32_t * value);
 uint32_t vbuf_ml_consumer_tensor_physical_range(const VbufMlConsumerHandle *, uint64_t index,
                                                uint64_t * offset, uint64_t * length);
+uint32_t vbuf_ml_consumer_tensor_source(const VbufMlConsumerHandle *, uint64_t index, VbufMlTensorSourceInfo *);
 uint32_t vbuf_ml_consumer_tensor_info(const VbufMlConsumerHandle *, uint64_t index,
-                                      VbufMlTensorInfo *, char * name, size_t name_capacity);
+                                       VbufMlTensorInfo *, char * name, size_t name_capacity);
+uint32_t vbuf_ml_consumer_tensor_descriptor(const VbufMlConsumerHandle *, uint64_t index,
+                                            VbufMlTensorInfo *, char * name, size_t name_capacity);
+uint32_t vbuf_ml_consumer_tensor_info_with_bytes(const VbufMlConsumerHandle *, uint64_t index,
+                                                 const uint8_t * materialized, uint64_t materialized_len,
+                                                 VbufMlTensorInfo *, char * name, size_t name_capacity);
 uint32_t vbuf_ml_consumer_metadata(const VbufMlConsumerHandle *, VbufMlModelMetadataInfo *);
 uint32_t vbuf_ml_consumer_token_text(const VbufMlConsumerHandle *, uint64_t index, char * buffer, size_t capacity);
 uint32_t vbuf_ml_consumer_chat_template(const VbufMlConsumerHandle *, char * buffer, size_t capacity);
@@ -71,6 +81,9 @@ struct TensorDescriptor {
     ggml_type type;
     const uint8_t * payload;
     uint64_t payload_bytes;
+    uint64_t source_id = 0;
+    uint64_t source_offset = 0;
+    std::shared_ptr<const void> payload_lease;
 };
 
 // Descriptor-only first seam. It owns the Rust mapping handle, so payload
@@ -79,6 +92,7 @@ struct TensorDescriptor {
 class VbufMlAdapter {
 public:
     explicit VbufMlAdapter(const char * path);
+    VbufMlAdapter(const char * path, bool metadata_only);
     ~VbufMlAdapter();
     VbufMlAdapter(const VbufMlAdapter &) = delete;
     VbufMlAdapter & operator=(const VbufMlAdapter &) = delete;
@@ -86,6 +100,8 @@ public:
     bool valid() const { return handle_ != nullptr; }
     uint64_t tensor_count() const;
     bool tensor(uint64_t index, TensorDescriptor & out) const;
+    bool tensor_metadata(uint64_t index, TensorDescriptor & out) const;
+    bool tensor_materialized(uint64_t index, const uint8_t * bytes, uint64_t length, std::shared_ptr<const void> lease, TensorDescriptor & out) const;
     bool metadata(VbufMlModelMetadataInfo & out) const;
     bool token_text(uint64_t index, std::string & out) const;
     uint64_t merge_count() const;

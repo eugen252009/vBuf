@@ -1,0 +1,69 @@
+{
+  "status": "blocked",
+  "reason": "existing experimental header-only derivatives are generic valid vBuf but do not contain the current vbuf-ML VBUFML bootstrap/profile regions",
+  "implementation_revision": "working tree after 9e43e0b",
+  "artifact": {
+    "full_0_6b": {
+      "path": "research-models/Qwen3-0.6B-Q8_0.vbuf",
+      "bytes": 637925504,
+      "sha256": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998"
+    },
+    "bootstrap_0_6b": {
+      "path": "/tmp/opencode/header-only-bench/qwen06.headers.vbuf",
+      "bytes": 24288,
+      "generic_vbuf_validation": "PASS",
+      "vbuf_ml_discovery": "BLOCKED_BOOTSTRAP_NOT_FOUND"
+    },
+    "full_32b": {
+      "path": "research-models/Qwen3-32B-Q8_0.vbuf",
+      "bytes": 34816197376,
+      "sha256": "84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d"
+    },
+    "bootstrap_32b": {
+      "path": "/tmp/opencode/header-only-bench/qwen32.headers.vbuf",
+      "bytes": 52872,
+      "generic_vbuf_validation": "PASS",
+      "vbuf_ml_discovery": "NOT_RUN_AFTER_0_6B_BLOCKER"
+    }
+  },
+  "coupling_audit": {
+    "checked_range_coupling_sites": 12,
+    "tensor_directory_local_artifact_assumptions": [
+      "rust/vbuf-ml/src/tensor_directory.rs:40",
+      "rust/vbuf-ml/src/tensor_directory.rs:66-80"
+    ],
+    "borrowed_model_local_artifact_assumptions": [
+      "rust/vbuf-ml/src/consumer.rs:44-46",
+      "rust/vbuf-ml/src/consumer.rs:83-98",
+      "rust/vbuf-ml/src/consumer.rs:118",
+      "rust/vbuf-ml/src/consumer.rs:163-203"
+    ],
+    "runtime_source_agnostic": "PARTIAL"
+  },
+  "seam": {
+    "generic_tensorref_introduced": true,
+    "source_descriptor_introduced": true,
+    "source_id_supported": true,
+    "local_self_source_supported": true,
+    "external_file_locator_supported": true,
+    "external_http_locator_supported": true,
+    "u64_logical_offsets_preserved": true,
+    "payload_bytes_fetched_during_discovery": 0,
+    "source_hashes_binary_optional_multiple": true,
+    "source_hash_forces_full_download": false,
+    "persistent_profile_source_binding": false
+  },
+  "qualification": {
+    "complete_vbuf_ml_discovery_parity": "NOT_REACHED",
+    "tensor_range_identity_parity": "NOT_REACHED",
+    "file_source_tensor_byte_parity": "PASS_CONTRACT_FIXTURE",
+    "http_source_tensor_byte_parity": "NOT_REACHED",
+    "u64_offset_above_4gib": "PASS_CONTRACT_FIXTURE",
+    "external_source_to_compute_vertical_slice": "NOT_REACHED",
+    "header_only_is_valid_vbuf": "YES",
+    "generic_vbuf_reader_can_open": "YES",
+    "second_container_format": "NO",
+    "nano_semantics_changed": "NO",
+    "model_semantics_changed": "NO"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "transport": "controlled HTTP Range server",
+  "source_locator_kind": "https",
+  "qwen3_0_6b": {
+    "bootstrap_bytes_transferred": 4438480,
+    "payload_requests": 3,
+    "payload_bytes_transferred": 166420992,
+    "bytes_to_semantic_discovery_ready": 4438480,
+    "bytes_to_first_payload_completion": 5552592,
+    "full_artifact_bytes": 637925504,
+    "http_tensor_byte_parity": true
+  },
+  "qwen3_32b": {
+    "bootstrap_bytes_transferred": 4472327,
+    "payload_requests": 4,
+    "payload_bytes_transferred": 837673472,
+    "bytes_to_semantic_discovery_ready": 4472327,
+    "bytes_to_first_payload_completion": 10042887,
+    "full_artifact_bytes": 34816197376,
+    "http_tensor_byte_parity": true,
+    "real_offset_above_4gib": true
+  },
+  "http_range_used": true,
+  "full_source_downloaded": false,
+  "source_artifact_parsed_before_range": false,
+  "source_hash_does_not_force_full_download": true,
+  "request_policy": "one bootstrap request plus one exact range request per selected tensor; no batching"
+}

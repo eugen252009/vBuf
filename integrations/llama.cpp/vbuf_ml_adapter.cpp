@@ -3,6 +3,7 @@
 namespace vbuf_llama {
 
 VbufMlAdapter::VbufMlAdapter(const char * path) : handle_(vbuf_ml_consumer_open(path)) {}
+VbufMlAdapter::VbufMlAdapter(const char * path, bool metadata_only) : handle_(metadata_only ? vbuf_ml_consumer_open_metadata(path) : vbuf_ml_consumer_open(path)) {}
 VbufMlAdapter::~VbufMlAdapter() { vbuf_ml_consumer_close(handle_); }
 
 uint64_t VbufMlAdapter::tensor_count() const {
@@ -36,7 +37,33 @@ bool VbufMlAdapter::tensor(uint64_t index, TensorDescriptor & out) const {
     }
     out.payload = info.payload;
     out.payload_bytes = info.payload_len;
+    VbufMlTensorSourceInfo source{};
+    if (vbuf_ml_consumer_tensor_source(handle_, index, &source) != 0) return false;
+    out.source_id = source.source_id; out.source_offset = source.offset;
+    out.payload_lease.reset();
     return true;
+}
+
+bool VbufMlAdapter::tensor_metadata(uint64_t index, TensorDescriptor & out) const {
+    if (!handle_) return false;
+    VbufMlTensorInfo info{}; char name[4096]{};
+    if (vbuf_ml_consumer_tensor_descriptor(handle_, index, &info, name, sizeof(name)) != 0) return false;
+    out.name = name; out.dimensions.assign(info.dimensions, info.dimensions + info.rank);
+    switch (info.representation) { case 0: out.type = GGML_TYPE_F32; break; case 1: out.type = GGML_TYPE_BF16; break; case 2: out.type = GGML_TYPE_Q8_0; break; case 3: out.type = GGML_TYPE_Q4_0; break; case 4: out.type = GGML_TYPE_Q2_K; break; case 5: out.type = GGML_TYPE_IQ1_S; break; case 6: out.type = GGML_TYPE_Q4_K; break; case 7: out.type = GGML_TYPE_IQ4_NL; break; case 8: out.type = GGML_TYPE_IQ4_XS; break; case 9: out.type = GGML_TYPE_Q3_K; break; case 10: out.type = GGML_TYPE_IQ2_XXS; break; case 11: out.type = GGML_TYPE_IQ2_XS; break; case 12: out.type = GGML_TYPE_IQ2_S; break; case 13: out.type = GGML_TYPE_Q5_K; break; default: return false; }
+    out.payload = nullptr; out.payload_bytes = info.payload_len; out.payload_lease.reset();
+    VbufMlTensorSourceInfo source{}; if (vbuf_ml_consumer_tensor_source(handle_, index, &source) != 0) return false;
+    out.source_id = source.source_id; out.source_offset = source.offset; return true;
+}
+
+bool VbufMlAdapter::tensor_materialized(uint64_t index, const uint8_t * bytes, uint64_t length, std::shared_ptr<const void> lease, TensorDescriptor & out) const {
+    if (!handle_) return false;
+    VbufMlTensorInfo info{}; char name[4096]{};
+    if (vbuf_ml_consumer_tensor_info_with_bytes(handle_, index, bytes, length, &info, name, sizeof(name)) != 0) return false;
+    out.name = name; out.dimensions.assign(info.dimensions, info.dimensions + info.rank);
+    switch (info.representation) { case 0: out.type = GGML_TYPE_F32; break; case 1: out.type = GGML_TYPE_BF16; break; case 2: out.type = GGML_TYPE_Q8_0; break; case 3: out.type = GGML_TYPE_Q4_0; break; case 4: out.type = GGML_TYPE_Q2_K; break; case 5: out.type = GGML_TYPE_IQ1_S; break; case 6: out.type = GGML_TYPE_Q4_K; break; case 7: out.type = GGML_TYPE_IQ4_NL; break; case 8: out.type = GGML_TYPE_IQ4_XS; break; case 9: out.type = GGML_TYPE_Q3_K; break; case 10: out.type = GGML_TYPE_IQ2_XXS; break; case 11: out.type = GGML_TYPE_IQ2_XS; break; case 12: out.type = GGML_TYPE_IQ2_S; break; case 13: out.type = GGML_TYPE_Q5_K; break; default: return false; }
+    out.payload = info.payload; out.payload_bytes = info.payload_len; out.payload_lease = std::move(lease);
+    VbufMlTensorSourceInfo source{}; if (vbuf_ml_consumer_tensor_source(handle_, index, &source) != 0) return false;
+    out.source_id = source.source_id; out.source_offset = source.offset; return true;
 }
 
 bool VbufMlAdapter::metadata(VbufMlModelMetadataInfo & out) const {

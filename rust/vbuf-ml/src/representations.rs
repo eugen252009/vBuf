@@ -264,3 +264,31 @@ pub fn validate_tensor_representation(
     }
     Ok(())
 }
+
+/// Validates tensor geometry against an external payload length while the
+/// metadata artifact contains only a zero-length canonical placeholder block.
+pub fn validate_external_tensor_representation(
+    representation: TensorRepresentation,
+    dimensions: &[u64],
+    block: &V06Block,
+    payload_len: u64,
+) -> Result<(), MlError> {
+    let logical_elements = logical_elements(dimensions)?;
+    match representation {
+        TensorRepresentation::CanonicalPrimitive => {
+            if !matches!(block.semantic, V06Semantic::Unsigned | V06Semantic::Signed | V06Semantic::Float) || !block.bit_width.is_multiple_of(8) {
+                return Err(MlError::new(MlErrorCode::TensorRepresentationMismatch, "canonical external primitive does not match tensor geometry"));
+            }
+            let expected = logical_elements.checked_mul(u64::from(block.bit_width / 8)).ok_or_else(|| MlError::new(MlErrorCode::RepresentationArithmeticOverflow, "external tensor payload size overflows u64"))?;
+            if payload_len != expected { return Err(MlError::new(MlErrorCode::TensorPayloadSizeMismatch, "external canonical payload length does not match representation")); }
+        }
+        TensorRepresentation::Bf16 | TensorRepresentation::GgmlQ8_0 | TensorRepresentation::GgmlQ4_0 | TensorRepresentation::GgmlQ2_K | TensorRepresentation::GgmlIQ1_S | TensorRepresentation::GgmlQ4_K | TensorRepresentation::GgmlIQ4_NL | TensorRepresentation::GgmlIQ4_XS | TensorRepresentation::GgmlQ3_K | TensorRepresentation::GgmlIQ2_XXS | TensorRepresentation::GgmlIQ2_XS | TensorRepresentation::GgmlIQ2_S | TensorRepresentation::GgmlQ5_K => {
+            if block.semantic != V06Semantic::Opaque || block.physical != V06Physical::Array || block.bit_width != 8 {
+                return Err(MlError::new(MlErrorCode::TensorRepresentationMismatch, "packed external representation requires an opaque byte array"));
+            }
+            let expected = expected_payload_bytes(representation, dimensions)?;
+            if payload_len != expected { return Err(MlError::new(MlErrorCode::TensorPayloadSizeMismatch, "external packed payload length does not match representation")); }
+        }
+    }
+    Ok(())
+}

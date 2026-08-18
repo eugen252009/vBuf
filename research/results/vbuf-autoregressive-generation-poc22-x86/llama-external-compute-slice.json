@@ -1,0 +1,19 @@
+{
+  "status": "not_reached",
+  "reason": "external llama.cpp/ggml headers and integration build configuration are not present in the workspace",
+  "external_weight_compute_output_parity": "NOT_REACHED",
+  "compute_output_hash_local": null,
+  "compute_output_hash_external": null,
+  "compute_max_abs": null,
+  "compute_max_rel": null,
+  "compute_mean_abs": null,
+  "compute_first_diff_index": null,
+  "file_external_compute_path": "NOT_REACHED",
+  "http_external_compute_path": "NOT_RUN",
+  "token0_position0_external_source_parity": "NOT_RUN",
+  "cpp_source_io_added": false,
+  "http_logic_in_llama_loader": false,
+  "file_io_logic_in_llama_loader": false,
+  "external_full_model_preload_required": false,
+  "llama_integration_source_agnostic_after_materialization": false
+}

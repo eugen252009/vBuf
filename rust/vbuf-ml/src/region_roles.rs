@@ -7,6 +7,7 @@ pub enum RegionRole {
     IntegrityMetadata = 4,
     NestedDirectory = 5,
     MoeDirectory = 6,
+    SourceMetadata = 7,
 }
 
 impl RegionRole {
@@ -18,6 +19,7 @@ impl RegionRole {
             4 => Some(Self::IntegrityMetadata),
             5 => Some(Self::NestedDirectory),
             6 => Some(Self::MoeDirectory),
+            7 => Some(Self::SourceMetadata),
             _ => None,
         }
     }

@@ -53,7 +53,7 @@ fn canonical_fixture_resolves_tensor_directory_through_bootstrap() {
     let bootstrap = Bootstrap::discover(&validated).unwrap();
     let directory = TensorDirectory::parse(&validated, &bootstrap).unwrap();
     assert_eq!(directory.get("layer.0").unwrap().dimensions, vec![2, 2]);
-    assert_eq!(directory.get("scalar").unwrap().range.bytes().len(), 4);
+    assert_eq!(directory.get("scalar").unwrap().range.as_ref().unwrap().bytes().len(), 4);
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn directory_round_trip_reuses_canonical_primitive_semantics() {
     assert_eq!(tensor_directory.tensors().len(), 2);
     assert_eq!(tensor_directory.tensors()[0].name, "layer.0");
     assert_eq!(tensor_directory.get("scalar").unwrap().dimensions, Vec::<u64>::new());
-    assert_eq!(tensor_directory.get("layer.0").unwrap().range.bytes().len(), 16);
+    assert_eq!(tensor_directory.get("layer.0").unwrap().range.as_ref().unwrap().bytes().len(), 16);
 }
 
 fn bytemuck_bytes(values: &[f32]) -> &[u8] {

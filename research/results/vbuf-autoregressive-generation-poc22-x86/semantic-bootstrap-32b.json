@@ -1,0 +1,32 @@
+{
+  "artifact": "Qwen3-32B-Q8_0.vbuf",
+  "full_bytes": 34816197376,
+  "full_sha256": "84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d",
+  "semantic_bootstrap_path": "/tmp/opencode/header-only-bench/qwen32.semantic.vbuf",
+  "semantic_bootstrap_bytes": 4472327,
+  "semantic_bootstrap_sha256": "dc3b0c755b5bbb4949ca813131c3a74bd33ea21368c5ac42c59feb3adfdeb278",
+  "semantic_bootstrap_ratio": 0.00012845535518140556,
+  "full_to_semantic_bootstrap_factor": 7784.805846263031,
+  "structural_derivative_bytes": 52872,
+  "canonical_blocks": 735,
+  "source_id": 1,
+  "source_declared_size": 34816197376,
+  "source_sha256_binary_bytes": 32,
+  "source_hash_algorithm": 1,
+  "source_locator_kind": "file",
+  "source_metadata_bytes": 22783,
+  "source_binding_count": 707,
+  "source_binding_bytes": 22624,
+  "semantic_regions": {
+    "bootstrap": 80,
+    "model_metadata": 104,
+    "tensor_directory": 31900,
+    "tokenizer": 164
+  },
+  "model_payload_bytes_copied": 0,
+  "payload_bytes_fetched_during_discovery": 0,
+  "generic_vbuf_validation": "PASS",
+  "normal_vbuf_ml_parser": "PASS",
+  "complete_discovery_parity": "PASS",
+  "real_tensor_offset_above_4gib": 6056603320
+}

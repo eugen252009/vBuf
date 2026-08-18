@@ -1,0 +1,22 @@
+{
+  "status": "PASS_CONTRACT_ONLY",
+  "full_artifact": "research-models/Qwen3-0.6B-Q8_0.vbuf",
+  "semantic_bootstrap": "/tmp/opencode/header-only-bench/qwen06.semantic.vbuf",
+  "source_id": 1,
+  "tensor": {
+    "ordinal": 0,
+    "offset": 171965160,
+    "length": 1114112,
+    "representation": 2,
+    "ggml_type": "GGML_TYPE_Q8_0",
+    "dimensions": [1024, 1024],
+    "payload_sha256": "6ddf2536fa0d822a56bed013a1c5348a7a1c515c410e47645b1c4da57e133b98"
+  },
+  "rust_ffi_descriptor_parity": "PASS",
+  "explicit_materialized_span_length_check": "PASS",
+  "local_borrowed_span_compatibility": "PASS",
+  "single_tensor_external_to_ggml_parity": "NOT_REACHED",
+  "ggml_descriptor_parity": "NOT_REACHED",
+  "pre_ggml_payload_byte_parity": "PASS_RUST_SOURCE_BOUNDARY",
+  "external_payload_lifetime_depends_on_metadata_mmap": "NO"
+}

@@ -67,6 +67,11 @@ pub enum MlErrorCode {
     MoeExpertReferenceMissing,
     MoeExpertIndexInvalid,
     UnsupportedMoeArchitecture,
+    MalformedSourceMetadata,
+    UnsupportedSourceMetadataVersion,
+    DuplicateSourceBinding,
+    InvalidSourceLocator,
+    InvalidSourceHash,
     Canonical(vbuf_core::v06::V06ErrorCode),
 }
 

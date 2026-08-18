@@ -87,7 +87,8 @@ fn run(path: &Path, eager: bool) {
     let before = faults(); let start = Instant::now();
     let model = ModelMetadata::parse(&validated, &bootstrap).unwrap();
     let tensor = TensorDirectory::parse(&validated, &bootstrap).unwrap();
-    record(if eager { "eager" } else { "lazy" }, "T3_model_tensor", start, before, model.fields().iter().map(|field| field.range.length()).sum::<u64>() + tensor.tensors().iter().map(|entry| entry.range.length()).sum::<u64>(), tensor.tensors().len() as u64);
+    let tensor_bytes = tensor.tensors().iter().filter_map(|entry| entry.range.as_ref()).map(|range| range.length()).sum::<u64>();
+    record(if eager { "eager" } else { "lazy" }, "T3_model_tensor", start, before, model.fields().iter().map(|field| field.range.length()).sum::<u64>() + tensor_bytes, tensor.tensors().len() as u64);
     if eager {
         let before = faults(); let start = Instant::now();
         let tokenizer = TokenizerMetadata::parse(&validated, &bootstrap).unwrap();
