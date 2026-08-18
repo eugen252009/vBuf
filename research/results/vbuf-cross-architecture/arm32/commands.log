@@ -1,0 +1,43 @@
+# ARM32 remote-bootstrap qualification command record
+
+# Host preflight
+git status --short
+git log -1 --oneline --decorate
+git show --no-patch 07becc3
+
+# Required target connection and baseline
+ssh alpine
+hostname
+uname -a
+uname -m
+getconf LONG_BIT
+cat /etc/os-release
+rustc --version
+cargo --version
+cc --version
+
+# Target clock and minimal install
+ssh alpine 'ntpd -q -n -p pool.ntp.org'
+ssh alpine 'apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/v3.24/main --repository http://dl-cdn.alpinelinux.org/alpine/v3.24/community ca-certificates rust cargo build-base'
+ssh alpine 'apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/v3.24/main curl'
+
+# Exact source deployment
+git archive --format=tar 07becc3 | ssh alpine 'mkdir -p /tmp/vbuf-arm32 && tar -xf - -C /tmp/vbuf-arm32'
+scp /home/eugen/arm32-qualification-backup/qwen32.semantic.vbuf alpine:/tmp/vbuf-arm32/qwen32.semantic.vbuf
+
+# Portable ARM32 tests
+ssh alpine 'cd /tmp/vbuf-arm32/rust && cargo test -p vbuf-ml --lib'
+ssh alpine 'cd /tmp/vbuf-arm32/rust && cargo test -p vbuf-ml --test external_source --test source_profile --test range_loading --test tensor_directory --test bootstrap --test consumer'
+
+# Temporary semantic/bootstrap and FFI qualification source
+scp research/results/vbuf-cross-architecture/arm32/scaffolding/arm32_bootstrap_qualification.rs alpine:/tmp/vbuf-arm32/rust/vbuf-ml/src/bin/arm32_bootstrap_qualification.rs
+ssh alpine 'cd /tmp/vbuf-arm32/rust && cargo run -p vbuf-ml --release --bin arm32_bootstrap_qualification -- /tmp/vbuf-arm32/qwen32.semantic.vbuf /tmp/vbuf-arm32/range.bin'
+
+# Controlled HTTP source
+python3 research/results/vbuf-cross-architecture/arm32/scaffolding/vbuf-arm32-range-server.py --file research-models/Qwen3-32B-Q8_0.vbuf --port 18765
+ssh alpine 'curl -sS -I http://192.168.188.40:18765/Qwen3-32B-Q8_0.vbuf'
+ssh alpine 'curl -sS --fail --range 6056603320-6062173879 -D /tmp/vbuf-arm32/range.headers -o /tmp/vbuf-arm32/range.bin http://192.168.188.40:18765/Qwen3-32B-Q8_0.vbuf'
+ssh alpine 'stat -c "%s" /tmp/vbuf-arm32/range.bin; sha256sum /tmp/vbuf-arm32/range.bin'
+
+# Cleanup of disposable target scaffolding
+ssh alpine 'rm -rf /tmp/vbuf-arm32/rust/target/debug /tmp/vbuf-arm32/rust/vbuf-ml/src/bin/arm32_bootstrap_qualification.rs'
