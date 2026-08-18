@@ -1,231 +1,288 @@
-# vBuf (Vector-Buffer) ⚡
+# vBuf
 
-**Current milestone:** [`model-is-working`](https://github.com/eugen252009/vBuf/tree/model-is-working)
+vBuf is a self-navigating binary substrate for validated persistent structure
+whose payload source, residency, and execution representation can remain
+independent runtime concerns. It is designed so a reader can validate and
+navigate canonical structure without a mandatory global index, while a runtime
+can materialize only the ranges currently required by a consumer.
 
-vBuf is a generic binary block format for checked, mmap-friendly, direct native consumption.
+vBuf itself is a generic binary substrate. [`vbuf-ML`](rust/vbuf-ml/) is an
+optional semantic/profile layer for model metadata, tokenizers, tensor
+directories, and external tensor sources. vBuf is not defined by machine
+learning or by any particular backend such as llama.cpp or ggml.
 
-## Why vBuf?
+## Core Model
 
-- **Faster structural readiness** — a qualified control measured vBuf `MODEL_READY` at about `0.262 s` versus GGUF at about `20.003 s`; first useful compute was later, at about `36.145 s`, so this is not a universal TTFT claim.
-- **Smaller active working sets** — in a qualified CPU_REPACK case, llama used a shared `~2.53 GiB` backend allocation while vBuf reproduced the same tensor execution with a `~12.0 MiB` tensor-local materialization.
-- **Selective materialization** — tensors are independently addressable and can be acquired from local or ranged sources without making the full artifact resident.
-- **Backend-specific only when necessary** — the persistent representation stays backend-neutral; transformations such as CPU_REPACK occur when the selected backend requires a different execution representation.
-- **Backend-policy independence** — using a backend kernel does not require inheriting that backend's model-wide allocation or lifetime policy.
-- **Large artifact, bounded working set** — persistent model size, resident cache, and active execution memory are separate quantities; execution only needs the currently required materialized ranges to fit.
-- **Backend-neutral persistence** — CPU and GPU execution layouts can differ without changing the persistent vBuf representation.
-- **Cross-architecture validation** — exercised in qualification environments on x86_64, riscv64/RVV, and ARM32 hard-float; this does not claim complete compute support on every platform.
-
-## vBuf-ML research overview
-
-The vBuf-ML work investigates a different way to run models whose logical weight
-set is larger than the memory that should be active at one time. The artifact
-keeps persistent tensor identity, representation, and exact byte ranges, while
-the runtime decides what execution currently needs and when those bytes should
-be materialized. Demand-driven materialization matters because routing, graph
-dependencies, and the current execution wave can exclude most of a model from
-the immediate work; it is not necessary to read, transform, or execute an
-unselected tensor merely because it is reachable in the full model.
-
-The design therefore treats logical model size, resident cache, and active
-execution memory as different quantities. Its working relationship is
-`TOTAL MODEL >> RESIDENT CACHE >> ACTIVE EXECUTION WAVE`, but the ratio is a
-runtime model, not a universal memory promise. ggml currently supplies useful
-tensor operations, graph execution, scheduling, and backend kernels; it is a
-compute substrate rather than the owner of vBuf model identity or lifecycle.
-The pinned llama.cpp path is primarily a semantic/reference oracle and
-compatibility consumer. The final runtime boundaries are being promoted from
-measured POCs rather than assumed from an existing loader's ownership model.
-
-### Runtime lifecycle at a glance
+The architecture keeps these concepts separate:
 
 ```text
-Persistent vBuf artifact
-        |
-        v
-PersistentTensorRef
-        |
-  execution demand
-        |
-        v
-      Source
-        |
-        v
-  Materialization
-        |
-        v
-    Residency  <---- cache budget / replacement policy
-        |
-        v
- ExecutionLease ---- execution lifetime
-        |
-        v
-      Compute
-
-RuntimeState and TensorValue cross execution boundaries;
-Placement is selected at runtime rather than persisted as model identity.
+semantic tensor identity
+        !=
+metadata artifact
+        !=
+payload source
+        !=
+payload residency
+        !=
+backend execution representation
 ```
 
-The separation between `PersistentTensorRef`, `Source`, `Residency`,
-`ExecutionLease`, `RuntimeState`, `TensorValue`, and `Placement` is deliberate:
-the entire model need not be loaded before execution, logically reachable
-tensors need not all be resident, a residency lifetime need not equal an
-execution lifetime, and one model tensor need not have one permanent physical
-placement.
-
-## Current milestone / status
-
-The current qualified native path is a functional model-forward pipeline for
-the real `DeepSeek-V2-Lite.IQ1_S.vbuf` artifact on x86:
+Likewise, these sizes are different measurements:
 
 ```text
-real token IDs
-  -> quantized token embedding
-  -> blk.0 dense transformer block
-  -> blk.1..blk.26 sparse MoE transformer blocks
-  -> final RMSNorm
-  -> quantized LM head/output projection
-  -> logits
-  -> greedy next token
+persistent model size
+        != bootstrap transfer size
+        != local storage requirement
+        != process virtual address space
+        != resident working set
+        != active compute memory
 ```
 
-POC21 reports exact parity for token IDs 0 and 1 at the embedding, all 27
-transformer blocks, final normalization/output logits, and greedy token `86711`
-for both tested inputs. Activation handoff is zero-copy. This is a functional
-native model-forward qualification, not a claim of production chat inference;
-tokenizer, sampler, chat-serving, and deployment completeness remain separate
-concerns. See the [`POC21 report`](research/results/vbuf-functional-pipeline-poc21-x86/report.md)
-for the qualified result and scope guards.
-
-## What we learned
-
-The table summarizes measured findings, with scope kept next to each number.
-
-| Finding | Evidence | Architectural consequence | Details |
-|---|---|---|---|
-| Structural readiness can avoid whole-payload work | The fresh 32B control measured vBuf `MODEL_READY` at about `0.262 s` versus GGUF at about `20.003 s`; vBuf first useful compute was about `36.145 s` | Opening/navigation and first-use materialization must be measured separately | [`Step 27 loader scaling`](docs/vbuf-ml/step27-loader-scaling.md) |
-| The readiness delta is not storage bandwidth | The same qualification reports vBuf RSS near `84 MB` at `MODEL_READY` and about `33.3 GB` after first evaluation; `TTFUC` was about `36.145 s` | A structural open may be fast because payload pages were not read yet | [`Step 27 attribution`](docs/vbuf-ml/step27-loader-scaling.md) |
-| Structure is self-navigable | POC13 visited `377` structural records for the real artifact; cold and warm structural opens were `2.134805224 s` and `6.588236 ms`; exact payload-to-consumer timing was explicitly not instrumented | Metadata/ranges can be opened and validated before demand-driven payload reads | [`POC13 structural open`](research/results/vbuf-full-moe-layer-poc13-x86/qualification-report.md) |
-| Materialization is tensor/range-driven | POC19 records `928/928` exact identity/range matches and no whole-model, whole-block, or whole-packed-expert loading; preparation copies, repacks, and transcodes were `0` | Persistent identity is independent of the buffer currently resident | [`POC19 report`](research/results/vbuf-deep-stack-poc19-x86/report.md) |
-| Sparse routing reaches storage | In the qualified MoE traces, unselected expert graphs, acquisitions, source reads, and materializations were all `0` | Router decisions can prune graph construction and backing reads, not only arithmetic | [`POC13 MoE qualification`](research/results/vbuf-full-moe-layer-poc13-x86/qualification-report.md) |
-| Active execution stays local while logical demand grows | For POC19, logical persistent bytes were `1,462,931,456`, peak active persistent bytes `1,892,352`, ratio `773.076`, active fraction `0.00129353` | Active wave memory, resident cache, activations, state, and backend workspace need separate accounting | [`POC19 active/logical scaling`](research/results/vbuf-deep-stack-poc19-x86/report.md) |
-| Execution lease and residency are different lifetimes | POC19 retained resident entries after lease release and used them for replay; `140,943,360` token-to-token reusable bytes were retained at `100%` at `256 MiB` but `3.95%` at `8 MiB` | Releasing the last consumer lease must not imply evicting the resident cache entry | [`POC19 capacity and reuse`](research/results/vbuf-deep-stack-poc19-x86/report.md) |
-| Capacity can dominate replacement quality | At `8 MiB`, source bytes were `750,665,728` and reload bytes `516,276,224`; at `256 MiB`, source bytes were `234,389,504` and reload bytes `0` | Cache budget and replacement policy are separate questions; high residency can be productive reuse | [`POC19 capacity sweep`](research/results/vbuf-deep-stack-poc19-x86/report.md) |
-| Replacement quality matters in the middle regime | COST_AWARE saved `82,542,592` reload bytes at `64 MiB` and `228,050,944` at `128 MiB`, capturing `41.90%` and `57.26%` of MIN headroom | Policy should be evaluated at several capacities; COST_AWARE is not treated as an optimum | [`POC20 policy comparison`](research/results/vbuf-cost-aware-residency-poc20-x86/report.md) |
-| Tiering was a useful negative result | The tested `8 MiB HOT + 32 MiB WARM` policy did not reduce backing bytes versus an equal-total `40 MiB` flat cache and added `259,117,056` bytes of inter-tier movement | Do not add movement or tiers without a measured benefit for the target trace | [`POC18 tiering result`](research/results/vbuf-tiered-residency-poc18-x86/poc18-report.md) |
-| Native forward execution is now functionally closed for the qualified path | POC21 reached all `27` blocks, final normalization, quantized output projection, `102400` logits, and greedy token `86711` with exact parity | The current milestone is model-forward execution, not a complete serving stack | [`POC21 functional pipeline`](research/results/vbuf-functional-pipeline-poc21-x86/report.md) |
-
-## What we deliberately did not conclude
-
-- About `0.262 s` structural readiness does not mean the complete model payload was read in that time; first useful compute and payload access were later.
-- About `1.9 MiB` peak active persistent memory does not mean the model requires only `1.9 MiB` total RAM. Resident weights, activations, runtime state, mappings, and backend workspace are separate measurements.
-- `256 MiB` is not a universal cache requirement. It was the observed reload-free knee for one POC19 artifact and trace.
-- COST_AWARE is not claimed to be an optimal replacement policy. MIN is an offline oracle/reference bound, not a runtime policy.
-- ggml is not bad or obsolete. It currently carries valuable compute and backend functionality, while its full-model ownership assumptions are not the vBuf runtime boundary.
-- ggml is not a permanent architectural upper bound either. Components should be replaced only if measurements show that their assumptions constrain the required runtime.
-- llama.cpp is not the vBuf-native model lifecycle. It is used as a semantic/reference baseline and compatibility consumer where that is useful.
-- POC21 does not imply production-ready chat serving, tokenizer completeness, sampler completeness, or chat-template/runtime completeness.
-- x86 qualification does not imply complete ARM32 or RISC-V compute support. The pinned ggml RVV FP16 issue still blocks the qualified RV2 compute path.
-- No claim is made that SBCs outperform GPUs in raw compute efficiency; the repository does not establish that comparison.
-
-## Architecture and research method
-
-The runtime boundary follows the responsibility split described by the native
-region audit: vBuf owns validated model identity, source/range selection,
-materialization, residency, execution lifetime, state, placement, and region
-planning; ggml supplies tensor descriptors, operations, graph allocation,
-scheduling, transfers, and backend kernels. This is a vBuf runtime on ggml, not
-a modified llama model lifecycle and not a claim that ggml must eventually be
-removed. [`vbuf-native-region-runtime-audit.md`](research/vbuf-native-region-runtime-audit.md)
-records the boundary and the remaining full-model assumptions.
-
-The research method is evidence-driven engineering: observation -> hypothesis
--> bounded POC -> reference comparison -> invariant -> next question. A runtime
-abstraction is promoted when a measured experiment shows why it is needed.
-Negative results remain part of the history: POC17 found an 8 MiB trace that was
-primarily capacity-bound, POC18 found no backing-traffic benefit from the tested
-tier split, and Step 29 found that host-local dense preparation could not feed
-the measured resident compute window. Later POCs then tested the narrower
-questions that remained, including replacement quality and the native forward
-pipeline.
-
-## Research and evidence
-
-The detailed history remains in [`research/`](research/) and the broader ML
-qualification notes in [`docs/vbuf-ml/`](docs/vbuf-ml/). The shortest path through
-the current evidence is:
-
-- [`POC13: full real MoE layer`](research/results/vbuf-full-moe-layer-poc13-x86/qualification-report.md)
-- [`POC19: deep stack, capacity, active/logical memory`](research/results/vbuf-deep-stack-poc19-x86/report.md)
-- [`POC20: COST_AWARE residency`](research/results/vbuf-cost-aware-residency-poc20-x86/report.md)
-- [`POC21: functional native model pipeline`](research/results/vbuf-functional-pipeline-poc21-x86/report.md)
-- [`Step 27: structural readiness and first-use attribution`](docs/vbuf-ml/step27-loader-scaling.md)
-- [`Step 29: layer I/O and host-relative preparation`](docs/vbuf-ml/step29-layer-io.md)
-- [`Native region runtime audit`](research/vbuf-native-region-runtime-audit.md)
-
-## Architectural intent
-
-`BaseStep` is vBuf's hardware-neutral physical granularity. It provides predictable block starts and can support naturally aligned scalar loads, SIMD-friendly payload positions, simple physical address calculation, vectorized traversal, and favorable cache behavior. The format does not hard-code one contemporary SIMD, cache-line, or page width.
-
-The v0.6 wire contract permits BaseStep values from 8 through 256 bytes. Choosing a writer default is a whole-system trade-off among native access, cache/traversal behavior, padding, and packing density—especially for small or composite multi-block representations. Optional indexes, if qualified later, derive their geometry from BaseStep and do not select it.
-
-### v0.6 base properties
-
-- exact little-endian magic/version and checked 64-bit ranges;
-- power-of-two canonical block geometry;
-- orthogonal payload alignment as a multiple of BaseStep;
-- portable selected primitive encodings and opaque bytes;
-- known-size and indefinite canonical streams;
-- deterministic next-block calculation with no required final tail padding;
-- no mandatory or currently selected index, checksum, directory, or finalization artifact.
-
-The existing Rust, TypeScript, and C implementations still represent legacy v0.5-style behavior until the v0.6 safety/writer steps are implemented. Do not infer implementation conformance from publication of the specification.
-
----
-
-## 🏗️ Canonical memory layout
+The common external-source path is:
 
 ```text
-minimum global header
-alignment padding to BaseStep
-canonical block anchor [+ optional extended count]
-padding to PayloadAlignment
-payload bytes
-padding to the next BaseStep block start (only when another block follows)
+semantic-bootstrap.vbuf
+        |
+        v
+normal vbuf-ML discovery
+        |
+        v
+TensorRef(SourceId, u64 offset, u64 length)
+        |
+        v
+SourceSet / RangeSource
+        |
+        v
+file or HTTP Range
+        |
+        v
+bounded materialization
+        |
+        v
+pointer + length + provenance + lease
+        |
+        v
+source-agnostic backend or compute
 ```
 
-Canonical headers and checked ranges remain authoritative. See the normative specification for exact fields and formulas.
+The local path remains supported and keeps its borrowed fast path:
 
----
-
-## 🛠️ Roadmap
-
-1. **Current:** normative v0.6 base specification and immutable legacy evidence.
-2. **Next:** checked v0.6 Rust, TypeScript, and C readers/writers with cross-language conformance.
-3. **Qualification:** measure BaseStep and optional generic navigation structures before selecting defaults or artifacts.
-
-## 💻 Legacy TypeScript prototype usage
-
-> This example uses the pre-v0.6 prototype API and does not claim v0.6 wire conformance.
-
-```typescript
-import { VBufWriter } from "./src/vbuf";
-
-const writer = new VBufWriter();
-writer.add("user_id", "550e8400-e29b-11d4-a716-446655440000"); // UUID
-writer.add("balance", 41234); // SMI
-
-const buffer = writer.finish();
-// Now ready to be written to disk or sent over the wire.
+```text
+full model.vbuf
+        |
+        v
+SELF source -> mmap -> CheckedRange -> borrowed payload
 ```
 
-## 📜 Specification
+Remote/bootstrap loading is therefore not a replacement for local mmap loading.
+They are two source and residency strategies under the same semantic model.
 
-- **Normative generic wire contract:** [`spec/spec_0.6.md`](spec/spec_0.6.md)
-- **Compatibility and historical status:** [`spec/compatibility.md`](spec/compatibility.md)
-- **Execution and qualification plan:** [`step-by-step.md`](step-by-step.md)
+## Design Principles
 
-Specifications v0.1 through v0.5 are retained as historical evidence, not alternate definitions of v0.6.
+- Canonical structure is self-navigating: the next block follows checked geometry, not a required index.
+- Wire offsets and arithmetic stay in the checked `u64` domain until a host pointer or allocation is explicitly created.
+- Alignment is explicit and orthogonal to payload representation.
+- Persistent identity is independent of whether bytes are mapped, borrowed, cached, or materialized.
+- Source identity is separate from source location. A `SourceId` identifies the authoritative byte artifact; a locator describes where bytes may be fetched.
+- Materialization is bounded and lazy. A remote logical offset may exceed 4 GiB while the local materialized span remains checked against the host `usize`.
+- Backend representations may differ from persistent representations without changing the vBuf artifact.
+- Existing payload-bearing artifacts remain usable through the `SELF` source default.
 
-## ⚖️ License
+## vBuf v0.6
+
+The stable generic wire contract is [`spec/spec_0.6.md`](spec/spec_0.6.md).
+Its high-level rules are:
+
+- little-endian fields and payload encodings;
+- version code `0x00060000`;
+- minimum global header size of 24 bytes;
+- `BaseShift` in `3..=8`, giving `BaseStep` values from 8 through 256 bytes;
+- `PayloadAlignment = 1 << (BaseShift + PayloadShift)`;
+- `next_block_start = align_up_checked(payload_end, BaseStep)`;
+- checked `u64` arithmetic for offsets, sizes, alignment, and conversions;
+- no required index, directory, checkpoint, checksum, or finalization artifact.
+
+Optional physical structures may accelerate a particular workload, but they are
+not normative v0.6 requirements. In particular, Nano is an optional physical
+or topological acceleration structure, not a semantic index and not a
+guaranteed speedup.
+
+## vbuf-ML Profile
+
+vbuf-ML adds semantic interpretation without creating a second container
+format. Its additive source profile uses:
+
+```text
+RegionRole::SourceMetadata = 7
+```
+
+The profile can persist:
+
+- `SourceDescriptor` and `SourceId`;
+- file, HTTP, or other `SourceLocator` values;
+- optional binary source hashes, with zero or multiple hashes allowed;
+- external tensor bindings represented as checked `TensorRef` values.
+
+Older payload-bearing artifacts without this optional role remain compatible and
+resolve their tensor payloads through `SELF`.
+
+The vbuf-ML implementation and focused profile documentation are in
+[`docs/vbuf-ml/`](docs/vbuf-ml/) and [`rust/vbuf-ml/`](rust/vbuf-ml/).
+
+## Semantic Bootstrap
+
+A structural header-only derivative and a semantic bootstrap have different
+purposes. The structural derivative measures a lower bound for generic
+navigation. A semantic bootstrap contains the metadata needed for complete
+vbuf-ML discovery while copying zero tensor payload bytes.
+
+| Artifact | Full artifact | Structural derivative | Semantic bootstrap |
+|---|---:|---:|---:|
+| Qwen3-0.6B-Q8_0 | 637,925,504 bytes | 24,288 bytes | 4,438,480 bytes |
+| Qwen3-32B-Q8_0 | 34,816,197,376 bytes | 52,872 bytes | 4,472,327 bytes |
+
+The approximately 53 KiB 32B result is therefore a structural lower bound, not
+a complete semantic model bootstrap. The 32B bootstrap contains complete
+bootstrap, model metadata, tensor directory, tokenizer, and source metadata;
+its tensor payload bytes copied during discovery are zero.
+
+## Cross-Architecture Qualification
+
+The same 32B semantic bootstrap was parsed on four real architectures. The
+shared normalized discovery digest is
+`f731868eafcd1830244c4dbb28c198b13a204e468adb1d89859c127eccce1f3f`.
+
+| Capability | x86_64 | ARM32 / ARMv7 | ARM64 / AArch64 | riscv64 |
+|---|---:|---:|---:|---:|
+| Generic vBuf parse | PASS | PASS | PASS | PASS |
+| Semantic bootstrap parse | PASS | PASS | PASS | PASS |
+| Discovery digest parity | PASS | PASS | PASS | PASS |
+| u64 TensorRef | PASS | PASS | PASS | PASS |
+| Real >4 GiB tensor | PASS | PASS | PASS | PASS |
+| HTTP Range source | PASS | PASS | PASS | PASS |
+| File RangeSource | PASS | NOT_QUALIFIED | NOT_QUALIFIED | NOT_QUALIFIED |
+| Exact payload hash parity | PASS | PASS | PASS | PASS |
+| Bounded materialization | PASS | PASS | PASS | PASS |
+| Committed FFI materialization | PASS | PASS | PASS | PASS |
+| Real ggml descriptor | PASS | NOT_QUALIFIED | NOT_QUALIFIED | NOT_QUALIFIED |
+| Bounded ggml compute | PASS | NOT_QUALIFIED | NOT_QUALIFIED | NOT_QUALIFIED |
+| Full external token path | NOT_RUN | NOT_QUALIFIED | NOT_QUALIFIED | NOT_QUALIFIED |
+
+Hardware identities and detailed raw results:
+
+- x86_64: development workstation. See [`research/results/vbuf-autoregressive-generation-poc22-x86/`](research/results/vbuf-autoregressive-generation-poc22-x86/).
+- ARM32: Cubietech Cubietruck Plus, Allwinner A83T, `armv7l`, 32-bit userspace. See [`ARM32 evidence`](research/results/vbuf-cross-architecture/arm32/).
+- ARM64: Google Pixel 7 Pro, GS201, Android 17, Termux, `aarch64`. See [`ARM64 evidence`](research/results/vbuf-cross-architecture/arm64/).
+- riscv64: Orange Pi RV2, Ky X1 / `ky,x60`, Ubuntu 24.04.4, `riscv64`. See [`RISC-V evidence`](research/results/vbuf-cross-architecture/riscv64/).
+
+The table proves storage, source, addressing, materialization, and committed
+FFI portability. It does not imply that every architecture has a qualified
+llama/ggml backend or token-generation path.
+
+## Shared 32B Proof
+
+The authoritative source is `Qwen3-32B-Q8_0.vbuf`,
+`34,816,197,376` bytes, SHA-256
+`84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d`.
+
+The shared semantic bootstrap is `4,472,327` bytes, SHA-256
+`dc3b0c755b5bbb4949ca813131c3a74bd33ea21368c5ac42c59feb3adfdeb278`.
+
+All four architectures resolved the same real tensor:
+
+```text
+ordinal:          22
+SourceId:         1
+logical offset:   6,056,603,320
+logical length:   5,570,560
+end exclusive:    6,062,173,880
+representation:   GGML_Q8_0
+dimensions:       [5120, 1024]
+payload SHA-256:  bfb4d69b99058c659ce075ec794b5d923b8a513ab6b7745a042383aa8dac13bf
+```
+
+The same discovery digest, exact range, and payload hash matched across all
+four qualified architectures. ARM32, ARM64, and riscv64 completed this proof
+without possessing, mapping, or downloading the full model.
+
+## Performance Snapshot
+
+These are directly measured ARM64 and riscv64 results. TensorRef lookup is a
+hot-loop microbenchmark, not end-to-end latency. ARM64 source transfer used
+ADB reverse HTTP and is not directly comparable to riscv64 direct LAN HTTP.
+
+| Target | Semantic discovery median | TensorRef lookup | Local materialization | Source transfer |
+|---|---:|---:|---:|---:|
+| ARM64 | 9.344 ms | 0.852213 ns/op | 2.919 ms, 1908.641 MB/s | 0.506011 s, 11.009 MB/s, ADB reverse HTTP |
+| riscv64 | 38.978 ms | 3.18285 ns/op | 1.994 ms, 2793.924 MB/s | 49.094 ms, 113.467 MB/s, direct LAN HTTP |
+
+The local-layout benchmark remains a negative result. On the measured 337-record
+artifact:
+
+| Traversal | Time |
+|---|---:|
+| Canonical | 0.016849 ms |
+| Generic header-only | 0.019990 ms |
+| Scalar/direct | 0.016500 ms |
+| SIMD | 0.019355 ms |
+| Nano | 0.020385 ms |
+
+The measured conclusion is `LOCAL_LAYOUT_LATENCY_BENEFIT: NO`,
+`SIMD_BENEFIT: NO`, and `NANO_BENEFIT: NO`. The value of semantic bootstrap is
+remote deployment, source indirection, and bounded residency, not local parser
+acceleration.
+
+## Backend Separation
+
+The llama.cpp integration is one source-agnostic consumer, not a definition of
+vBuf. On x86_64, materialized external bytes crossed the committed FFI boundary
+into the pinned embedded ggml CPU backend. The bounded operation was:
+
+```text
+ggml_sum
+local:         220.409927
+external file: 220.409927
+external HTTP: 220.409927
+```
+
+The outputs matched exactly, with zero observed absolute or relative error and
+without full-source mapping or download. ARM32, ARM64, and riscv64 compute
+backends remain separately unqualified; this is not a storage or source failure.
+
+The ARM32 qualification also found a hard-coded `i8` assumption in the FFI test
+harness. It was fixed generically with `core::ffi::c_char`; no production FFI,
+storage, or persistent-format semantics changed.
+
+## Build and Test
+
+From the repository root:
+
+```sh
+cargo test --manifest-path rust/Cargo.toml -p vbuf-ml
+```
+
+The current focused evidence includes the committed vbuf-ML tests for bootstrap,
+consumer, consumer FFI, external sources, range loading, source profiles, and
+tensor directories. The Rust package is at [`rust/vbuf-ml`](rust/vbuf-ml/), the
+llama adapter is at [`integrations/llama.cpp`](integrations/llama.cpp/), and
+qualification records are under [`research/results`](research/results/).
+
+## Evidence and Scope
+
+The detailed architecture and qualification evidence is preserved in:
+
+- [`vbuf-ML documentation`](docs/vbuf-ml/);
+- [`cross-architecture matrix`](research/results/vbuf-autoregressive-generation-poc22-x86/cross-architecture-qualification-matrix.md);
+- [`ARM32 records`](research/results/vbuf-cross-architecture/arm32/);
+- [`ARM64 records`](research/results/vbuf-cross-architecture/arm64/);
+- [`riscv64 records`](research/results/vbuf-cross-architecture/riscv64/);
+- [`v0.6 specification`](spec/spec_0.6.md).
+
+Historical experiments remain under `research/` as evidence. They are not
+alternate definitions of the current architecture. This README does not claim
+full 32B inference, universal cache behavior, universal parser speedups, or
+compute support on every qualified architecture.
+
+## License
 
 MIT

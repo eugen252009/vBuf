@@ -1,0 +1,31 @@
+# RISC-V remote-bootstrap qualification commands
+
+# Host state
+git status --short
+
+# Exact source deployment
+git archive --format=tar HEAD | ssh pi 'mkdir -p /tmp/vbuf-riscv64 && tar -xf - -C /tmp/vbuf-riscv64'
+scp /home/eugen/arm64-qualification-backup/qwen32.semantic.vbuf pi:/tmp/vbuf-riscv64/qwen32.semantic.vbuf
+
+# Workstation Range server
+python3 research/results/vbuf-cross-architecture/arm32/scaffolding/vbuf-arm32-range-server.py --file research-models/Qwen3-32B-Q8_0.vbuf --port 18765
+
+# Release qualification build
+scp research/results/vbuf-cross-architecture/riscv64/scaffolding/riscv64_bootstrap_qualification.rs pi:/tmp/vbuf-riscv64/rust/vbuf-ml/src/bin/riscv64_bootstrap_qualification.rs
+ssh pi 'cd /tmp/vbuf-riscv64/rust && cargo build -p vbuf-ml --release --bin riscv64_bootstrap_qualification'
+
+# Portable suites
+ssh pi 'cd /tmp/vbuf-riscv64/rust && cargo test -p vbuf-ml --test bootstrap --test consumer --test consumer_ffi --test external_source --test range_loading --test source_profile --test tensor_directory'
+
+# Exact >4 GiB Range and materialization
+ssh pi 'curl -sS --fail --range 6056603320-6062173879 -D /tmp/vbuf-riscv64/range.headers -o /tmp/vbuf-riscv64/range.bin http://192.168.188.40:18765/Qwen3-32B-Q8_0.vbuf'
+ssh pi 'stat -c "%s" /tmp/vbuf-riscv64/range.bin; sha256sum /tmp/vbuf-riscv64/range.bin'
+ssh pi 'cd /tmp/vbuf-riscv64/rust && ./target/release/riscv64_bootstrap_qualification /tmp/vbuf-riscv64/qwen32.semantic.vbuf /tmp/vbuf-riscv64/range.bin'
+
+# Benchmarks
+scp research/results/vbuf-cross-architecture/riscv64/scaffolding/riscv64_bootstrap_benchmark.rs pi:/tmp/vbuf-riscv64/rust/vbuf-ml/src/bin/riscv64_bootstrap_benchmark.rs
+ssh pi 'cd /tmp/vbuf-riscv64/rust && cargo build -p vbuf-ml --release --bin riscv64_bootstrap_benchmark && ./target/release/riscv64_bootstrap_benchmark /tmp/vbuf-riscv64/qwen32.semantic.vbuf /tmp/vbuf-riscv64/range.bin >/dev/null && ./target/release/riscv64_bootstrap_benchmark /tmp/vbuf-riscv64/qwen32.semantic.vbuf /tmp/vbuf-riscv64/range.bin'
+ssh pi 'for run in 1 2 3 4 5; do curl -sS --fail --range 6056603320-6062173879 -o /dev/null -w "run=$run time_total=%{time_total} size_download=%{size_download}\\n" http://192.168.188.40:18765/Qwen3-32B-Q8_0.vbuf; done'
+
+# Optional backend classification
+ssh pi '/usr/bin/git -C /home/eugen/llama.cpp rev-parse HEAD'

@@ -1,0 +1,8 @@
+{
+  "transport": "DIRECT_LAN_HTTP",
+  "runs": 5,
+  "bytes_per_run": 5570560,
+  "seconds": {"min": 0.048979, "median": 0.049094, "max": 0.051001},
+  "decimal_mb_per_second": {"min": 109.225, "median": 113.467, "max": 113.734},
+  "raw_log": "range-benchmark.log"
+}

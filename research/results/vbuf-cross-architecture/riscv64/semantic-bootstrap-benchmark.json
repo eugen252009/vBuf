@@ -1,0 +1,6 @@
+{
+  "warmup_runs": 1,
+  "measured_runs": 10,
+  "discovery_ms": {"min": 38.719, "median": 38.978, "max": 41.247},
+  "raw_log": "benchmarks.log"
+}

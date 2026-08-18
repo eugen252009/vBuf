@@ -1,0 +1,10 @@
+binary
+582832 /tmp/vbuf-riscv64/rust/target/release/riscv64_bootstrap_qualification
+556992 /tmp/vbuf-riscv64/rust/target/release/riscv64_bootstrap_benchmark
+7a637dd563bb5e2c8b9d3ef4d0927927a7b51f2db452086584c9f471dfdb702c  /tmp/vbuf-riscv64/rust/target/release/riscv64_bootstrap_qualification
+46d96d89867ddb0a3d94c6a2ec76f94d55bdf6a8990171fffcb9c2d1d0f0e40f  /tmp/vbuf-riscv64/rust/target/release/riscv64_bootstrap_benchmark
+bootstrap
+4472327 /tmp/vbuf-riscv64/qwen32.semantic.vbuf
+dc3b0c755b5bbb4949ca813131c3a74bd33ea21368c5ac42c59feb3adfdeb278  /tmp/vbuf-riscv64/qwen32.semantic.vbuf
+full_artifact_target
+NO

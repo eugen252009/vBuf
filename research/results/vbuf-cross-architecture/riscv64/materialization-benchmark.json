@@ -1,0 +1,7 @@
+{
+  "runs": 10,
+  "bytes_per_run": 5570560,
+  "milliseconds": {"min": 1.897, "median": 1.994, "max": 12.584},
+  "decimal_mb_per_second": 2793.924,
+  "raw_log": "benchmarks.log"
+}

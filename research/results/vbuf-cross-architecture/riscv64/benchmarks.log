@@ -1,0 +1,3 @@
+   Compiling vbuf-ml v0.1.0 (/tmp/vbuf-riscv64/rust/vbuf-ml)
+    Finished `release` profile [optimized] target(s) in 4.05s
+{"discovery_ns":[41247175, 39049013, 38850934, 38998806, 39002056, 38760102, 38957848, 39102845, 38719436, 38880850],"tensor_lookup_iterations":1000000,"tensor_lookup_total_ns":3182850,"materialization_ns":[12583818, 10088497, 2117164, 1907252, 2001999, 1903210, 1998458, 1897127, 1989167, 1905918],"materialized_bytes":5570560}

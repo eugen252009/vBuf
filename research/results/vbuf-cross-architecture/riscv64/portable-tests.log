@@ -1,0 +1,96 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling version_check v0.9.5
+   Compiling crossbeam-utils v0.8.21
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling anyhow v1.0.104
+   Compiling typenum v1.20.1
+   Compiling rayon-core v1.13.0
+   Compiling either v1.15.0
+   Compiling libc v0.2.186
+   Compiling itertools v0.14.0
+   Compiling generic-array v0.14.7
+   Compiling bytes v1.12.1
+   Compiling vbuf-layout v0.1.0 (/tmp/vbuf-riscv64/rust/vbuf-layout)
+   Compiling cfg-if v1.0.4
+   Compiling crossbeam-epoch v0.9.18
+   Compiling syn v2.0.119
+   Compiling crossbeam-deque v0.8.6
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling rayon v1.12.0
+   Compiling memmap2 v0.9.10
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling prost-derive v0.13.5
+   Compiling prost v0.13.5
+   Compiling vbuf-core v0.1.0 (/tmp/vbuf-riscv64/rust)
+   Compiling vbuf-ml v0.1.0 (/tmp/vbuf-riscv64/rust/vbuf-ml)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 38s
+     Running tests/bootstrap.rs (target/debug/deps/bootstrap-b27245a12db00c0c)
+
+running 5 tests
+test minimal_bootstrap_maps_roles_to_generic_ranges_without_retyping_values ... ok
+test checked_fixture_can_be_read_from_the_descendant_fixture_directory ... ok
+test missing_duplicate_and_bad_references_fail_deterministically ... ok
+test unknown_optional_roles_are_skipped_but_unknown_required_roles_fail ... ok
+test unsupported_or_truncated_bootstrap_is_an_ml_error_after_canonical_validation ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/consumer.rs (target/debug/deps/consumer-975b525bba2e9753)
+
+running 2 tests
+test consumer_descriptor_rejects_missing_files ... ok
+test real_vbuf_models_expose_validated_consumer_descriptors ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/consumer_ffi.rs (target/debug/deps/consumer_ffi-c9ef908e60b943d0)
+
+running 2 tests
+test c_bridge_accepts_an_explicit_materialized_span_without_source_io ... ok
+test c_bridge_projects_tokenizer_and_tensor_views ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/external_source.rs (target/debug/deps/external_source-37ffa23124dc403c)
+
+running 5 tests
+test checked_source_ranges_reject_overflow_bounds_and_unknown_size ... ok
+test external_tensor_ref_uses_the_same_directory_validation_and_range_plan ... ok
+test source_identity_is_not_derived_from_location_and_hashes_are_optional_binary_values ... ok
+test malformed_source_descriptors_fail_closed ... ok
+test unknown_tensor_source_id_is_rejected_before_materialization ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/range_loading.rs (target/debug/deps/range_loading-f8712ededaab6016)
+
+running 4 tests
+test bounds_and_overflow_are_checked ... ok
+test empty_duplicate_and_order_independent_selection_are_safe ... ok
+test selected_tensor_set_reads_only_selected_payload_ranges ... ok
+test mmap_and_positioned_file_paths_return_identical_selected_bytes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/source_profile.rs (target/debug/deps/source_profile-c01afa1c9939da42)
+
+running 2 tests
+test old_profile_without_source_role_remains_self_compatible ... ok
+test persistent_source_profile_round_trips_and_drives_normal_directory_parse ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/tensor_directory.rs (target/debug/deps/tensor_directory-791ce9114a2fb123)
+
+running 6 tests
+test canonical_primitive_contract_has_no_duplicate_packed_layout ... ok
+test canonical_fixture_resolves_tensor_directory_through_bootstrap ... ok
+test directory_round_trip_reuses_canonical_primitive_semantics ... ok
+test names_are_sorted_and_duplicates_are_rejected ... ok
+test malformed_truncated_reserved_and_unknown_representation_are_rejected ... ok
+test shape_and_reference_validation_fail_closed ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
