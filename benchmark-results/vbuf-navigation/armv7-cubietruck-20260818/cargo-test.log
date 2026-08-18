@@ -1,0 +1,90 @@
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded cfg-if v1.0.4
+  Downloaded version_check v0.9.5
+  Downloaded sha2 v0.10.9
+  Downloaded memmap2 v0.9.10
+  Downloaded unicode-ident v1.0.24
+  Downloaded rayon-core v1.13.0
+  Downloaded typenum v1.20.1
+  Downloaded bytes v1.12.1
+  Downloaded proc-macro2 v1.0.107
+  Downloaded itertools v0.14.0
+  Downloaded rayon v1.12.0
+  Downloaded crossbeam-utils v0.8.21
+  Downloaded crossbeam-epoch v0.9.18
+  Downloaded crossbeam-deque v0.8.6
+  Downloaded quote v1.0.47
+  Downloaded prost-derive v0.13.5
+  Downloaded prost v0.13.5
+  Downloaded syn v2.0.119
+  Downloaded generic-array v0.14.7
+  Downloaded either v1.15.0
+  Downloaded digest v0.10.7
+  Downloaded block-buffer v0.10.4
+  Downloaded anyhow v1.0.104
+  Downloaded crypto-common v0.1.7
+  Downloaded libc v0.2.186
+   Compiling version_check v0.9.5
+   Compiling crossbeam-utils v0.8.21
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling anyhow v1.0.104
+   Compiling typenum v1.20.1
+   Compiling rayon-core v1.13.0
+   Compiling either v1.15.0
+   Compiling libc v0.2.186
+   Compiling itertools v0.14.0
+   Compiling generic-array v0.14.7
+   Compiling bytes v1.12.1
+   Compiling vbuf-layout v0.1.0 (/root/vbuf-bench-20260818/src/rust/vbuf-layout)
+   Compiling cfg-if v1.0.4
+   Compiling crossbeam-epoch v0.9.18
+   Compiling syn v2.0.119
+   Compiling crossbeam-deque v0.8.6
+   Compiling memmap2 v0.9.10
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling rayon v1.12.0
+   Compiling prost-derive v0.13.5
+   Compiling prost v0.13.5
+   Compiling vbuf-core v0.1.0 (/root/vbuf-bench-20260818/src/rust)
+   Compiling vbuf-ml v0.1.0 (/root/vbuf-bench-20260818/src/rust/vbuf-ml)
+error[E0308]: mismatched types
+   --> vbuf-ml/tests/consumer_ffi.rs:17:76
+    |
+ 17 |     assert_eq!(unsafe { vbuf_ml_consumer_tensor_info(handle, 0, &mut info, name.as_mut_ptr(), name.len()) }, 0);
+    |                         ----------------------------                       ^^^^^^^^^^^^^^^^^ expected `*mut u8`, found `*mut i8`
+    |                         |
+    |                         arguments to this function are incorrect
+    |
+    = note: expected raw pointer `*mut u8`
+               found raw pointer `*mut i8`
+note: function defined here
+   --> vbuf-ml/src/consumer_ffi.rs:167:26
+    |
+167 | pub unsafe extern "C" fn vbuf_ml_consumer_tensor_info(handle: *const VbufMlConsumerHandle, index: u64, info: *mut VbufMlTensorInfo,...
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> vbuf-ml/tests/consumer_ffi.rs:23:64
+    |
+ 23 |     assert_eq!(unsafe { vbuf_ml_consumer_token_text(handle, 0, token.as_mut_ptr(), token.len()) }, 0);
+    |                         ---------------------------            ^^^^^^^^^^^^^^^^^^ expected `*mut u8`, found `*mut i8`
+    |                         |
+    |                         arguments to this function are incorrect
+    |
+    = note: expected raw pointer `*mut u8`
+               found raw pointer `*mut i8`
+note: function defined here
+   --> vbuf-ml/src/consumer_ffi.rs:350:26
+    |
+350 | pub unsafe extern "C" fn vbuf_ml_consumer_token_text(handle: *const VbufMlConsumerHandle, index: u64, buffer: *mut c_char, capacity...
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `vbuf-ml` (test "consumer_ffi") due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
