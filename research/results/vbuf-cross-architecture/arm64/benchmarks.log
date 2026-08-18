@@ -1,0 +1,3 @@
+   Compiling vbuf-ml v0.1.0 (/data/data/com.termux/files/home/vbuf-arm64/rust/vbuf-ml)
+    Finished `release` profile [optimized] target(s) in 0.96s
+{"discovery_ns":[27711629, 17109457, 13080689, 10652873, 9354085, 8475301, 8031778, 8123251, 8078532, 8243734],"tensor_lookup_iterations":1000000,"tensor_lookup_total_ns":852295,"materialization_ns":[3076091, 2887411, 2786255, 2840657, 2804077, 2786132, 2833049, 3235758, 2877970, 2741617],"materialized_bytes":5570560}

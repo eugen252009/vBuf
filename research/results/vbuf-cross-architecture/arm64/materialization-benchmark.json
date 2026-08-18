@@ -1,0 +1,7 @@
+{
+  "runs": 10,
+  "bytes_per_run": 5570560,
+  "milliseconds": {"min": 2.825, "median": 2.919, "max": 3.049},
+  "decimal_mb_per_second": 1908.641,
+  "raw_log": "benchmarks-warmup.log"
+}

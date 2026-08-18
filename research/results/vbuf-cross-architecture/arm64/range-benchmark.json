@@ -1,0 +1,8 @@
+{
+  "transport": "ADB_REVERSE_HTTP",
+  "runs": 5,
+  "bytes_per_run": 5570560,
+  "seconds": {"min": 0.498076, "median": 0.506011, "max": 0.526063},
+  "decimal_mb_per_second": {"min": 10.589, "median": 11.009, "max": 11.184},
+  "raw_log": "range-benchmark.log"
+}

@@ -1,0 +1,7 @@
+{
+  "runs": 10,
+  "release": true,
+  "warmup_runs": 1,
+  "discovery_ms": {"min": 8.114, "median": 9.344, "max": 28.288},
+  "raw_log": "benchmarks-warmup.log"
+}

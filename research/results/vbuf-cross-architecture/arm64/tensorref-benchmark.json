@@ -1,0 +1,10 @@
+{
+  "iterations": 1000000,
+  "total_ns": 852213,
+  "per_lookup_ns": 0.852213,
+  "tensor_ordinal": 22,
+  "source_id": 1,
+  "logical_offset": 6056603320,
+  "logical_length": 5570560,
+  "raw_log": "benchmarks.log"
+}

@@ -1,0 +1,40 @@
+# ARM64 remote-bootstrap qualification commands
+
+# Host state
+git status --short
+
+# Target identity/tooling
+ssh pixel 'hostname; uname -a; uname -m; getconf LONG_BIT; termux-info; rustc --version; cargo --version; clang --version; free -h; df -h; nproc'
+
+# Existing Termux Rust package was used directly; rustup was not required.
+ssh pixel '/data/data/com.termux/files/usr/bin/rustc -vV'
+ssh pixel '/data/data/com.termux/files/usr/bin/cargo --version'
+
+# Source deployment from exact current HEAD (36ca802)
+git archive --format=tar HEAD | ssh pixel 'tar -xf - -C /data/data/com.termux/files/home/vbuf-arm64'
+scp /home/eugen/arm32-qualification-backup/qwen32.semantic.vbuf pixel:/data/data/com.termux/files/home/vbuf-arm64/qwen32.semantic.vbuf
+
+# ADB topology and Range server
+adb forward --list
+adb reverse tcp:18765 tcp:18765
+python3 research/results/vbuf-cross-architecture/arm32/scaffolding/vbuf-arm32-range-server.py --file research-models/Qwen3-32B-Q8_0.vbuf --port 18765
+
+# Release qualification build
+scp research/results/vbuf-cross-architecture/arm64/scaffolding/arm64_bootstrap_qualification.rs pixel:/data/data/com.termux/files/home/vbuf-arm64/rust/vbuf-ml/src/bin/arm64_bootstrap_qualification.rs
+ssh pixel 'export PATH=/data/data/com.termux/files/usr/bin:$PATH; cd /data/data/com.termux/files/home/vbuf-arm64/rust && cargo build -p vbuf-ml --release --bin arm64_bootstrap_qualification'
+
+# Portable ARM64 controls
+ssh pixel 'export PATH=/data/data/com.termux/files/usr/bin:$PATH; cd /data/data/com.termux/files/home/vbuf-arm64/rust && cargo test -p vbuf-ml --test bootstrap --test consumer --test consumer_ffi --test external_source --test range_loading --test source_profile --test tensor_directory'
+
+# Exact >4 GiB Range
+ssh pixel 'curl -sS --fail --range 6056603320-6062173879 -D /data/data/com.termux/files/home/vbuf-arm64/range.headers -o /data/data/com.termux/files/home/vbuf-arm64/range.bin http://127.0.0.1:18765/Qwen3-32B-Q8_0.vbuf'
+ssh pixel 'stat -c "%s" /data/data/com.termux/files/home/vbuf-arm64/range.bin; sha256sum /data/data/com.termux/files/home/vbuf-arm64/range.bin'
+
+# Semantic parse, committed FFI materialization, and digest
+ssh pixel 'export PATH=/data/data/com.termux/files/usr/bin:$PATH; cd /data/data/com.termux/files/home/vbuf-arm64/rust && ./target/release/arm64_bootstrap_qualification /data/data/com.termux/files/home/vbuf-arm64/qwen32.semantic.vbuf /data/data/com.termux/files/home/vbuf-arm64/range.bin'
+
+# Benchmarks
+scp research/results/vbuf-cross-architecture/arm64/scaffolding/arm64_bootstrap_benchmark.rs pixel:/data/data/com.termux/files/home/vbuf-arm64/rust/vbuf-ml/src/bin/arm64_bootstrap_benchmark.rs
+ssh pixel 'export PATH=/data/data/com.termux/files/usr/bin:$PATH; cd /data/data/com.termux/files/home/vbuf-arm64/rust && cargo build -p vbuf-ml --release --bin arm64_bootstrap_benchmark && ./target/release/arm64_bootstrap_benchmark /data/data/com.termux/files/home/vbuf-arm64/qwen32.semantic.vbuf /data/data/com.termux/files/home/vbuf-arm64/range.bin'
+ssh pixel 'export PATH=/data/data/com.termux/files/usr/bin:$PATH; cd /data/data/com.termux/files/home/vbuf-arm64/rust; ./target/release/arm64_bootstrap_benchmark /data/data/com.termux/files/home/vbuf-arm64/qwen32.semantic.vbuf /data/data/com.termux/files/home/vbuf-arm64/range.bin >/dev/null; ./target/release/arm64_bootstrap_benchmark /data/data/com.termux/files/home/vbuf-arm64/qwen32.semantic.vbuf /data/data/com.termux/files/home/vbuf-arm64/range.bin'
+ssh pixel 'for run in 1 2 3 4 5; do curl -sS --fail --range 6056603320-6062173879 -o /dev/null -w "run=$run time_total=%{time_total} size_download=%{size_download}\\n" http://127.0.0.1:18765/Qwen3-32B-Q8_0.vbuf; done'

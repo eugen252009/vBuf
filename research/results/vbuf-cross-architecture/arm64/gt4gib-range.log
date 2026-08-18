@@ -1,0 +1,11 @@
+HEADERS
+HTTP/1.0 206 Partial Content
+Server: BaseHTTP/0.6 Python/3.13.5
+Date: Tue, 18 Aug 2026 21:47:10 GMT
+Accept-Ranges: bytes
+Content-Range: bytes 6056603320-6062173879/34816197376
+Content-Length: 5570560
+
+RANGE
+5570560
+bfb4d69b99058c659ce075ec794b5d923b8a513ab6b7745a042383aa8dac13bf  /data/data/com.termux/files/home/vbuf-arm64/range.bin

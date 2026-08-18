@@ -1,0 +1,10 @@
+binary
+717288 /data/data/com.termux/files/home/vbuf-arm64/rust/target/release/arm64_bootstrap_qualification
+690848 /data/data/com.termux/files/home/vbuf-arm64/rust/target/release/arm64_bootstrap_benchmark
+5f9e8176fb2bd0a60977dda83a9879f802cc3a1d0395b386cfd4fc07ccf2685d  /data/data/com.termux/files/home/vbuf-arm64/rust/target/release/arm64_bootstrap_qualification
+64c0168fa636173d5ac12f514635812b739b84768491b7f6ae91503c9c3ed0dc  /data/data/com.termux/files/home/vbuf-arm64/rust/target/release/arm64_bootstrap_benchmark
+bootstrap
+4472327 /data/data/com.termux/files/home/vbuf-arm64/qwen32.semantic.vbuf
+dc3b0c755b5bbb4949ca813131c3a74bd33ea21368c5ac42c59feb3adfdeb278  /data/data/com.termux/files/home/vbuf-arm64/qwen32.semantic.vbuf
+full_artifact_target
+NO
