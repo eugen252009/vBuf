@@ -1,0 +1,448 @@
+{
+  "model_parameters": {
+    "active_experts": 8,
+    "attention_heads": 16,
+    "embedding": 2048,
+    "expert_count": 256,
+    "head_dimension": 256,
+    "kv_heads": 2
+  },
+  "portable_boundary": {
+    "excludes": [
+      "ggml_type_ids",
+      "backend_buffers",
+      "device_placement",
+      "source_read_plan",
+      "current_dispatch",
+      "runtime_schedule"
+    ],
+    "tensor_identity": "semantic TensorRef (directory plus occurrence)"
+  },
+  "program": [
+    {
+      "attributes": {
+        "causal": true,
+        "head_dimension": 256,
+        "heads": 16,
+        "kv_heads": 2,
+        "position_source": "sequence.position"
+      },
+      "id": "attention.layer3",
+      "inputs": [
+        "hidden",
+        "position"
+      ],
+      "kind": "attention",
+      "outputs": [
+        "attention_output"
+      ],
+      "weights": [
+        "layer.3.attention.input_norm",
+        "layer.3.attention.query_weight",
+        "layer.3.attention.key_weight",
+        "layer.3.attention.value_weight",
+        "layer.3.attention.output_weight"
+      ]
+    },
+    {
+      "attributes": {
+        "conv_kernel": 4,
+        "equation": "importer_defined_qwen35moe_ssm_v1",
+        "group_count": 16,
+        "inner_size": 4096,
+        "state_size": 128,
+        "time_step_rank": 32
+      },
+      "id": "ssm.layer0",
+      "inputs": [
+        "hidden",
+        "sequence.position"
+      ],
+      "kind": "ssm_scan",
+      "outputs": [
+        "ssm_output",
+        "ssm_state_next"
+      ],
+      "weights": [
+        "layer.0.ssm.alpha",
+        "layer.0.ssm.beta",
+        "layer.0.ssm.depthwise_conv",
+        "layer.0.ssm.output_weight"
+      ]
+    },
+    {
+      "alternatives": {
+        "cardinality": 256,
+        "members": [
+          "layer.0.moe.expert_gate_weight",
+          "layer.0.moe.expert_up_weight",
+          "layer.0.moe.expert_down_weight"
+        ],
+        "selector": "moe.layer0.selected_expert_ids",
+        "set": "layer.0.moe.expert_parameters"
+      },
+      "attributes": {
+        "capacity": "unspecified",
+        "drop_policy": "unspecified",
+        "expert_count": 256,
+        "selection": "router_top_k",
+        "top_k": 8,
+        "weighting": "router_scores"
+      },
+      "id": "moe.layer0",
+      "inputs": [
+        "hidden"
+      ],
+      "kind": "mixture_of_experts",
+      "outputs": [
+        "moe_output"
+      ],
+      "router": "layer.0.moe.router_weight"
+    }
+  ],
+  "sidecar": "vbuf-ml.qwen35moe.typed-program",
+  "source": {
+    "architecture": "qwen35moe",
+    "artifact": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+    "layer_count": 41,
+    "sha256": "0b21525e972670ed59e1812e170b27c26355381f0656ecc4e25617ece7dac58b"
+  },
+  "state_schema": [
+    {
+      "element_type": "u64",
+      "kind": "position",
+      "ref": "sequence.position",
+      "shape": [
+        1
+      ],
+      "transition": "position_next = position + token_count"
+    },
+    {
+      "element_type": "model_storage",
+      "kind": "kv_cache",
+      "ref": "attention.layer3.kv",
+      "shape": [
+        2,
+        256,
+        2,
+        "sequence_length"
+      ],
+      "transition": "append_current_key_value"
+    },
+    {
+      "element_type": "f32",
+      "kind": "recurrent",
+      "ref": "ssm.layer0.state",
+      "shape": [
+        16,
+        128,
+        256
+      ],
+      "transition": "ssm_scan_state_next"
+    }
+  ],
+  "tensor_bindings": [
+    {
+      "representation": {
+        "block_bytes": 34,
+        "block_elements": 256,
+        "kind": "opaque_block_quantized"
+      },
+      "semantic": "layer.3.attention.query_weight",
+      "shape": [
+        2048,
+        8192
+      ],
+      "source_provenance": {
+        "ggml_type": "Q8_0",
+        "name": "blk.3.attn_q.weight",
+        "payload_bytes": 17825792,
+        "source_offset": 2563490848,
+        "source_ordinal": 64
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.3.attention.query_weight"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 34,
+        "block_elements": 256,
+        "kind": "opaque_block_quantized"
+      },
+      "semantic": "layer.3.attention.key_weight",
+      "shape": [
+        2048,
+        512
+      ],
+      "source_provenance": {
+        "ggml_type": "Q8_0",
+        "name": "blk.3.attn_k.weight",
+        "payload_bytes": 1114112,
+        "source_offset": 2553454624,
+        "source_ordinal": 60
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.3.attention.key_weight"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 34,
+        "block_elements": 256,
+        "kind": "opaque_block_quantized"
+      },
+      "semantic": "layer.3.attention.value_weight",
+      "shape": [
+        2048,
+        512
+      ],
+      "source_provenance": {
+        "ggml_type": "Q8_0",
+        "name": "blk.3.attn_v.weight",
+        "payload_bytes": 1114112,
+        "source_offset": 2581317664,
+        "source_ordinal": 66
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.3.attention.value_weight"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 34,
+        "block_elements": 256,
+        "kind": "opaque_block_quantized"
+      },
+      "semantic": "layer.3.attention.output_weight",
+      "shape": [
+        4096,
+        2048
+      ],
+      "source_provenance": {
+        "ggml_type": "Q8_0",
+        "name": "blk.3.attn_output.weight",
+        "payload_bytes": 8912896,
+        "source_offset": 2554577952,
+        "source_ordinal": 63
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.3.attention.output_weight"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 4,
+        "block_elements": 1,
+        "kind": "f32"
+      },
+      "semantic": "layer.3.attention.input_norm",
+      "shape": [
+        2048
+      ],
+      "source_provenance": {
+        "ggml_type": "F32",
+        "name": "blk.3.attn_norm.weight",
+        "payload_bytes": 8192,
+        "source_offset": 2554569760,
+        "source_ordinal": 62
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.3.attention.input_norm"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 4,
+        "block_elements": 1,
+        "kind": "f32"
+      },
+      "semantic": "layer.0.ssm.alpha",
+      "shape": [
+        2048,
+        32
+      ],
+      "source_provenance": {
+        "ggml_type": "F32",
+        "name": "blk.0.ssm_alpha.weight",
+        "payload_bytes": 262144,
+        "source_offset": 1487263648,
+        "source_ordinal": 16
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.0.ssm.alpha"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 4,
+        "block_elements": 1,
+        "kind": "f32"
+      },
+      "semantic": "layer.0.ssm.beta",
+      "shape": [
+        2048,
+        32
+      ],
+      "source_provenance": {
+        "ggml_type": "F32",
+        "name": "blk.0.ssm_beta.weight",
+        "payload_bytes": 262144,
+        "source_offset": 1487525792,
+        "source_ordinal": 17
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.0.ssm.beta"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 4,
+        "block_elements": 1,
+        "kind": "f32"
+      },
+      "semantic": "layer.0.ssm.depthwise_conv",
+      "shape": [
+        4,
+        8192
+      ],
+      "source_provenance": {
+        "ggml_type": "F32",
+        "name": "blk.0.ssm_conv1d.weight",
+        "payload_bytes": 131072,
+        "source_offset": 1487787936,
+        "source_ordinal": 18
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.0.ssm.depthwise_conv"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 34,
+        "block_elements": 256,
+        "kind": "opaque_block_quantized"
+      },
+      "semantic": "layer.0.ssm.output_weight",
+      "shape": [
+        4096,
+        2048
+      ],
+      "source_provenance": {
+        "ggml_type": "Q8_0",
+        "name": "blk.0.ssm_out.weight",
+        "payload_bytes": 8912896,
+        "source_offset": 1487919648,
+        "source_ordinal": 21
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.0.ssm.output_weight"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 4,
+        "block_elements": 1,
+        "kind": "f32"
+      },
+      "semantic": "layer.0.moe.router_weight",
+      "shape": [
+        2048,
+        256
+      ],
+      "source_provenance": {
+        "ggml_type": "F32",
+        "name": "blk.0.ffn_gate_inp.weight",
+        "payload_bytes": 2097152,
+        "source_offset": 1331926816,
+        "source_ordinal": 9
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.0.moe.router_weight"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 144,
+        "block_elements": 256,
+        "kind": "opaque_block_quantized"
+      },
+      "semantic": "layer.0.moe.expert_gate_weight",
+      "shape": [
+        2048,
+        512,
+        256
+      ],
+      "source_provenance": {
+        "ggml_type": "Q4_K",
+        "name": "blk.0.ffn_gate_exps.weight",
+        "payload_bytes": 150994944,
+        "source_offset": 1180931872,
+        "source_ordinal": 8
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.0.moe.expert_gate_weight"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 144,
+        "block_elements": 256,
+        "kind": "opaque_block_quantized"
+      },
+      "semantic": "layer.0.moe.expert_up_weight",
+      "shape": [
+        2048,
+        512,
+        256
+      ],
+      "source_provenance": {
+        "ggml_type": "Q4_K",
+        "name": "blk.0.ffn_up_exps.weight",
+        "payload_bytes": 150994944,
+        "source_offset": 1335146272,
+        "source_ordinal": 12
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.0.moe.expert_up_weight"
+      }
+    },
+    {
+      "representation": {
+        "block_bytes": 176,
+        "block_elements": 256,
+        "kind": "opaque_block_quantized"
+      },
+      "semantic": "layer.0.moe.expert_down_weight",
+      "shape": [
+        512,
+        2048,
+        256
+      ],
+      "source_provenance": {
+        "ggml_type": "Q5_K",
+        "name": "blk.0.ffn_down_exps.weight",
+        "payload_bytes": 184549376,
+        "source_offset": 995268384,
+        "source_ordinal": 6
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "layer.0.moe.expert_down_weight"
+      }
+    }
+  ],
+  "version": 1
+}

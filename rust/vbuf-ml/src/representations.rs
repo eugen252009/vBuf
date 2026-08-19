@@ -32,6 +32,8 @@ pub const IQ2_S_BLOCK_ELEMENTS: u64 = 256;
 pub const IQ2_S_BLOCK_BYTES: u64 = 82;
 pub const Q5_K_BLOCK_ELEMENTS: u64 = 256;
 pub const Q5_K_BLOCK_BYTES: u64 = 176;
+pub const Q6_K_BLOCK_ELEMENTS: u64 = 256;
+pub const Q6_K_BLOCK_BYTES: u64 = 210;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -51,6 +53,7 @@ pub enum TensorRepresentation {
     GgmlIQ2_XS = 11,
     GgmlIQ2_S = 12,
     GgmlQ5_K = 13,
+    GgmlQ6_K = 14,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -152,6 +155,11 @@ pub const fn representation_contract(id: TensorRepresentation) -> Representation
             logical_elements_per_block: Some(Q5_K_BLOCK_ELEMENTS), physical_bytes_per_block: Some(Q5_K_BLOCK_BYTES),
             required_payload_alignment: 1, ggml_type_id: Some(13),
         },
+        TensorRepresentation::GgmlQ6_K => RepresentationContract {
+            id, canonical_storage: CanonicalStorage::OpaqueBytes,
+            logical_elements_per_block: Some(Q6_K_BLOCK_ELEMENTS), physical_bytes_per_block: Some(Q6_K_BLOCK_BYTES),
+            required_payload_alignment: 1, ggml_type_id: Some(14),
+        },
     }
 }
 
@@ -171,6 +179,7 @@ pub fn representation_name(id: TensorRepresentation) -> &'static str {
         TensorRepresentation::GgmlIQ2_XS => "GGML_IQ2_XS",
         TensorRepresentation::GgmlIQ2_S => "GGML_IQ2_S",
         TensorRepresentation::GgmlQ5_K => "GGML_Q5_K",
+        TensorRepresentation::GgmlQ6_K => "GGML_Q6_K",
     }
 }
 
@@ -190,6 +199,7 @@ pub fn representation_from_id(id: u8) -> Result<TensorRepresentation, MlError> {
         11 => Ok(TensorRepresentation::GgmlIQ2_XS),
         12 => Ok(TensorRepresentation::GgmlIQ2_S),
         13 => Ok(TensorRepresentation::GgmlQ5_K),
+        14 => Ok(TensorRepresentation::GgmlQ6_K),
         _ => Err(MlError::new(MlErrorCode::UnsupportedTensorRepresentation, "unsupported tensor representation")),
     }
 }
@@ -203,7 +213,7 @@ pub fn expected_payload_bytes(representation: TensorRepresentation, dimensions: 
     match representation {
         TensorRepresentation::CanonicalPrimitive => Err(MlError::new(MlErrorCode::TensorRepresentationMismatch, "canonical primitive size depends on its descriptor")),
         TensorRepresentation::Bf16 => elements.checked_mul(BF16_BYTES_PER_ELEMENT).ok_or_else(|| MlError::new(MlErrorCode::RepresentationArithmeticOverflow, "BF16 payload size overflows u64")),
-        TensorRepresentation::GgmlQ8_0 | TensorRepresentation::GgmlQ4_0 | TensorRepresentation::GgmlQ2_K | TensorRepresentation::GgmlIQ1_S | TensorRepresentation::GgmlQ4_K | TensorRepresentation::GgmlIQ4_NL | TensorRepresentation::GgmlIQ4_XS | TensorRepresentation::GgmlQ3_K | TensorRepresentation::GgmlIQ2_XXS | TensorRepresentation::GgmlIQ2_XS | TensorRepresentation::GgmlIQ2_S | TensorRepresentation::GgmlQ5_K => {
+        TensorRepresentation::GgmlQ8_0 | TensorRepresentation::GgmlQ4_0 | TensorRepresentation::GgmlQ2_K | TensorRepresentation::GgmlIQ1_S | TensorRepresentation::GgmlQ4_K | TensorRepresentation::GgmlIQ4_NL | TensorRepresentation::GgmlIQ4_XS | TensorRepresentation::GgmlQ3_K | TensorRepresentation::GgmlIQ2_XXS | TensorRepresentation::GgmlIQ2_XS | TensorRepresentation::GgmlIQ2_S | TensorRepresentation::GgmlQ5_K | TensorRepresentation::GgmlQ6_K => {
             let row_width = *dimensions.first().ok_or_else(|| MlError::new(MlErrorCode::InvalidQuantizedShape, "Q8_0 requires a row dimension"))?;
             let (block_elements, block_bytes, label) = match representation {
                 TensorRepresentation::GgmlQ8_0 => (Q8_0_BLOCK_ELEMENTS, Q8_0_BLOCK_BYTES, "Q8_0"),
@@ -218,6 +228,7 @@ pub fn expected_payload_bytes(representation: TensorRepresentation, dimensions: 
                 TensorRepresentation::GgmlIQ2_XS => (IQ2_XS_BLOCK_ELEMENTS, IQ2_XS_BLOCK_BYTES, "IQ2_XS"),
                 TensorRepresentation::GgmlIQ2_S => (IQ2_S_BLOCK_ELEMENTS, IQ2_S_BLOCK_BYTES, "IQ2_S"),
                 TensorRepresentation::GgmlQ5_K => (Q5_K_BLOCK_ELEMENTS, Q5_K_BLOCK_BYTES, "Q5_K"),
+                TensorRepresentation::GgmlQ6_K => (Q6_K_BLOCK_ELEMENTS, Q6_K_BLOCK_BYTES, "Q6_K"),
                 _ => unreachable!(),
             };
             if row_width == 0 || row_width % block_elements != 0 {
@@ -252,7 +263,7 @@ pub fn validate_tensor_representation(
                 return Err(MlError::new(MlErrorCode::TensorPayloadSizeMismatch, "tensor payload length does not match representation"));
             }
         }
-        TensorRepresentation::Bf16 | TensorRepresentation::GgmlQ8_0 | TensorRepresentation::GgmlQ4_0 | TensorRepresentation::GgmlQ2_K | TensorRepresentation::GgmlIQ1_S | TensorRepresentation::GgmlQ4_K | TensorRepresentation::GgmlIQ4_NL | TensorRepresentation::GgmlIQ4_XS | TensorRepresentation::GgmlQ3_K | TensorRepresentation::GgmlIQ2_XXS | TensorRepresentation::GgmlIQ2_XS | TensorRepresentation::GgmlIQ2_S | TensorRepresentation::GgmlQ5_K => {
+        TensorRepresentation::Bf16 | TensorRepresentation::GgmlQ8_0 | TensorRepresentation::GgmlQ4_0 | TensorRepresentation::GgmlQ2_K | TensorRepresentation::GgmlIQ1_S | TensorRepresentation::GgmlQ4_K | TensorRepresentation::GgmlIQ4_NL | TensorRepresentation::GgmlIQ4_XS | TensorRepresentation::GgmlQ3_K | TensorRepresentation::GgmlIQ2_XXS | TensorRepresentation::GgmlIQ2_XS | TensorRepresentation::GgmlIQ2_S | TensorRepresentation::GgmlQ5_K | TensorRepresentation::GgmlQ6_K => {
             if block.semantic != V06Semantic::Opaque || block.physical != V06Physical::Array || block.bit_width != 8 || block.count != expected_payload_bytes(representation, dimensions)? {
                 return Err(MlError::new(MlErrorCode::TensorRepresentationMismatch, "packed representation requires an opaque byte array"));
             }
@@ -282,7 +293,7 @@ pub fn validate_external_tensor_representation(
             let expected = logical_elements.checked_mul(u64::from(block.bit_width / 8)).ok_or_else(|| MlError::new(MlErrorCode::RepresentationArithmeticOverflow, "external tensor payload size overflows u64"))?;
             if payload_len != expected { return Err(MlError::new(MlErrorCode::TensorPayloadSizeMismatch, "external canonical payload length does not match representation")); }
         }
-        TensorRepresentation::Bf16 | TensorRepresentation::GgmlQ8_0 | TensorRepresentation::GgmlQ4_0 | TensorRepresentation::GgmlQ2_K | TensorRepresentation::GgmlIQ1_S | TensorRepresentation::GgmlQ4_K | TensorRepresentation::GgmlIQ4_NL | TensorRepresentation::GgmlIQ4_XS | TensorRepresentation::GgmlQ3_K | TensorRepresentation::GgmlIQ2_XXS | TensorRepresentation::GgmlIQ2_XS | TensorRepresentation::GgmlIQ2_S | TensorRepresentation::GgmlQ5_K => {
+        TensorRepresentation::Bf16 | TensorRepresentation::GgmlQ8_0 | TensorRepresentation::GgmlQ4_0 | TensorRepresentation::GgmlQ2_K | TensorRepresentation::GgmlIQ1_S | TensorRepresentation::GgmlQ4_K | TensorRepresentation::GgmlIQ4_NL | TensorRepresentation::GgmlIQ4_XS | TensorRepresentation::GgmlQ3_K | TensorRepresentation::GgmlIQ2_XXS | TensorRepresentation::GgmlIQ2_XS | TensorRepresentation::GgmlIQ2_S | TensorRepresentation::GgmlQ5_K | TensorRepresentation::GgmlQ6_K => {
             if block.semantic != V06Semantic::Opaque || block.physical != V06Physical::Array || block.bit_width != 8 {
                 return Err(MlError::new(MlErrorCode::TensorRepresentationMismatch, "packed external representation requires an opaque byte array"));
             }

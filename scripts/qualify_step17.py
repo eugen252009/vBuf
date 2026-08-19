@@ -94,6 +94,12 @@ def expected_bytes(type_name: str, shape: tuple[int, ...]) -> int:
         rows = 1
         for dimension in shape[1:]: rows = checked_mul(rows, dimension)
         return checked_mul(checked_mul(rows, shape[0] // 256), 176)
+    if type_name == "Q6_K":
+        if not shape or shape[0] % 256:
+            raise ValueError("Q6_K innermost row is not divisible by 256")
+        rows = 1
+        for dimension in shape[1:]: rows = checked_mul(rows, dimension)
+        return checked_mul(checked_mul(rows, shape[0] // 256), 210)
     if type_name == "IQ2_XXS":
         block_bytes = 66
     elif type_name == "IQ2_XS":

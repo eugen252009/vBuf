@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.18)
 
 project(vbuf_ggml_substrate LANGUAGES C CXX)
 
+find_package(Python3 COMPONENTS Interpreter QUIET)
+
 if(POLICY CMP0169)
     # Populate is intentional here: the upstream repository root is fetched,
     # but its CMake project is added only after the ggml options are set.
@@ -16,6 +18,8 @@ set(VBUF_ML_LIBRARY "" CACHE FILEPATH
     "Existing libvbuf_ml.so to expose to native targets")
 set(VBUF_ML_INCLUDE_DIR "" CACHE PATH
     "Directory containing vBuf-ML native headers, if needed")
+set(VBUF_RUNTIME_LIBRARY "" CACHE FILEPATH
+    "Existing libvbuf_runtime.so exposing the portable graph C ABI")
 option(VBUF_ENABLE_CUDA "Build the pinned ggml CUDA backend" OFF)
 option(VBUF_ENABLE_CPU_REPACK "Build ggml CPU_REPACK for opt-in contract audits" OFF)
 option(VBUF_BUILD_PROBES "Build disposable substrate qualification probes" ON)
@@ -67,6 +71,14 @@ if(VBUF_ML_LIBRARY)
         set_property(TARGET vbuf_ml PROPERTY
             INTERFACE_INCLUDE_DIRECTORIES "${VBUF_ML_INCLUDE_DIR}")
     endif()
+endif()
+
+if(VBUF_RUNTIME_LIBRARY)
+    if(NOT EXISTS "${VBUF_RUNTIME_LIBRARY}")
+        message(FATAL_ERROR "VBUF_RUNTIME_LIBRARY does not exist: ${VBUF_RUNTIME_LIBRARY}")
+    endif()
+    add_library(vbuf_runtime SHARED IMPORTED GLOBAL)
+    set_target_properties(vbuf_runtime PROPERTIES IMPORTED_LOCATION "${VBUF_RUNTIME_LIBRARY}")
 endif()
 
 # These are the only ggml options needed by the first substrate. The cache
@@ -223,6 +235,28 @@ if(VBUF_BUILD_PROBES)
 endif()
 
 if(VBUF_ML_LIBRARY)
+    add_library(vbuf_portable_graph_adapter STATIC
+        tools/portable_graph_poc22_adapter.cpp)
+    target_compile_features(vbuf_portable_graph_adapter PUBLIC cxx_std_17)
+    target_include_directories(vbuf_portable_graph_adapter PUBLIC include)
+    target_link_libraries(vbuf_portable_graph_adapter PUBLIC vbuf_region_executor)
+    if(TARGET vbuf_runtime)
+        target_link_libraries(vbuf_portable_graph_adapter PUBLIC vbuf_runtime)
+    endif()
+
+    add_executable(vbuf_portable_graph_adapter_contract
+        tests/portable_graph_adapter_contract.cpp)
+    target_compile_features(vbuf_portable_graph_adapter_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_portable_graph_adapter_contract
+        PRIVATE vbuf_portable_graph_adapter)
+    add_test(NAME vbuf_portable_graph_adapter_contract
+        COMMAND vbuf_portable_graph_adapter_contract)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME vbuf_portable_graph_neutrality
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/verify_portable_graph_neutrality.py")
+    endif()
+
     add_executable(vbuf_region_poc1 tools/region_poc1.cpp)
     target_compile_features(vbuf_region_poc1 PRIVATE cxx_std_17)
     target_link_libraries(vbuf_region_poc1 PRIVATE vbuf_region_executor)
