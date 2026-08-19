@@ -61,7 +61,8 @@ if(VBUF_ML_LIBRARY)
     endif()
     add_library(vbuf_ml SHARED IMPORTED GLOBAL)
     set_target_properties(vbuf_ml PROPERTIES
-        IMPORTED_LOCATION "${VBUF_ML_LIBRARY}")
+        IMPORTED_LOCATION "${VBUF_ML_LIBRARY}"
+        IMPORTED_NO_SONAME TRUE)
     if(VBUF_ML_INCLUDE_DIR)
         set_property(TARGET vbuf_ml PROPERTY
             INTERFACE_INCLUDE_DIRECTORIES "${VBUF_ML_INCLUDE_DIR}")

@@ -35,6 +35,7 @@ struct VbufMlTensorView {
     uint64_t payload_len;
 };
 extern "C" VbufMlConsumerHandle * vbuf_ml_consumer_open(const char *);
+extern "C" VbufMlConsumerHandle * vbuf_ml_consumer_open_metadata(const char *);
 extern "C" void vbuf_ml_consumer_close(VbufMlConsumerHandle *);
 extern "C" uint32_t vbuf_ml_consumer_tensor_views(
     const VbufMlConsumerHandle *, const VbufMlTensorView **, uint64_t *);

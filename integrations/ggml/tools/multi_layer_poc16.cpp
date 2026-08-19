@@ -65,8 +65,14 @@ void load_metadata(const std::string & artifact, Metadata * metadata) {
     metadata->artifact = read_file(artifact);
     metadata->handle = vbuf_ml_consumer_open(artifact.c_str());
     if (!metadata->artifact || metadata->handle == nullptr ||
-        vbuf_ml_consumer_tensor_views(metadata->handle, &metadata->views, &metadata->count) != 0)
-        throw std::runtime_error("metadata open failed");
+        vbuf_ml_consumer_tensor_views(metadata->handle, &metadata->views, &metadata->count) != 0) {
+        if (metadata->handle != nullptr) vbuf_ml_consumer_close(metadata->handle);
+        // A semantic bootstrap carries discovery metadata but no SELF payload.
+        metadata->handle = vbuf_ml_consumer_open_metadata(artifact.c_str());
+        if (!metadata->artifact || metadata->handle == nullptr ||
+            vbuf_ml_consumer_tensor_views(metadata->handle, &metadata->views, &metadata->count) != 0)
+            throw std::runtime_error("metadata open failed");
+    }
     for (uint64_t i = 0; i < metadata->count; ++i) {
         uint64_t offset = 0, length = 0;
         if (vbuf_ml_consumer_tensor_physical_range(metadata->handle, i, &offset, &length) != 0)
