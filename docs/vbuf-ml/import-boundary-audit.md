@@ -264,6 +264,7 @@ attributes and state contracts to be executable.
 | Generic MoE | Partial catalog only | Missing routing contract | Missing dynamic expert/state contract | Not portable |
 | Qwen3.6 35B-A3B | Storage vBuf converted and validated | Missing Qwen3.6 lowering | Missing SSM/hybrid state | Not executable yet |
 | Phi-4-mini-instruct | Pinned config/index/header audit | Importer-owned metadata prototype | Generic KV schema prototype | P0 survives with generic alias/view/position refinements; no execution |
+| Gemma3-270M-it | Pinned config/implementation audit | Importer-owned patterned text prototype | Hybrid KV schema prototype | Fits with generic attention-scope/norm refinements; no execution |
 | Arbitrary tokenizer | No | N/A | N/A | GPT2/Qwen2 only |
 
 ## Priority Plan
@@ -798,3 +799,18 @@ Evidence and the metadata-only prototype are recorded in
 and `phi4-mini-typed-program.json`. The result is
 `ABSTRACTION_SURVIVES_WITH_GENERIC_REFINEMENTS`; one more model-family audit is
 recommended before PoC22 lowering.
+
+## 20. P1 DeepSeek Lowering Gate
+
+Gemma 3 was audited as the final descriptive falsification and fit with generic
+per-layer attention scope, norm parameterization, and state-window attributes.
+The experimental `PORTABLE_SEMANTIC_V1` boundary is recorded separately and
+does not change vBuf v0.6.
+
+The qualified DeepSeek-V2-Lite manifest was imported into the same semantic
+descriptor vocabulary. Gate 2 is currently blocked: the repository has no
+generic PortableProgram-to-PoC22 lowerer. The active PoC22 C++ path still
+constructs DeepSeek-shaped plans from `blk.N.` names, fixed expert counts, and
+fixed state widths. No model-specific replacement was added. DeepSeek parity
+and Qwen lowering are therefore intentionally stopped until that generic
+lowering seam exists.

@@ -1,0 +1,590 @@
+{
+  "legacy_control": {
+    "comparison_only": true,
+    "fixture": "DeepSeek-V2-Lite.IQ1_S",
+    "legacy_poc22_known_correct": true
+  },
+  "model_parameters": {
+    "active_experts": 6,
+    "context": 163840,
+    "embedding": 2048,
+    "expert_count": 64,
+    "heads": 16,
+    "layers": 27,
+    "shared_experts": 2
+  },
+  "portable_boundary": {
+    "excludes": [
+      "ggml_type_ids",
+      "backend_buffers",
+      "device_placement",
+      "source_read_plan",
+      "runtime_schedule",
+      "current_dispatch"
+    ],
+    "tensor_identity": "semantic TensorRef"
+  },
+  "program": [
+    {
+      "id": "embedding",
+      "kind": "embedding",
+      "weights": [
+        "embedding.token"
+      ]
+    },
+    {
+      "attributes": {
+        "causal": true,
+        "heads": 16,
+        "position_transform": "position.rope",
+        "variant": "compressed_kv_attention"
+      },
+      "id": "layer.0.attention",
+      "kind": "attention",
+      "state": [
+        "attention.kv.compressed",
+        "attention.kv.decoupled_position"
+      ],
+      "weights": [
+        "layer.0.attention.input_norm",
+        "layer.0.attention.query_weight",
+        "layer.0.attention.compressed_kv_weight",
+        "layer.0.attention.compressed_kv_norm",
+        "layer.0.attention.kv_reconstruction_weight",
+        "layer.0.attention.output_weight"
+      ]
+    },
+    {
+      "alternatives": {
+        "cardinality": 64,
+        "members": [
+          "layer.1.moe.routed_gate_weight",
+          "layer.1.moe.routed_up_weight",
+          "layer.1.moe.routed_down_weight"
+        ],
+        "selector": "layer.1.moe.selected_expert_ids"
+      },
+      "attributes": {
+        "expert_count": 64,
+        "selection": "router_top_k",
+        "shared_expert_count": 2,
+        "top_k": 6,
+        "weighting": "router_scores"
+      },
+      "id": "layer.1.moe",
+      "kind": "mixture_of_experts",
+      "weights": [
+        "layer.1.moe.router_weight",
+        "layer.1.moe.shared_gate_weight",
+        "layer.1.moe.shared_up_weight",
+        "layer.1.moe.shared_down_weight",
+        "layer.1.moe.routed_gate_weight",
+        "layer.1.moe.routed_up_weight",
+        "layer.1.moe.routed_down_weight"
+      ]
+    },
+    {
+      "id": "output",
+      "kind": "lm_head",
+      "weights": [
+        "output.norm",
+        "lm_head.weight"
+      ]
+    }
+  ],
+  "sidecar": "vbuf-ml.deepseek2.typed-program",
+  "source": {
+    "architecture": "deepseek2",
+    "artifact": "DeepSeek-V2-Lite.IQ1_S.gguf",
+    "sha256": "9d3bc4a5bc25b7acb8bc31436745bd8cfaf94509fd1322bb36ab155b0daf1616",
+    "tensor_count": 377
+  },
+  "state_schema": [
+    {
+      "access": "read-write",
+      "kind": "kv_key",
+      "lifetime": "sequence",
+      "ref": "attention.kv.compressed",
+      "scope": "layer",
+      "transition": "append(position, compressed_kv); read(position_range)"
+    },
+    {
+      "access": "read-write",
+      "kind": "kv_value",
+      "lifetime": "sequence",
+      "ref": "attention.kv.decoupled_position",
+      "scope": "layer",
+      "transition": "append(position, positional_kv); read(position_range)"
+    },
+    {
+      "access": "read-write",
+      "kind": "position",
+      "lifetime": "sequence",
+      "ref": "sequence.position",
+      "reset": "sequence_start",
+      "scope": "sequence",
+      "transition": "position_next = position + token_count"
+    }
+  ],
+  "tensor_bindings": [
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "embedding.token",
+      "shape": [
+        2048,
+        102400
+      ],
+      "source_provenance": {
+        "name": "token_embd.weight",
+        "source_representation": "Q2_K",
+        "source_shape": [
+          2048,
+          102400
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "token_embd.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "output.norm",
+      "shape": [
+        2048
+      ],
+      "source_provenance": {
+        "name": "output_norm.weight",
+        "source_representation": "F32",
+        "source_shape": [
+          2048
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "output_norm.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "lm_head.weight",
+      "shape": [
+        2048,
+        102400
+      ],
+      "source_provenance": {
+        "name": "output.weight",
+        "source_representation": "Q5_K",
+        "source_shape": [
+          2048,
+          102400
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "output.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.0.attention.input_norm",
+      "shape": [
+        2048
+      ],
+      "source_provenance": {
+        "name": "blk.0.attn_norm.weight",
+        "source_representation": "F32",
+        "source_shape": [
+          2048
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.0.attn_norm.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.0.attention.query_weight",
+      "shape": [
+        2048,
+        3072
+      ],
+      "source_provenance": {
+        "name": "blk.0.attn_q.weight",
+        "source_representation": "IQ1_S",
+        "source_shape": [
+          2048,
+          3072
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.0.attn_q.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.0.attention.compressed_kv_weight",
+      "shape": [
+        2048,
+        576
+      ],
+      "source_provenance": {
+        "name": "blk.0.attn_kv_a_mqa.weight",
+        "source_representation": "IQ1_S",
+        "source_shape": [
+          2048,
+          576
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.0.attn_kv_a_mqa.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.0.attention.compressed_kv_norm",
+      "shape": [
+        512
+      ],
+      "source_provenance": {
+        "name": "blk.0.attn_kv_a_norm.weight",
+        "source_representation": "F32",
+        "source_shape": [
+          512
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.0.attn_kv_a_norm.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.0.attention.kv_reconstruction_weight",
+      "shape": [
+        512,
+        4096
+      ],
+      "source_provenance": {
+        "name": "blk.0.attn_kv_b.weight",
+        "source_representation": "IQ1_S",
+        "source_shape": [
+          512,
+          4096
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.0.attn_kv_b.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.0.attention.output_weight",
+      "shape": [
+        2048,
+        2048
+      ],
+      "source_provenance": {
+        "name": "blk.0.attn_output.weight",
+        "source_representation": "IQ2_XXS",
+        "source_shape": [
+          2048,
+          2048
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.0.attn_output.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.0.mlp.input_norm",
+      "shape": [
+        2048
+      ],
+      "source_provenance": {
+        "name": "blk.0.ffn_norm.weight",
+        "source_representation": "F32",
+        "source_shape": [
+          2048
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.0.ffn_norm.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.0.mlp.gate_weight",
+      "shape": [
+        2048,
+        10944
+      ],
+      "source_provenance": {
+        "name": "blk.0.ffn_gate.weight",
+        "source_representation": "IQ1_S",
+        "source_shape": [
+          2048,
+          10944
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.0.ffn_gate.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.0.mlp.up_weight",
+      "shape": [
+        2048,
+        10944
+      ],
+      "source_provenance": {
+        "name": "blk.0.ffn_up.weight",
+        "source_representation": "IQ1_S",
+        "source_shape": [
+          2048,
+          10944
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.0.ffn_up.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.0.mlp.down_weight",
+      "shape": [
+        10944,
+        2048
+      ],
+      "source_provenance": {
+        "name": "blk.0.ffn_down.weight",
+        "source_representation": "IQ4_NL",
+        "source_shape": [
+          10944,
+          2048
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.0.ffn_down.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.1.moe.router_weight",
+      "shape": [
+        2048,
+        64
+      ],
+      "source_provenance": {
+        "name": "blk.1.ffn_gate_inp.weight",
+        "source_representation": "F32",
+        "source_shape": [
+          2048,
+          64
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.1.ffn_gate_inp.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.1.moe.shared_gate_weight",
+      "shape": [
+        2048,
+        2816
+      ],
+      "source_provenance": {
+        "name": "blk.1.ffn_gate_shexp.weight",
+        "source_representation": "IQ1_S",
+        "source_shape": [
+          2048,
+          2816
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.1.ffn_gate_shexp.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.1.moe.shared_up_weight",
+      "shape": [
+        2048,
+        2816
+      ],
+      "source_provenance": {
+        "name": "blk.1.ffn_up_shexp.weight",
+        "source_representation": "IQ1_S",
+        "source_shape": [
+          2048,
+          2816
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.1.ffn_up_shexp.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.1.moe.shared_down_weight",
+      "shape": [
+        2816,
+        2048
+      ],
+      "source_provenance": {
+        "name": "blk.1.ffn_down_shexp.weight",
+        "source_representation": "Q2_K",
+        "source_shape": [
+          2816,
+          2048
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.1.ffn_down_shexp.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.1.moe.routed_gate_weight",
+      "shape": [
+        2048,
+        1408,
+        64
+      ],
+      "source_provenance": {
+        "name": "blk.1.ffn_gate_exps.weight",
+        "source_representation": "IQ1_S",
+        "source_shape": [
+          2048,
+          1408,
+          64
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.1.ffn_gate_exps.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.1.moe.routed_up_weight",
+      "shape": [
+        2048,
+        1408,
+        64
+      ],
+      "source_provenance": {
+        "name": "blk.1.ffn_up_exps.weight",
+        "source_representation": "IQ1_S",
+        "source_shape": [
+          2048,
+          1408,
+          64
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.1.ffn_up_exps.weight"
+      }
+    },
+    {
+      "representation": {
+        "kind": "source_representation_contract",
+        "storage": "opaque_or_primitive"
+      },
+      "semantic": "layer.1.moe.routed_down_weight",
+      "shape": [
+        1408,
+        2048,
+        64
+      ],
+      "source_provenance": {
+        "name": "blk.1.ffn_down_exps.weight",
+        "source_representation": "IQ4_NL",
+        "source_shape": [
+          1408,
+          2048,
+          64
+        ]
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "blk.1.ffn_down_exps.weight"
+      }
+    }
+  ],
+  "version": 1
+}

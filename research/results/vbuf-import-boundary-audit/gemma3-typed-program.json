@@ -1,0 +1,428 @@
+{
+  "aliases": [
+    {
+      "relation": "same_storage",
+      "semantic": "lm_head.weight",
+      "target": "embedding.token"
+    }
+  ],
+  "attention_pattern": [
+    {
+      "layer": 0,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 1,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 2,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 3,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 4,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 5,
+      "position_transform": "position.global_rope",
+      "scope": "full_attention",
+      "window": null
+    },
+    {
+      "layer": 6,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 7,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 8,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 9,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 10,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 11,
+      "position_transform": "position.global_rope",
+      "scope": "full_attention",
+      "window": null
+    },
+    {
+      "layer": 12,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 13,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 14,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 15,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 16,
+      "position_transform": "position.local_rope",
+      "scope": "sliding_attention",
+      "window": 512
+    },
+    {
+      "layer": 17,
+      "position_transform": "position.global_rope",
+      "scope": "full_attention",
+      "window": null
+    }
+  ],
+  "model_parameters": {
+    "activation": "gelu_pytorch_tanh",
+    "architecture": "Gemma3ForCausalLM",
+    "attention_heads": 4,
+    "attention_softcap": null,
+    "dtype": "BF16",
+    "head_dimension": 256,
+    "hidden_size": 640,
+    "intermediate_size": 2048,
+    "kv_heads": 1,
+    "layer_count": 18,
+    "local_window": 512,
+    "logit_softcap": null,
+    "max_context": 32768,
+    "model_type": "gemma3_text",
+    "parameter_count": 268098176,
+    "query_pre_attention_scalar": 256,
+    "rms_norm_epsilon": 1e-06,
+    "rope_theta_global": 1000000.0,
+    "rope_theta_local": 10000.0,
+    "sliding_window_pattern": 6,
+    "vocab_size": 262144,
+    "weight_tying": true
+  },
+  "multimodal_boundary": {
+    "image_adapter": "not imported",
+    "language_model_input": "token_or_embedded_sequence",
+    "selected_path": "text_only",
+    "vision_semantics": "outside_selected_program"
+  },
+  "portable_boundary": {
+    "excludes": [
+      "vision_backend",
+      "image_features",
+      "backend_buffers",
+      "device_placement",
+      "mask_buffers",
+      "frequency_tables",
+      "cache_contents"
+    ],
+    "text_path": "Gemma3ForCausalLM"
+  },
+  "position_schema": [
+    {
+      "head_dimension": 256,
+      "kind": "rotary_position_transform",
+      "ref": "position.global_rope",
+      "scope": "global_attention",
+      "theta": 1000000.0
+    },
+    {
+      "head_dimension": 256,
+      "kind": "rotary_position_transform",
+      "ref": "position.local_rope",
+      "scope": "sliding_attention",
+      "theta": 10000.0
+    }
+  ],
+  "program": [
+    {
+      "attributes": {
+        "attention_pattern_ref": "attention_pattern",
+        "causal": true,
+        "head_dimension": 256,
+        "heads": 4,
+        "kv_heads": 1,
+        "norm_parameterization": "one_plus_weight",
+        "query_scale": "derived:query_pre_attention_scalar^-0.5"
+      },
+      "composition": [
+        "rms_norm(parameterization=one_plus_weight)",
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "q_norm",
+        "k_norm",
+        "position_transform(scope)",
+        "attention(scope, causal, window)",
+        "o_proj",
+        "residual_add",
+        "rms_norm(parameterization=one_plus_weight)",
+        "gelu(gate_proj(x))",
+        "mul(up_proj(x))",
+        "down_proj",
+        "rms_norm(parameterization=one_plus_weight)",
+        "residual_add"
+      ],
+      "for_each": "attention_pattern",
+      "id": "layer.patterned_attention_mlp",
+      "kind": "layer_template"
+    }
+  ],
+  "sidecar": "vbuf-ml.gemma3_text.typed-program",
+  "source": {
+    "config_access": "official_manifest_plus_public_implementation_cross_check",
+    "config_file_oid": "48bf8ed00bfb682ff0d4713914e9934c85caae4f",
+    "repository": "google/gemma-3-270m-it",
+    "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+    "weights_downloaded": false
+  },
+  "state_schema": [
+    {
+      "access": "read-write",
+      "kind": "kv_key",
+      "lifetime": "sequence",
+      "ref": "layered.kv.key",
+      "scope": "layer",
+      "transition": "append(position, key); read(scope.window, position_range)",
+      "variants": {
+        "full_attention": {
+          "window": null
+        },
+        "sliding_attention": {
+          "window": 512
+        }
+      }
+    },
+    {
+      "access": "read-write",
+      "kind": "kv_value",
+      "lifetime": "sequence",
+      "ref": "layered.kv.value",
+      "scope": "layer",
+      "transition": "append(position, value); read(scope.window, position_range)"
+    },
+    {
+      "access": "read-write",
+      "kind": "position",
+      "lifetime": "sequence",
+      "ref": "sequence.position",
+      "reset": "sequence_start",
+      "scope": "sequence",
+      "transition": "position_next = position + token_count"
+    }
+  ],
+  "tensor_bindings": [
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "embedding.token",
+      "source_provenance": {
+        "repository": "google/gemma-3-270m-it",
+        "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+        "role": "embedding.token"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "embedding.token"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "attention.query_weight",
+      "source_provenance": {
+        "repository": "google/gemma-3-270m-it",
+        "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+        "role": "attention.query_weight"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "attention.query_weight"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "attention.key_weight",
+      "source_provenance": {
+        "repository": "google/gemma-3-270m-it",
+        "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+        "role": "attention.key_weight"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "attention.key_weight"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "attention.value_weight",
+      "source_provenance": {
+        "repository": "google/gemma-3-270m-it",
+        "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+        "role": "attention.value_weight"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "attention.value_weight"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "attention.query_norm",
+      "source_provenance": {
+        "repository": "google/gemma-3-270m-it",
+        "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+        "role": "attention.query_norm"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "attention.query_norm"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "attention.key_norm",
+      "source_provenance": {
+        "repository": "google/gemma-3-270m-it",
+        "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+        "role": "attention.key_norm"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "attention.key_norm"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "attention.output_weight",
+      "source_provenance": {
+        "repository": "google/gemma-3-270m-it",
+        "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+        "role": "attention.output_weight"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "attention.output_weight"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "mlp.gate_weight",
+      "source_provenance": {
+        "repository": "google/gemma-3-270m-it",
+        "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+        "role": "mlp.gate_weight"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "mlp.gate_weight"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "mlp.up_weight",
+      "source_provenance": {
+        "repository": "google/gemma-3-270m-it",
+        "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+        "role": "mlp.up_weight"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "mlp.up_weight"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "mlp.down_weight",
+      "source_provenance": {
+        "repository": "google/gemma-3-270m-it",
+        "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+        "role": "mlp.down_weight"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "mlp.down_weight"
+      }
+    }
+  ],
+  "tokenizer": {
+    "added_tokens": "added_tokens.json",
+    "bos_id": 2,
+    "chat_template": "chat_template.jinja",
+    "chat_template_application_profile": true,
+    "eos_id": 106,
+    "kind": "sentencepiece",
+    "model": "tokenizer.model",
+    "pad_id": 0,
+    "vocabulary_size": 262144
+  },
+  "version": 1
+}

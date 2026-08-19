@@ -58,3 +58,29 @@ The result is `ABSTRACTION_SURVIVES_WITH_GENERIC_REFINEMENTS`; one more model
 family audit is recommended before PoC22 lowering. Full evidence is in
 `p0-1-phi-abstraction-falsification.md` and the metadata-only prototype is
 `phi4-mini-typed-program.json`.
+
+## P0.2 Gemma Result
+
+`google/gemma-3-270m-it` was audited at official revision
+`ac82b4e820549b854eebf28ce6dedaf9fdfa17b3` using official Hub metadata/file
+identity plus the public Gemma3 implementation; model weights were not
+downloaded. Its 5-local/1-global attention pattern, local/global RoPE bases,
+Gemma norm parameterization, hybrid KV state, and text-only/multimodal boundary
+fit with generic attributes. The result is
+`GEMMA_FITS_WITH_GENERIC_REFINEMENTS`.
+
+## P1 Gate Result
+
+The qualified DeepSeek-V2-Lite manifest was imported into the same generic
+sidecar vocabulary. Gate 2 stopped the experiment before execution: the
+repository has no generic PortableProgram-to-PoC22 lowerer, and the active
+PoC22 C++ path remains DeepSeek-shaped. No vendor-specific workaround was
+added. DeepSeek parity and Qwen lowering remain pending that generic seam.
+
+The existing runtime also still parses `blk.N.` names in `parse_layer`; this
+pre-existing leakage remains to be removed or isolated behind importer-owned
+region metadata before the runtime can satisfy the no-name-parsing invariant.
+
+Evidence: `p0-2-gemma-falsification.md`, `portable-semantic-v1.md`,
+`p1-deepseek-portable-lowering.md`, `p1-qwen-portable-lowering.md`, and
+`deepseek2-typed-program.json`.
