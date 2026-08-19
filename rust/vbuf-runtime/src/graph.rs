@@ -87,10 +87,21 @@ impl ExecutionGraph {
         self.tensors.iter().map(|tensor| tensor.bytes).sum()
     }
 
-    pub fn operation(&mut self, id: impl Into<String>, kind: OperationKind,
-        inputs: impl IntoIterator<Item = InputRef>, output: ValueId,
-        attributes: OperationAttributes) {
-        self.operations.push(Operation { id: id.into(), kind, inputs: inputs.into_iter().collect(), output, attributes });
+    pub fn operation(
+        &mut self,
+        id: impl Into<String>,
+        kind: OperationKind,
+        inputs: impl IntoIterator<Item = InputRef>,
+        output: ValueId,
+        attributes: OperationAttributes,
+    ) {
+        self.operations.push(Operation {
+            id: id.into(),
+            kind,
+            inputs: inputs.into_iter().collect(),
+            output,
+            attributes,
+        });
     }
 
     /// Returns tensor dependencies in first-use order. This is the common
@@ -99,7 +110,9 @@ impl ExecutionGraph {
         let mut result = Vec::new();
         for operation in &self.operations {
             for input in &operation.inputs {
-                if let InputRef::Tensor(id) = input && !result.contains(id) {
+                if let InputRef::Tensor(id) = input
+                    && !result.contains(id)
+                {
                     result.push(*id);
                 }
             }
@@ -113,21 +126,91 @@ mod tests {
     use super::*;
 
     fn dense_graph() -> ExecutionGraph {
-        let mut graph = ExecutionGraph { input: ValueId(0), output: ValueId(2), ..Default::default() };
-        graph.tensors.push(PersistentTensor { id: TensorId(0), name: "norm".into(), bytes: 128, source_offset: 10 });
-        graph.tensors.push(PersistentTensor { id: TensorId(1), name: "weight".into(), bytes: 256, source_offset: 20 });
-        graph.operation("norm", OperationKind::RmsNorm, [InputRef::Value(ValueId(0)), InputRef::Tensor(TensorId(0))], ValueId(1), OperationAttributes { epsilon: Some(1e-6), ..Default::default() });
-        graph.operation("matmul", OperationKind::QuantizedMatMul, [InputRef::Value(ValueId(1)), InputRef::Tensor(TensorId(1))], ValueId(2), OperationAttributes { matmul_weight_operand: Some(MatMulWeightOperand::Rhs), matmul_transpose_weight: Some(false), ..Default::default() });
+        let mut graph = ExecutionGraph {
+            input: ValueId(0),
+            output: ValueId(2),
+            ..Default::default()
+        };
+        graph.tensors.push(PersistentTensor {
+            id: TensorId(0),
+            name: "norm".into(),
+            bytes: 128,
+            source_offset: 10,
+        });
+        graph.tensors.push(PersistentTensor {
+            id: TensorId(1),
+            name: "weight".into(),
+            bytes: 256,
+            source_offset: 20,
+        });
+        graph.operation(
+            "norm",
+            OperationKind::RmsNorm,
+            [InputRef::Value(ValueId(0)), InputRef::Tensor(TensorId(0))],
+            ValueId(1),
+            OperationAttributes {
+                epsilon: Some(1e-6),
+                ..Default::default()
+            },
+        );
+        graph.operation(
+            "matmul",
+            OperationKind::QuantizedMatMul,
+            [InputRef::Value(ValueId(1)), InputRef::Tensor(TensorId(1))],
+            ValueId(2),
+            OperationAttributes {
+                matmul_weight_operand: Some(MatMulWeightOperand::Rhs),
+                matmul_transpose_weight: Some(false),
+                ..Default::default()
+            },
+        );
         graph
     }
 
     fn moe_graph() -> ExecutionGraph {
-        let mut graph = ExecutionGraph { input: ValueId(0), output: ValueId(3), ..Default::default() };
-        graph.tensors.push(PersistentTensor { id: TensorId(0), name: "router".into(), bytes: 64, source_offset: 10 });
-        graph.tensors.push(PersistentTensor { id: TensorId(1), name: "expert.0".into(), bytes: 512, source_offset: 20 });
-        graph.operation("route", OperationKind::TopKRouter, [InputRef::Value(ValueId(0)), InputRef::Tensor(TensorId(0))], ValueId(1), OperationAttributes { top_k: Some(2), top_k_order: Some(TopKOrder::Descending), top_k_tie_break: Some(TopKTieBreak::LowerIndex), ..Default::default() });
-        graph.operation("experts", OperationKind::ExpertDispatch, [InputRef::Value(ValueId(1)), InputRef::Tensor(TensorId(1))], ValueId(2), OperationAttributes::default());
-        graph.operation("residual", OperationKind::ResidualAdd, [InputRef::Value(ValueId(0)), InputRef::Value(ValueId(2))], ValueId(3), OperationAttributes::default());
+        let mut graph = ExecutionGraph {
+            input: ValueId(0),
+            output: ValueId(3),
+            ..Default::default()
+        };
+        graph.tensors.push(PersistentTensor {
+            id: TensorId(0),
+            name: "router".into(),
+            bytes: 64,
+            source_offset: 10,
+        });
+        graph.tensors.push(PersistentTensor {
+            id: TensorId(1),
+            name: "expert.0".into(),
+            bytes: 512,
+            source_offset: 20,
+        });
+        graph.operation(
+            "route",
+            OperationKind::TopKRouter,
+            [InputRef::Value(ValueId(0)), InputRef::Tensor(TensorId(0))],
+            ValueId(1),
+            OperationAttributes {
+                top_k: Some(2),
+                top_k_order: Some(TopKOrder::Descending),
+                top_k_tie_break: Some(TopKTieBreak::LowerIndex),
+                ..Default::default()
+            },
+        );
+        graph.operation(
+            "experts",
+            OperationKind::ExpertDispatch,
+            [InputRef::Value(ValueId(1)), InputRef::Tensor(TensorId(1))],
+            ValueId(2),
+            OperationAttributes::default(),
+        );
+        graph.operation(
+            "residual",
+            OperationKind::ResidualAdd,
+            [InputRef::Value(ValueId(0)), InputRef::Value(ValueId(2))],
+            ValueId(3),
+            OperationAttributes::default(),
+        );
         graph
     }
 

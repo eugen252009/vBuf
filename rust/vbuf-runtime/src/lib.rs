@@ -13,13 +13,17 @@ use std::path::{Path, PathBuf};
 use vbuf_ml::{BorrowedModel, MlError};
 
 pub mod graph;
-pub use graph::{ExecutionGraph, InputRef, MatMulWeightOperand, Operation, OperationAttributes,
-    OperationKind, PersistentTensor, TensorId, TopKOrder, TopKTieBreak, ValueId};
-pub mod lowering;
+pub use graph::{
+    ExecutionGraph, InputRef, MatMulWeightOperand, Operation, OperationAttributes, OperationKind,
+    PersistentTensor, TensorId, TopKOrder, TopKTieBreak, ValueId,
+};
 pub mod ffi;
+pub mod lowering;
 pub use ffi::*;
-pub use lowering::{lower_region, LoweringError, PortableInput, PortableOperation,
-    PortableOperationKind, PortableProgram, PortableRegion, SemanticTensorKey, StateId, StateRef, TensorBinding};
+pub use lowering::{
+    LoweringError, PortableInput, PortableOperation, PortableOperationKind, PortableProgram,
+    PortableRegion, SemanticTensorKey, StateId, StateRef, TensorBinding, lower_region,
+};
 
 #[cfg(feature = "ggml")]
 pub mod ggml {
@@ -43,11 +47,15 @@ pub enum RuntimeError {
 }
 
 impl From<MlError> for RuntimeError {
-    fn from(error: MlError) -> Self { Self::Model(error) }
+    fn from(error: MlError) -> Self {
+        Self::Model(error)
+    }
 }
 
 impl From<std::io::Error> for RuntimeError {
-    fn from(error: std::io::Error) -> Self { Self::Io(error) }
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -73,7 +81,12 @@ struct Cache {
 
 impl Cache {
     fn new(budget: u64) -> Self {
-        Self { budget, resident_bytes: 0, values: HashMap::new(), order: VecDeque::new() }
+        Self {
+            budget,
+            resident_bytes: 0,
+            values: HashMap::new(),
+            order: VecDeque::new(),
+        }
     }
 
     fn touch(&mut self, name: &str) {
@@ -82,9 +95,16 @@ impl Cache {
     }
 
     fn evict_until(&mut self, required: u64) -> Result<(), RuntimeError> {
-        if required > self.budget { return Err(RuntimeError::BudgetTooSmall { requested: required, budget: self.budget }); }
+        if required > self.budget {
+            return Err(RuntimeError::BudgetTooSmall {
+                requested: required,
+                budget: self.budget,
+            });
+        }
         while self.resident_bytes + required > self.budget {
-            let Some(oldest) = self.order.pop_front() else { break };
+            let Some(oldest) = self.order.pop_front() else {
+                break;
+            };
             if let Some(value) = self.values.remove(&oldest) {
                 self.resident_bytes -= value.bytes.len() as u64;
             }
@@ -124,35 +144,72 @@ impl VBufRuntime {
             let offset = tensor.payload.offset();
             let length = tensor.payload.length();
             let index = tensors.len();
-            tensors.push(TensorRange { name: tensor.name.clone(), offset, length });
+            tensors.push(TensorRange {
+                name: tensor.name.clone(),
+                offset,
+                length,
+            });
             if let Some(layer) = parse_layer(&tensor.name) {
                 layers.entry(layer).or_default().push(index);
             }
         }
-        Ok(Self { path, model, tensors, layers, cache: Cache::new(resident_budget) })
+        Ok(Self {
+            path,
+            model,
+            tensors,
+            layers,
+            cache: Cache::new(resident_budget),
+        })
     }
 
-    pub fn model(&self) -> &BorrowedModel { &self.model }
-    pub fn resident_bytes(&self) -> u64 { self.cache.resident_bytes }
-    pub fn resident_budget(&self) -> u64 { self.cache.budget }
-    pub fn tensor_ranges(&self) -> &[TensorRange] { &self.tensors }
-    pub fn layer_ids(&self) -> impl Iterator<Item = u32> + '_ { self.layers.keys().copied() }
+    pub fn model(&self) -> &BorrowedModel {
+        &self.model
+    }
+    pub fn resident_bytes(&self) -> u64 {
+        self.cache.resident_bytes
+    }
+    pub fn resident_budget(&self) -> u64 {
+        self.cache.budget
+    }
+    pub fn tensor_ranges(&self) -> &[TensorRange] {
+        &self.tensors
+    }
+    pub fn layer_ids(&self) -> impl Iterator<Item = u32> + '_ {
+        self.layers.keys().copied()
+    }
 
     /// Reads only the selected layer's tensor payloads and evicts old layers
     /// until the configured resident budget is respected.
     pub fn acquire_layer(&mut self, layer: u32) -> Result<Vec<&[u8]>, RuntimeError> {
-        let indexes = self.layers.get(&layer).cloned().ok_or(RuntimeError::LayerNotFound(layer))?;
+        let indexes = self
+            .layers
+            .get(&layer)
+            .cloned()
+            .ok_or(RuntimeError::LayerNotFound(layer))?;
         let mut file = File::open(&self.path)?;
         for index in indexes.iter().copied() {
             let range = self.tensors[index].clone();
-            if range.length > usize::MAX as u64 { return Err(RuntimeError::InvalidTensorRange); }
+            if range.length > usize::MAX as u64 {
+                return Err(RuntimeError::InvalidTensorRange);
+            }
             let mut bytes = vec![0u8; range.length as usize];
             file.seek(SeekFrom::Start(range.offset))?;
             file.read_exact(&mut bytes)?;
             self.cache.insert(ResidentTensor { range, bytes })?;
         }
-        let names: Vec<String> = indexes.iter().map(|index| self.tensors[*index].name.clone()).collect();
-        Ok(names.iter().filter_map(|name| self.cache.values.get(name).map(|tensor| tensor.bytes.as_slice())).collect())
+        let names: Vec<String> = indexes
+            .iter()
+            .map(|index| self.tensors[*index].name.clone())
+            .collect();
+        Ok(names
+            .iter()
+            .filter_map(|name| {
+                self.cache
+                    .values
+                    .get(name)
+                    .map(|tensor| tensor.bytes.as_slice())
+            })
+            .collect())
     }
 
     pub fn release_layer(&mut self, layer: u32) {
@@ -181,9 +238,36 @@ mod tests {
     #[test]
     fn cache_evicts_oldest_values_before_inserting_new_layer() {
         let mut cache = Cache::new(6);
-        cache.insert(super::ResidentTensor { range: super::TensorRange { name: "a".into(), offset: 0, length: 4 }, bytes: vec![0; 4] }).unwrap();
-        cache.insert(super::ResidentTensor { range: super::TensorRange { name: "b".into(), offset: 4, length: 2 }, bytes: vec![0; 2] }).unwrap();
-        cache.insert(super::ResidentTensor { range: super::TensorRange { name: "c".into(), offset: 6, length: 5 }, bytes: vec![0; 5] }).unwrap();
+        cache
+            .insert(super::ResidentTensor {
+                range: super::TensorRange {
+                    name: "a".into(),
+                    offset: 0,
+                    length: 4,
+                },
+                bytes: vec![0; 4],
+            })
+            .unwrap();
+        cache
+            .insert(super::ResidentTensor {
+                range: super::TensorRange {
+                    name: "b".into(),
+                    offset: 4,
+                    length: 2,
+                },
+                bytes: vec![0; 2],
+            })
+            .unwrap();
+        cache
+            .insert(super::ResidentTensor {
+                range: super::TensorRange {
+                    name: "c".into(),
+                    offset: 6,
+                    length: 5,
+                },
+                bytes: vec![0; 5],
+            })
+            .unwrap();
         assert_eq!(cache.resident_bytes, 5);
         assert!(!cache.values.contains_key("a"));
         assert!(cache.values.contains_key("c"));

@@ -7,8 +7,10 @@
 
 use std::collections::HashMap;
 
-use crate::graph::{ExecutionGraph, InputRef, OperationAttributes as GraphOperationAttributes,
-    OperationKind, TensorId, ValueId};
+use crate::graph::{
+    ExecutionGraph, InputRef, OperationAttributes as GraphOperationAttributes, OperationKind,
+    TensorId, ValueId,
+};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct SemanticTensorKey(pub String);
@@ -117,16 +119,20 @@ pub fn lower_region(
         {
             return Err(LoweringError::InvalidAttribute("RmsNorm requires epsilon"));
         }
-        if operation.kind == PortableOperationKind::TopK && (operation.attributes.top_k.is_none()
-            || operation.attributes.top_k_order.is_none()
-            || operation.attributes.top_k_tie_break.is_none()) {
+        if operation.kind == PortableOperationKind::TopK
+            && (operation.attributes.top_k.is_none()
+                || operation.attributes.top_k_order.is_none()
+                || operation.attributes.top_k_tie_break.is_none())
+        {
             return Err(LoweringError::InvalidAttribute("TopK requires top_k"));
         }
         if operation.kind == PortableOperationKind::MatMul
             && (operation.attributes.matmul_weight_operand.is_none()
                 || operation.attributes.matmul_transpose_weight.is_none())
         {
-            return Err(LoweringError::InvalidAttribute("MatMul requires weight operand and orientation"));
+            return Err(LoweringError::InvalidAttribute(
+                "MatMul requires weight operand and orientation",
+            ));
         }
         let kind = match operation.kind {
             PortableOperationKind::RmsNorm => OperationKind::RmsNorm,
@@ -151,14 +157,20 @@ pub fn lower_region(
                     .ok_or_else(|| LoweringError::MissingBinding(semantic.clone())),
             })
             .collect::<Result<Vec<_>, _>>()?;
-        graph.operation(operation.id.clone(), kind, inputs, operation.output, GraphOperationAttributes {
-            epsilon: operation.attributes.epsilon,
-            top_k: operation.attributes.top_k,
-            matmul_weight_operand: operation.attributes.matmul_weight_operand,
-            matmul_transpose_weight: operation.attributes.matmul_transpose_weight,
-            top_k_order: operation.attributes.top_k_order,
-            top_k_tie_break: operation.attributes.top_k_tie_break,
-        });
+        graph.operation(
+            operation.id.clone(),
+            kind,
+            inputs,
+            operation.output,
+            GraphOperationAttributes {
+                epsilon: operation.attributes.epsilon,
+                top_k: operation.attributes.top_k,
+                matmul_weight_operand: operation.attributes.matmul_weight_operand,
+                matmul_transpose_weight: operation.attributes.matmul_transpose_weight,
+                top_k_order: operation.attributes.top_k_order,
+                top_k_tie_break: operation.attributes.top_k_tie_break,
+            },
+        );
     }
     Ok(graph)
 }
@@ -250,10 +262,12 @@ mod tests {
                 OperationKind::TopKRouter,
             ]
         );
-        assert!(graph
-            .tensors
-            .iter()
-            .all(|tensor| !tensor.name.starts_with("blk.")));
+        assert!(
+            graph
+                .tensors
+                .iter()
+                .all(|tensor| !tensor.name.starts_with("blk."))
+        );
     }
 
     #[test]
