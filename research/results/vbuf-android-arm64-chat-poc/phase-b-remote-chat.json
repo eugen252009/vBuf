@@ -1,0 +1,91 @@
+{
+  "phase": "B",
+  "status": "passed",
+  "device": {
+    "model": "Pixel 7 Pro",
+    "android": "17",
+    "abi": "arm64-v8a"
+  },
+  "artifact": {
+    "path": "research-models/Qwen3-0.6B-Q8_0.vbuf",
+    "bytes": 637925504,
+    "sha256": "2982cedd0ddc12d762d12ff3426bcc105b2cee1c675ca13bbb5ca4c3cce9a998"
+  },
+  "semantic_bootstrap": {
+    "bytes": 4438492,
+    "sha256": "0cb7a313709e67bb8d7242f1766b6becccaf0c552dfaf9376dd0d55bea021061",
+    "device_path": "files/models/Qwen3-0.6B-Q8_0.semantic.vbuf",
+    "full_artifact_present_on_device": false
+  },
+  "source": {
+    "endpoint": "http://192.168.188.40:18765/Qwen3-0.6B-Q8_0.vbuf",
+    "transport": "direct Wi-Fi HTTP Range",
+    "remote_source_id": 1,
+    "first_tensor": {
+      "name": "blk.0.attn_k.weight",
+      "offset": 171965160,
+      "length": 1114112
+    },
+    "model_open": {
+      "result": "OPEN_OK qwen3 remote",
+      "load_ms": 53203,
+      "requests": 310,
+      "bytes": 633495552,
+      "unique_bytes": 633495552,
+      "residency_policy": "EAGER_ALL"
+    }
+  },
+  "gates": {
+    "adb_install": true,
+    "semantic_bootstrap_copy": true,
+    "semantic_bootstrap_hash": true,
+    "full_artifact_absent": true,
+    "native_library_load": true,
+    "vbuf_model_open": true,
+    "direct_vs_remote_token_count": {
+      "direct": 151936,
+      "remote": 151936,
+      "parity": "PASS"
+    },
+    "direct_vs_remote_merge_count": {
+      "direct": 151387,
+      "remote": 151387,
+      "parity": "PASS"
+    },
+    "merge_content_parity": "PASS",
+    "chat_template_parity": "PASS",
+    "special_token_metadata_parity": "PASS",
+    "tokenizer_fallback_added": false,
+    "llama_vocab_validation_weakened": false,
+    "remote_tensor_payload_parity": {
+      "direct_tensors": 310,
+      "remote_tensors": 310,
+      "mismatches": 0,
+      "parity": "PASS"
+    },
+    "prompt_decode": true,
+    "autoregressive_generation": {
+      "result": ", and I'm trying to use the `get` method to fetch data from",
+      "max_tokens": 16,
+      "elapsed_ms": 20642,
+      "generated_token_count": 16,
+      "first_real_token": true,
+      "output_visible_in_ui": true
+    },
+    "local_phase_a_regression": {
+      "result": "PASS",
+      "elapsed_ms": 20708,
+      "full_artifact_present_during_regression": true
+    }
+  },
+  "memory": {
+    "native_heap_pss_kib": 1354056,
+    "total_pss_kib": 1499672
+  },
+  "notes": [
+    "Remote model construction uses eager-all materialization because the pinned llama.cpp descriptor inventory requires non-null tensor payloads.",
+    "The full 637925504-byte artifact is not stored on the device, but EAGER_ALL construction transferred and retained 633495552 remote payload bytes; this is not layer-on-demand or low-residency inference.",
+    "Remote metadata projects the persisted tokenizer special-token IDs and chat template; no tokenizer fallback or llama vocabulary validation change is used.",
+    "The range server log contains repeated qualification runs; the model-open request and byte totals above come from the app-owned materializer trace."
+  ]
+}

@@ -184,6 +184,15 @@ Pro opened the local Qwen3-0.6B vBuf artifact and completed bounded real
 autoregressive generation. It does not qualify ARM64 remote/external token
 generation; see [`Android Phase A evidence`](research/results/vbuf-android-arm64-chat-poc/).
 
+The Android Phase B proof adds a direct Wi-Fi HTTP Range source: the Pixel 7 Pro
+opened the Qwen3-0.6B semantic bootstrap without the full model artifact on the
+device, materialized the external tensor payloads, and completed bounded real
+autoregressive generation. Tokenizer text/type, merge, and all 310 tensor
+payloads matched the direct source. The 53.203 s model open transferred
+633,495,552 bytes in 310 HTTP Range requests under the pinned EAGER_ALL backend
+construction behavior; remote transfer and residency are not optimized yet.
+See [`Android Phase B evidence`](research/results/vbuf-android-arm64-chat-poc/phase-b-remote-chat.json).
+
 ## Shared 32B Proof
 
 The authoritative source is `Qwen3-32B-Q8_0.vbuf`,

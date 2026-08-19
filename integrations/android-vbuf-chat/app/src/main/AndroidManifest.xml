@@ -1,9 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:theme="@style/AppTheme"
         android:label="vBuf Android Chat"
         android:allowBackup="false"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:screenOrientation="portrait"

@@ -70,11 +70,44 @@ bool VbufMlAdapter::metadata(VbufMlModelMetadataInfo & out) const {
     return handle_ && vbuf_ml_consumer_metadata(handle_, &out) == 0;
 }
 
+bool VbufMlAdapter::architecture(std::string & out) const {
+    if (!handle_) return false;
+    char buffer[128]{};
+    if (vbuf_ml_consumer_architecture(handle_, buffer, sizeof(buffer)) != 0) return false;
+    out = buffer;
+    return true;
+}
+
+uint64_t VbufMlAdapter::token_count() const {
+    uint64_t count = 0;
+    return handle_ && vbuf_ml_consumer_token_count(handle_, &count) == 0 ? count : 0;
+}
+
 bool VbufMlAdapter::token_text(uint64_t index, std::string & out) const {
     if (!handle_) return false;
     char buffer[4097]{};
     if (vbuf_ml_consumer_token_text(handle_, index, buffer, sizeof(buffer)) != 0) return false;
     out = buffer;
+    return true;
+}
+
+bool VbufMlAdapter::token_score(uint64_t index, float & out) const {
+    return handle_ && vbuf_ml_consumer_token_score(handle_, index, &out) == 0;
+}
+
+bool VbufMlAdapter::token_type(uint64_t index, int32_t & out) const {
+    return handle_ && vbuf_ml_consumer_token_type(handle_, index, &out) == 0;
+}
+
+bool VbufMlAdapter::special_token(uint8_t kind, uint64_t & out) const {
+    return handle_ && vbuf_ml_consumer_special_token(handle_, kind, &out) == 0;
+}
+
+bool VbufMlAdapter::chat_template(std::string & out) const {
+    if (!handle_) return false;
+    std::vector<char> buffer(1024 * 1024);
+    if (vbuf_ml_consumer_chat_template(handle_, buffer.data(), buffer.size()) != 0) return false;
+    out = buffer.data();
     return true;
 }
 

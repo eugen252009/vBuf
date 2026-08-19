@@ -5,7 +5,8 @@ final class NativeInference {
         System.loadLibrary("vbuf_android_chat");
     }
 
-    static native String open(String modelPath);
+    static native String open(String modelPath, String endpoint);
+    static native String probeRemote(String modelPath, String endpoint);
     static native String generate(String prompt, int maxTokens);
     static native void closeModel();
 

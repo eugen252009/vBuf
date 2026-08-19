@@ -42,6 +42,7 @@ struct VbufMlModelMetadataInfo {
 VbufMlConsumerHandle * vbuf_ml_consumer_open(const char * path);
 VbufMlConsumerHandle * vbuf_ml_consumer_open_metadata(const char * path);
 void vbuf_ml_consumer_close(VbufMlConsumerHandle * handle);
+uint32_t vbuf_ml_consumer_architecture(const VbufMlConsumerHandle *, char * buffer, size_t capacity);
 uint32_t vbuf_ml_consumer_tensor_count(const VbufMlConsumerHandle *, uint64_t * count);
 uint32_t vbuf_ml_consumer_token_count(const VbufMlConsumerHandle *, uint64_t * count);
 uint32_t vbuf_ml_consumer_token_type(const VbufMlConsumerHandle *, uint64_t index, int32_t * value);
@@ -103,7 +104,13 @@ public:
     bool tensor_metadata(uint64_t index, TensorDescriptor & out) const;
     bool tensor_materialized(uint64_t index, const uint8_t * bytes, uint64_t length, std::shared_ptr<const void> lease, TensorDescriptor & out) const;
     bool metadata(VbufMlModelMetadataInfo & out) const;
+    bool architecture(std::string & out) const;
+    uint64_t token_count() const;
     bool token_text(uint64_t index, std::string & out) const;
+    bool token_score(uint64_t index, float & out) const;
+    bool token_type(uint64_t index, int32_t & out) const;
+    bool special_token(uint8_t kind, uint64_t & out) const;
+    bool chat_template(std::string & out) const;
     uint64_t merge_count() const;
     bool merge_pair(uint64_t index, uint64_t & left, uint64_t & right) const;
     bool add_bos(bool & out) const;

@@ -32,7 +32,10 @@ add_library(vbuf_android_chat SHARED
     vbuf_android_chat.cpp
     "${VBUF_ROOT}/integrations/llama.cpp/llama_vbuf_loader.cpp"
     "${VBUF_ROOT}/integrations/llama.cpp/vbuf_direct_source.cpp"
-    "${VBUF_ROOT}/integrations/llama.cpp/vbuf_ml_adapter.cpp")
+    "${VBUF_ROOT}/integrations/llama.cpp/vbuf_ml_adapter.cpp"
+    "${VBUF_ROOT}/integrations/llama.cpp/vbuf_remote_source.cpp"
+    "${VBUF_ROOT}/integrations/ggml/src/vbuf_range_source.cpp"
+    "${VBUF_ROOT}/integrations/ggml/src/vbuf_materializer.cpp")
 
 target_include_directories(vbuf_android_chat PRIVATE
     "${LLAMA_SRC}"
@@ -41,7 +44,8 @@ target_include_directories(vbuf_android_chat PRIVATE
     "${LLAMA_SRC}/src"
     "${LLAMA_SRC}/ggml/include"
     "${LLAMA_SRC}/ggml/src"
-    "${VBUF_ROOT}/integrations/llama.cpp")
+    "${VBUF_ROOT}/integrations/llama.cpp"
+    "${VBUF_ROOT}/integrations/ggml/include")
 
 target_link_libraries(vbuf_android_chat
     llama

@@ -7,12 +7,18 @@
 
 #include "llama.h"
 #include "llama_vbuf_loader.h"
+#include "vbuf_remote_source.h"
 
 namespace {
 constexpr const char * TAG = "vbuf-android-chat";
 std::mutex mutex;
 llama_model * model = nullptr;
 llama_context * context = nullptr;
+
+void llama_log_to_android(enum ggml_log_level level, const char * text, void *) {
+    const android_LogPriority priority = level == GGML_LOG_LEVEL_ERROR ? ANDROID_LOG_ERROR : ANDROID_LOG_INFO;
+    __android_log_print(priority, TAG, "%s", text);
+}
 
 jstring result(JNIEnv * env, const std::string & value) {
     return env->NewStringUTF(value.c_str());
@@ -45,17 +51,23 @@ std::string piece(const llama_vocab * vocab, llama_token token) {
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_eugen_vbufchat_NativeInference_open(JNIEnv * env, jclass, jstring path) {
+Java_com_eugen_vbufchat_NativeInference_open__Ljava_lang_String_2Ljava_lang_String_2(JNIEnv * env, jclass, jstring path, jstring endpoint) {
     std::lock_guard lock(mutex);
     if (model) return result(env, "OPEN_OK already_open");
     const char * raw_path = env->GetStringUTFChars(path, nullptr);
+    const char * raw_endpoint = env->GetStringUTFChars(endpoint, nullptr);
+    const bool remote = raw_endpoint[0] != '\0';
     const auto start = std::chrono::steady_clock::now();
+    llama_log_set(llama_log_to_android, nullptr);
     llama_backend_init();
     llama_model_params params = llama_model_default_params();
     params.n_gpu_layers = 0;
-    model = llama_model_load_vbuf_direct(raw_path, params);
+    model = !remote
+        ? llama_model_load_vbuf_direct(raw_path, params)
+        : llama_model_load_vbuf_remote(raw_path, raw_endpoint, params);
     env->ReleaseStringUTFChars(path, raw_path);
-    if (!model) return result(env, "OPEN_FAIL model_load");
+    env->ReleaseStringUTFChars(endpoint, raw_endpoint);
+    if (!model) return result(env, std::string("OPEN_FAIL model_load ") + (remote ? llama_model_last_remote_error() : "local"));
     llama_context_params context_params = llama_context_default_params();
     context_params.n_ctx = 512;
     context_params.n_batch = 512;
@@ -64,8 +76,26 @@ Java_com_eugen_vbufchat_NativeInference_open(JNIEnv * env, jclass, jstring path)
     context = llama_init_from_model(model, context_params);
     if (!context) { llama_model_free_vbuf_direct(model); model = nullptr; return result(env, "OPEN_FAIL context"); }
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-    __android_log_print(ANDROID_LOG_INFO, TAG, "opened vBuf model in %lld ms", static_cast<long long>(elapsed));
-    return result(env, "OPEN_OK qwen3");
+    __android_log_print(ANDROID_LOG_INFO, TAG, "opened vBuf model in %lld ms remote=%s", static_cast<long long>(elapsed), remote ? "yes" : "no");
+    if (remote) {
+        vbuf_llama::VbufRemoteMetrics metrics{};
+        if (llama_model_vbuf_remote_metrics(model, &metrics)) {
+            __android_log_print(ANDROID_LOG_INFO, TAG, "remote metrics requests=%llu bytes=%llu unique_bytes=%llu", static_cast<unsigned long long>(metrics.requests), static_cast<unsigned long long>(metrics.bytes), static_cast<unsigned long long>(metrics.unique_bytes));
+        }
+    }
+    return result(env, remote ? "OPEN_OK qwen3 remote" : "OPEN_OK qwen3");
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_eugen_vbufchat_NativeInference_probeRemote(JNIEnv * env, jclass, jstring path, jstring endpoint) {
+    const char * raw_path = env->GetStringUTFChars(path, nullptr);
+    const char * raw_endpoint = env->GetStringUTFChars(endpoint, nullptr);
+    vbuf_llama::VbufRemoteMetrics metrics{};
+    const bool ok = llama_model_probe_vbuf_remote(raw_path, raw_endpoint, &metrics);
+    env->ReleaseStringUTFChars(path, raw_path);
+    env->ReleaseStringUTFChars(endpoint, raw_endpoint);
+    if (!ok) return result(env, "PROBE_FAIL remote_range");
+    return result(env, "PROBE_OK requests=" + std::to_string(metrics.requests) + " bytes=" + std::to_string(metrics.bytes));
 }
 
 extern "C" JNIEXPORT jstring JNICALL

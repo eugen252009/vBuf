@@ -5,11 +5,13 @@
 #include "ggml-cpp.h"
 #include "vbuf_ml_adapter.h"
 #include "vbuf_direct_source.h"
+#include "vbuf_remote_source.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include <map>
 #include <memory>
@@ -71,6 +73,7 @@ struct VbufRuntime {
 };
 
 static std::mutex g_vbuf_models_mutex;
+static std::string g_remote_error;
 static std::unordered_map<llama_model *, VbufRuntime *> g_vbuf_models;
 static std::unordered_map<llama_model *, std::shared_ptr<llama_model_source>> g_direct_models;
 
@@ -220,6 +223,41 @@ extern "C" llama_model * llama_model_load_vbuf_direct(const char * path, llama_m
         g_direct_models.emplace(model, std::move(source));
         return model;
     } catch (...) { return nullptr; }
+}
+
+extern "C" llama_model * llama_model_load_vbuf_remote(const char * bootstrap_path, const char * endpoint, llama_model_params params) {
+    g_remote_error.clear();
+    try {
+        auto source = vbuf_llama::make_vbuf_remote_source(bootstrap_path, endpoint);
+        llama_model * model = llama_model_init_from_source(source, vbuf_llama::set_vbuf_remote_tensor_data, source.get(), params);
+        if (!model) return nullptr;
+        std::lock_guard lock(g_vbuf_models_mutex);
+        g_direct_models.emplace(model, std::move(source));
+        return model;
+    } catch (const std::exception & error) {
+        g_remote_error = error.what();
+        std::fprintf(stderr, "REMOTE_LOAD_FAIL %s\n", error.what());
+        return nullptr;
+    } catch (...) {
+        g_remote_error = "unknown";
+        std::fprintf(stderr, "REMOTE_LOAD_FAIL unknown\n");
+        return nullptr;
+    }
+}
+
+extern "C" const char * llama_model_last_remote_error() { return g_remote_error.c_str(); }
+
+extern "C" bool llama_model_probe_vbuf_remote(const char * bootstrap_path, const char * endpoint, vbuf_llama::VbufRemoteMetrics * metrics) {
+    return metrics != nullptr && vbuf_llama::probe_vbuf_remote_source(bootstrap_path, endpoint, *metrics);
+}
+
+extern "C" bool llama_model_vbuf_remote_metrics(llama_model * model, vbuf_llama::VbufRemoteMetrics * metrics) {
+    if (!metrics) return false;
+    std::lock_guard lock(g_vbuf_models_mutex);
+    const auto it = g_direct_models.find(model);
+    if (it == g_direct_models.end()) return false;
+    const auto remote = std::dynamic_pointer_cast<vbuf_llama::VbufRemoteSource>(it->second);
+    return remote != nullptr && remote->metrics(*metrics);
 }
 
 extern "C" bool llama_model_step28_prepare_vbuf(llama_model * model, const char * variant, vbuf_llama::Step28PreparationResult * result) {

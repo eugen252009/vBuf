@@ -1,0 +1,215 @@
+#include "vbuf_remote_source.h"
+
+#include <stdexcept>
+#include <unordered_set>
+
+namespace vbuf_llama {
+namespace {
+
+uint8_t representation(ggml_type type) {
+    switch (type) {
+    case GGML_TYPE_F32: return 0;
+    case GGML_TYPE_BF16: return 1;
+    case GGML_TYPE_Q8_0: return 2;
+    case GGML_TYPE_Q4_0: return 3;
+    case GGML_TYPE_Q2_K: return 4;
+    case GGML_TYPE_IQ1_S: return 5;
+    case GGML_TYPE_Q4_K: return 6;
+    case GGML_TYPE_IQ4_NL: return 7;
+    case GGML_TYPE_IQ4_XS: return 8;
+    case GGML_TYPE_Q3_K: return 9;
+    case GGML_TYPE_IQ2_XXS: return 10;
+    case GGML_TYPE_IQ2_XS: return 11;
+    case GGML_TYPE_IQ2_S: return 12;
+    case GGML_TYPE_Q5_K: return 13;
+    default: throw std::runtime_error("unsupported remote vBuf tensor representation");
+    }
+}
+
+} // namespace
+
+VbufRemoteSource::VbufRemoteSource(const char * bootstrap_path, const char * endpoint)
+    : adapter_(bootstrap_path, true), endpoint_(endpoint),
+      range_source_(std::make_shared<vbuf_ggml::HttpRangeSource>(endpoint_)) {
+    if (!adapter_.valid() || !adapter_.metadata(metadata_) || !adapter_.architecture(architecture_)) {
+        throw std::runtime_error("remote vBuf bootstrap discovery failed");
+    }
+    const uint64_t count = adapter_.tensor_count();
+    if (count == 0) throw std::runtime_error("remote vBuf bootstrap has no tensors");
+    tensors_.reserve(count);
+    refs_.reserve(count);
+    for (uint64_t index = 0; index < count; ++index) {
+        TensorDescriptor descriptor;
+        if (!adapter_.tensor_metadata(index, descriptor) || descriptor.source_id != 1) {
+            throw std::runtime_error("remote vBuf tensor binding is not SourceId 1");
+        }
+        tensors_.push_back(std::move(descriptor));
+    }
+    for (uint64_t index = 0; index < count; ++index) {
+        uint8_t rep = 0;
+        if (!tensor_representation(index, rep)) throw std::runtime_error("remote vBuf tensor representation failed");
+        const TensorDescriptor & descriptor = tensors_[index];
+        vbuf_ggml::VbufTensorView view{};
+        view.representation = rep;
+        view.rank = static_cast<uint8_t>(descriptor.dimensions.size());
+        view.dimensions = descriptor.dimensions.data();
+        view.payload_len = descriptor.payload_bytes;
+        refs_.push_back({ index, descriptor.name, view, descriptor.source_offset });
+    }
+    materializer_ = std::make_unique<vbuf_ggml::LocalVbufRangeMaterializer>(range_source_);
+}
+
+int VbufRemoteSource::metadata_count() const { return 22; }
+
+bool VbufRemoteSource::get_string(const std::string & key, std::string & value) const {
+    if (key == "general.architecture") { value = architecture_; return true; }
+    if (key == "tokenizer.ggml.model") { value = "gpt2"; return true; }
+    if (key == "tokenizer.ggml.pre") { value = "qwen2"; return true; }
+    if (key == "tokenizer.chat_template") return adapter_.chat_template(value);
+    return false;
+}
+
+bool VbufRemoteSource::get_u32(const std::string & key, uint32_t & value) const {
+    uint64_t v = 0;
+    if (key == "qwen3.context_length") v = metadata_.context_length;
+    else if (key == "qwen3.embedding_length") v = metadata_.embedding_length;
+    else if (key == "qwen3.block_count") v = metadata_.layer_count;
+    else if (key == "qwen3.feed_forward_length") v = metadata_.feed_forward_length;
+    else if (key == "qwen3.attention.head_count") v = metadata_.head_count;
+    else if (key == "qwen3.attention.head_count_kv") v = metadata_.kv_head_count;
+    else if (key == "qwen3.attention.key_length") v = metadata_.key_head_dimension;
+    else if (key == "qwen3.attention.value_length") v = metadata_.value_head_dimension;
+    else if (key == "qwen3.rope.dimension_count") v = metadata_.rope_dimension;
+    else if (key == "tokenizer.ggml.bos_token_id" || key == "tokenizer.ggml.eos_token_id" || key == "tokenizer.ggml.padding_token_id") {
+        const uint8_t kind = key == "tokenizer.ggml.bos_token_id" ? 0 : key == "tokenizer.ggml.eos_token_id" ? 1 : 3;
+        uint64_t special = 0;
+        if (!adapter_.special_token(kind, special)) return false;
+        value = static_cast<uint32_t>(special);
+        return true;
+    }
+    else return false;
+    value = static_cast<uint32_t>(v);
+    return true;
+}
+
+bool VbufRemoteSource::get_f32(const std::string & key, float & value) const {
+    if (key == "qwen3.attention.layer_norm_rms_epsilon") { value = static_cast<float>(metadata_.normalization_epsilon); return true; }
+    if (key == "qwen3.rope.freq_base") { value = static_cast<float>(metadata_.rope_theta); return true; }
+    return false;
+}
+
+bool VbufRemoteSource::get_bool(const std::string & key, bool & value) const {
+    if (key != "tokenizer.ggml.add_bos_token") return false;
+    if (!adapter_.add_bos(value)) return false;
+    return true;
+}
+
+uint64_t VbufRemoteSource::tensor_count() const { return tensors_.size(); }
+
+bool VbufRemoteSource::tensor_type(uint64_t index, ggml_type & type) const {
+    if (index >= tensors_.size()) return false;
+    type = tensors_[index].type;
+    return true;
+}
+
+bool VbufRemoteSource::tensor_representation(uint64_t index, uint8_t & rep) const {
+    ggml_type type;
+    if (!tensor_type(index, type)) return false;
+    rep = representation(type);
+    return true;
+}
+
+bool VbufRemoteSource::tensor(uint64_t index, std::string & name, ggml_type & type,
+    std::vector<int64_t> & dimensions, const uint8_t * & payload,
+    uint64_t & payload_bytes) const {
+    if (index >= tensors_.size() || !tensor_type(index, type)) return false;
+    const TensorDescriptor & descriptor = tensors_[index];
+    name = descriptor.name;
+    dimensions.assign(descriptor.dimensions.begin(), descriptor.dimensions.end());
+    payload_bytes = descriptor.payload_bytes;
+    auto found = materialized_.find(index);
+    if (found == materialized_.end()) {
+        if (!materialize_tensor(index)) return false;
+        found = materialized_.find(index);
+    }
+    payload = found == materialized_.end() ? nullptr : found->second.view.payload;
+    return true;
+}
+
+bool VbufRemoteSource::materialize_tensor(uint64_t index) const {
+    if (index >= refs_.size()) return false;
+    if (materialized_.find(index) != materialized_.end()) return true;
+    if (!materializer_->request(static_cast<uint32_t>(index), refs_[index], UINT64_MAX)) return false;
+    if (materializer_->wait(static_cast<uint32_t>(index)) != vbuf_ggml::MaterializationState::Ready) return false;
+    auto ready = materializer_->obtain_ready_tensor(static_cast<uint32_t>(index));
+    if (!ready) return false;
+    materialized_.emplace(index, std::move(*ready));
+    return true;
+}
+
+uint64_t VbufRemoteSource::token_count() const { return adapter_.token_count(); }
+
+bool VbufRemoteSource::token(uint64_t index, std::string & text, float & score, int32_t & type) const {
+    if (!adapter_.token_text(index, text) || !adapter_.token_type(index, type)) return false;
+    score = 0.0f;
+    adapter_.token_score(index, score);
+    return true;
+}
+
+uint64_t VbufRemoteSource::merge_count() const { return adapter_.merge_count(); }
+
+bool VbufRemoteSource::merge(uint64_t index, uint64_t & left, uint64_t & right) const {
+    return adapter_.merge_pair(index, left, right);
+}
+
+bool VbufRemoteSource::metrics(VbufRemoteMetrics & out) const {
+    out = {};
+    std::unordered_set<std::string> unique;
+    for (const auto & event : materializer_->trace()) {
+        if (event.event != "STATE" || event.state != vbuf_ggml::MaterializationState::Ready) continue;
+        ++out.requests;
+        out.bytes += event.returned_bytes;
+        unique.insert(std::to_string(event.requested_offset) + ":" + std::to_string(event.returned_bytes));
+    }
+    for (const auto & range : unique) {
+        const size_t separator = range.find(':');
+        out.unique_bytes += std::stoull(range.substr(separator + 1));
+    }
+    return true;
+}
+
+std::shared_ptr<VbufRemoteSource> make_vbuf_remote_source(
+    const char * bootstrap_path, const char * endpoint) {
+    return std::make_shared<VbufRemoteSource>(bootstrap_path, endpoint);
+}
+
+bool probe_vbuf_remote_source(const char * bootstrap_path, const char * endpoint,
+    VbufRemoteMetrics & metrics) {
+    auto source = make_vbuf_remote_source(bootstrap_path, endpoint);
+    if (!source->materialize_tensor(0)) return false;
+    return source->metrics(metrics);
+}
+
+void set_vbuf_remote_tensor_data(ggml_tensor * tensor, void * userdata) {
+    auto & source = *static_cast<VbufRemoteSource *>(userdata);
+    std::string wanted = ggml_get_name(tensor);
+    for (uint64_t index = 0; index < source.tensor_count(); ++index) {
+        std::string name;
+        ggml_type type;
+        std::vector<int64_t> dimensions;
+        const uint8_t * payload = nullptr;
+        uint64_t bytes = 0;
+        if (!source.tensor(index, name, type, dimensions, payload, bytes)) throw std::runtime_error("remote tensor descriptor failed");
+        if (name == wanted || (wanted == "output.weight" && name == "token_embd.weight")) {
+            if (!source.materialize_tensor(index)) throw std::runtime_error("remote tensor materialization failed");
+            if (!source.tensor(index, name, type, dimensions, payload, bytes) || type != tensor->type || bytes != ggml_nbytes(tensor)) {
+                throw std::runtime_error("remote tensor metadata mismatch");
+            }
+            tensor->data = const_cast<uint8_t *>(payload);
+            return;
+        }
+    }
+    throw std::runtime_error("remote tensor payload is missing");
+}
+
+} // namespace vbuf_llama
