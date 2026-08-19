@@ -193,12 +193,35 @@ payloads matched the direct source. The 53.203 s model open transferred
 construction behavior; remote transfer and residency are not optimized yet.
 See [`Android Phase B evidence`](research/results/vbuf-android-arm64-chat-poc/phase-b-remote-chat.json).
 
-Phase C measured remote-load transport without changing EAGER_ALL residency.
-Generic HTTP keep-alive reduced the median model open from 53.203 s to 44.451 s
-with the same 310 requests and 633,495,552 bytes. Range coalescing and bounded
-concurrency were measured but regressed, so they were not retained; remote
-payload correctness and local SELF inference remained passing. Detailed
-results are in [`Android Phase C evidence`](research/results/vbuf-android-arm64-chat-poc/phase-c/).
+### Android Remote Loading
+
+Phase C measured remote-load transport without changing `EAGER_ALL` residency.
+The large-range C0 transport characterization reached `29.763 MB/s`, while the
+complete Phase B model-open path reached `11.907 MB/s`, or `40.0%` of that
+synthetic ceiling.
+
+| Measurement | Phase B baseline | Selected C1 keep-alive |
+|---|---:|---:|
+| Requests | 310 | 310 |
+| Connections | 310 | 1 |
+| Transferred bytes | 633,495,552 | 633,495,552 |
+| Overfetch | 0 | 0 |
+| Median model open | 53.203 s | 44.451 s |
+| Effective throughput | 11.907 MB/s | 14.252 MB/s |
+
+C1 is the only retained production optimization: it reuses one persistent
+generic HTTP connection, giving a `1.197x` speedup and `16.450%` lower median
+model-open time without changing payload semantics or persistent formats.
+Payload parity, remote generation, and local/direct-source regression all
+passed. Batching/coalescing and bounded concurrency were tested as selection
+evidence but regressed and were not retained.
+
+The full artifact is not copied onto the Pixel, but the backend remains
+`EAGER_ALL`, so the selected path still transfers and retains almost all tensor
+payload bytes during model construction. The remaining bottleneck is therefore
+serialized per-tensor HTTP/materialization overhead combined with the pinned
+llama.cpp construction path, not raw HTTP bandwidth. Detailed results are in
+[`Android Phase C evidence`](research/results/vbuf-android-arm64-chat-poc/phase-c/).
 
 ## Shared 32B Proof
 
