@@ -1,7 +1,10 @@
 use crate::bootstrap::Bootstrap;
 use crate::error::{MlError, MlErrorCode};
 use crate::region_roles::RegionRole;
-use crate::representations::{representation_from_id, validate_external_tensor_representation, validate_tensor_representation, TensorRepresentation};
+use crate::representations::{
+    TensorRepresentation, representation_from_id, validate_external_tensor_representation,
+    validate_tensor_representation,
+};
 use crate::source::{SourceId, SourceRegistry, TensorRef};
 use vbuf_core::v06::{V06Physical, V06Semantic, ValidatedV06};
 use vbuf_layout::CheckedRange;
@@ -25,8 +28,19 @@ pub struct TensorEntry {
 }
 
 impl TensorEntry {
-    pub fn new(name: impl Into<String>, dimensions: Vec<u64>, key_id: u16, occurrence: u16) -> Self {
-        Self { name: name.into(), dimensions, representation: TensorRepresentation::CanonicalPrimitive, key_id, occurrence }
+    pub fn new(
+        name: impl Into<String>,
+        dimensions: Vec<u64>,
+        key_id: u16,
+        occurrence: u16,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            dimensions,
+            representation: TensorRepresentation::CanonicalPrimitive,
+            key_id,
+            occurrence,
+        }
     }
 }
 
@@ -49,15 +63,47 @@ pub struct TensorDirectory<'a> {
 
 impl<'a> TensorDirectory<'a> {
     pub fn parse(validated: &ValidatedV06<'a>, bootstrap: &Bootstrap<'a>) -> Result<Self, MlError> {
-        let registry = SourceRegistry::new(vec![SourceRegistry::self_descriptor(validated.bytes().len() as u64)]).map_err(|_| MlError::new(MlErrorCode::MalformedTensorDirectory, "self source registry is invalid"))?;
+        let registry = SourceRegistry::new(vec![SourceRegistry::self_descriptor(
+            validated.bytes().len() as u64,
+        )])
+        .map_err(|_| {
+            MlError::new(
+                MlErrorCode::MalformedTensorDirectory,
+                "self source registry is invalid",
+            )
+        })?;
         Self::parse_with_sources(validated, bootstrap, &registry, &[])
     }
 
-    pub fn parse_with_sources(validated: &ValidatedV06<'a>, bootstrap: &Bootstrap<'a>, sources: &SourceRegistry, external: &[(u16, u16, TensorRef)]) -> Result<Self, MlError> {
-        let region = bootstrap.region(RegionRole::TensorDirectory).ok_or_else(|| MlError::new(MlErrorCode::TensorDirectoryMissing, "bootstrap has no tensor directory role"))?;
-        let block = validated.blocks().get(region.block_index).ok_or_else(|| MlError::new(MlErrorCode::TensorReferenceMissing, "tensor directory block index is absent"))?;
-        if block.semantic != V06Semantic::Opaque || block.physical != V06Physical::Array || block.bit_width != 8 || block.continuation {
-            return Err(MlError::new(MlErrorCode::RegionTypeMismatch, "tensor directory must be a non-continuing opaque byte array"));
+    pub fn parse_with_sources(
+        validated: &ValidatedV06<'a>,
+        bootstrap: &Bootstrap<'a>,
+        sources: &SourceRegistry,
+        external: &[(u16, u16, TensorRef)],
+    ) -> Result<Self, MlError> {
+        let region = bootstrap
+            .region(RegionRole::TensorDirectory)
+            .ok_or_else(|| {
+                MlError::new(
+                    MlErrorCode::TensorDirectoryMissing,
+                    "bootstrap has no tensor directory role",
+                )
+            })?;
+        let block = validated.blocks().get(region.block_index).ok_or_else(|| {
+            MlError::new(
+                MlErrorCode::TensorReferenceMissing,
+                "tensor directory block index is absent",
+            )
+        })?;
+        if block.semantic != V06Semantic::Opaque
+            || block.physical != V06Physical::Array
+            || block.bit_width != 8
+            || block.continuation
+        {
+            return Err(MlError::new(
+                MlErrorCode::RegionTypeMismatch,
+                "tensor directory must be a non-continuing opaque byte array",
+            ));
         }
         let raw_entries = parse_payload(region.range.bytes())?;
         let mut tensors = Vec::with_capacity(raw_entries.len());
@@ -66,31 +112,84 @@ impl<'a> TensorDirectory<'a> {
             if let Some(previous) = previous_name.as_ref()
                 && previous.as_slice() >= raw.name.as_slice()
             {
-                return Err(MlError::new(if previous.as_slice() == raw.name.as_slice() { MlErrorCode::DuplicateTensorName } else { MlErrorCode::InvalidDirectoryOrder }, "tensor names must be unique and strictly sorted"));
+                return Err(MlError::new(
+                    if previous.as_slice() == raw.name.as_slice() {
+                        MlErrorCode::DuplicateTensorName
+                    } else {
+                        MlErrorCode::InvalidDirectoryOrder
+                    },
+                    "tensor names must be unique and strictly sorted",
+                ));
             }
             previous_name = Some(raw.name.clone());
-            let name = String::from_utf8(raw.name).map_err(|_| MlError::new(MlErrorCode::InvalidTensorName, "tensor name is not valid UTF-8"))?;
-            let target_index = validated.blocks().iter().enumerate().filter(|(_, candidate)| candidate.key_id == raw.key_id).nth(raw.occurrence as usize).map(|(index, _)| index).ok_or_else(|| MlError::new(MlErrorCode::TensorReferenceMissing, "tensor canonical reference is absent"))?;
+            let name = String::from_utf8(raw.name).map_err(|_| {
+                MlError::new(
+                    MlErrorCode::InvalidTensorName,
+                    "tensor name is not valid UTF-8",
+                )
+            })?;
+            let target_index = validated
+                .blocks()
+                .iter()
+                .enumerate()
+                .filter(|(_, candidate)| candidate.key_id == raw.key_id)
+                .nth(raw.occurrence as usize)
+                .map(|(index, _)| index)
+                .ok_or_else(|| {
+                    MlError::new(
+                        MlErrorCode::TensorReferenceMissing,
+                        "tensor canonical reference is absent",
+                    )
+                })?;
             let target = &validated.blocks()[target_index];
             if target.continuation {
-                return Err(MlError::new(MlErrorCode::TensorRepresentationMismatch, "continuation tensor values are not supported by profile 0.1"));
+                return Err(MlError::new(
+                    MlErrorCode::TensorRepresentationMismatch,
+                    "continuation tensor values are not supported by profile 0.1",
+                ));
             }
-            let payload = if let Some((_, _, payload)) = external.iter().find(|(key_id, occurrence, _)| *key_id == raw.key_id && *occurrence == raw.occurrence) {
+            let payload = if let Some((_, _, payload)) =
+                external.iter().find(|(key_id, occurrence, _)| {
+                    *key_id == raw.key_id && *occurrence == raw.occurrence
+                }) {
                 *payload
             } else {
-                let self_source = sources.get(SourceId::SELF).ok_or_else(|| MlError::new(MlErrorCode::TensorReferenceMissing, "self source descriptor is absent"))?;
-                TensorRef::new(self_source, target.payload_start, target.payload_len).map_err(|_| MlError::new(MlErrorCode::TensorReferenceMissing, "canonical self range is not source-bounded"))?
+                let self_source = sources.get(SourceId::SELF).ok_or_else(|| {
+                    MlError::new(
+                        MlErrorCode::TensorReferenceMissing,
+                        "self source descriptor is absent",
+                    )
+                })?;
+                TensorRef::new(self_source, target.payload_start, target.payload_len).map_err(
+                    |_| {
+                        MlError::new(
+                            MlErrorCode::TensorReferenceMissing,
+                            "canonical self range is not source-bounded",
+                        )
+                    },
+                )?
             };
             if payload.source_id() == SourceId::SELF && target.payload_len != 0 {
                 validate_tensor_representation(raw.representation, &raw.dimensions, target)?;
             } else {
-                validate_external_tensor_representation(raw.representation, &raw.dimensions, target, payload.length())?;
+                validate_external_tensor_representation(
+                    raw.representation,
+                    &raw.dimensions,
+                    target,
+                    payload.length(),
+                )?;
             }
             if payload.source_id() == SourceId::SELF && payload.length() != target.payload_len {
-                return Err(MlError::new(MlErrorCode::TensorPayloadSizeMismatch, "external tensor range length does not match canonical tensor geometry"));
+                return Err(MlError::new(
+                    MlErrorCode::TensorPayloadSizeMismatch,
+                    "external tensor range length does not match canonical tensor geometry",
+                ));
             }
             if sources.get(payload.source_id()).is_none() {
-                return Err(MlError::new(MlErrorCode::TensorReferenceMissing, "tensor source ID is not registered"));
+                return Err(MlError::new(
+                    MlErrorCode::TensorReferenceMissing,
+                    "tensor source ID is not registered",
+                ));
             }
             tensors.push(TensorDescriptor {
                 name,
@@ -99,29 +198,44 @@ impl<'a> TensorDirectory<'a> {
                 key_id: raw.key_id,
                 occurrence: raw.occurrence,
                 block_index: target_index,
-                range: if payload.source_id() == SourceId::SELF { Some(validated.payload_range(target_index)?) } else { None },
+                range: if payload.source_id() == SourceId::SELF {
+                    Some(validated.payload_range(target_index)?)
+                } else {
+                    None
+                },
                 payload,
             });
         }
         Ok(Self { tensors })
     }
 
-    pub fn tensors(&self) -> &[TensorDescriptor<'a>] { &self.tensors }
+    pub fn tensors(&self) -> &[TensorDescriptor<'a>] {
+        &self.tensors
+    }
 
     pub fn get(&self, name: &str) -> Option<&TensorDescriptor<'a>> {
-        self.tensors.binary_search_by(|tensor| tensor.name.as_str().cmp(name)).ok().map(|index| &self.tensors[index])
+        self.tensors
+            .binary_search_by(|tensor| tensor.name.as_str().cmp(name))
+            .ok()
+            .map(|index| &self.tensors[index])
     }
 }
 
 pub fn encode_payload(entries: &[TensorEntry]) -> Result<Vec<u8>, MlError> {
     if entries.len() > MAX_TENSORS as usize {
-        return Err(MlError::new(MlErrorCode::MalformedTensorDirectory, "tensor count exceeds profile maximum"));
+        return Err(MlError::new(
+            MlErrorCode::MalformedTensorDirectory,
+            "tensor count exceeds profile maximum",
+        ));
     }
     let mut ordered: Vec<&TensorEntry> = entries.iter().collect();
     ordered.sort_by(|left, right| left.name.as_bytes().cmp(right.name.as_bytes()));
     for pair in ordered.windows(2) {
         if pair[0].name == pair[1].name {
-            return Err(MlError::new(MlErrorCode::DuplicateTensorName, "tensor names must be unique"));
+            return Err(MlError::new(
+                MlErrorCode::DuplicateTensorName,
+                "tensor names must be unique",
+            ));
         }
     }
     let mut output = Vec::with_capacity(HEADER_BYTES);
@@ -133,7 +247,12 @@ pub fn encode_payload(entries: &[TensorEntry]) -> Result<Vec<u8>, MlError> {
     for entry in ordered {
         validate_entry(entry)?;
         output.extend_from_slice(&(entry.name.len() as u16).to_le_bytes());
-        output.push(u8::try_from(entry.dimensions.len()).map_err(|_| MlError::new(MlErrorCode::InvalidRank, "tensor rank exceeds profile maximum"))?);
+        output.push(u8::try_from(entry.dimensions.len()).map_err(|_| {
+            MlError::new(
+                MlErrorCode::InvalidRank,
+                "tensor rank exceeds profile maximum",
+            )
+        })?);
         output.push(entry.representation as u8);
         output.extend_from_slice(&entry.key_id.to_le_bytes());
         output.extend_from_slice(&entry.occurrence.to_le_bytes());
@@ -144,7 +263,10 @@ pub fn encode_payload(entries: &[TensorEntry]) -> Result<Vec<u8>, MlError> {
         }
     }
     if output.len() > MAX_DIRECTORY_BYTES {
-        return Err(MlError::new(MlErrorCode::MalformedTensorDirectory, "tensor directory exceeds bounded size"));
+        return Err(MlError::new(
+            MlErrorCode::MalformedTensorDirectory,
+            "tensor directory exceeds bounded size",
+        ));
     }
     Ok(output)
 }
@@ -159,72 +281,168 @@ struct RawEntry {
 }
 
 fn parse_payload(bytes: &[u8]) -> Result<Vec<RawEntry>, MlError> {
-    if bytes.len() < HEADER_BYTES || bytes.len() > MAX_DIRECTORY_BYTES || bytes[..8] != DIRECTORY_MAGIC {
-        return Err(MlError::new(MlErrorCode::MalformedTensorDirectory, "tensor directory header is invalid"));
+    if bytes.len() < HEADER_BYTES
+        || bytes.len() > MAX_DIRECTORY_BYTES
+        || bytes[..8] != DIRECTORY_MAGIC
+    {
+        return Err(MlError::new(
+            MlErrorCode::MalformedTensorDirectory,
+            "tensor directory header is invalid",
+        ));
     }
     let version = u16::from_le_bytes(bytes[8..10].try_into().unwrap());
     if version != DIRECTORY_VERSION {
-        return Err(MlError::new(MlErrorCode::UnsupportedTensorDirectoryVersion, "unsupported tensor directory version"));
+        return Err(MlError::new(
+            MlErrorCode::UnsupportedTensorDirectoryVersion,
+            "unsupported tensor directory version",
+        ));
     }
-    if u16::from_le_bytes(bytes[10..12].try_into().unwrap()) != 0 || bytes[16..20].iter().any(|byte| *byte != 0) || u32::from_le_bytes(bytes[12..16].try_into().unwrap()) > MAX_TENSORS {
-        return Err(MlError::new(MlErrorCode::MalformedTensorDirectory, "tensor directory flags or count are invalid"));
+    if u16::from_le_bytes(bytes[10..12].try_into().unwrap()) != 0
+        || bytes[16..20].iter().any(|byte| *byte != 0)
+        || u32::from_le_bytes(bytes[12..16].try_into().unwrap()) > MAX_TENSORS
+    {
+        return Err(MlError::new(
+            MlErrorCode::MalformedTensorDirectory,
+            "tensor directory flags or count are invalid",
+        ));
     }
     let count = u32::from_le_bytes(bytes[12..16].try_into().unwrap()) as usize;
     let mut cursor = HEADER_BYTES;
     let mut output = Vec::with_capacity(count);
     for _ in 0..count {
-        let fixed = bytes.get(cursor..cursor + ENTRY_FIXED_BYTES).ok_or_else(|| MlError::new(MlErrorCode::MalformedTensorDirectory, "truncated tensor directory entry"))?;
+        let fixed = bytes
+            .get(cursor..cursor + ENTRY_FIXED_BYTES)
+            .ok_or_else(|| {
+                MlError::new(
+                    MlErrorCode::MalformedTensorDirectory,
+                    "truncated tensor directory entry",
+                )
+            })?;
         let name_len = usize::from(u16::from_le_bytes(fixed[0..2].try_into().unwrap()));
         let rank = usize::from(fixed[2]);
         if name_len == 0 || name_len > MAX_NAME_BYTES {
-            return Err(MlError::new(MlErrorCode::InvalidTensorName, "tensor name length is invalid"));
+            return Err(MlError::new(
+                MlErrorCode::InvalidTensorName,
+                "tensor name length is invalid",
+            ));
         }
         if rank > MAX_RANK {
-            return Err(MlError::new(MlErrorCode::InvalidRank, "tensor rank exceeds profile maximum"));
+            return Err(MlError::new(
+                MlErrorCode::InvalidRank,
+                "tensor rank exceeds profile maximum",
+            ));
         }
         if u16::from_le_bytes(fixed[8..10].try_into().unwrap()) != 0 {
-            return Err(MlError::new(MlErrorCode::MalformedTensorDirectory, "tensor entry reserved field is non-zero"));
+            return Err(MlError::new(
+                MlErrorCode::MalformedTensorDirectory,
+                "tensor entry reserved field is non-zero",
+            ));
         }
         let representation = representation_from_id(fixed[3])?;
         cursor += ENTRY_FIXED_BYTES;
-        let name_end = cursor.checked_add(name_len).ok_or_else(|| MlError::new(MlErrorCode::MalformedTensorDirectory, "tensor name length overflows"))?;
-        let name = bytes.get(cursor..name_end).ok_or_else(|| MlError::new(MlErrorCode::MalformedTensorDirectory, "truncated tensor name"))?.to_vec();
+        let name_end = cursor.checked_add(name_len).ok_or_else(|| {
+            MlError::new(
+                MlErrorCode::MalformedTensorDirectory,
+                "tensor name length overflows",
+            )
+        })?;
+        let name = bytes
+            .get(cursor..name_end)
+            .ok_or_else(|| {
+                MlError::new(
+                    MlErrorCode::MalformedTensorDirectory,
+                    "truncated tensor name",
+                )
+            })?
+            .to_vec();
         if std::str::from_utf8(&name).is_err() || name.contains(&0) {
-            return Err(MlError::new(MlErrorCode::InvalidTensorName, "tensor name is invalid UTF-8 or contains NUL"));
+            return Err(MlError::new(
+                MlErrorCode::InvalidTensorName,
+                "tensor name is invalid UTF-8 or contains NUL",
+            ));
         }
         cursor = name_end;
-        let dimensions_bytes = rank.checked_mul(8).ok_or_else(|| MlError::new(MlErrorCode::MalformedTensorDirectory, "dimension table size overflows"))?;
-        let dimensions_end = cursor.checked_add(dimensions_bytes).ok_or_else(|| MlError::new(MlErrorCode::MalformedTensorDirectory, "dimension table end overflows"))?;
-        let dimension_data = bytes.get(cursor..dimensions_end).ok_or_else(|| MlError::new(MlErrorCode::MalformedTensorDirectory, "truncated tensor dimensions"))?;
+        let dimensions_bytes = rank.checked_mul(8).ok_or_else(|| {
+            MlError::new(
+                MlErrorCode::MalformedTensorDirectory,
+                "dimension table size overflows",
+            )
+        })?;
+        let dimensions_end = cursor.checked_add(dimensions_bytes).ok_or_else(|| {
+            MlError::new(
+                MlErrorCode::MalformedTensorDirectory,
+                "dimension table end overflows",
+            )
+        })?;
+        let dimension_data = bytes.get(cursor..dimensions_end).ok_or_else(|| {
+            MlError::new(
+                MlErrorCode::MalformedTensorDirectory,
+                "truncated tensor dimensions",
+            )
+        })?;
         let mut dimensions = Vec::with_capacity(rank);
         for chunk in dimension_data.chunks_exact(8) {
             let dimension = u64::from_le_bytes(chunk.try_into().unwrap());
             if dimension == 0 {
-                return Err(MlError::new(MlErrorCode::InvalidDimension, "zero tensor dimensions are not supported"));
+                return Err(MlError::new(
+                    MlErrorCode::InvalidDimension,
+                    "zero tensor dimensions are not supported",
+                ));
             }
             dimensions.push(dimension);
         }
         cursor = dimensions_end;
-        output.push(RawEntry { name, dimensions, representation, key_id: u16::from_le_bytes(fixed[4..6].try_into().unwrap()), occurrence: u16::from_le_bytes(fixed[6..8].try_into().unwrap()) });
+        output.push(RawEntry {
+            name,
+            dimensions,
+            representation,
+            key_id: u16::from_le_bytes(fixed[4..6].try_into().unwrap()),
+            occurrence: u16::from_le_bytes(fixed[6..8].try_into().unwrap()),
+        });
     }
     if cursor != bytes.len() {
-        return Err(MlError::new(MlErrorCode::MalformedTensorDirectory, "tensor directory has trailing bytes"));
+        return Err(MlError::new(
+            MlErrorCode::MalformedTensorDirectory,
+            "tensor directory has trailing bytes",
+        ));
     }
     Ok(output)
 }
 
 fn validate_entry(entry: &TensorEntry) -> Result<(), MlError> {
-    if entry.name.is_empty() || entry.name.len() > MAX_NAME_BYTES || entry.name.as_bytes().contains(&0) || std::str::from_utf8(entry.name.as_bytes()).is_err() {
-        return Err(MlError::new(MlErrorCode::InvalidTensorName, "tensor name is invalid"));
+    if entry.name.is_empty()
+        || entry.name.len() > MAX_NAME_BYTES
+        || entry.name.as_bytes().contains(&0)
+        || std::str::from_utf8(entry.name.as_bytes()).is_err()
+    {
+        return Err(MlError::new(
+            MlErrorCode::InvalidTensorName,
+            "tensor name is invalid",
+        ));
     }
     if entry.dimensions.len() > MAX_RANK {
-        return Err(MlError::new(MlErrorCode::InvalidRank, "tensor rank exceeds profile maximum"));
+        return Err(MlError::new(
+            MlErrorCode::InvalidRank,
+            "tensor rank exceeds profile maximum",
+        ));
     }
     for dimension in &entry.dimensions {
         if *dimension == 0 {
-            return Err(MlError::new(MlErrorCode::InvalidDimension, "zero tensor dimensions are not supported"));
+            return Err(MlError::new(
+                MlErrorCode::InvalidDimension,
+                "zero tensor dimensions are not supported",
+            ));
         }
     }
-    entry.dimensions.iter().try_fold(1u64, |product, dimension| product.checked_mul(*dimension)).ok_or_else(|| MlError::new(MlErrorCode::ShapeOverflow, "tensor shape product overflows u64"))?;
+    entry
+        .dimensions
+        .iter()
+        .try_fold(1u64, |product, dimension| product.checked_mul(*dimension))
+        .ok_or_else(|| {
+            MlError::new(
+                MlErrorCode::ShapeOverflow,
+                "tensor shape product overflows u64",
+            )
+        })?;
     Ok(())
 }

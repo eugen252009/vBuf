@@ -1,8 +1,8 @@
+use memmap2::Mmap;
 use std::path::PathBuf;
 use std::time::Instant;
-use vbuf_ml::{Bootstrap, ConsumerModel, ModelMetadata, TensorDirectory, TokenizerMetadata};
 use vbuf_core::v06::parse_v06;
-use memmap2::Mmap;
+use vbuf_ml::{Bootstrap, ConsumerModel, ModelMetadata, TensorDirectory, TokenizerMetadata};
 
 fn main() {
     let path = PathBuf::from(std::env::args().nth(1).expect("vbuf path"));
@@ -29,5 +29,21 @@ fn main() {
     let descriptor_start = Instant::now();
     let consumer = ConsumerModel::open(&path).expect("consumer");
     let descriptor_us = descriptor_start.elapsed().as_secs_f64() * 1e6;
-    println!("{{\"phase\":\"vbuf_diagnostic\",\"file_bytes\":{},\"blocks\":{},\"tensors\":{},\"tokens\":{},\"merges\":{},\"map_us\":{:.3},\"canonical_us\":{:.3},\"bootstrap_us\":{:.3},\"model_metadata_us\":{:.3},\"tensor_directory_us\":{:.3},\"tokenizer_metadata_us\":{:.3},\"consumer_open_total_us\":{:.3},\"descriptor_tensors\":{},\"elapsed_us\":{:.3}}}", mapping.len(), validated.blocks().len(), directory.tensors().len(), tokenizer.token_count(), tokenizer.merge_count(), map_us, parse_us, bootstrap_us, metadata_us, directory_us, tokenizer_us, descriptor_us, consumer.tensor_count().unwrap(), started.elapsed().as_secs_f64() * 1e6);
+    println!(
+        "{{\"phase\":\"vbuf_diagnostic\",\"file_bytes\":{},\"blocks\":{},\"tensors\":{},\"tokens\":{},\"merges\":{},\"map_us\":{:.3},\"canonical_us\":{:.3},\"bootstrap_us\":{:.3},\"model_metadata_us\":{:.3},\"tensor_directory_us\":{:.3},\"tokenizer_metadata_us\":{:.3},\"consumer_open_total_us\":{:.3},\"descriptor_tensors\":{},\"elapsed_us\":{:.3}}}",
+        mapping.len(),
+        validated.blocks().len(),
+        directory.tensors().len(),
+        tokenizer.token_count(),
+        tokenizer.merge_count(),
+        map_us,
+        parse_us,
+        bootstrap_us,
+        metadata_us,
+        directory_us,
+        tokenizer_us,
+        descriptor_us,
+        consumer.tensor_count().unwrap(),
+        started.elapsed().as_secs_f64() * 1e6
+    );
 }

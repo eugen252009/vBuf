@@ -56,9 +56,15 @@ impl ByteRange {
         Self::new(offset, end - offset)
     }
 
-    pub const fn offset(self) -> u64 { self.offset }
-    pub const fn length(self) -> u64 { self.length }
-    pub const fn end(self) -> u64 { self.offset + self.length }
+    pub const fn offset(self) -> u64 {
+        self.offset
+    }
+    pub const fn length(self) -> u64 {
+        self.length
+    }
+    pub const fn end(self) -> u64 {
+        self.offset + self.length
+    }
 
     pub fn contains(self, child: Self) -> bool {
         child.offset >= self.offset && child.end() <= self.end()
@@ -67,13 +73,23 @@ impl ByteRange {
     pub fn intersection(self, other: Self) -> Option<Self> {
         let start = self.offset.max(other.offset);
         let end = self.end().min(other.end());
-        (start <= end).then(|| Self { offset: start, length: end - start })
+        (start <= end).then(|| Self {
+            offset: start,
+            length: end - start,
+        })
     }
 
     pub fn refine(self, relative_offset: u64, length: u64) -> Result<Self, RangeError> {
-        let offset = self.offset.checked_add(relative_offset).ok_or(RangeError::Overflow)?;
+        let offset = self
+            .offset
+            .checked_add(relative_offset)
+            .ok_or(RangeError::Overflow)?;
         let child = Self::new(offset, length)?;
-        if self.contains(child) { Ok(child) } else { Err(RangeError::OutsideParent) }
+        if self.contains(child) {
+            Ok(child)
+        } else {
+            Err(RangeError::OutsideParent)
+        }
     }
 
     pub fn is_offset_aligned(self, alignment: u64) -> Result<bool, RangeError> {
@@ -110,16 +126,31 @@ impl<'a> CheckedRange<'a> {
         Ok(Self { bytes, range })
     }
 
-    pub fn range(&self) -> ByteRange { self.range }
-    pub fn offset(&self) -> u64 { self.range.offset() }
-    pub fn length(&self) -> u64 { self.range.length() }
-    pub fn end(&self) -> u64 { self.range.end() }
+    pub fn range(&self) -> ByteRange {
+        self.range
+    }
+    pub fn offset(&self) -> u64 {
+        self.range.offset()
+    }
+    pub fn length(&self) -> u64 {
+        self.range.length()
+    }
+    pub fn end(&self) -> u64 {
+        self.range.end()
+    }
     pub fn bytes(&self) -> &'a [u8] {
-        let host = self.range.host_range(self.bytes.len()).expect("checked range remains bounded");
+        let host = self
+            .range
+            .host_range(self.bytes.len())
+            .expect("checked range remains bounded");
         &self.bytes[host]
     }
 
-    pub fn refine(&self, relative_offset: u64, length: u64) -> Result<CheckedRange<'a>, RangeError> {
+    pub fn refine(
+        &self,
+        relative_offset: u64,
+        length: u64,
+    ) -> Result<CheckedRange<'a>, RangeError> {
         Self::from_mapping(self.bytes, self.range.refine(relative_offset, length)?)
     }
 
@@ -147,7 +178,13 @@ mod tests {
         let parent = ByteRange::new(10, 20).unwrap();
         assert_eq!(parent.refine(20, 1), Err(RangeError::OutsideParent));
         assert_eq!(parent.refine(u64::MAX, 1), Err(RangeError::Overflow));
-        assert_eq!(parent.intersection(ByteRange::new(30, 2).unwrap()).unwrap().length(), 0);
+        assert_eq!(
+            parent
+                .intersection(ByteRange::new(30, 2).unwrap())
+                .unwrap()
+                .length(),
+            0
+        );
     }
 
     #[test]
@@ -159,6 +196,9 @@ mod tests {
         let range = CheckedRange::from_mapping(&bytes, ByteRange::new(1, 2).unwrap()).unwrap();
         assert_eq!(range.bytes(), &[2, 3]);
         assert_eq!(range.refine(1, 1).unwrap().bytes(), &[3]);
-        assert_eq!(CheckedRange::from_mapping(&bytes, ByteRange::new(3, 2).unwrap()), Err(RangeError::OutsideMapping));
+        assert_eq!(
+            CheckedRange::from_mapping(&bytes, ByteRange::new(3, 2).unwrap()),
+            Err(RangeError::OutsideMapping)
+        );
     }
 }

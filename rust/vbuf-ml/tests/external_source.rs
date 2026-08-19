@@ -189,8 +189,24 @@ fn unknown_tensor_source_id_is_rejected_before_materialization() {
     let bytes: &'static [u8] = Box::leak(metadata.into_boxed_slice());
     let validated = parse_v06(bytes).unwrap();
     let bootstrap = Bootstrap::discover(&validated).unwrap();
-    let source = SourceDescriptor { id: SourceId::new(99), declared_size: Some(4), locator: SourceLocator::File("missing.vbuf".into()), hashes: vec![] };
+    let source = SourceDescriptor {
+        id: SourceId::new(99),
+        declared_size: Some(4),
+        locator: SourceLocator::File("missing.vbuf".into()),
+        hashes: vec![],
+    };
     let reference = TensorRef::new(&source, 0, 4).unwrap();
-    let registry = SourceRegistry::new(vec![SourceDescriptor::self_artifact(bytes.len() as u64)]).unwrap();
-    assert_eq!(vbuf_ml::TensorDirectory::parse_with_sources(&validated, &bootstrap, &registry, &[(20, 0, reference)]).unwrap_err().code, vbuf_ml::MlErrorCode::TensorReferenceMissing);
+    let registry =
+        SourceRegistry::new(vec![SourceDescriptor::self_artifact(bytes.len() as u64)]).unwrap();
+    assert_eq!(
+        vbuf_ml::TensorDirectory::parse_with_sources(
+            &validated,
+            &bootstrap,
+            &registry,
+            &[(20, 0, reference)]
+        )
+        .unwrap_err()
+        .code,
+        vbuf_ml::MlErrorCode::TensorReferenceMissing
+    );
 }

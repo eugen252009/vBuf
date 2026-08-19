@@ -97,6 +97,9 @@ impl std::error::Error for MlError {}
 
 impl From<vbuf_core::v06::V06Error> for MlError {
     fn from(error: vbuf_core::v06::V06Error) -> Self {
-        Self::new(MlErrorCode::Canonical(error.code), "canonical v0.6 validation failed")
+        Self::new(
+            MlErrorCode::Canonical(error.code),
+            "canonical v0.6 validation failed",
+        )
     }
 }
