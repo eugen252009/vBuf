@@ -23,6 +23,7 @@ set(VBUF_RUNTIME_LIBRARY "" CACHE FILEPATH
 option(VBUF_ENABLE_CUDA "Build the pinned ggml CUDA backend" OFF)
 option(VBUF_ENABLE_CPU_REPACK "Build ggml CPU_REPACK for opt-in contract audits" OFF)
 option(VBUF_BUILD_PROBES "Build disposable substrate qualification probes" ON)
+option(VBUF_BUILD_REAL_GATE2B "Build the opt-in real DeepSeek Gate 2B qualification" OFF)
 
 include(FetchContent)
 
@@ -300,6 +301,15 @@ if(VBUF_ML_LIBRARY)
     add_executable(vbuf_autoregressive_poc22 tools/autoregressive_poc22.cpp)
     target_compile_features(vbuf_autoregressive_poc22 PRIVATE cxx_std_17)
     target_link_libraries(vbuf_autoregressive_poc22 PRIVATE vbuf_region_executor)
+
+    if(VBUF_BUILD_REAL_GATE2B AND VBUF_RUNTIME_LIBRARY)
+        add_executable(vbuf_gate2b_real_deepseek
+            tests/portable_deepseek_router_prefix.cpp)
+        target_compile_features(vbuf_gate2b_real_deepseek PRIVATE cxx_std_17)
+        target_include_directories(vbuf_gate2b_real_deepseek PRIVATE include)
+        target_link_libraries(vbuf_gate2b_real_deepseek
+            PRIVATE vbuf_portable_graph_adapter vbuf_runtime)
+    endif()
 endif()
 
 message(STATUS "vBuf native substrate")
