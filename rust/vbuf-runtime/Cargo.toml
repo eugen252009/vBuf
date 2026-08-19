@@ -1,0 +1,13 @@
+[package]
+name = "vbuf-runtime"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+ggml = []
+
+[dependencies]
+vbuf-ml = { path = "../vbuf-ml" }
+
+[build-dependencies]

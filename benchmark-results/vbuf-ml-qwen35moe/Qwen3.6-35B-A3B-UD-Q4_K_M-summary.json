@@ -1,0 +1,10 @@
+{
+  "artifact": "Qwen3.6-35B-A3B-UD-Q4_K_M.vbuf",
+  "source": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+  "source_sha256": "0b21525e972670ed59e1812e170b27c26355381f0656ecc4e25617ece7dac58b",
+  "target_sha256": "56b16d2ee70ede32ed8fa76392e4fdbc64e9a400e189fb226ea089bad191f8b5",
+  "target_size": 22661566630,
+  "integrity": "none",
+  "tool": "vbuf-ml-convert",
+  "manifest": "qwen35moe-manifest.json"
+}

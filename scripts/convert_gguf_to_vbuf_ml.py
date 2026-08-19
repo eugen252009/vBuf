@@ -23,7 +23,7 @@ from qualify_step17 import PINNED_COMMIT  # noqa: E402
 
 PLAN_MAGIC = b"VBUF20PL"
 PLAN_VERSION = 2
-REPRESENTATIONS = {"CanonicalPrimitive": 0, "BF16": 1, "GGML_Q8_0": 2, "GGML_Q4_0": 3, "GGML_Q2_K": 4, "GGML_IQ1_S": 5, "GGML_Q4_K": 6, "GGML_IQ4_NL": 7, "GGML_IQ4_XS": 8, "GGML_Q3_K": 9, "GGML_IQ2_XXS": 10, "GGML_IQ2_XS": 11, "GGML_IQ2_S": 12, "GGML_Q5_K": 13}
+REPRESENTATIONS = {"CanonicalPrimitive": 0, "BF16": 1, "GGML_Q8_0": 2, "GGML_Q4_0": 3, "GGML_Q2_K": 4, "GGML_IQ1_S": 5, "GGML_Q4_K": 6, "GGML_IQ4_NL": 7, "GGML_IQ4_XS": 8, "GGML_Q3_K": 9, "GGML_IQ2_XXS": 10, "GGML_IQ2_XS": 11, "GGML_IQ2_S": 12, "GGML_Q5_K": 13, "GGML_Q6_K": 14}
 METADATA_IDS = {"Architecture": 1, "ContextLength": 2, "EmbeddingLength": 3, "LayerCount": 4,
                 "HeadCount": 5, "FeedForwardLength": 6, "NormalizationEpsilon": 7, "RopeTheta": 8,
                 "KVHeadCount": 9, "KeyHeadDimension": 10, "ValueHeadDimension": 11}

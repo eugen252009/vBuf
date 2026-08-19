@@ -15,6 +15,10 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <functional>
 #include <memory>
 #include <set>
@@ -46,20 +50,20 @@ namespace {
 struct Bytes {
     uint8_t * data = nullptr;
     size_t size = 0;
-    ~Bytes() { std::free(data); }
+    ~Bytes() { if (data != nullptr) munmap(data, size); }
 };
 
 std::shared_ptr<Bytes> read_file(const std::string & path) {
-    std::ifstream input(path, std::ios::binary | std::ios::ate);
-    if (!input) return {};
-    const auto size = input.tellg();
-    if (size <= 0) return {};
+    const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return {};
+    struct stat status{};
+    if (fstat(fd, &status) != 0 || status.st_size <= 0) { close(fd); return {}; }
     auto result = std::make_shared<Bytes>();
-    result->size = static_cast<size_t>(size);
-    if (posix_memalign(reinterpret_cast<void **>(&result->data), 64, result->size) != 0)
-        return {};
-    input.seekg(0);
-    if (!input.read(reinterpret_cast<char *>(result->data), size)) return {};
+    result->size = static_cast<size_t>(status.st_size);
+    void * mapping = mmap(nullptr, result->size, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if (mapping == MAP_FAILED) return {};
+    result->data = static_cast<uint8_t *>(mapping);
     return result;
 }
 

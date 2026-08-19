@@ -113,3 +113,43 @@ is under `benchmark-results/vbuf-ml-step24/` and the architecture report is
 `docs/vbuf-ml/step24-borrowed-runtime-views.md`.
 
 No GPU, cold-cache, or first-touch performance claim is made.
+
+## OpenAI-compatible HTTP baseline
+
+`vbuf_openai_server.cpp` is a deliberately small network harness for comparing
+the vBuf loader with the same pinned llama.cpp runtime and model. It supports
+the Open WebUI-compatible endpoints `GET /health`, `GET /v1/models`,
+`POST /v1/chat/completions`, and `POST /v1/completions`. Generation is greedy
+in this first baseline and requests are handled serially so transport and
+inference measurements are easy to interpret.
+
+Build it against the prepared pinned llama.cpp tree and the vBuf adapter:
+
+```bash
+c++ -O2 -std=c++17 \
+  -I/tmp/llama.cpp-step21/include -I/tmp/llama.cpp-step21/src \
+  -I/tmp/llama.cpp-step21/ggml/include \
+  integrations/llama.cpp/vbuf_openai_server.cpp \
+  integrations/llama.cpp/vbuf_ml_adapter.cpp \
+  integrations/llama.cpp/vbuf_direct_source.cpp \
+  integrations/llama.cpp/vbuf_server_loader.cpp \
+  -L/tmp/llama.cpp-step21-build/bin \
+  -Lrust/target/release \
+  -lllama -lggml -lggml-cpu -lggml-base -lvbuf_ml \
+  -Wl,-rpath,/tmp/llama.cpp-step21-build/bin \
+  -Wl,-rpath,$PWD/rust/target/release \
+  -pthread -o /tmp/vbuf-openai-server
+```
+
+Run either representation with the same executable:
+
+```bash
+/tmp/vbuf-openai-server --model research-models/Qwen3-0.6B-Q8_0.vbuf --format vbuf --host 0.0.0.0 --port 8080
+/tmp/vbuf-openai-server --model research-models/Qwen3-0.6B-Q8_0.gguf --format gguf --host 0.0.0.0 --port 8080
+```
+
+Configure Open WebUI with an OpenAI connection URL of
+`http://<server>:8080/v1` and select the model id `vbuf-model`.
+
+The server uses the source-neutral direct vBuf adapter, so local vBuf models
+do not require the optional HTTP-range materializer.

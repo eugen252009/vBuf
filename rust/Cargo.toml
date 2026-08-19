@@ -1,5 +1,5 @@
 [workspace]
-members = ["vbuf-layout", "vbuf-ml"]
+members = ["vbuf-layout", "vbuf-ml", "vbuf-runtime"]
 
 [package]
 name = "vbuf-core"
