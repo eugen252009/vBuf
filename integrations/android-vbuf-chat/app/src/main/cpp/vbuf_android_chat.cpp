@@ -80,7 +80,7 @@ Java_com_eugen_vbufchat_NativeInference_open__Ljava_lang_String_2Ljava_lang_Stri
     if (remote) {
         vbuf_llama::VbufRemoteMetrics metrics{};
         if (llama_model_vbuf_remote_metrics(model, &metrics)) {
-            __android_log_print(ANDROID_LOG_INFO, TAG, "remote metrics requests=%llu bytes=%llu unique_bytes=%llu", static_cast<unsigned long long>(metrics.requests), static_cast<unsigned long long>(metrics.bytes), static_cast<unsigned long long>(metrics.unique_bytes));
+            __android_log_print(ANDROID_LOG_INFO, TAG, "remote metrics requests=%llu bytes=%llu unique_bytes=%llu connections=%llu min_ms=%llu median_ms=%llu max_ms=%llu", static_cast<unsigned long long>(metrics.requests), static_cast<unsigned long long>(metrics.bytes), static_cast<unsigned long long>(metrics.unique_bytes), static_cast<unsigned long long>(metrics.connections), static_cast<unsigned long long>(metrics.min_request_ns / 1000000), static_cast<unsigned long long>(metrics.median_request_ns / 1000000), static_cast<unsigned long long>(metrics.max_request_ns / 1000000));
         }
     }
     return result(env, remote ? "OPEN_OK qwen3 remote" : "OPEN_OK qwen3");

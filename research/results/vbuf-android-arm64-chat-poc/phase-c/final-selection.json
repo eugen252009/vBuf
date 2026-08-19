@@ -1,0 +1,27 @@
+{
+  "selected_variant": "C1 persistent HTTP connection",
+  "model_open_baseline_ms": 53203,
+  "model_open_final_median_ms": 44451,
+  "model_open_final_capture_ms": 43848,
+  "absolute_median_ms_saved": 8752,
+  "time_reduction_percent": 16.450,
+  "speedup_multiplier": 1.197,
+  "requests": 310,
+  "connections": 1,
+  "transferred_bytes": 633495552,
+  "unique_payload_bytes": 633495552,
+  "overfetch_bytes": 0,
+  "effective_decimal_MBps": 14.252,
+  "memory_observation": {
+    "native_heap_pss_kib": 735592,
+    "total_pss_kib": 879496
+  },
+  "backend_residency": "EAGER_ALL",
+  "backend_residency_changed": false,
+  "remote_payload_parity": "PASS",
+  "remote_generation": "PASS",
+  "local_self_regression": "PASS",
+  "full_artifact_on_pixel": false,
+  "full_file_temp_download": false,
+  "dominant_remaining_bottleneck": "serialized per-tensor HTTP request/materialization overhead and the pinned EAGER_ALL construction path"
+}

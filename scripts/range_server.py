@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 class RangeHandler(BaseHTTPRequestHandler):
     server_version = "vbuf-range-server/1"
+    protocol_version = "HTTP/1.1"
 
     def do_GET(self):
         mode = self.server.mode

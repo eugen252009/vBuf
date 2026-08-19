@@ -5,6 +5,7 @@
 #include <cstring>
 #include <limits>
 #include <sstream>
+#include <unordered_map>
 #include <vector>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -17,6 +18,27 @@ namespace {
 uint64_t now_ns() {
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+RangeSourceMetrics summarize_metrics(const std::vector<uint64_t> & durations,
+    uint64_t bytes, const std::unordered_set<std::string> & unique_ranges,
+    const std::unordered_set<std::string> & connections) {
+    RangeSourceMetrics metrics{};
+    metrics.requests = durations.size();
+    metrics.bytes = bytes;
+    metrics.connections = connections.size();
+    for (const std::string & range : unique_ranges) {
+        const size_t separator = range.find(':');
+        metrics.unique_bytes += std::stoull(range.substr(separator + 1));
+    }
+    if (!durations.empty()) {
+        std::vector<uint64_t> sorted = durations;
+        std::sort(sorted.begin(), sorted.end());
+        metrics.min_request_ns = sorted.front();
+        metrics.median_request_ns = sorted[sorted.size() / 2];
+        metrics.max_request_ns = sorted.back();
+    }
+    return metrics;
 }
 
 bool checked_end(uint64_t offset, uint64_t length, uint64_t * end) {
@@ -50,8 +72,14 @@ bool LocalVbufRangeSource::read_range(uint64_t offset, uint64_t length,
 HttpRangeSource::HttpRangeSource(std::string endpoint, std::string local_source_ip)
     : endpoint_(std::move(endpoint)), local_source_ip_(std::move(local_source_ip)) {}
 
+HttpRangeSource::~HttpRangeSource() {
+    if (socket_fd_ >= 0) close(socket_fd_);
+}
+
 bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
     uint8_t * destination, RangeReadResult * result) {
+    std::lock_guard<std::mutex> socket_lock(socket_mutex_);
+    const uint64_t request_start_ns = now_ns();
     *result = { offset, length, 0, 0, 0, endpoint_, {}, {} };
     uint64_t end = 0;
     if (destination == nullptr || !checked_end(offset, length, &end)) {
@@ -86,23 +114,24 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
         result->error = "HTTP host resolution failed";
         return false;
     }
-    int socket_fd = -1;
-    for (addrinfo * address = addresses; address != nullptr; address = address->ai_next) {
-        if (!local_source_ip_.empty() && address->ai_family != AF_INET) continue;
-        socket_fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
-        if (socket_fd >= 0 && !local_source_ip_.empty() &&
-            bind(socket_fd, reinterpret_cast<const sockaddr *>(&local_address),
-                sizeof(local_address)) != 0) {
-            close(socket_fd);
-            socket_fd = -1;
-            continue;
+    if (socket_fd_ < 0) {
+        for (addrinfo * address = addresses; address != nullptr; address = address->ai_next) {
+            if (!local_source_ip_.empty() && address->ai_family != AF_INET) continue;
+            socket_fd_ = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
+            if (socket_fd_ >= 0 && !local_source_ip_.empty() &&
+                bind(socket_fd_, reinterpret_cast<const sockaddr *>(&local_address),
+                    sizeof(local_address)) != 0) {
+                close(socket_fd_);
+                socket_fd_ = -1;
+                continue;
+            }
+            if (socket_fd_ >= 0 && connect(socket_fd_, address->ai_addr, address->ai_addrlen) == 0) break;
+            if (socket_fd_ >= 0) close(socket_fd_);
+            socket_fd_ = -1;
         }
-        if (socket_fd >= 0 && connect(socket_fd, address->ai_addr, address->ai_addrlen) == 0) break;
-        if (socket_fd >= 0) close(socket_fd);
-        socket_fd = -1;
     }
     freeaddrinfo(addresses);
-    if (socket_fd < 0) {
+    if (socket_fd_ < 0) {
         result->error = "HTTP connection failed";
         return false;
     }
@@ -112,7 +141,7 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
     char remote_service[NI_MAXSERV] = {};
     sockaddr_storage socket_address{};
     socklen_t socket_address_length = sizeof(socket_address);
-    if (getsockname(socket_fd, reinterpret_cast<sockaddr *>(&socket_address),
+    if (getsockname(socket_fd_, reinterpret_cast<sockaddr *>(&socket_address),
         &socket_address_length) == 0 && getnameinfo(
             reinterpret_cast<sockaddr *>(&socket_address), socket_address_length,
             local_host, sizeof(local_host), local_service, sizeof(local_service),
@@ -121,7 +150,7 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
     }
     socket_address = {};
     socket_address_length = sizeof(socket_address);
-    if (getpeername(socket_fd, reinterpret_cast<sockaddr *>(&socket_address),
+    if (getpeername(socket_fd_, reinterpret_cast<sockaddr *>(&socket_address),
         &socket_address_length) == 0 && getnameinfo(
             reinterpret_cast<sockaddr *>(&socket_address), socket_address_length,
             remote_host, sizeof(remote_host), remote_service, sizeof(remote_service),
@@ -130,24 +159,25 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
     }
     const std::string request = "GET " + path + " HTTP/1.1\r\nHost: " + host +
         "\r\nRange: bytes=" + std::to_string(offset) + "-" + std::to_string(end - 1) +
-        "\r\nConnection: close\r\n\r\n";
+        "\r\nConnection: keep-alive\r\n\r\n";
     size_t sent = 0;
     while (sent < request.size()) {
-        const ssize_t count = send(socket_fd, request.data() + sent, request.size() - sent, 0);
-        if (count <= 0) { close(socket_fd); result->error = "HTTP request send failed"; return false; }
+        const ssize_t count = send(socket_fd_, request.data() + sent, request.size() - sent, 0);
+        if (count <= 0) { close(socket_fd_); socket_fd_ = -1; result->error = "HTTP request send failed"; return false; }
         sent += static_cast<size_t>(count);
     }
     std::vector<uint8_t> header_bytes;
     size_t body_start = 0;
     while (body_start == 0) {
         uint8_t buffer[4096];
-        const ssize_t count = recv(socket_fd, buffer, sizeof(buffer), 0);
+        const ssize_t count = recv(socket_fd_, buffer, sizeof(buffer), 0);
         if (count <= 0 || header_bytes.size() > 65536) {
-            close(socket_fd); result->error = "HTTP response headers truncated"; return false;
+            close(socket_fd_); socket_fd_ = -1; result->error = "HTTP response headers truncated"; return false;
         }
         header_bytes.insert(header_bytes.end(), buffer, buffer + count);
+        const char header_end[] = "\r\n\r\n";
         const auto begin = std::search(header_bytes.begin(), header_bytes.end(),
-            "\r\n\r\n", "\r\n\r\n" + 4);
+            header_end, header_end + 4);
         if (begin != header_bytes.end()) body_start = static_cast<size_t>(begin - header_bytes.begin()) + 4;
     }
     const std::string headers(header_bytes.begin(), header_bytes.begin() + body_start);
@@ -171,14 +201,14 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
     }
     result->content_range = content_range;
     if (result->status_code != 206) {
-        close(socket_fd); result->error = "HTTP server did not return 206 Partial Content"; return false;
+        close(socket_fd_); socket_fd_ = -1; result->error = "HTTP server did not return 206 Partial Content"; return false;
     }
     if (have_content_length && content_length != length) {
-        close(socket_fd); result->error = "HTTP returned an incorrect Content-Length"; return false;
+        close(socket_fd_); socket_fd_ = -1; result->error = "HTTP returned an incorrect Content-Length"; return false;
     }
     const size_t initial_body_bytes = header_bytes.size() - body_start;
     if (initial_body_bytes > length) {
-        close(socket_fd); result->error = "HTTP returned more than the requested range"; return false;
+        close(socket_fd_); socket_fd_ = -1; result->error = "HTTP returned more than the requested range"; return false;
     }
     size_t received = initial_body_bytes;
     if (initial_body_bytes != 0) {
@@ -188,19 +218,20 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
     while (received < length) {
         uint8_t buffer[4096];
         const size_t remaining = length - received;
-        const ssize_t count = recv(socket_fd, buffer,
+        const ssize_t count = recv(socket_fd_, buffer,
             std::min(sizeof(buffer), remaining + 1), 0);
         if (count <= 0) break;
         if (static_cast<size_t>(count) > remaining) {
-            close(socket_fd); result->error = "HTTP returned more than the requested range"; return false;
+            close(socket_fd_); socket_fd_ = -1; result->error = "HTTP returned more than the requested range"; return false;
         }
         if (result->first_byte_timestamp_ns == 0) result->first_byte_timestamp_ns = now_ns();
         std::memcpy(destination + received, buffer, static_cast<size_t>(count));
         received += static_cast<size_t>(count);
     }
-    close(socket_fd);
     result->returned_bytes = received;
     if (received != length) {
+        close(socket_fd_);
+        socket_fd_ = -1;
         result->error = "HTTP returned a truncated or oversized payload";
         return false;
     }
@@ -213,12 +244,23 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
         fields >> unit >> start >> dash >> last;
         if (fields.fail() || unit.find("bytes") == std::string::npos ||
             start != offset || last != end - 1) {
+            close(socket_fd_);
+            socket_fd_ = -1;
             result->error = "HTTP Content-Range does not match the request";
             return false;
         }
     }
+    request_durations_ns_.push_back(now_ns() - request_start_ns);
+    transferred_bytes_ += length;
+    unique_ranges_.insert(std::to_string(offset) + ":" + std::to_string(length));
+    if (!result->local_endpoint.empty()) connection_endpoints_.insert(result->local_endpoint);
     if (result->first_byte_timestamp_ns == 0) result->first_byte_timestamp_ns = now_ns();
     return true;
+}
+
+RangeSourceMetrics HttpRangeSource::metrics() const {
+    std::lock_guard<std::mutex> lock(socket_mutex_);
+    return summarize_metrics(request_durations_ns_, transferred_bytes_, unique_ranges_, connection_endpoints_);
 }
 
 } // namespace vbuf_ggml

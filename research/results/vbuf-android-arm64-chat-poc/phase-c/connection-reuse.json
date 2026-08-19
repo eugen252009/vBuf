@@ -1,0 +1,19 @@
+{
+  "variant": "C1 persistent HTTP connection",
+  "range_plan_changed": false,
+  "concurrency": 1,
+  "runs_model_open_ms": [44479, 44451, 43797, 45058, 43824],
+  "median_model_open_ms": 44451,
+  "requests": 310,
+  "connections": 1,
+  "transferred_bytes": 633495552,
+  "unique_payload_bytes": 633495552,
+  "overfetch_bytes": 0,
+  "effective_decimal_MBps": 14.252,
+  "improvement_vs_phase_b_percent": 16.450,
+  "request_duration_ms_last_run": {"min": 23, "median": 61, "max": 2226},
+  "payload_parity": "PASS",
+  "remote_generation": "PASS",
+  "local_regression": "PASS",
+  "implementation_boundary": "generic HttpRangeSource"
+}

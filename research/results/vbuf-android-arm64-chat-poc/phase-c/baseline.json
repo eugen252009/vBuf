@@ -1,0 +1,17 @@
+{
+  "phase": "C0/C1 baseline",
+  "commit": "2905b88",
+  "device": "Pixel 7 Pro / Android 17 / arm64-v8a",
+  "model_open_ms": 53203,
+  "requests": 310,
+  "connections": 310,
+  "transferred_bytes": 633495552,
+  "unique_payload_bytes": 633495552,
+  "overfetch_bytes": 0,
+  "effective_decimal_MBps": 11.907,
+  "backend_residency": "EAGER_ALL",
+  "source_transport": "direct Wi-Fi HTTP Range",
+  "payload_parity": "PASS",
+  "remote_generation": "PASS",
+  "local_regression": "PASS"
+}

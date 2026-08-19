@@ -2,6 +2,8 @@
 
 #include "llama.h"
 
+#include <cstdint>
+
 namespace vbuf_llama {
 struct Step28PreparationResult;
 struct VbufRemoteMetrics;

@@ -1,0 +1,9 @@
+starting_commit=2905b88
+server=python3 scripts/range_server.py --host 0.0.0.0 --port 18765 --file research-models/Qwen3-0.6B-Q8_0.vbuf --mode range --log
+device=Pixel_7_Pro Android_17 arm64-v8a
+c0_client=Pixel_toybox_netcat_direct_HTTP_Range
+c1_build=./gradlew -p integrations/android-vbuf-chat assembleDebug -PvbufRemoteUrl=http://192.168.188.40:18765/Qwen3-0.6B-Q8_0.vbuf
+c3_build=./gradlew -p integrations/android-vbuf-chat assembleDebug -PvbufRemoteUrl=... -PvbufRemoteGapBytes={4096,65536,262144,1048576}
+c4_build=./gradlew -p integrations/android-vbuf-chat assembleDebug -PvbufRemoteUrl=... -PvbufRemoteGapBytes=0 -PvbufRemoteConcurrency={2,4,8}
+payload_check=direct_and_remote_310_tensor_fnv1a_payload_comparison
+final_selection=C1_keep_alive_only

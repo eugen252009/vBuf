@@ -1,7 +1,11 @@
 #include "vbuf_remote_source.h"
 
+#include <algorithm>
+#include <optional>
 #include <stdexcept>
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace vbuf_llama {
 namespace {
@@ -30,7 +34,8 @@ uint8_t representation(ggml_type type) {
 
 VbufRemoteSource::VbufRemoteSource(const char * bootstrap_path, const char * endpoint)
     : adapter_(bootstrap_path, true), endpoint_(endpoint),
-      range_source_(std::make_shared<vbuf_ggml::HttpRangeSource>(endpoint_)) {
+      http_source_(std::make_shared<vbuf_ggml::HttpRangeSource>(endpoint_)),
+      range_source_(http_source_) {
     if (!adapter_.valid() || !adapter_.metadata(metadata_) || !adapter_.architecture(architecture_)) {
         throw std::runtime_error("remote vBuf bootstrap discovery failed");
     }
@@ -127,23 +132,36 @@ bool VbufRemoteSource::tensor(uint64_t index, std::string & name, ggml_type & ty
     name = descriptor.name;
     dimensions.assign(descriptor.dimensions.begin(), descriptor.dimensions.end());
     payload_bytes = descriptor.payload_bytes;
-    auto found = materialized_.find(index);
-    if (found == materialized_.end()) {
-        if (!materialize_tensor(index)) return false;
-        found = materialized_.find(index);
+    std::optional<vbuf_ggml::MaterializedTensor> materialized;
+    {
+        std::lock_guard<std::mutex> lock(materialized_mutex_);
+        auto found = materialized_.find(index);
+        if (found != materialized_.end()) materialized = found->second;
     }
-    payload = found == materialized_.end() ? nullptr : found->second.view.payload;
+    if (!materialized) {
+        if (!materialize_tensor(index)) return false;
+        std::lock_guard<std::mutex> lock(materialized_mutex_);
+        auto found = materialized_.find(index);
+        if (found != materialized_.end()) materialized = found->second;
+    }
+    payload = materialized ? materialized->view.payload : nullptr;
     return true;
 }
 
 bool VbufRemoteSource::materialize_tensor(uint64_t index) const {
     if (index >= refs_.size()) return false;
-    if (materialized_.find(index) != materialized_.end()) return true;
+    {
+        std::lock_guard<std::mutex> lock(materialized_mutex_);
+        if (materialized_.find(index) != materialized_.end()) return true;
+    }
     if (!materializer_->request(static_cast<uint32_t>(index), refs_[index], UINT64_MAX)) return false;
     if (materializer_->wait(static_cast<uint32_t>(index)) != vbuf_ggml::MaterializationState::Ready) return false;
     auto ready = materializer_->obtain_ready_tensor(static_cast<uint32_t>(index));
     if (!ready) return false;
-    materialized_.emplace(index, std::move(*ready));
+    {
+        std::lock_guard<std::mutex> lock(materialized_mutex_);
+        materialized_.emplace(index, std::move(*ready));
+    }
     return true;
 }
 
@@ -165,15 +183,43 @@ bool VbufRemoteSource::merge(uint64_t index, uint64_t & left, uint64_t & right) 
 bool VbufRemoteSource::metrics(VbufRemoteMetrics & out) const {
     out = {};
     std::unordered_set<std::string> unique;
+    std::unordered_set<std::string> connections;
+    std::unordered_map<uint32_t, uint64_t> starts;
+    std::vector<uint64_t> durations;
     for (const auto & event : materializer_->trace()) {
+        if (event.event == "STATE" && event.state == vbuf_ggml::MaterializationState::InFlight) {
+            starts[event.tensor_ref] = event.timestamp_ns;
+            continue;
+        }
         if (event.event != "STATE" || event.state != vbuf_ggml::MaterializationState::Ready) continue;
         ++out.requests;
         out.bytes += event.returned_bytes;
         unique.insert(std::to_string(event.requested_offset) + ":" + std::to_string(event.returned_bytes));
+        if (!event.local_endpoint.empty()) connections.insert(event.local_endpoint);
+        const auto start = starts.find(event.tensor_ref);
+        if (start != starts.end() && event.timestamp_ns >= start->second) durations.push_back(event.timestamp_ns - start->second);
     }
     for (const auto & range : unique) {
         const size_t separator = range.find(':');
         out.unique_bytes += std::stoull(range.substr(separator + 1));
+    }
+    out.connections = connections.size();
+    if (!durations.empty()) {
+        std::sort(durations.begin(), durations.end());
+        out.min_request_ns = durations.front();
+        out.median_request_ns = durations[durations.size() / 2];
+        out.max_request_ns = durations.back();
+    }
+    const vbuf_ggml::RangeSourceMetrics transport = http_source_->metrics();
+    out.requests = transport.requests;
+    out.bytes = transport.bytes;
+    out.unique_bytes = transport.unique_bytes;
+    out.connections = transport.connections;
+    if (!durations.empty()) {
+        std::sort(durations.begin(), durations.end());
+        out.min_request_ns = durations.front();
+        out.median_request_ns = durations[durations.size() / 2];
+        out.max_request_ns = durations.back();
     }
     return true;
 }

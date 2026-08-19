@@ -1,0 +1,20 @@
+{
+  "transport": "Pixel direct Wi-Fi toybox netcat to range_server.py",
+  "runs": [
+    {"bytes": 1048576, "elapsed_ms": [134.338, 132.508, 160.607]},
+    {"bytes": 8388608, "elapsed_ms": [546.024, 531.745, 510.990]},
+    {"bytes": 67108864, "elapsed_ms": [3383, 3230, 725]},
+    {"bytes": 268435456, "elapsed_ms": [11770, 9019, 8801]}
+  ],
+  "large_range_selection": {
+    "bytes": 268435456,
+    "median_elapsed_ms": 9019,
+    "median_decimal_MBps": 29.763
+  },
+  "baseline_loader_decimal_MBps": 11.907,
+  "loader_to_transport_ratio": 0.400,
+  "notes": [
+    "The 725 ms 64 MiB sample is retained as measured and treated as an outlier; the 256 MiB median is the C0 ceiling comparator.",
+    "C0 changed no production loader behavior."
+  ]
+}

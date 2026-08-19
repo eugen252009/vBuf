@@ -1,0 +1,20 @@
+{
+  "variant": "C2/C3 single-threaded coalescing",
+  "concurrency": 1,
+  "tensor_ref_layout": {
+    "tensor_count": 310,
+    "adjacent_zero_gap_pairs": 0,
+    "all_pairs_gap_le_4k": 309,
+    "total_gap_bytes": 4040,
+    "max_gap_bytes": 16
+  },
+  "results": [
+    {"gap_bytes": 0, "requests": 310, "transferred_bytes": 633495552, "unique_payload_bytes": 633495552, "overfetch_bytes": 0, "model_open_ms": 44451, "effective_decimal_MBps": 14.252, "status": "NO_OP_C2A"},
+    {"gap_bytes": 4096, "requests": 1, "transferred_bytes": 633499592, "unique_payload_bytes": 633495552, "overfetch_bytes": 4040, "model_open_ms": 81905, "effective_decimal_MBps": 7.735, "status": "MEASURED_NOT_SELECTED"},
+    {"gap_bytes": 65536, "requests": 1, "transferred_bytes": 633499592, "unique_payload_bytes": 633495552, "overfetch_bytes": 4040, "model_open_ms": 85314, "effective_decimal_MBps": 7.425, "status": "MEASURED_NOT_SELECTED"},
+    {"gap_bytes": 262144, "requests": 1, "transferred_bytes": 633499592, "unique_payload_bytes": 633495552, "overfetch_bytes": 4040, "model_open_ms": 84321, "effective_decimal_MBps": 7.513, "status": "MEASURED_NOT_SELECTED"},
+    {"gap_bytes": 1048576, "requests": 1, "transferred_bytes": 633499592, "unique_payload_bytes": 633495552, "overfetch_bytes": 4040, "model_open_ms": 84721, "effective_decimal_MBps": 7.478, "status": "MEASURED_NOT_SELECTED"}
+  ],
+  "selected_gap_bytes": 0,
+  "reason": "All positive thresholds form one full-payload range and materially regress model-open time and peak RSS."
+}

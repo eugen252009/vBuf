@@ -193,6 +193,13 @@ payloads matched the direct source. The 53.203 s model open transferred
 construction behavior; remote transfer and residency are not optimized yet.
 See [`Android Phase B evidence`](research/results/vbuf-android-arm64-chat-poc/phase-b-remote-chat.json).
 
+Phase C measured remote-load transport without changing EAGER_ALL residency.
+Generic HTTP keep-alive reduced the median model open from 53.203 s to 44.451 s
+with the same 310 requests and 633,495,552 bytes. Range coalescing and bounded
+concurrency were measured but regressed, so they were not retained; remote
+payload correctness and local SELF inference remained passing. Detailed
+results are in [`Android Phase C evidence`](research/results/vbuf-android-arm64-chat-poc/phase-c/).
+
 ## Shared 32B Proof
 
 The authoritative source is `Qwen3-32B-Q8_0.vbuf`,

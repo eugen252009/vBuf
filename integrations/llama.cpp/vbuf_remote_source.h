@@ -16,6 +16,10 @@ struct VbufRemoteMetrics {
     uint64_t requests = 0;
     uint64_t bytes = 0;
     uint64_t unique_bytes = 0;
+    uint64_t connections = 0;
+    uint64_t min_request_ns = 0;
+    uint64_t median_request_ns = 0;
+    uint64_t max_request_ns = 0;
 };
 
 class VbufRemoteSource final : public llama_model_source {
@@ -54,9 +58,11 @@ private:
     std::string endpoint_;
     std::vector<TensorDescriptor> tensors_;
     std::vector<vbuf_ggml::PersistentTensorRef> refs_;
+    std::shared_ptr<vbuf_ggml::HttpRangeSource> http_source_;
     std::shared_ptr<vbuf_ggml::RangeSource> range_source_;
     mutable std::unique_ptr<vbuf_ggml::LocalVbufRangeMaterializer> materializer_;
     mutable std::unordered_map<uint64_t, vbuf_ggml::MaterializedTensor> materialized_;
+    mutable std::mutex materialized_mutex_;
 };
 
 std::shared_ptr<VbufRemoteSource> make_vbuf_remote_source(

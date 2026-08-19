@@ -1,0 +1,13 @@
+{
+  "variant": "C4 bounded prefetch/connections",
+  "range_plan": "fixed C1 zero-gap plan",
+  "results": [
+    {"concurrency": 1, "model_open_ms": 44451, "requests": 310, "connections": 1, "bytes": 633495552, "effective_decimal_MBps": 14.252},
+    {"concurrency": 2, "model_open_ms": 45384, "requests": 310, "connections": 2, "bytes": 633495552, "effective_decimal_MBps": 13.959},
+    {"concurrency": 4, "model_open_ms": 46083, "requests": 310, "connections": 4, "bytes": 633495552, "effective_decimal_MBps": 13.764},
+    {"concurrency": 8, "model_open_ms": 46709, "requests": 310, "connections": 8, "bytes": 633495552, "effective_decimal_MBps": 13.580}
+  ],
+  "selected_concurrency": 1,
+  "saturation": "No positive concurrency contribution; performance regressed monotonically from 1 to 8.",
+  "production_code_retained": false
+}
