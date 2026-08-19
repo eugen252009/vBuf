@@ -77,8 +77,10 @@ router-prefix attributes (`RmsNorm -> MatMul -> TopK`) in the architecture-
 neutral Rust `ExecutionGraph`; a versioned Rust C ABI and generic C++ consumer
 are implemented. Gate 2 remains execution-blocked because this worktree has no
 runnable real DeepSeek fixture and linked qualification binary, so no numeric
-parity is claimed. No vendor-specific workaround was added. Qwen lowering
-remains pending.
+parity is claimed. Focused Rust FFI tests, a C++ adapter contract test, and a
+source-leakage scan are now present; only the C++ syntax/leakage checks and
+Rust tests can run in the current environment. No vendor-specific workaround
+was added. Qwen lowering remains pending.
 
 The existing runtime also still parses `blk.N.` names in `parse_layer`; this
 pre-existing leakage remains to be removed or isolated behind importer-owned

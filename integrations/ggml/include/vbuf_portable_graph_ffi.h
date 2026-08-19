@@ -106,7 +106,5 @@ uint32_t vbuf_runtime_graph_tensor_desc(const VbufRuntimeGraphHandle *, uint32_t
     VbufGraphTensorDesc *);
 uint32_t vbuf_runtime_graph_operation_desc(const VbufRuntimeGraphHandle *, uint32_t,
     VbufGraphOperationDesc *);
-uint32_t vbuf_runtime_graph_input_value(const VbufRuntimeGraphHandle *, uint32_t *);
-uint32_t vbuf_runtime_graph_output_value(const VbufRuntimeGraphHandle *, uint32_t *);
 
 }

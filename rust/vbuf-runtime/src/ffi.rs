@@ -354,7 +354,7 @@ mod tests {
             VbufPortableBindingDesc { semantic: VbufFfiBytes { ptr: norm_name.as_ptr(), len: norm_name.len() as u64 }, tensor_id: 10 },
             VbufPortableBindingDesc { semantic: VbufFfiBytes { ptr: router_name.as_ptr(), len: router_name.len() as u64 }, tensor_id: 11 },
         ];
-        let operations = [norm_op, matmul_op, topk_op];
+        let mut operations = [norm_op, matmul_op, topk_op];
         let program = VbufPortableProgramDesc { bindings: bindings.as_ptr(), binding_count: 2 };
         let region = VbufPortableRegionDesc { input: 0, output: 3, operations: operations.as_ptr(), operation_count: 3 };
         let mut handle = std::ptr::null_mut();
@@ -364,6 +364,12 @@ mod tests {
         assert_eq!(unsafe { (&(*handle).graph.operations)[1].attributes.matmul_weight_operand }, Some(MatMulWeightOperand::Rhs));
         assert_eq!(unsafe { (&(*handle).graph.operations)[2].attributes.top_k }, Some(6));
         unsafe { vbuf_runtime_graph_close(handle); }
+
+        operations[2].has_top_k = 0;
+        let invalid_attributes_region = VbufPortableRegionDesc { input: 0, output: 3, operations: operations.as_ptr(), operation_count: 3 };
+        let mut invalid_attributes_handle = std::ptr::null_mut();
+        assert_eq!(unsafe { vbuf_runtime_graph_lower_v1(&program, &invalid_attributes_region, &mut invalid_attributes_handle, &mut error) }, VBUF_FFI_INVALID_ATTRIBUTES);
+        assert!(invalid_attributes_handle.is_null());
 
         let missing_program = VbufPortableProgramDesc { bindings: bindings.as_ptr(), binding_count: 1 };
         let mut missing_handle = std::ptr::null_mut();

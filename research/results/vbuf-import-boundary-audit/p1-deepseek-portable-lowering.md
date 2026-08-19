@@ -124,8 +124,10 @@ part of this narrow lowerer.
 ## 12. Selected-Region Parity
 
 The semantic lowerer passes structural tests, including binding and attribute
-failure cases and renamed-source independence. It is not yet connected to the
-C++ PoC22 executor, so no numeric selected-region parity was claimed.
+failure cases and renamed-source independence. The Rust FFI and C++ adapter
+contract tests now cover attribute transfer, fail-closed operation handling,
+and deterministic TopK behavior. No numeric real selected-region parity is
+claimed because the fixture-backed native run remains unavailable.
 
 ```text
 SELECTED_REGION_EXECUTION: NOT_REACHED
@@ -189,3 +191,15 @@ cannot honestly be claimed.
 
 The next step is a real fixture-backed router-prefix parity run through the new
 ABI. Qwen remains untouched.
+
+## 22. Focused Validation
+
+```text
+RUST_FFI_TESTS: PASS
+CPP_ADAPTER_SYNTAX: PASS
+CPP_ADAPTER_CONTRACT_TEST: ADDED/CTest-registered, NOT RUN without configured pinned GGML build
+SOURCE_LEAKAGE_SCAN: PASS, FORBIDDEN_LEAKAGE_COUNT=0
+REAL_RMSNORM_PARITY: NOT_RUN
+REAL_MATMUL_PARITY: NOT_RUN
+REAL_TOPK_PARITY: NOT_RUN
+```

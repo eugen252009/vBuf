@@ -2,7 +2,7 @@
 //!
 //! This module deliberately lowers only semantic descriptors into the existing
 //! architecture-neutral graph seed. It does not inspect model identity, source
-//! tensor names, GGUF metadata, or GGML representation IDs. Backend execution
+//! tensor names, source metadata, or backend representation IDs. Backend execution
 //! remains a separate adapter boundary.
 
 use std::collections::HashMap;

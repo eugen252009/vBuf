@@ -76,8 +76,9 @@ There is no C++ default epsilon.
 
 ## 13. RmsNorm Parity
 
-Not executed. No runnable real DeepSeek fixture and linked PoC22 adapter
-qualification binary is available in this worktree.
+The ABI and adapter contract tests verify epsilon preservation and reject a
+missing epsilon. Numeric RMSNorm parity was not executed because no runnable
+real DeepSeek fixture and linked PoC22 qualification binary is available.
 
 ## 14. MatMul Mapping
 
@@ -97,7 +98,9 @@ derive k; expert count is only the score vector length passed to the helper.
 
 ## 17. TopK Parity
 
-Not executed for the new path. Index and value parity are not measured.
+The C++ adapter contract test executes the mock lowered TopK region and
+matches the deterministic helper's selected indices for an equal-score tie.
+Real DeepSeek router TopK parity remains unexecuted.
 
 ## 18. Source-Name Independence
 
@@ -109,7 +112,9 @@ source-name strings.
 
 The new FFI and adapter files contain no DeepSeek, Qwen, Phi, Gemma, GGUF,
 `blk.`, model-family, or `parse_layer` execution logic. Existing legacy PoC22
-and runtime convenience parsing remain preserved outside this path.
+and runtime convenience parsing remain preserved outside this path. The
+focused neutrality scan reports `FORBIDDEN_LEAKAGE_COUNT=0` after excluding
+explicit importer/lowering tests.
 
 ## 20. Gate 2B Result
 
@@ -135,6 +140,10 @@ EXECUTION_GRAPH_ATTRIBUTES_COMPLETE_FOR_SELECTED_SLICE: YES
 FFI_IMPLEMENTED: YES
 FFI_ABI_VERSION: VBUF_PORTABLE_EXEC_ABI_V1
 CPP_GENERIC_ADAPTER_IMPLEMENTED: YES
+CPP_ADAPTER_CONTRACT_TEST: ADDED and registered with CTest, requires configured native GGML build
 CPP_SYNTAX_CHECK: PASS
+RUST_FFI_TESTS: PASS, 7 tests
+LEAKAGE_SCAN: PASS, FORBIDDEN_LEAKAGE_COUNT=0, registered with CTest when Python3 is available
+REAL_FIXTURE_EXECUTION: BLOCKED
 REAL_ROUTER_PREFIX_PARITY: NOT_RUN
 ```
