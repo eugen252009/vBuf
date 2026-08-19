@@ -1,4 +1,5 @@
 #include "vbuf_range_source.h"
+#include "vbuf_d0_1_diagnostics.h"
 
 #include <algorithm>
 #include <chrono>
@@ -78,8 +79,9 @@ HttpRangeSource::~HttpRangeSource() {
 
 bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
     uint8_t * destination, RangeReadResult * result) {
-    std::lock_guard<std::mutex> socket_lock(socket_mutex_);
     const uint64_t request_start_ns = now_ns();
+    std::unique_lock<std::mutex> socket_lock(socket_mutex_);
+    const uint64_t mutex_acquired_ns = now_ns();
     *result = { offset, length, 0, 0, 0, endpoint_, {}, {} };
     uint64_t end = 0;
     if (destination == nullptr || !checked_end(offset, length, &end)) {
@@ -166,6 +168,7 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
         if (count <= 0) { close(socket_fd_); socket_fd_ = -1; result->error = "HTTP request send failed"; return false; }
         sent += static_cast<size_t>(count);
     }
+    const uint64_t send_complete_ns = now_ns();
     std::vector<uint8_t> header_bytes;
     size_t body_start = 0;
     while (body_start == 0) {
@@ -211,9 +214,16 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
         close(socket_fd_); socket_fd_ = -1; result->error = "HTTP returned more than the requested range"; return false;
     }
     size_t received = initial_body_bytes;
+    uint64_t memcpy_calls = 0;
+    uint64_t memcpy_bytes = 0;
+    uint64_t memcpy_ns = 0;
     if (initial_body_bytes != 0) {
         if (result->first_byte_timestamp_ns == 0) result->first_byte_timestamp_ns = now_ns();
+        const uint64_t copy_start_ns = now_ns();
         std::memcpy(destination, header_bytes.data() + body_start, initial_body_bytes);
+        memcpy_ns += now_ns() - copy_start_ns;
+        ++memcpy_calls;
+        memcpy_bytes += initial_body_bytes;
     }
     while (received < length) {
         uint8_t buffer[4096];
@@ -225,9 +235,14 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
             close(socket_fd_); socket_fd_ = -1; result->error = "HTTP returned more than the requested range"; return false;
         }
         if (result->first_byte_timestamp_ns == 0) result->first_byte_timestamp_ns = now_ns();
+        const uint64_t copy_start_ns = now_ns();
         std::memcpy(destination + received, buffer, static_cast<size_t>(count));
+        memcpy_ns += now_ns() - copy_start_ns;
+        ++memcpy_calls;
+        memcpy_bytes += static_cast<size_t>(count);
         received += static_cast<size_t>(count);
     }
+    const uint64_t body_complete_ns = now_ns();
     result->returned_bytes = received;
     if (received != length) {
         close(socket_fd_);
@@ -250,6 +265,10 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
             return false;
         }
     }
+    vbuf_d0_1_http_request(request_start_ns, send_complete_ns,
+        result->first_byte_timestamp_ns, body_complete_ns, length,
+        mutex_acquired_ns - request_start_ns, now_ns() - mutex_acquired_ns,
+        memcpy_calls, memcpy_bytes, memcpy_ns);
     request_durations_ns_.push_back(now_ns() - request_start_ns);
     transferred_bytes_ += length;
     unique_ranges_.insert(std::to_string(offset) + ":" + std::to_string(length));

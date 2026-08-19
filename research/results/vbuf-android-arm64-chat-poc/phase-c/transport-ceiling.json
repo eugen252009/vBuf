@@ -13,8 +13,11 @@
   },
   "baseline_loader_decimal_MBps": 11.907,
   "loader_to_transport_ratio": 0.400,
+  "loader_to_transport_ratio_comparable": false,
+  "classification": "NOT_DIRECTLY_COMPARABLE",
   "notes": [
-    "The 725 ms 64 MiB sample is retained as measured and treated as an outlier; the 256 MiB median is the C0 ceiling comparator.",
+    "The 725 ms 64 MiB sample is retained as measured and treated as an outlier; the 256 MiB median is the historical large-range comparator.",
+    "The Phase C command record identifies Pixel toybox netcat over direct HTTP Range; a separate ARM64 source-transfer snapshot used ADB reverse HTTP. This record does not establish a ceiling for the later Android HttpRangeSource loader.",
     "C0 changed no production loader behavior."
   ]
 }

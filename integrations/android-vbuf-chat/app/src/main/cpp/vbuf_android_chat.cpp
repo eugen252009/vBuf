@@ -4,9 +4,13 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+#endif
 
 #include "llama.h"
 #include "llama_vbuf_loader.h"
+#include "vbuf_d0_1_diagnostics.h"
 #include "vbuf_remote_source.h"
 
 namespace {
@@ -48,6 +52,24 @@ std::string piece(const llama_vocab * vocab, llama_token token) {
     if (count < 0) { value.resize(static_cast<size_t>(-count)); count = llama_token_to_piece(vocab, token, value.data(), static_cast<int32_t>(value.size()), 0, false); }
     return count < 0 ? std::string() : value.substr(0, static_cast<size_t>(count));
 }
+
+std::string transport_control_mode() {
+#if defined(__ANDROID__)
+    char value[PROP_VALUE_MAX] = {};
+    if (__system_property_get("debug.vbuf.d0_3.mode", value) > 0) return value;
+#endif
+    return {};
+}
+
+std::string transport_control_result(const char * mode, const vbuf_llama::VbufTransportControlResult & result) {
+    return std::string("PROBE_OK D0_3 mode=") + mode +
+        " ranges=" + std::to_string(result.range_count) +
+        " requested=" + std::to_string(result.requested_bytes) +
+        " payload=" + std::to_string(result.payload_bytes) +
+        " overfetch=" + std::to_string(result.overfetch_bytes) +
+        " transport_ms=" + std::to_string(result.transport_total_ns / 1000000.0) +
+        " connections=" + std::to_string(result.transport.connections);
+}
 }
 
 extern "C" JNIEXPORT jstring JNICALL
@@ -58,6 +80,7 @@ Java_com_eugen_vbufchat_NativeInference_open__Ljava_lang_String_2Ljava_lang_Stri
     const char * raw_endpoint = env->GetStringUTFChars(endpoint, nullptr);
     const bool remote = raw_endpoint[0] != '\0';
     const auto start = std::chrono::steady_clock::now();
+    if (remote) vbuf_d0_1_begin();
     llama_log_set(llama_log_to_android, nullptr);
     llama_backend_init();
     llama_model_params params = llama_model_default_params();
@@ -75,6 +98,7 @@ Java_com_eugen_vbufchat_NativeInference_open__Ljava_lang_String_2Ljava_lang_Stri
     context_params.n_threads_batch = 4;
     context = llama_init_from_model(model, context_params);
     if (!context) { llama_model_free_vbuf_direct(model); model = nullptr; return result(env, "OPEN_FAIL context"); }
+    if (remote) vbuf_d0_1_model_open_complete();
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
     __android_log_print(ANDROID_LOG_INFO, TAG, "opened vBuf model in %lld ms remote=%s", static_cast<long long>(elapsed), remote ? "yes" : "no");
     if (remote) {
@@ -90,6 +114,23 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_com_eugen_vbufchat_NativeInference_probeRemote(JNIEnv * env, jclass, jstring path, jstring endpoint) {
     const char * raw_path = env->GetStringUTFChars(path, nullptr);
     const char * raw_endpoint = env->GetStringUTFChars(endpoint, nullptr);
+    const std::string mode = transport_control_mode();
+    if (mode == "c0" || mode == "c1") {
+        vbuf_d0_1_begin();
+        vbuf_llama::VbufTransportControlResult control{};
+        const bool ok = llama_model_transport_control_vbuf_remote(raw_path, raw_endpoint, mode == "c0", &control);
+        if (ok) {
+            vbuf_d0_1_emit_report();
+            const std::string value = transport_control_result(mode.c_str(), control);
+            __android_log_print(ANDROID_LOG_INFO, TAG, "D0_3_RESULT %s", value.c_str());
+            env->ReleaseStringUTFChars(path, raw_path);
+            env->ReleaseStringUTFChars(endpoint, raw_endpoint);
+            return result(env, value);
+        }
+        env->ReleaseStringUTFChars(path, raw_path);
+        env->ReleaseStringUTFChars(endpoint, raw_endpoint);
+        return result(env, "PROBE_FAIL D0_3 transport_control");
+    }
     vbuf_llama::VbufRemoteMetrics metrics{};
     const bool ok = llama_model_probe_vbuf_remote(raw_path, raw_endpoint, &metrics);
     env->ReleaseStringUTFChars(path, raw_path);
@@ -123,6 +164,7 @@ Java_com_eugen_vbufchat_NativeInference_generate(JNIEnv * env, jclass, jstring p
         batch.logits = &logit;
         if (llama_decode(context, batch) != 0) return result(env, "GEN_FAIL token_decode");
     }
+    vbuf_d0_1_post_generation();
     return result(env, generated.empty() ? "GEN_OK <empty>" : generated);
 }
 

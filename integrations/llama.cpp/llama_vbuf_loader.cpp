@@ -6,6 +6,7 @@
 #include "vbuf_ml_adapter.h"
 #include "vbuf_direct_source.h"
 #include "vbuf_remote_source.h"
+#include "../ggml/include/vbuf_d0_1_diagnostics.h"
 
 #include <algorithm>
 #include <chrono>
@@ -228,7 +229,10 @@ extern "C" llama_model * llama_model_load_vbuf_direct(const char * path, llama_m
 extern "C" llama_model * llama_model_load_vbuf_remote(const char * bootstrap_path, const char * endpoint, llama_model_params params) {
     g_remote_error.clear();
     try {
+        vbuf_d0_1_begin();
+        vbuf_d0_1_bootstrap_begin();
         auto source = vbuf_llama::make_vbuf_remote_source(bootstrap_path, endpoint);
+        vbuf_d0_1_bootstrap_complete();
         llama_model * model = llama_model_init_from_source(source, vbuf_llama::set_vbuf_remote_tensor_data, source.get(), params);
         if (!model) return nullptr;
         std::lock_guard lock(g_vbuf_models_mutex);
@@ -249,6 +253,10 @@ extern "C" const char * llama_model_last_remote_error() { return g_remote_error.
 
 extern "C" bool llama_model_probe_vbuf_remote(const char * bootstrap_path, const char * endpoint, vbuf_llama::VbufRemoteMetrics * metrics) {
     return metrics != nullptr && vbuf_llama::probe_vbuf_remote_source(bootstrap_path, endpoint, *metrics);
+}
+
+extern "C" bool llama_model_transport_control_vbuf_remote(const char * bootstrap_path, const char * endpoint, bool large_range, vbuf_llama::VbufTransportControlResult * result) {
+    return result != nullptr && vbuf_llama::transport_control_vbuf_remote_source(bootstrap_path, endpoint, large_range, *result);
 }
 
 extern "C" bool llama_model_vbuf_remote_metrics(llama_model * model, vbuf_llama::VbufRemoteMetrics * metrics) {

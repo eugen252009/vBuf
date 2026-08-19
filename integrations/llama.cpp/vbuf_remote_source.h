@@ -22,6 +22,15 @@ struct VbufRemoteMetrics {
     uint64_t max_request_ns = 0;
 };
 
+struct VbufTransportControlResult {
+    uint64_t range_count = 0;
+    uint64_t requested_bytes = 0;
+    uint64_t payload_bytes = 0;
+    uint64_t overfetch_bytes = 0;
+    uint64_t transport_total_ns = 0;
+    VbufRemoteMetrics transport{};
+};
+
 class VbufRemoteSource final : public llama_model_source {
 public:
     VbufRemoteSource(const char * bootstrap_path, const char * endpoint);
@@ -47,6 +56,7 @@ public:
 
     bool materialize_tensor(uint64_t index) const;
     bool metrics(VbufRemoteMetrics & out) const;
+    bool transport_control(bool large_range, VbufTransportControlResult & out) const;
 
 private:
     bool tensor_type(uint64_t index, ggml_type & type) const;
@@ -69,6 +79,8 @@ std::shared_ptr<VbufRemoteSource> make_vbuf_remote_source(
     const char * bootstrap_path, const char * endpoint);
 bool probe_vbuf_remote_source(const char * bootstrap_path, const char * endpoint,
     VbufRemoteMetrics & metrics);
+bool transport_control_vbuf_remote_source(const char * bootstrap_path, const char * endpoint,
+    bool large_range, VbufTransportControlResult & result);
 void set_vbuf_remote_tensor_data(ggml_tensor * tensor, void * userdata);
 
 } // namespace vbuf_llama

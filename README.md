@@ -196,9 +196,15 @@ See [`Android Phase B evidence`](research/results/vbuf-android-arm64-chat-poc/ph
 ### Android Remote Loading
 
 Phase C measured remote-load transport without changing `EAGER_ALL` residency.
-The large-range C0 transport characterization reached `29.763 MB/s`, while the
-complete Phase B model-open path reached `11.907 MB/s`, or `40.0%` of that
-synthetic ceiling.
+The historical Phase C large-range probe reached `29.763 MB/s`, but used Pixel
+toybox `netcat` and a different direct HTTP Range benchmark scope. A separate
+ARM64 source-transfer snapshot used ADB reverse HTTP; neither historical result
+is directly comparable to the later Android `HttpRangeSource` model-loading
+path. The derived `40.0%` ratio is therefore not used as current transport
+utilization or a synthetic ceiling. Phase D0.2 also confirmed that
+synchronous `smaps_rollup` diagnostics substantially inflated Phase C absolute
+model-open timings. Phase D0.3 establishes the first matched current-path
+single-span versus exact 310-range transport control.
 
 | Measurement | Phase B baseline | Selected C1 keep-alive |
 |---|---:|---:|
@@ -218,10 +224,10 @@ evidence but regressed and were not retained.
 
 The full artifact is not copied onto the Pixel, but the backend remains
 `EAGER_ALL`, so the selected path still transfers and retains almost all tensor
-payload bytes during model construction. The remaining bottleneck is therefore
-serialized per-tensor HTTP/materialization overhead combined with the pinned
-llama.cpp construction path, not raw HTTP bandwidth. Detailed results are in
-[`Android Phase C evidence`](research/results/vbuf-android-arm64-chat-poc/phase-c/).
+payload bytes during model construction. The clean current path remains
+dominated by serialized remote payload acquisition; whether request scheduling
+has meaningful transport headroom is measured separately in the matched
+[`Phase D0.3 transport control`](research/results/vbuf-android-arm64-chat-poc/phase-d0.3-transport-control.md).
 
 ## Shared 32B Proof
 

@@ -1,6 +1,8 @@
 #include "vbuf_remote_source.h"
+#include "../ggml/include/vbuf_d0_1_diagnostics.h"
 
 #include <algorithm>
+#include <chrono>
 #include <optional>
 #include <stdexcept>
 #include <unordered_map>
@@ -9,6 +11,11 @@
 
 namespace vbuf_llama {
 namespace {
+
+uint64_t timestamp_ns() {
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+}
 
 uint8_t representation(ggml_type type) {
     switch (type) {
@@ -41,6 +48,7 @@ VbufRemoteSource::VbufRemoteSource(const char * bootstrap_path, const char * end
     }
     const uint64_t count = adapter_.tensor_count();
     if (count == 0) throw std::runtime_error("remote vBuf bootstrap has no tensors");
+    vbuf_d0_1_set_tensor_count(count);
     tensors_.reserve(count);
     refs_.reserve(count);
     for (uint64_t index = 0; index < count; ++index) {
@@ -161,6 +169,10 @@ bool VbufRemoteSource::materialize_tensor(uint64_t index) const {
     {
         std::lock_guard<std::mutex> lock(materialized_mutex_);
         materialized_.emplace(index, std::move(*ready));
+        vbuf_d0_1_payload_ready(materialized_.size(), timestamp_ns());
+        if (materialized_.size() == tensors_.size()) {
+            vbuf_d0_1_final_payload_ready(timestamp_ns());
+        }
     }
     return true;
 }
@@ -224,6 +236,49 @@ bool VbufRemoteSource::metrics(VbufRemoteMetrics & out) const {
     return true;
 }
 
+bool VbufRemoteSource::transport_control(bool large_range, VbufTransportControlResult & out) const {
+    out = {};
+    if (refs_.empty()) return false;
+
+    uint64_t min_offset = UINT64_MAX;
+    uint64_t max_end = 0;
+    for (const auto & ref : refs_) {
+        min_offset = std::min(min_offset, ref.source_offset);
+        max_end = std::max(max_end, ref.source_offset + ref.view.payload_len);
+        out.payload_bytes += ref.view.payload_len;
+    }
+
+    const uint64_t start_ns = timestamp_ns();
+    if (large_range) {
+        const uint64_t length = max_end - min_offset;
+        std::vector<uint8_t> buffer(static_cast<size_t>(length));
+        vbuf_ggml::RangeReadResult read{};
+        if (!http_source_->read_range(min_offset, length, buffer.data(), &read)) return false;
+        out.range_count = 1;
+        out.requested_bytes = length;
+    } else {
+        uint64_t max_length = 0;
+        for (const auto & ref : refs_) max_length = std::max(max_length, ref.view.payload_len);
+        std::vector<uint8_t> buffer(static_cast<size_t>(max_length));
+        for (const auto & ref : refs_) {
+            vbuf_ggml::RangeReadResult read{};
+            if (!http_source_->read_range(ref.source_offset, ref.view.payload_len, buffer.data(), &read)) return false;
+            ++out.range_count;
+            out.requested_bytes += ref.view.payload_len;
+        }
+    }
+    out.transport_total_ns = timestamp_ns() - start_ns;
+    out.overfetch_bytes = out.requested_bytes - out.payload_bytes;
+    out.transport.requests = http_source_->metrics().requests;
+    out.transport.bytes = http_source_->metrics().bytes;
+    out.transport.unique_bytes = http_source_->metrics().unique_bytes;
+    out.transport.connections = http_source_->metrics().connections;
+    out.transport.min_request_ns = http_source_->metrics().min_request_ns;
+    out.transport.median_request_ns = http_source_->metrics().median_request_ns;
+    out.transport.max_request_ns = http_source_->metrics().max_request_ns;
+    return true;
+}
+
 std::shared_ptr<VbufRemoteSource> make_vbuf_remote_source(
     const char * bootstrap_path, const char * endpoint) {
     return std::make_shared<VbufRemoteSource>(bootstrap_path, endpoint);
@@ -236,10 +291,20 @@ bool probe_vbuf_remote_source(const char * bootstrap_path, const char * endpoint
     return source->metrics(metrics);
 }
 
+bool transport_control_vbuf_remote_source(const char * bootstrap_path, const char * endpoint,
+    bool large_range, VbufTransportControlResult & result) {
+    auto source = make_vbuf_remote_source(bootstrap_path, endpoint);
+    return source->transport_control(large_range, result);
+}
+
 void set_vbuf_remote_tensor_data(ggml_tensor * tensor, void * userdata) {
     auto & source = *static_cast<VbufRemoteSource *>(userdata);
     std::string wanted = ggml_get_name(tensor);
+    const auto lookup_start = std::chrono::steady_clock::now();
+    uint64_t lookup_iterations = 0;
+    vbuf_d0_1_pointer_bind_begin();
     for (uint64_t index = 0; index < source.tensor_count(); ++index) {
+        ++lookup_iterations;
         std::string name;
         ggml_type type;
         std::vector<int64_t> dimensions;
@@ -251,7 +316,12 @@ void set_vbuf_remote_tensor_data(ggml_tensor * tensor, void * userdata) {
             if (!source.tensor(index, name, type, dimensions, payload, bytes) || type != tensor->type || bytes != ggml_nbytes(tensor)) {
                 throw std::runtime_error("remote tensor metadata mismatch");
             }
+            const auto pointer_start = std::chrono::steady_clock::now();
             tensor->data = const_cast<uint8_t *>(payload);
+            const auto pointer_end = std::chrono::steady_clock::now();
+            const uint64_t lookup_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(pointer_start - lookup_start).count());
+            const uint64_t pointer_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(pointer_end - pointer_start).count());
+            vbuf_d0_1_pointer_bind_complete(lookup_iterations, lookup_ns, pointer_ns);
             return;
         }
     }

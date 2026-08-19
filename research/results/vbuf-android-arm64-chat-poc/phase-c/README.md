@@ -22,11 +22,14 @@ semantics, or the pinned llama.cpp construction behavior.
 
 ## C0 Transport Characterization
 
-The raw Pixel-to-server large-range median was `29.763 MB/s` for a 256 MiB
-range. The complete Phase B model-open path achieved `11.907 MB/s` for
-`633,495,552` bytes, only `0.400` of that synthetic transport ceiling. The
-large-range result is a transport characterization, not the achievable
-complete model-open throughput.
+The historical raw Pixel-to-server large-range median was `29.763 MB/s` for a
+256 MiB range. The Phase C command record identifies its client as Pixel toybox
+`netcat` using direct HTTP Range. A separate ARM64 source-transfer snapshot
+used ADB reverse HTTP, while the Phase B/C loader used the Android
+`HttpRangeSource` path. The arithmetic `11.907 / 29.763 = 0.400` is retained as
+historical derived evidence, but is not a valid current transport-utilization
+ratio or synthetic ceiling. The large-range result is historical source-transfer
+evidence, not a directly comparable complete model-open control.
 
 The baseline performed 310 logical range requests over 310 separate HTTP
 connections. This established connection/request overhead as a material part

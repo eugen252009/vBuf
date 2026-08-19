@@ -22,6 +22,11 @@ set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 add_subdirectory("${LLAMA_SRC}" "${CMAKE_CURRENT_BINARY_DIR}/llama")
+target_sources(llama PRIVATE
+    "${VBUF_ROOT}/integrations/ggml/src/vbuf_d0_1_diagnostics.cpp")
+target_include_directories(llama PRIVATE
+    "${VBUF_ROOT}/integrations/ggml/include")
+target_link_libraries(llama PRIVATE log)
 
 add_library(vbuf_ml SHARED IMPORTED)
 set_target_properties(vbuf_ml PROPERTIES

@@ -1,4 +1,5 @@
 #include "vbuf_materializer.h"
+#include "vbuf_d0_1_diagnostics.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -80,8 +81,14 @@ struct LocalVbufRangeMaterializer::Impl {
 
     void record(const Request & request, MaterializationState state,
         const char * event = "STATE") {
+        uint64_t rss = 0;
+        if (vbuf_d0_1_smaps_enabled()) {
+            const uint64_t sample_start = now_ns();
+            rss = rss_kib();
+            vbuf_d0_1_smaps(now_ns() - sample_start);
+        }
         events.push_back({ request.tensor_ref, request.tensor.name, event, state, now_ns(),
-            request.tensor.view.payload_len, inflight_bytes, ready_bytes, rss_kib(),
+            request.tensor.view.payload_len, inflight_bytes, ready_bytes, rss,
             request.read_result.requested_offset, request.read_result.first_byte_timestamp_ns,
             request.read_result.returned_bytes,
             request.read_result.status_code, request.read_result.source_id,
@@ -121,6 +128,7 @@ LocalVbufRangeMaterializer::~LocalVbufRangeMaterializer() {
 
 bool LocalVbufRangeMaterializer::request(
     uint32_t tensor_ref, const PersistentTensorRef & tensor, uint64_t byte_budget) {
+    const uint64_t request_start_ns = now_ns();
     std::thread stale_worker;
     std::unique_lock<std::mutex> lock(impl_->mutex);
     const auto existing = impl_->requests.find(tensor_ref);
@@ -147,11 +155,15 @@ bool LocalVbufRangeMaterializer::request(
     request->read_result.requested_offset = tensor.source_offset;
     request->read_result.requested_length = tensor.view.payload_len;
     request->read_result.source_id = impl_->source ? "range-source" : "inline-vbuf";
+    vbuf_d0_1_first_payload_request(request_start_ns);
     impl_->inflight_bytes += tensor.view.payload_len;
     impl_->record(*request, MaterializationState::InFlight);
     Impl::Request * raw = request.get();
     impl_->requests.emplace(tensor_ref, std::move(request));
-    raw->worker = std::thread([this, raw]() {
+    const uint64_t request_setup_end_ns = now_ns();
+    vbuf_d0_1_request_setup(request_setup_end_ns - request_start_ns);
+    raw->worker = std::thread([this, raw, request_start_ns]() {
+        vbuf_d0_1_worker_start_delay(now_ns() - request_start_ns);
         std::shared_ptr<OwnedBytes> owner = std::make_shared<OwnedBytes>();
         owner->size = raw->tensor.view.payload_len;
         if (posix_memalign(reinterpret_cast<void **>(&owner->data), 64, owner->size) != 0) {
@@ -186,20 +198,27 @@ bool LocalVbufRangeMaterializer::request(
             impl_->record(*raw, MaterializationState::Failed);
             return;
         }
+        const uint64_t hash_start_ns = now_ns();
         raw->payload_hash = fnv1a(owner->data, owner->size);
-        std::lock_guard<std::mutex> lock(impl_->mutex);
-        raw->owner = owner;
-        raw->ready.view = raw->tensor.view;
-        raw->ready.view.payload = owner->data;
-        raw->ready.view.payload_len = owner->size;
-        raw->ready.storage = { owner->data, owner->size,
-            0, std::shared_ptr<const void>(owner, owner->data) };
-        raw->ready.bytes = owner->size;
-        impl_->inflight_bytes -= owner->size;
-        impl_->ready_bytes += owner->size;
-        raw->state = MaterializationState::Ready;
-        impl_->record(*raw, MaterializationState::Ready);
+        vbuf_d0_1_hash(owner->size, now_ns() - hash_start_ns);
+        const uint64_t finalization_start_ns = now_ns();
+        {
+            std::lock_guard<std::mutex> lock(impl_->mutex);
+            raw->owner = owner;
+            raw->ready.view = raw->tensor.view;
+            raw->ready.view.payload = owner->data;
+            raw->ready.view.payload_len = owner->size;
+            raw->ready.storage = { owner->data, owner->size,
+                0, std::shared_ptr<const void>(owner, owner->data) };
+            raw->ready.bytes = owner->size;
+            impl_->inflight_bytes -= owner->size;
+            impl_->ready_bytes += owner->size;
+            raw->state = MaterializationState::Ready;
+            impl_->record(*raw, MaterializationState::Ready);
+        }
+        vbuf_d0_1_request_finalization(now_ns() - finalization_start_ns);
     });
+    vbuf_d0_1_worker_create(now_ns() - request_setup_end_ns, 0);
     return true;
 }
 
@@ -223,7 +242,9 @@ MaterializationState LocalVbufRangeMaterializer::wait(uint32_t tensor_ref) {
             std::lock_guard<std::mutex> lock(impl_->mutex);
             impl_->record(*request, request->state, "WAIT_START");
         }
+        const uint64_t wait_start_ns = now_ns();
         request->worker.join();
+        vbuf_d0_1_worker_wait(now_ns() - wait_start_ns);
         std::lock_guard<std::mutex> lock(impl_->mutex);
         impl_->record(*request, request->state, "WAIT_END");
     }

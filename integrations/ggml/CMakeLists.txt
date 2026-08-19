@@ -90,6 +90,7 @@ add_library(vbuf_region_executor STATIC
     src/vbuf_tensor_wave.cpp
     src/vbuf_prefetch_planner.cpp
     src/vbuf_materializer.cpp
+    src/vbuf_d0_1_diagnostics.cpp
     src/vbuf_range_source.cpp
     src/vbuf_source_selection.cpp
     src/vbuf_residency.cpp
