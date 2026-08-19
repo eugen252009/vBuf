@@ -72,17 +72,19 @@ fit with generic attributes. The result is
 ## P1 Gate Result
 
 The qualified DeepSeek-V2-Lite manifest was imported into the same generic
-sidecar vocabulary. A minimal model-agnostic lowerer now maps the real layer-1
-router prefix (`RmsNorm -> MatMul -> TopK`) into the architecture-neutral Rust
-`ExecutionGraph` seed. Gate 2 still stops before execution because no adapter
-connects that graph to the existing PoC22/GGML primitives; the active C++ path
-remains DeepSeek-shaped. No vendor-specific workaround was added. DeepSeek
-parity and Qwen lowering remain pending the backend adapter.
+sidecar vocabulary. The model-agnostic lowerer now preserves the selected
+router-prefix attributes (`RmsNorm -> MatMul -> TopK`) in the architecture-
+neutral Rust `ExecutionGraph`; a versioned Rust C ABI and generic C++ consumer
+are implemented. Gate 2 remains execution-blocked because this worktree has no
+runnable real DeepSeek fixture and linked qualification binary, so no numeric
+parity is claimed. No vendor-specific workaround was added. Qwen lowering
+remains pending.
 
 The existing runtime also still parses `blk.N.` names in `parse_layer`; this
 pre-existing leakage remains to be removed or isolated behind importer-owned
 region metadata before the runtime can satisfy the no-name-parsing invariant.
 
 Evidence: `p0-2-gemma-falsification.md`, `portable-semantic-v1.md`,
-`p1-deepseek-portable-lowering.md`, `p1-qwen-portable-lowering.md`, and
+`p1-deepseek-portable-lowering.md`, `p1-deepseek-portable-backend-adapter.md`,
+`p1-qwen-portable-lowering.md`, and
 `deepseek2-typed-program.json`.

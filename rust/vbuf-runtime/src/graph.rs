@@ -31,6 +31,32 @@ pub enum OperationKind {
     StateWrite,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MatMulWeightOperand {
+    Lhs,
+    Rhs,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TopKOrder {
+    Descending,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TopKTieBreak {
+    LowerIndex,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct OperationAttributes {
+    pub epsilon: Option<f32>,
+    pub top_k: Option<u32>,
+    pub matmul_weight_operand: Option<MatMulWeightOperand>,
+    pub matmul_transpose_weight: Option<bool>,
+    pub top_k_order: Option<TopKOrder>,
+    pub top_k_tie_break: Option<TopKTieBreak>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PersistentTensor {
     pub id: TensorId,
@@ -39,15 +65,16 @@ pub struct PersistentTensor {
     pub source_offset: u64,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Operation {
     pub id: String,
     pub kind: OperationKind,
     pub inputs: Vec<InputRef>,
     pub output: ValueId,
+    pub attributes: OperationAttributes,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct ExecutionGraph {
     pub input: ValueId,
     pub output: ValueId,
@@ -61,8 +88,9 @@ impl ExecutionGraph {
     }
 
     pub fn operation(&mut self, id: impl Into<String>, kind: OperationKind,
-        inputs: impl IntoIterator<Item = InputRef>, output: ValueId) {
-        self.operations.push(Operation { id: id.into(), kind, inputs: inputs.into_iter().collect(), output });
+        inputs: impl IntoIterator<Item = InputRef>, output: ValueId,
+        attributes: OperationAttributes) {
+        self.operations.push(Operation { id: id.into(), kind, inputs: inputs.into_iter().collect(), output, attributes });
     }
 
     /// Returns tensor dependencies in first-use order. This is the common
@@ -88,8 +116,8 @@ mod tests {
         let mut graph = ExecutionGraph { input: ValueId(0), output: ValueId(2), ..Default::default() };
         graph.tensors.push(PersistentTensor { id: TensorId(0), name: "norm".into(), bytes: 128, source_offset: 10 });
         graph.tensors.push(PersistentTensor { id: TensorId(1), name: "weight".into(), bytes: 256, source_offset: 20 });
-        graph.operation("norm", OperationKind::RmsNorm, [InputRef::Value(ValueId(0)), InputRef::Tensor(TensorId(0))], ValueId(1));
-        graph.operation("matmul", OperationKind::QuantizedMatMul, [InputRef::Value(ValueId(1)), InputRef::Tensor(TensorId(1))], ValueId(2));
+        graph.operation("norm", OperationKind::RmsNorm, [InputRef::Value(ValueId(0)), InputRef::Tensor(TensorId(0))], ValueId(1), OperationAttributes { epsilon: Some(1e-6), ..Default::default() });
+        graph.operation("matmul", OperationKind::QuantizedMatMul, [InputRef::Value(ValueId(1)), InputRef::Tensor(TensorId(1))], ValueId(2), OperationAttributes { matmul_weight_operand: Some(MatMulWeightOperand::Rhs), matmul_transpose_weight: Some(false), ..Default::default() });
         graph
     }
 
@@ -97,9 +125,9 @@ mod tests {
         let mut graph = ExecutionGraph { input: ValueId(0), output: ValueId(3), ..Default::default() };
         graph.tensors.push(PersistentTensor { id: TensorId(0), name: "router".into(), bytes: 64, source_offset: 10 });
         graph.tensors.push(PersistentTensor { id: TensorId(1), name: "expert.0".into(), bytes: 512, source_offset: 20 });
-        graph.operation("route", OperationKind::TopKRouter, [InputRef::Value(ValueId(0)), InputRef::Tensor(TensorId(0))], ValueId(1));
-        graph.operation("experts", OperationKind::ExpertDispatch, [InputRef::Value(ValueId(1)), InputRef::Tensor(TensorId(1))], ValueId(2));
-        graph.operation("residual", OperationKind::ResidualAdd, [InputRef::Value(ValueId(0)), InputRef::Value(ValueId(2))], ValueId(3));
+        graph.operation("route", OperationKind::TopKRouter, [InputRef::Value(ValueId(0)), InputRef::Tensor(TensorId(0))], ValueId(1), OperationAttributes { top_k: Some(2), top_k_order: Some(TopKOrder::Descending), top_k_tie_break: Some(TopKTieBreak::LowerIndex), ..Default::default() });
+        graph.operation("experts", OperationKind::ExpertDispatch, [InputRef::Value(ValueId(1)), InputRef::Tensor(TensorId(1))], ValueId(2), OperationAttributes::default());
+        graph.operation("residual", OperationKind::ResidualAdd, [InputRef::Value(ValueId(0)), InputRef::Value(ValueId(2))], ValueId(3), OperationAttributes::default());
         graph
     }
 

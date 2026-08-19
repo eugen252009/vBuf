@@ -13,9 +13,12 @@ use std::path::{Path, PathBuf};
 use vbuf_ml::{BorrowedModel, MlError};
 
 pub mod graph;
-pub use graph::{ExecutionGraph, InputRef, Operation, OperationKind, PersistentTensor, TensorId, ValueId};
+pub use graph::{ExecutionGraph, InputRef, MatMulWeightOperand, Operation, OperationAttributes,
+    OperationKind, PersistentTensor, TensorId, TopKOrder, TopKTieBreak, ValueId};
 pub mod lowering;
-pub use lowering::{lower_region, LoweringError, OperationAttributes, PortableInput, PortableOperation,
+pub mod ffi;
+pub use ffi::*;
+pub use lowering::{lower_region, LoweringError, PortableInput, PortableOperation,
     PortableOperationKind, PortableProgram, PortableRegion, SemanticTensorKey, StateId, StateRef, TensorBinding};
 
 #[cfg(feature = "ggml")]

@@ -174,19 +174,18 @@ outside the new lowerer but must be isolated before full neutrality.
 
 ## 20. Gate 2 Result
 
-`GATE_2_GENERIC_LOWERER_BLOCKED`.
+`GATE_2_FFI_IMPLEMENTED_EXECUTION_BLOCKED`.
 
-The semantic lowerer now exists and is model-family agnostic, but it lowers only
-to the Rust `ExecutionGraph` seed. There is no adapter that consumes this graph
-and constructs the existing PoC22/GGML `RouterGraph`/`ExpertGraph`, and no
-source/range-backed TensorBinding materialization bridge. Therefore known-correct
-DeepSeek execution parity cannot honestly be claimed.
+The semantic lowerer now retains selected-slice operation attributes, a
+versioned Rust C ABI exports the graph, and a generic C++ adapter consumes the
+ABI using ready payload views and existing backend helpers. The real parity run
+is still blocked because the worktree has no runnable DeepSeek fixture and
+linked qualification binary. Therefore numeric DeepSeek execution parity
+cannot honestly be claimed.
 
 ## 21. Gate 3 Readiness
 
 `QWEN_GATE_3_READY: NO`.
 
-The next step is a generic backend adapter for the selected region, followed by
-DeepSeek region parity. It must consume semantic TensorBindings and map to
-existing PoC22 operations without importing legacy builders or source-name
-parsers. Qwen remains untouched.
+The next step is a real fixture-backed router-prefix parity run through the new
+ABI. Qwen remains untouched.

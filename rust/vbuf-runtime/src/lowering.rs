@@ -7,7 +7,8 @@
 
 use std::collections::HashMap;
 
-use crate::graph::{ExecutionGraph, InputRef, OperationKind, TensorId, ValueId};
+use crate::graph::{ExecutionGraph, InputRef, OperationAttributes as GraphOperationAttributes,
+    OperationKind, TensorId, ValueId};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct SemanticTensorKey(pub String);
@@ -48,14 +49,9 @@ pub enum PortableOperationKind {
     ResidualAdd,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct OperationAttributes {
-    pub epsilon_micros: Option<u32>,
-    pub top_k: Option<u32>,
-    pub causal: Option<bool>,
-}
+pub type OperationAttributes = GraphOperationAttributes;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PortableOperation {
     pub id: String,
     pub kind: PortableOperationKind,
@@ -64,7 +60,7 @@ pub struct PortableOperation {
     pub attributes: OperationAttributes,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PortableRegion {
     pub id: String,
     pub input: ValueId,
@@ -117,12 +113,20 @@ pub fn lower_region(
     }
     for operation in &region.operations {
         if operation.kind == PortableOperationKind::RmsNorm
-            && operation.attributes.epsilon_micros.is_none()
+            && operation.attributes.epsilon.is_none()
         {
             return Err(LoweringError::InvalidAttribute("RmsNorm requires epsilon"));
         }
-        if operation.kind == PortableOperationKind::TopK && operation.attributes.top_k.is_none() {
+        if operation.kind == PortableOperationKind::TopK && (operation.attributes.top_k.is_none()
+            || operation.attributes.top_k_order.is_none()
+            || operation.attributes.top_k_tie_break.is_none()) {
             return Err(LoweringError::InvalidAttribute("TopK requires top_k"));
+        }
+        if operation.kind == PortableOperationKind::MatMul
+            && (operation.attributes.matmul_weight_operand.is_none()
+                || operation.attributes.matmul_transpose_weight.is_none())
+        {
+            return Err(LoweringError::InvalidAttribute("MatMul requires weight operand and orientation"));
         }
         let kind = match operation.kind {
             PortableOperationKind::RmsNorm => OperationKind::RmsNorm,
@@ -147,7 +151,14 @@ pub fn lower_region(
                     .ok_or_else(|| LoweringError::MissingBinding(semantic.clone())),
             })
             .collect::<Result<Vec<_>, _>>()?;
-        graph.operation(operation.id.clone(), kind, inputs, operation.output);
+        graph.operation(operation.id.clone(), kind, inputs, operation.output, GraphOperationAttributes {
+            epsilon: operation.attributes.epsilon,
+            top_k: operation.attributes.top_k,
+            matmul_weight_operand: operation.attributes.matmul_weight_operand,
+            matmul_transpose_weight: operation.attributes.matmul_transpose_weight,
+            top_k_order: operation.attributes.top_k_order,
+            top_k_tie_break: operation.attributes.top_k_tie_break,
+        });
     }
     Ok(graph)
 }
@@ -155,6 +166,7 @@ pub fn lower_region(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::{MatMulWeightOperand, TopKOrder, TopKTieBreak};
 
     fn deepseek_router_region() -> (PortableProgram, PortableRegion) {
         let norm = SemanticTensorKey("layer.1.mlp.input_norm".into());
@@ -186,7 +198,7 @@ mod tests {
                     ],
                     output: ValueId(1),
                     attributes: OperationAttributes {
-                        epsilon_micros: Some(1),
+                        epsilon: Some(1e-6),
                         ..Default::default()
                     },
                 },
@@ -198,7 +210,11 @@ mod tests {
                         PortableInput::Tensor(router),
                     ],
                     output: ValueId(2),
-                    attributes: Default::default(),
+                    attributes: OperationAttributes {
+                        matmul_weight_operand: Some(MatMulWeightOperand::Rhs),
+                        matmul_transpose_weight: Some(false),
+                        ..Default::default()
+                    },
                 },
                 PortableOperation {
                     id: "select".into(),
@@ -207,6 +223,8 @@ mod tests {
                     output: ValueId(3),
                     attributes: OperationAttributes {
                         top_k: Some(6),
+                        top_k_order: Some(TopKOrder::Descending),
+                        top_k_tie_break: Some(TopKTieBreak::LowerIndex),
                         ..Default::default()
                     },
                 },
