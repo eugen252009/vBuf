@@ -808,9 +808,11 @@ The experimental `PORTABLE_SEMANTIC_V1` boundary is recorded separately and
 does not change vBuf v0.6.
 
 The qualified DeepSeek-V2-Lite manifest was imported into the same semantic
-descriptor vocabulary. Gate 2 is currently blocked: the repository has no
-generic PortableProgram-to-PoC22 lowerer. The active PoC22 C++ path still
-constructs DeepSeek-shaped plans from `blk.N.` names, fixed expert counts, and
-fixed state widths. No model-specific replacement was added. DeepSeek parity
-and Qwen lowering are therefore intentionally stopped until that generic
-lowering seam exists.
+descriptor vocabulary. A minimal model-agnostic lowerer now maps the real
+layer-1 router prefix (`RmsNorm -> MatMul -> TopK`) into the existing
+architecture-neutral `ExecutionGraph` seed. Gate 2 remains blocked because no
+adapter yet connects that graph to the PoC22/GGML `RouterGraph`/`ExpertGraph`
+execution primitives. The active PoC22 C++ path still constructs
+DeepSeek-shaped plans from `blk.N.` names, fixed expert counts, and fixed state
+widths. No model-specific replacement was added. DeepSeek parity and Qwen
+lowering are therefore intentionally stopped until the backend adapter exists.

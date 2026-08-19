@@ -23,5 +23,9 @@ VBUF_GGML_LIB_DIR=/path/to/ggml/lib \
   cargo check --manifest-path rust/Cargo.toml -p vbuf-runtime --features ggml
 ```
 
-The DeepSeek graph executor is the next layer. The existing POC22 graph is the
-reference for that port; this crate does not depend on a llama model object.
+`lowering` is the first semantic boundary: it maps generic `PortableProgram`
+regions, semantic TensorBindings, and generic attributes into the
+architecture-neutral `ExecutionGraph` seed. It does not yet bind that graph to
+the C++ PoC22/GGML executor. The existing DeepSeek PoC22 graph remains the
+correctness reference for that future adapter; this crate does not depend on a
+llama model object.

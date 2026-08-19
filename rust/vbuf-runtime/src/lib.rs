@@ -14,6 +14,9 @@ use vbuf_ml::{BorrowedModel, MlError};
 
 pub mod graph;
 pub use graph::{ExecutionGraph, InputRef, Operation, OperationKind, PersistentTensor, TensorId, ValueId};
+pub mod lowering;
+pub use lowering::{lower_region, LoweringError, OperationAttributes, PortableInput, PortableOperation,
+    PortableOperationKind, PortableProgram, PortableRegion, SemanticTensorKey, StateId, StateRef, TensorBinding};
 
 #[cfg(feature = "ggml")]
 pub mod ggml {

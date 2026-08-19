@@ -72,10 +72,12 @@ fit with generic attributes. The result is
 ## P1 Gate Result
 
 The qualified DeepSeek-V2-Lite manifest was imported into the same generic
-sidecar vocabulary. Gate 2 stopped the experiment before execution: the
-repository has no generic PortableProgram-to-PoC22 lowerer, and the active
-PoC22 C++ path remains DeepSeek-shaped. No vendor-specific workaround was
-added. DeepSeek parity and Qwen lowering remain pending that generic seam.
+sidecar vocabulary. A minimal model-agnostic lowerer now maps the real layer-1
+router prefix (`RmsNorm -> MatMul -> TopK`) into the architecture-neutral Rust
+`ExecutionGraph` seed. Gate 2 still stops before execution because no adapter
+connects that graph to the existing PoC22/GGML primitives; the active C++ path
+remains DeepSeek-shaped. No vendor-specific workaround was added. DeepSeek
+parity and Qwen lowering remain pending the backend adapter.
 
 The existing runtime also still parses `blk.N.` names in `parse_layer`; this
 pre-existing leakage remains to be removed or isolated behind importer-owned
