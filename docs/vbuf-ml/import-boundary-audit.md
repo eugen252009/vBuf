@@ -263,6 +263,7 @@ attributes and state contracts to be executable.
 | DeepSeek2 MoE | Selected fixture supported | POC22 graph exists outside Rust runtime | Native POC state exists | Strong qualification prototype |
 | Generic MoE | Partial catalog only | Missing routing contract | Missing dynamic expert/state contract | Not portable |
 | Qwen3.6 35B-A3B | Storage vBuf converted and validated | Missing Qwen3.6 lowering | Missing SSM/hybrid state | Not executable yet |
+| Phi-4-mini-instruct | Pinned config/index/header audit | Importer-owned metadata prototype | Generic KV schema prototype | P0 survives with generic alias/view/position refinements; no execution |
 | Arbitrary tokenizer | No | N/A | N/A | GPT2/Qwen2 only |
 
 ## Priority Plan
@@ -776,3 +777,24 @@ Qwen3.6 hybrid artifact**, without adding it to vBuf Core or implementing
 kernels. It should be sufficient to express one attention layer, one SSM layer,
 one MoE routing region, and their state transitions using generic TensorRefs,
 StateRefs, operation attributes, and dynamic alternatives.
+
+## 19. P0.1 Phi Falsification Evidence
+
+The materially different `microsoft/Phi-4-mini-instruct` family was audited at
+Hugging Face revision `cfbefacb99257ffa30c83adab238a50856ac3083` without
+downloading or executing weights. Its pinned configuration and safetensors
+headers establish dense 24/8 GQA, fused QKV and gate/up projections, partial
+LongRoPE, per-layer KV state, and tied input/output embeddings.
+
+The Qwen sidecar vocabulary could express dense attention and MLP by
+composition, but the audit exposed four generic gaps: semantic storage views
+for fused tensors, alias/shared-storage relations, structured position
+transform attributes, and structured KV lifecycle fields. No Phi-specific
+portable operation or runtime branch was required. SSM, MoE, and dynamic
+alternatives are optional and must not be forced into dense regions.
+
+Evidence and the metadata-only prototype are recorded in
+`research/results/vbuf-import-boundary-audit/p0-1-phi-abstraction-falsification.md`
+and `phi4-mini-typed-program.json`. The result is
+`ABSTRACTION_SURVIVES_WITH_GENERIC_REFINEMENTS`; one more model-family audit is
+recommended before PoC22 lowering.

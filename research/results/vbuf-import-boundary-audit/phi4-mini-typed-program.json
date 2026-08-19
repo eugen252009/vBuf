@@ -1,0 +1,625 @@
+{
+  "aliases": [
+    {
+      "reason": "config.tie_word_embeddings and absent lm_head tensor",
+      "relation": "same_storage",
+      "semantic": "lm_head.weight",
+      "target": "embedding.token"
+    }
+  ],
+  "model_parameters": {
+    "architecture": "Phi3ForCausalLM",
+    "attention_heads": 24,
+    "dtype": "BF16",
+    "head_dimension": 128,
+    "hidden_act": "silu",
+    "hidden_size": 3072,
+    "intermediate_size": 8192,
+    "kv_heads": 8,
+    "layer_count": 32,
+    "long_factor": [
+      1,
+      1.118320672,
+      1.250641126,
+      1.398617824,
+      1.564103225,
+      1.74916897,
+      1.956131817,
+      2.187582649,
+      2.446418898,
+      2.735880826,
+      3.059592084,
+      3.421605075,
+      3.826451687,
+      4.279200023,
+      4.785517845,
+      5.351743533,
+      5.984965424,
+      6.693110555,
+      7.485043894,
+      8.370679318,
+      9.36110372,
+      10.4687158,
+      11.70738129,
+      13.09260651,
+      14.64173252,
+      16.37415215,
+      18.31155283,
+      20.47818807,
+      22.90118105,
+      25.61086418,
+      28.64115884,
+      32.03,
+      32.1,
+      32.13,
+      32.23,
+      32.6,
+      32.61,
+      32.64,
+      32.66,
+      32.7,
+      32.71,
+      32.93,
+      32.97,
+      33.28,
+      33.49,
+      33.5,
+      44.16,
+      47.77
+    ],
+    "max_context": 131072,
+    "model_type": "phi3",
+    "original_context": 4096,
+    "parameter_count": 3836021760,
+    "partial_rotary_factor": 0.75,
+    "rope_theta": 10000.0,
+    "rotary_dimensions": 96,
+    "short_factor": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "sliding_window": 262144,
+    "vocab_size": 200064,
+    "weight_tying": true
+  },
+  "portable_boundary": {
+    "excludes": [
+      "safetensors_offsets_as_identity",
+      "backend_buffers",
+      "device_placement",
+      "source_read_plan",
+      "runtime_schedule",
+      "cache_contents"
+    ],
+    "identity": "semantic TensorRef plus generic storage view/alias"
+  },
+  "position_schema": {
+    "head_dimension": 128,
+    "kind": "rotary_position_transform",
+    "long_factor": [
+      1,
+      1.118320672,
+      1.250641126,
+      1.398617824,
+      1.564103225,
+      1.74916897,
+      1.956131817,
+      2.187582649,
+      2.446418898,
+      2.735880826,
+      3.059592084,
+      3.421605075,
+      3.826451687,
+      4.279200023,
+      4.785517845,
+      5.351743533,
+      5.984965424,
+      6.693110555,
+      7.485043894,
+      8.370679318,
+      9.36110372,
+      10.4687158,
+      11.70738129,
+      13.09260651,
+      14.64173252,
+      16.37415215,
+      18.31155283,
+      20.47818807,
+      22.90118105,
+      25.61086418,
+      28.64115884,
+      32.03,
+      32.1,
+      32.13,
+      32.23,
+      32.6,
+      32.61,
+      32.64,
+      32.66,
+      32.7,
+      32.71,
+      32.93,
+      32.97,
+      33.28,
+      33.49,
+      33.5,
+      44.16,
+      47.77
+    ],
+    "max_context": 131072,
+    "mode": "longrope",
+    "original_context": 4096,
+    "ref": "position.longrope.partial_rotary",
+    "rotary_dimensions": 96,
+    "short_factor": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "switch": "sequence_length > original_context",
+    "theta": 10000.0
+  },
+  "program": [
+    {
+      "id": "embedding",
+      "inputs": [
+        "token_ids"
+      ],
+      "kind": "embedding",
+      "outputs": [
+        "hidden"
+      ],
+      "weights": [
+        "embedding.token"
+      ]
+    },
+    {
+      "attributes": {
+        "causal": true,
+        "head_dimension": 128,
+        "heads": 24,
+        "kv_heads": 8,
+        "mask_window": 262144,
+        "position_transform": "position.longrope.partial_rotary",
+        "scale": "derived:head_dimension^-0.5"
+      },
+      "id": "layer.0.attention",
+      "inputs": [
+        "hidden",
+        "position",
+        "kv_read"
+      ],
+      "kind": "attention",
+      "outputs": [
+        "attention_output",
+        "kv_write"
+      ],
+      "weights": [
+        "layer.0.attention.input_norm",
+        "layer.0.attention.query_weight",
+        "layer.0.attention.key_weight",
+        "layer.0.attention.value_weight",
+        "layer.0.attention.output_weight"
+      ]
+    },
+    {
+      "composition": [
+        "rms_norm",
+        "matmul_gate_up",
+        "split_gate_up",
+        "silu",
+        "mul",
+        "matmul_down",
+        "residual_add"
+      ],
+      "id": "layer.0.mlp",
+      "inputs": [
+        "attention_residual"
+      ],
+      "kind": "composed_dense_mlp",
+      "outputs": [
+        "mlp_output"
+      ],
+      "weights": [
+        "layer.0.mlp.input_norm",
+        "layer.0.mlp.gate_weight",
+        "layer.0.mlp.up_weight",
+        "layer.0.mlp.down_weight"
+      ]
+    }
+  ],
+  "sidecar": "vbuf-ml.phi3.dense-typed-program",
+  "source": {
+    "config_revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+    "repository": "microsoft/Phi-4-mini-instruct",
+    "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+    "tokenizer_revision": "cfbefacb99257ffa30c83adab238a50856ac3083"
+  },
+  "state_schema": [
+    {
+      "access": "read-write",
+      "kind": "kv_key",
+      "lifetime": "sequence",
+      "ref": "layer.0.kv.key",
+      "scope": "layer",
+      "shape": [
+        8,
+        "sequence_length",
+        128
+      ],
+      "transition": "append(position, key); read(position_range)"
+    },
+    {
+      "access": "read-write",
+      "kind": "kv_value",
+      "lifetime": "sequence",
+      "ref": "layer.0.kv.value",
+      "scope": "layer",
+      "shape": [
+        8,
+        "sequence_length",
+        128
+      ],
+      "transition": "append(position, value); read(position_range)"
+    },
+    {
+      "access": "read-write",
+      "element_type": "u64",
+      "kind": "position",
+      "lifetime": "sequence",
+      "ref": "sequence.position",
+      "reset": "sequence_start",
+      "scope": "sequence",
+      "shape": [
+        1
+      ],
+      "transition": "position_next = position + token_count"
+    }
+  ],
+  "tensor_bindings": [
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "embedding.token",
+      "shape": [
+        200064,
+        3072
+      ],
+      "source_provenance": {
+        "name": "model.embed_tokens.weight",
+        "repository": "microsoft/Phi-4-mini-instruct",
+        "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+        "shard": "model-00001-of-00002.safetensors"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "token_embedding"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "layer.0.attention.input_norm",
+      "shape": [
+        3072
+      ],
+      "source_provenance": {
+        "name": "model.layers.0.input_layernorm.weight",
+        "repository": "microsoft/Phi-4-mini-instruct",
+        "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+        "shard": "model-00001-of-00002.safetensors"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "input_norm"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "layer.0.attention.query_weight",
+      "shape": [
+        5120,
+        3072
+      ],
+      "source_provenance": {
+        "name": "model.layers.0.self_attn.qkv_proj.weight",
+        "repository": "microsoft/Phi-4-mini-instruct",
+        "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+        "shard": "model-00001-of-00002.safetensors"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "qkv"
+      },
+      "view": {
+        "axis": 0,
+        "length": 3072,
+        "start": 0
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "layer.0.attention.key_weight",
+      "shape": [
+        5120,
+        3072
+      ],
+      "source_provenance": {
+        "name": "model.layers.0.self_attn.qkv_proj.weight",
+        "repository": "microsoft/Phi-4-mini-instruct",
+        "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+        "shard": "model-00001-of-00002.safetensors"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "qkv"
+      },
+      "view": {
+        "axis": 0,
+        "length": 1024,
+        "start": 3072
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "layer.0.attention.value_weight",
+      "shape": [
+        5120,
+        3072
+      ],
+      "source_provenance": {
+        "name": "model.layers.0.self_attn.qkv_proj.weight",
+        "repository": "microsoft/Phi-4-mini-instruct",
+        "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+        "shard": "model-00001-of-00002.safetensors"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "qkv"
+      },
+      "view": {
+        "axis": 0,
+        "length": 1024,
+        "start": 4096
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "layer.0.attention.output_weight",
+      "shape": [
+        3072,
+        3072
+      ],
+      "source_provenance": {
+        "name": "model.layers.0.self_attn.o_proj.weight",
+        "repository": "microsoft/Phi-4-mini-instruct",
+        "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+        "shard": "model-00001-of-00002.safetensors"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "attention_output"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "layer.0.mlp.input_norm",
+      "shape": [
+        3072
+      ],
+      "source_provenance": {
+        "name": "model.layers.0.post_attention_layernorm.weight",
+        "repository": "microsoft/Phi-4-mini-instruct",
+        "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+        "shard": "model-00001-of-00002.safetensors"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "post_attention_norm"
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "layer.0.mlp.gate_weight",
+      "shape": [
+        16384,
+        3072
+      ],
+      "source_provenance": {
+        "name": "model.layers.0.mlp.gate_up_proj.weight",
+        "repository": "microsoft/Phi-4-mini-instruct",
+        "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+        "shard": "model-00001-of-00002.safetensors"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "gate_up"
+      },
+      "view": {
+        "axis": 0,
+        "length": 8192,
+        "start": 0
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "layer.0.mlp.up_weight",
+      "shape": [
+        16384,
+        3072
+      ],
+      "source_provenance": {
+        "name": "model.layers.0.mlp.gate_up_proj.weight",
+        "repository": "microsoft/Phi-4-mini-instruct",
+        "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+        "shard": "model-00001-of-00002.safetensors"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "gate_up"
+      },
+      "view": {
+        "axis": 0,
+        "length": 8192,
+        "start": 8192
+      }
+    },
+    {
+      "representation": {
+        "element_type": "bf16",
+        "kind": "bf16"
+      },
+      "semantic": "layer.0.mlp.down_weight",
+      "shape": [
+        3072,
+        8192
+      ],
+      "source_provenance": {
+        "name": "model.layers.0.mlp.down_proj.weight",
+        "repository": "microsoft/Phi-4-mini-instruct",
+        "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+        "shard": "model-00001-of-00002.safetensors"
+      },
+      "tensor_ref": {
+        "directory": "TensorDirectory",
+        "semantic_key": "down"
+      }
+    }
+  ],
+  "tokenizer": {
+    "bos": false,
+    "chat_template": "application_profile_only",
+    "eos": false,
+    "kind": "gpt2_bpe",
+    "merges": "merges.txt",
+    "special_tokens": [
+      199999,
+      200018,
+      200019,
+      200020,
+      200021,
+      200022,
+      200028
+    ],
+    "tokenizer_class": "GPT2Tokenizer",
+    "vocab_size": 200064,
+    "vocabulary": "vocab.json"
+  },
+  "version": 1
+}
