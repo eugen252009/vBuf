@@ -87,8 +87,9 @@ struct ExpertTensor {
     uint64_t bytes = 0;
 
     PersistentTensorRef ref() const {
+        const uint8_t * row_payload = payload == nullptr ? nullptr : payload + slice_offset;
         return { id, name, { representation, 2, dimensions.data(),
-            payload + slice_offset, bytes }, offset + slice_offset };
+            row_payload, bytes }, offset + slice_offset };
     }
 };
 
@@ -260,7 +261,21 @@ RunResult execute_expert(ExpertGraph & graph, const VbufTensorView & input,
                 first_consumer_start_ns = execution_now_ns();
         });
     result.first_consumer_start_ns = first_consumer_start_ns;
-    if (result.error != AdapterError::None) std::fprintf(stderr, "expert_detail=%s\n", detail.c_str());
+    if (result.error != AdapterError::None) {
+        std::fprintf(stderr, "expert_detail=%s\n", detail.c_str());
+        if (materializer != nullptr) {
+            for (const auto & event : materializer->trace()) {
+                if (event.state == MaterializationState::Failed) {
+                    std::fprintf(stderr, "materialization_failure tensor=%s offset=%llu bytes=%llu "
+                        "returned=%llu status=%d source=%s\n", event.tensor_name.c_str(),
+                        static_cast<unsigned long long>(event.requested_offset),
+                        static_cast<unsigned long long>(event.bytes),
+                        static_cast<unsigned long long>(event.returned_bytes), event.status_code,
+                        event.source_id.c_str());
+                }
+            }
+        }
+    }
     return result;
 }
 
@@ -334,7 +349,9 @@ int main(int argc, char ** argv) {
         uint64_t offset = 0, length = 0;
         if (vbuf_ml_consumer_tensor_physical_range(metadata.handle, i, &offset, &length) != 0)
             return 4;
-        metadata.tensors.push_back({ metadata.views[i], i, offset });
+        VbufMlTensorView view = metadata.views[i];
+        view.payload_len = length;
+        metadata.tensors.push_back({ view, i, offset });
     }
     const Meta router_meta = lookup(metadata, "blk.1.ffn_gate_inp.weight");
     if (router_meta.view.rank != 2 || router_meta.view.dimensions[0] != input_dim ||

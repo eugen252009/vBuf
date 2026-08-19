@@ -34,7 +34,9 @@ void load_metadata(const std::string & artifact, Metadata * metadata) {
         uint64_t offset = 0, length = 0;
         if (vbuf_ml_consumer_tensor_physical_range(metadata->handle, i, &offset, &length) != 0)
             throw std::runtime_error("tensor range lookup failed");
-        metadata->tensors.push_back({ metadata->views[i], i, offset });
+        VbufMlTensorView view = metadata->views[i];
+        view.payload_len = length;
+        metadata->tensors.push_back({ view, i, offset });
     }
 }
 

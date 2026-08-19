@@ -282,7 +282,9 @@ int main(int argc, char ** argv) {
     for (uint64_t i = 0; i < metadata.count; ++i) {
         uint64_t offset = 0, length = 0;
         if (vbuf_ml_consumer_tensor_physical_range(metadata.handle, i, &offset, &length) != 0) return 4;
-        metadata.tensors.push_back({ metadata.views[i], i, offset });
+        VbufMlTensorView view = metadata.views[i];
+        view.payload_len = length;
+        metadata.tensors.push_back({ view, i, offset });
     }
     const AttentionTensors tensors = attention_tensors(metadata);
     std::printf("boundary=attention_ffn_input_to_attention_residual representation=MLA_NON_SPLIT_KV "

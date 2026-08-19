@@ -7,11 +7,16 @@
 #include <vector>
 
 #include "vbuf_region_executor.h"
+#include "vbuf_materializer.h"
 
 namespace {
 
 using vbuf_ggml::AdapterError;
 using vbuf_ggml::BorrowedGgmlTensor;
+using vbuf_ggml::LocalVbufRangeMaterializer;
+using vbuf_ggml::LocalVbufRangeSource;
+using vbuf_ggml::MaterializationState;
+using vbuf_ggml::PersistentTensorRef;
 using vbuf_ggml::VbufBorrowedStorage;
 using vbuf_ggml::VbufTensorView;
 
@@ -206,6 +211,32 @@ bool borrowed_q2_execution() {
     return pass;
 }
 
+bool materialized_null_payload_binding() {
+    std::array<float, 2> source_storage{{ 7.0f, 11.0f }};
+    auto source = std::make_shared<LocalVbufRangeSource>(
+        reinterpret_cast<const uint8_t *>(source_storage.data()), sizeof(source_storage));
+    LocalVbufRangeMaterializer materializer(source);
+    const uint64_t dimensions[] = { 1, 2 };
+    const PersistentTensorRef reference{ 17, "external", VbufTensorView{
+        0, 2, dimensions, nullptr, sizeof(source_storage) }, 0 };
+    if (!materializer.request(0, reference, reference.view.payload_len) ||
+        materializer.wait(0) != MaterializationState::Ready) return false;
+    const auto payload = materializer.obtain_ready_tensor(0);
+    if (!payload) return false;
+    std::string detail;
+    AdapterError create_error = AdapterError::None;
+    const auto tensor = BorrowedGgmlTensor::create(payload->view, &create_error, &detail);
+    const AdapterError bind_error = tensor ? tensor->bind_cpu(payload->storage, &detail) : create_error;
+    const bool bound = tensor && bind_error == AdapterError::None &&
+        tensor->bound_data() == payload->view.payload &&
+        reinterpret_cast<const float *>(tensor->bound_data())[0] == 7.0f &&
+        reinterpret_cast<const float *>(tensor->bound_data())[1] == 11.0f;
+    materializer.release(0);
+    if (!bound) std::fprintf(stderr, "null-inline-pointer binding failed: create=%s bind=%s detail=%s\n",
+        vbuf_ggml::adapter_error_name(create_error), vbuf_ggml::adapter_error_name(bind_error), detail.c_str());
+    return bound;
+}
+
 } // namespace
 
 int main() {
@@ -213,9 +244,10 @@ int main() {
     const bool malformed = malformed_cases();
     const bool f32 = borrowed_f32_execution();
     const bool q2 = borrowed_q2_execution();
-    const bool pass = descriptors && malformed && f32 && q2;
-    std::printf("descriptors=%d malformed=%d f32=%d q2=%d\n",
-        descriptors, malformed, f32, q2);
+    const bool materialized = materialized_null_payload_binding();
+    const bool pass = descriptors && malformed && f32 && q2 && materialized;
+    std::printf("descriptors=%d malformed=%d f32=%d q2=%d materialized=%d\n",
+        descriptors, malformed, f32, q2, materialized);
     std::printf("tensor_adapter_qualification=%s\n", pass ? "PASS" : "FAIL");
     return pass ? 0 : 1;
 }

@@ -59,11 +59,19 @@ std::vector<float> normalized_selected_weights(const std::vector<float> & logits
 
 RoutedResult route_activation(RouterGraph & graph, const Activation & activation,
     const std::shared_ptr<const void> & lease, TensorMaterializer * materializer,
-    const float * mapped_weights, uint32_t input_dim, uint32_t expert_count, uint32_t k) {
+    const PersistentTensorRef & router, uint32_t input_dim, uint32_t expert_count, uint32_t k) {
     const RunResult runtime = execute(graph, activation.view(), lease, materializer);
     if (runtime.error != AdapterError::None) throw std::runtime_error("router execution failed");
     const std::vector<float> logits = floats(runtime.output);
-    const std::vector<float> reference = reference_scores(mapped_weights, input_dim, expert_count, activation);
+    if (materializer == nullptr || !materializer->request(graph.router, router, router.view.payload_len) ||
+        materializer->wait(graph.router) != MaterializationState::Ready)
+        throw std::runtime_error("router reference payload materialization failed");
+    const auto payload = materializer->obtain_ready_tensor(graph.router);
+    if (!payload) throw std::runtime_error("router reference payload unavailable");
+    const std::vector<float> reference = reference_scores(
+        reinterpret_cast<const float *>(payload->storage.base + payload->storage.payload_offset),
+        input_dim, expert_count, activation);
+    materializer->release(graph.router);
     if (!parity(logits, reference, "router_score_parity")) throw std::runtime_error("router parity failed");
     RoutedResult result;
     result.logits = logits;
@@ -131,10 +139,11 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
                 static_cast<unsigned long long>(tensor->ref().source_offset),
                 static_cast<unsigned long long>(tensor->bytes));
 
-        ExpertGraph reference_graph = build_expert_graph(gate, up, down);
-        const RunResult reference = execute_expert(reference_graph, activation.view(), lease, nullptr);
-        result.reference.push_back(floats(reference.output));
         OffsetMaterializer offset(shared_materializer, base);
+        ExpertGraph reference_graph = build_expert_graph(gate, up, down);
+        const RunResult reference = execute_expert(reference_graph, activation.view(), lease,
+            &offset);
+        result.reference.push_back(floats(reference.output));
         if (preload_gates && rank % 2 == 0 && residency->peek(base) == nullptr) {
             LocalVbufRangeMaterializer local(std::make_shared<LocalVbufRangeSource>(
                 metadata.artifact->data, metadata.artifact->size));
@@ -245,7 +254,9 @@ int main(int argc, char ** argv) {
     for (uint64_t i = 0; i < metadata.count; ++i) {
         uint64_t offset = 0, length = 0;
         if (vbuf_ml_consumer_tensor_physical_range(metadata.handle, i, &offset, &length) != 0) return 4;
-        metadata.tensors.push_back({ metadata.views[i], i, offset });
+        VbufMlTensorView view = metadata.views[i];
+        view.payload_len = length;
+        metadata.tensors.push_back({ view, i, offset });
     }
     const Meta router = lookup(metadata, "blk.1.ffn_gate_inp.weight");
     const VbufTensorView router_view{ router.view.representation, router.view.rank,
@@ -267,12 +278,11 @@ int main(int argc, char ** argv) {
     auto router_residency = std::make_shared<TensorResidencyStore>(router.view.payload_len * 2);
     auto router_materializer = std::make_shared<ResidentTensorMaterializer>(router_backing, router_residency);
     router_materializer->request(router_graph.router, router_ref, router_ref.view.payload_len);
-    const float * weights = reinterpret_cast<const float *>(router.view.payload);
     RoutedResult routed_a = route_activation(router_graph, activation_a, lease,
-        router_materializer.get(), weights, input_dim, expert_count, top_k);
+        router_materializer.get(), router_ref, input_dim, expert_count, top_k);
     router_materializer->request(router_graph.router, router_ref, router_ref.view.payload_len);
     RoutedResult routed_b = route_activation(router_graph, activation_b, lease,
-        router_materializer.get(), weights, input_dim, expert_count, top_k);
+        router_materializer.get(), router_ref, input_dim, expert_count, top_k);
     std::printf("activation_a_topk=%s scores=", ids_text(routed_a.selection).c_str());
     for (float score : routed_a.selection.scores) std::printf("%g,", score);
     std::printf(" normalized_weights=");

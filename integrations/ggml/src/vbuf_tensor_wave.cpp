@@ -172,6 +172,32 @@ AdapterError TensorDependencyExecutor::execute(
     uint64_t active_transient_bytes = input.payload_len;
     size_t completed_count = 0;
 
+    const auto obtain_ready = [&](uint32_t tensor_ref, const PersistentTensorRef & persistent,
+        MaterializedTensor * result) {
+        if (materializer == nullptr || result == nullptr) return false;
+        MaterializationState state = materializer->state(tensor_ref);
+        if (state == MaterializationState::NotRequested || state == MaterializationState::Released) {
+            if (!materializer->request(tensor_ref, persistent, persistent.view.payload_len)) {
+                set_detail(error_detail, "persistent tensor materialization request failed");
+                return false;
+            }
+            state = materializer->state(tensor_ref);
+        }
+        if (state == MaterializationState::InFlight) state = materializer->wait(tensor_ref);
+        if (state != MaterializationState::Ready) {
+            if (error_detail != nullptr) *error_detail = std::string("persistent tensor is not ready: ") +
+                materialization_state_name(state);
+            return false;
+        }
+        const auto ready = materializer->obtain_ready_tensor(tensor_ref);
+        if (!ready.has_value()) {
+            set_detail(error_detail, "persistent tensor reported ready without a payload");
+            return false;
+        }
+        *result = *ready;
+        return true;
+    };
+
     const auto notify_planner = [&]() {
         if (!planning_observer) return;
         TensorWavePlannerState state;
@@ -220,6 +246,8 @@ AdapterError TensorDependencyExecutor::execute(
         trace.active_persistent_tensor_count = resident.size();
         trace.active_transient_bytes = active_transient_bytes;
 
+        std::vector<MaterializedTensor> materialized_inputs;
+        std::vector<uint32_t> materialized_refs;
         for (const TensorWaveRef & input_ref : operation.inputs) {
             if (input_ref.kind != TensorWaveRef::Kind::Persistent) continue;
             if (resident.find(input_ref.index) != resident.end()) continue;
@@ -227,17 +255,14 @@ AdapterError TensorDependencyExecutor::execute(
             VbufBorrowedStorage storage{};
             bool materialized = false;
             if (materializer != nullptr) {
-                MaterializationState materialization_state = materializer->state(input_ref.index);
-                if (materialization_state == MaterializationState::InFlight) {
-                    materialization_state = materializer->wait(input_ref.index);
+                MaterializedTensor ready{};
+                if (!obtain_ready(input_ref.index, persistent, &ready)) {
+                    return AdapterError::InvalidArgument;
                 }
-                if (materialization_state == MaterializationState::Ready) {
-                    const auto ready = materializer->obtain_ready_tensor(input_ref.index);
-                    if (ready.has_value()) {
-                        storage = ready->storage;
-                        materialized = true;
-                    }
-                }
+                materialized_inputs.push_back(ready);
+                materialized_refs.push_back(input_ref.index);
+                storage = ready.storage;
+                materialized = true;
             }
             if (!materialized) storage = storage_provider(persistent.view);
             ResidentTensor active{ storage, persistent.view.payload_len };
@@ -267,8 +292,6 @@ AdapterError TensorDependencyExecutor::execute(
 
         AdapterError input_error = AdapterError::None;
         std::vector<std::unique_ptr<BorrowedGgmlTensor>> borrowed;
-        std::vector<MaterializedTensor> materialized_inputs;
-        std::vector<uint32_t> materialized_refs;
         std::unordered_map<uint32_t, ggml_tensor *> tensors;
         ggml_backend_t backend = nullptr;
         for (const TensorWaveRef & input_ref : operation.inputs) {
@@ -277,21 +300,24 @@ AdapterError TensorDependencyExecutor::execute(
             if (input_ref.kind == TensorWaveRef::Kind::Persistent) {
                 view = &persistent_[input_ref.index].view;
                 storage = resident.at(input_ref.index).storage;
-                if (materializer != nullptr) {
-                    MaterializationState materialization_state = materializer->state(input_ref.index);
-                    if (materialization_state == MaterializationState::InFlight) {
-                        materialization_state = materializer->wait(input_ref.index);
+                const auto found = std::find(materialized_refs.begin(), materialized_refs.end(),
+                    input_ref.index);
+                if (found != materialized_refs.end()) {
+                    const MaterializedTensor & materialized = materialized_inputs[
+                        static_cast<size_t>(found - materialized_refs.begin())];
+                    view = &materialized.view;
+                    storage = materialized.storage;
+                } else if (materializer != nullptr) {
+                    MaterializedTensor ready{};
+                    if (!obtain_ready(input_ref.index, persistent_[input_ref.index], &ready)) {
+                        ggml_free(context);
+                        return AdapterError::InvalidArgument;
                     }
-                    if (materialization_state == MaterializationState::Ready) {
-                        const auto ready = materializer->obtain_ready_tensor(input_ref.index);
-                        if (ready.has_value()) {
-                            materialized_inputs.push_back(*ready);
-                            const MaterializedTensor & materialized = materialized_inputs.back();
-                            view = &materialized.view;
-                            storage = materialized.storage;
-                            materialized_refs.push_back(input_ref.index);
-                        }
-                    }
+                    materialized_inputs.push_back(ready);
+                    materialized_refs.push_back(input_ref.index);
+                    const MaterializedTensor & materialized = materialized_inputs.back();
+                    view = &materialized.view;
+                    storage = materialized.storage;
                 }
             } else {
                 view = &values.at(input_ref.index).view;

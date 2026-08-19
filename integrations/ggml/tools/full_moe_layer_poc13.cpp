@@ -42,6 +42,51 @@ PersistentTensorRef full_ref(const Meta & meta) {
     return { meta.id, std::string(meta.view.name, meta.view.name_len), view, meta.offset };
 }
 
+class MaterializedPayload final {
+public:
+    MaterializedPayload(TensorMaterializer * materializer, uint32_t ref,
+        std::optional<MaterializedTensor> tensor)
+        : materializer_(materializer), ref_(ref), tensor_(std::move(tensor)) {}
+    MaterializedPayload(const MaterializedPayload &) = delete;
+    MaterializedPayload & operator=(const MaterializedPayload &) = delete;
+    MaterializedPayload(MaterializedPayload && other) noexcept
+        : materializer_(other.materializer_), ref_(other.ref_), tensor_(std::move(other.tensor_)) {
+        other.materializer_ = nullptr;
+    }
+    MaterializedPayload & operator=(MaterializedPayload && other) noexcept {
+        if (this == &other) return *this;
+        if (materializer_ != nullptr) materializer_->release(ref_);
+        materializer_ = other.materializer_;
+        ref_ = other.ref_;
+        tensor_ = std::move(other.tensor_);
+        other.materializer_ = nullptr;
+        return *this;
+    }
+    ~MaterializedPayload() {
+        if (materializer_ != nullptr) materializer_->release(ref_);
+    }
+
+    const uint8_t * data() const {
+        return tensor_->storage.base + tensor_->storage.payload_offset;
+    }
+
+private:
+    TensorMaterializer * materializer_;
+    uint32_t ref_;
+    std::optional<MaterializedTensor> tensor_;
+};
+
+MaterializedPayload materialized_payload(TensorMaterializer * materializer,
+    uint32_t ref, const PersistentTensorRef & tensor) {
+    if (materializer == nullptr || !materializer->request(ref, tensor, tensor.view.payload_len) ||
+        materializer->wait(ref) != MaterializationState::Ready) {
+        throw std::runtime_error("reference payload materialization failed");
+    }
+    auto payload = materializer->obtain_ready_tensor(ref);
+    if (!payload.has_value()) throw std::runtime_error("reference payload unavailable");
+    return MaterializedPayload(materializer, ref, std::move(payload));
+}
+
 ExpertTensor shared_tensor(const Meta & meta) {
     if (meta.view.rank != 2) throw std::runtime_error("shared tensor is not rank two");
     ExpertTensor result;
@@ -144,8 +189,9 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     norm_materializer.request(norm_graph.router, norm_ref, norm_ref.view.payload_len);
     const RunResult norm_actual = execute(norm_graph, input.view(), lease, &norm_materializer);
     const std::vector<float> norm_values = floats(norm_actual.output);
+    const auto norm_payload = materialized_payload(&norm_materializer, norm_graph.router, norm_ref);
     const std::vector<float> norm_reference = rmsnorm_reference(input,
-        reinterpret_cast<const float *>(norm_meta.view.payload), width, epsilon);
+        reinterpret_cast<const float *>(norm_payload.data()), width, epsilon);
     result.normalized_input = norm_values;
     result.reference_normalized_input = norm_reference;
     const bool norm_ok = norm_actual.error == AdapterError::None &&
@@ -161,9 +207,10 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     RouterGraph router_graph = build_router_graph(router_ref);
     OffsetMaterializer router_materializer(materializer, namespace_base + 501);
     router_materializer.request(router_graph.router, router_ref, router_ref.view.payload_len);
-    const float * router_weights = reinterpret_cast<const float *>(router_meta.view.payload);
     RoutedResult routed = route_activation(router_graph, normalized, lease,
-        &router_materializer, router_weights, width, 64, 6);
+        &router_materializer, router_ref, width, 64, 6);
+    const auto router_payload = materialized_payload(&router_materializer, router_graph.router, router_ref);
+    const float * router_weights = reinterpret_cast<const float *>(router_payload.data());
     const std::vector<float> reference_logits = reference_scores(router_weights, width, 64, normalized);
     result.router_logits = routed.logits;
     result.reference_router_logits = reference_logits;
@@ -203,9 +250,10 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     const ExpertTensor shared_up = shared_tensor(lookup(metadata, "blk.1.ffn_up_shexp.weight"));
     const ExpertTensor shared_down = shared_tensor(lookup(metadata, "blk.1.ffn_down_shexp.weight"));
     ExpertGraph shared_reference_graph = build_expert_graph(shared_gate, shared_up, shared_down);
-    const RunResult shared_reference = execute_expert(shared_reference_graph, normalized.view(), lease, nullptr);
-    ExpertGraph shared_actual_graph = build_expert_graph(shared_gate, shared_up, shared_down);
     OffsetMaterializer shared_materializer(materializer, namespace_base + 600);
+    const RunResult shared_reference = execute_expert(shared_reference_graph, normalized.view(), lease,
+        &shared_materializer);
+    ExpertGraph shared_actual_graph = build_expert_graph(shared_gate, shared_up, shared_down);
     result.execution_start_ns = clock_ns();
     const RunResult shared_actual = execute_expert(shared_actual_graph, normalized.view(), lease,
         &shared_materializer, no_jit_fallback);
@@ -305,7 +353,9 @@ int main(int argc, char ** argv) {
     for (uint64_t i = 0; i < metadata.count; ++i) {
         uint64_t offset = 0, length = 0;
         if (vbuf_ml_consumer_tensor_physical_range(metadata.handle, i, &offset, &length) != 0) return 4;
-        metadata.tensors.push_back({ metadata.views[i], i, offset });
+        VbufMlTensorView view = metadata.views[i];
+        view.payload_len = length;
+        metadata.tensors.push_back({ view, i, offset });
     }
     const uint64_t warm_open_start = clock_ns();
     VbufMlConsumerHandle * warm_handle = vbuf_ml_consumer_open(artifact.c_str());

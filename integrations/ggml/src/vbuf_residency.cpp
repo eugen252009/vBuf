@@ -253,6 +253,14 @@ ResidentTensorMaterializer::ResidentTensorMaterializer(
 bool ResidentTensorMaterializer::request(uint32_t tensor_ref,
     const PersistentTensorRef & tensor, uint64_t byte_budget) {
     known_tensors_[tensor_ref] = tensor;
+    const auto existing = requests_.find(tensor_ref);
+    if (existing != requests_.end()) {
+        if (residency_->peek(tensor_ref) != nullptr ||
+            backing_->state(tensor_ref) == MaterializationState::InFlight ||
+            backing_->state(tensor_ref) == MaterializationState::Ready) {
+            return true;
+        }
+    }
     requests_[tensor_ref] = { tensor, false, false };
     residency_->note_request(tensor_ref, tensor.name);
     if (residency_->lookup(tensor_ref, tensor.name) != nullptr) return true;

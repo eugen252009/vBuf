@@ -63,7 +63,8 @@ OutputPair run_output_pair(const Meta & norm, const Meta & output, const Activat
     ExpertGraph reference_graph = build_output_graph(norm, output);
     OffsetMaterializer scoped_materializer(materializer, materializer_base);
     const RunResult runtime = execute_expert(runtime_graph, hidden.view(), lease, &scoped_materializer);
-    const RunResult reference = execute_expert(reference_graph, hidden.view(), lease, nullptr);
+    const RunResult reference = execute_expert(reference_graph, hidden.view(), lease,
+        &scoped_materializer);
     OutputPair result{ floats(runtime.output), floats(reference.output) };
     if (runtime.error != AdapterError::None || reference.error != AdapterError::None ||
         !parity(result.runtime, result.reference, label.c_str()))
@@ -299,9 +300,12 @@ int main(int argc, char ** argv) {
                 for (size_t i = 0; i < 8; ++i) std::printf("%s%.9g", i ? "," : "", sequence.ffn_normalized[0][i]);
                 std::printf("\n");
                 const Meta ffn_norm_meta = lookup(all, "blk.0.ffn_norm.weight");
+                const PersistentTensorRef ffn_norm_ref = full_ref(ffn_norm_meta);
+                OffsetMaterializer ffn_norm_materializer(materializer, 900000);
+                const auto ffn_norm_payload = materialized_payload(&ffn_norm_materializer, 0, ffn_norm_ref);
                 const std::vector<float> ffn_norm_reference = rmsnorm_reference(
                     Activation{sequence.ffn_inputs[0], {2048, 1}},
-                    reinterpret_cast<const float *>(ffn_norm_meta.view.payload), 2048, 1e-6f);
+                    reinterpret_cast<const float *>(ffn_norm_payload.data()), 2048, 1e-6f);
                 std::printf("VBUF_FFN_NORM_REF_FIRST8=");
                 for (size_t i = 0; i < 8; ++i) std::printf("%s%.9g", i ? "," : "", ffn_norm_reference[i]);
                 std::printf("\n");

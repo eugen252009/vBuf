@@ -77,7 +77,9 @@ void load_metadata(const std::string & artifact, Metadata * metadata) {
         uint64_t offset = 0, length = 0;
         if (vbuf_ml_consumer_tensor_physical_range(metadata->handle, i, &offset, &length) != 0)
             throw std::runtime_error("tensor range lookup failed");
-        metadata->tensors.push_back({ metadata->views[i], i, offset });
+        VbufMlTensorView view = metadata->views[i];
+        view.payload_len = length;
+        metadata->tensors.push_back({ view, i, offset });
     }
 }
 
@@ -379,7 +381,8 @@ Activation run_embedding(const Meta & full, uint32_t token,
     const Activation scale{ { 1.0f }, { 1, 1 } };
     OffsetMaterializer scoped_materializer(materializer, 800000 + token * 100);
     const RunResult actual = execute_expert(actual_graph, scale.view(), lease, &scoped_materializer);
-    const RunResult reference = execute_expert(reference_graph, scale.view(), lease, nullptr);
+    const RunResult reference = execute_expert(reference_graph, scale.view(), lease,
+        &scoped_materializer);
     const std::vector<float> actual_values = floats(actual.output);
     const std::vector<float> reference_values = floats(reference.output);
     if (actual.error != AdapterError::None || reference.error != AdapterError::None ||
@@ -396,7 +399,8 @@ std::vector<float> run_output_head(const Meta & norm, const Meta & output,
     ExpertGraph reference_graph = build_output_graph(norm, output);
     OffsetMaterializer scoped_materializer(materializer, materializer_base);
     const RunResult actual = execute_expert(actual_graph, hidden.view(), lease, &scoped_materializer);
-    const RunResult reference = execute_expert(reference_graph, hidden.view(), lease, nullptr);
+    const RunResult reference = execute_expert(reference_graph, hidden.view(), lease,
+        &scoped_materializer);
     const std::vector<float> actual_values = floats(actual.output);
     const std::vector<float> reference_values = floats(reference.output);
     if (actual.error != AdapterError::None || reference.error != AdapterError::None ||
@@ -427,14 +431,16 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
     const RunResult norm_actual = execute(norm_graph, input.view(), lease, &norm_materializer);
     const std::vector<float> norm_values = floats(norm_actual.output);
     if (std::getenv("VBUF_AUDIT_FFN_NORM") != nullptr && plan.block_id == 0) {
-        const RunResult norm_unmaterialized = execute(norm_graph, input.view(), lease, nullptr);
+        const RunResult norm_unmaterialized = execute(norm_graph, input.view(), lease,
+            materializer.get());
         const std::vector<float> unmaterialized_values = floats(norm_unmaterialized.output);
         std::printf("VBUF_FFN_NORM_UNMATERIALIZED first8=");
         for (size_t i = 0; i < 8; ++i) std::printf("%s%.9g", i ? "," : "", unmaterialized_values[i]);
         std::printf("\n");
     }
+    const auto norm_payload = materialized_payload(&norm_materializer, norm_graph.router, norm_ref);
     const std::vector<float> norm_reference = rmsnorm_reference(input,
-        reinterpret_cast<const float *>(norm_meta.view.payload), width, epsilon);
+        reinterpret_cast<const float *>(norm_payload.data()), width, epsilon);
     result.normalized_input = norm_values;
     result.reference_normalized_input = norm_reference;
     result.ok = norm_actual.error == AdapterError::None &&
@@ -453,7 +459,7 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
         lease, &dense_materializer);
     ExpertGraph reference_graph = build_expert_graph(gate, up, down);
     const RunResult reference = execute_expert(reference_graph,
-        Activation{ norm_values, { width, 1 } }.view(), lease, nullptr);
+        Activation{ norm_values, { width, 1 } }.view(), lease, &dense_materializer);
     const std::vector<float> actual_values = floats(actual.output);
     const std::vector<float> reference_values = floats(reference.output);
     result.ok = actual.error == AdapterError::None && reference.error == AdapterError::None &&
@@ -498,7 +504,7 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         const TokenData actual_attention = compute_token(tensors, actual, position, ak, av, lease,
             reference_only ? nullptr : materializer, (std::string(label) + "_blk" + std::to_string(plan.block_id)).c_str());
         const TokenData reference_attention = compute_token(tensors, reference, position, rk, rv, lease,
-            nullptr, "reference_attention");
+            reference_only ? nullptr : materializer, "reference_attention");
         if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == failure_block) {
             result.ok = false;
             return result;
@@ -526,11 +532,16 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
             result.ok = false;
             return result;
         }
-        auto ref_source = std::make_shared<LocalVbufRangeSource>(plan.metadata.artifact->data,
-            plan.metadata.artifact->size);
-        auto ref_backing = std::make_shared<LocalVbufRangeMaterializer>(ref_source);
-        auto ref_residency = std::make_shared<TensorResidencyStore>(8 * 1024 * 1024);
-        auto ref_materializer = std::make_shared<ResidentTensorMaterializer>(ref_backing, ref_residency);
+        std::shared_ptr<RangeSource> ref_source = source;
+        std::shared_ptr<TensorResidencyStore> ref_residency = residency;
+        std::shared_ptr<ResidentTensorMaterializer> ref_materializer = materializer;
+        if (reference_only) {
+            ref_source = std::make_shared<LocalVbufRangeSource>(plan.metadata.artifact->data,
+                plan.metadata.artifact->size);
+            auto ref_backing = std::make_shared<LocalVbufRangeMaterializer>(ref_source);
+            ref_residency = std::make_shared<TensorResidencyStore>(8 * 1024 * 1024);
+            ref_materializer = std::make_shared<ResidentTensorMaterializer>(ref_backing, ref_residency);
+        }
         std::vector<float> reference_ffn_input_with_residual(2048);
         for (size_t i = 0; i < reference_ffn_input_with_residual.size(); ++i)
             reference_ffn_input_with_residual[i] = reference_attention.output[i] + reference.values[i];
