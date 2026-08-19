@@ -5,12 +5,17 @@
 #include "full_moe_layer_poc13.cpp"
 #undef VBUF_POC13_LIBRARY_ONLY
 
+#include "vbuf_runtime_mode.h"
+
 #include <algorithm>
 #include <atomic>
 #include <map>
 #include <set>
 
 namespace {
+
+using vbuf_ggml::RuntimeMode;
+using vbuf_ggml::runs_reference_control;
 
 uint64_t audit_f32_hash(const std::vector<float> & values) {
     uint64_t hash = 1469598103934665603ULL;
@@ -374,38 +379,54 @@ ExpertTensor embedding_row(const Meta & full, uint32_t token) {
 Activation run_embedding(const Meta & full, uint32_t token,
     const std::shared_ptr<const void> & lease,
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
-    const char * label) {
+    const char * label, RuntimeMode mode = RuntimeMode::Qualification,
+    RuntimeTiming * timing = nullptr) {
     const ExpertTensor row = embedding_row(full, token);
     ExpertGraph actual_graph = build_embedding_graph(row);
-    ExpertGraph reference_graph = build_embedding_graph(row);
     const Activation scale{ { 1.0f }, { 1, 1 } };
     OffsetMaterializer scoped_materializer(materializer, 800000 + token * 100);
+    const uint64_t actual_start = clock_ns();
     const RunResult actual = execute_expert(actual_graph, scale.view(), lease, &scoped_materializer);
-    const RunResult reference = execute_expert(reference_graph, scale.view(), lease,
-        &scoped_materializer);
+    if (timing != nullptr) timing->actual_embedding_ns += clock_ns() - actual_start;
     const std::vector<float> actual_values = floats(actual.output);
-    const std::vector<float> reference_values = floats(reference.output);
-    if (actual.error != AdapterError::None || reference.error != AdapterError::None ||
-        !parity(actual_values, reference_values, label))
+    if (actual.error != AdapterError::None)
         throw std::runtime_error(std::string(label) + " failed");
+    if (runs_reference_control(mode)) {
+        ExpertGraph reference_graph = build_embedding_graph(row);
+        const uint64_t reference_start = clock_ns();
+        const RunResult reference = execute_expert(reference_graph, scale.view(), lease,
+            &scoped_materializer);
+        if (timing != nullptr) timing->reference_embedding_ns += clock_ns() - reference_start;
+        const std::vector<float> reference_values = floats(reference.output);
+        if (reference.error != AdapterError::None || !parity(actual_values, reference_values, label))
+            throw std::runtime_error(std::string(label) + " failed");
+    }
     return { actual_values, { 2048, 1 } };
 }
 
 std::vector<float> run_output_head(const Meta & norm, const Meta & output,
     const Activation & hidden, const std::shared_ptr<const void> & lease,
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
-    const char * label, uint32_t materializer_base) {
+    const char * label, uint32_t materializer_base,
+    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr) {
     ExpertGraph actual_graph = build_output_graph(norm, output);
-    ExpertGraph reference_graph = build_output_graph(norm, output);
     OffsetMaterializer scoped_materializer(materializer, materializer_base);
+    const uint64_t actual_start = clock_ns();
     const RunResult actual = execute_expert(actual_graph, hidden.view(), lease, &scoped_materializer);
-    const RunResult reference = execute_expert(reference_graph, hidden.view(), lease,
-        &scoped_materializer);
+    if (timing != nullptr) timing->actual_output_head_ns += clock_ns() - actual_start;
     const std::vector<float> actual_values = floats(actual.output);
-    const std::vector<float> reference_values = floats(reference.output);
-    if (actual.error != AdapterError::None || reference.error != AdapterError::None ||
-        !parity(actual_values, reference_values, label))
+    if (actual.error != AdapterError::None)
         throw std::runtime_error(std::string(label) + " failed");
+    if (runs_reference_control(mode)) {
+        ExpertGraph reference_graph = build_output_graph(norm, output);
+        const uint64_t reference_start = clock_ns();
+        const RunResult reference = execute_expert(reference_graph, hidden.view(), lease,
+            &scoped_materializer);
+        if (timing != nullptr) timing->reference_output_head_ns += clock_ns() - reference_start;
+        const std::vector<float> reference_values = floats(reference.output);
+        if (reference.error != AdapterError::None || !parity(actual_values, reference_values, label))
+            throw std::runtime_error(std::string(label) + " failed");
+    }
     return actual_values;
 }
 
@@ -413,7 +434,8 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
     const std::shared_ptr<const void> & lease,
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
     const std::shared_ptr<TensorResidencyStore> & residency,
-    const std::shared_ptr<RangeSource> &, const std::string & label) {
+    const std::shared_ptr<RangeSource> &, const std::string & label,
+    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr) {
     constexpr uint32_t width = 2048;
     constexpr float epsilon = 1e-6f;
     LayerRun result;
@@ -438,13 +460,16 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
         for (size_t i = 0; i < 8; ++i) std::printf("%s%.9g", i ? "," : "", unmaterialized_values[i]);
         std::printf("\n");
     }
-    const auto norm_payload = materialized_payload(&norm_materializer, norm_graph.router, norm_ref);
-    const std::vector<float> norm_reference = rmsnorm_reference(input,
-        reinterpret_cast<const float *>(norm_payload.data()), width, epsilon);
     result.normalized_input = norm_values;
-    result.reference_normalized_input = norm_reference;
-    result.ok = norm_actual.error == AdapterError::None &&
-        parity(norm_values, norm_reference, (label + "_normalized_input_parity").c_str());
+    result.ok = norm_actual.error == AdapterError::None;
+    if (runs_reference_control(mode)) {
+        const auto norm_payload = materialized_payload(&norm_materializer, norm_graph.router, norm_ref);
+        const std::vector<float> norm_reference = rmsnorm_reference(input,
+            reinterpret_cast<const float *>(norm_payload.data()), width, epsilon);
+        result.reference_normalized_input = norm_reference;
+        result.ok = result.ok && parity(norm_values, norm_reference,
+            (label + "_normalized_input_parity").c_str());
+    }
     if (!result.ok) return result;
 
     const ExpertTensor gate = dense_tensor(lookup(plan.metadata, "blk.1.ffn_gate.weight"));
@@ -457,21 +482,26 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
     dense_materializer.request(actual_graph.down, down.ref(), down.bytes);
     const RunResult actual = execute_expert(actual_graph, Activation{ norm_values, { width, 1 } }.view(),
         lease, &dense_materializer);
-    ExpertGraph reference_graph = build_expert_graph(gate, up, down);
-    const RunResult reference = execute_expert(reference_graph,
-        Activation{ norm_values, { width, 1 } }.view(), lease, &dense_materializer);
     const std::vector<float> actual_values = floats(actual.output);
-    const std::vector<float> reference_values = floats(reference.output);
-    result.ok = actual.error == AdapterError::None && reference.error == AdapterError::None &&
-        parity(actual_values, reference_values, (label + "_dense_ffn_parity").c_str());
+    result.ok = result.ok && actual.error == AdapterError::None;
     std::string merge_error;
     result.final_output.resize(width);
-    result.reference_output.resize(width);
-    if (!weighted_merge({ actual_values, input.values }, { 1.0f, 1.0f }, &result.final_output,
-            &merge_error) || !weighted_merge({ reference_values, input.values }, { 1.0f, 1.0f },
-            &result.reference_output, &merge_error) ||
-        !parity(result.final_output, result.reference_output, (label + "_residual_parity").c_str()))
+    if (!weighted_merge({ actual_values, input.values }, { 1.0f, 1.0f }, &result.final_output, &merge_error))
         result.ok = false;
+    if (runs_reference_control(mode)) {
+        ExpertGraph reference_graph = build_expert_graph(gate, up, down);
+        const RunResult reference = execute_expert(reference_graph,
+            Activation{ norm_values, { width, 1 } }.view(), lease, &dense_materializer);
+        const std::vector<float> reference_values = floats(reference.output);
+        result.reference_output.resize(width);
+        result.ok = result.ok && reference.error == AdapterError::None &&
+            parity(actual_values, reference_values, (label + "_dense_ffn_parity").c_str());
+        if (!weighted_merge({ reference_values, input.values }, { 1.0f, 1.0f },
+                &result.reference_output, &merge_error) ||
+            !parity(result.final_output, result.reference_output,
+                (label + "_residual_parity").c_str()))
+            result.ok = false;
+    }
     result.peak_active_persistent = std::max(norm_actual.report.peak_active_weight_bytes,
         actual.report.peak_active_weight_bytes);
     result.peak_resident = residency->resident_bytes();
@@ -486,7 +516,8 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
     const std::shared_ptr<TensorResidencyStore> & residency,
     const std::shared_ptr<RangeSource> & source, const char * label, bool reference_only = false,
-    const MultiSelectiveFailureSource * failure_source = nullptr, uint32_t failure_block = 2) {
+    const MultiSelectiveFailureSource * failure_source = nullptr, uint32_t failure_block = 2,
+    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr) {
     SequenceRun result;
     Activation actual = input;
     Activation reference = input;
@@ -501,10 +532,17 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         RuntimeStateSlot * av = &(*actual_v)[index];
         RuntimeStateSlot * rk = &(*reference_k)[index];
         RuntimeStateSlot * rv = &(*reference_v)[index];
+        const uint64_t actual_attention_start = clock_ns();
         const TokenData actual_attention = compute_token(tensors, actual, position, ak, av, lease,
             reference_only ? nullptr : materializer, (std::string(label) + "_blk" + std::to_string(plan.block_id)).c_str());
-        const TokenData reference_attention = compute_token(tensors, reference, position, rk, rv, lease,
-            reference_only ? nullptr : materializer, "reference_attention");
+        if (timing != nullptr) timing->actual_attention_ns += clock_ns() - actual_attention_start;
+        const uint64_t reference_attention_start = clock_ns();
+        const TokenData reference_attention = runs_reference_control(mode)
+            ? compute_token(tensors, reference, position, rk, rv, lease,
+                reference_only ? nullptr : materializer, "reference_attention")
+            : actual_attention;
+        if (timing != nullptr && runs_reference_control(mode))
+            timing->reference_attention_ns += clock_ns() - reference_attention_start;
         if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == failure_block) {
             result.ok = false;
             return result;
@@ -523,15 +561,19 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         if (dense_block && std::getenv("VBUF_AUDIT_FFN_NORM") != nullptr &&
             audit_f32_hash(dense_ffn_input.values) != audit_f32_hash(ffn_input_with_residual))
             throw std::runtime_error("block-0 dense FFN input wiring invariant failed");
+        const uint64_t actual_ffn_start = clock_ns();
         const LayerRun actual_ffn = dense_block
             ? run_dense_layer(plan, dense_ffn_input, lease, reference_only ? nullptr : materializer,
-                reference_only ? nullptr : residency, source, block_label)
+                reference_only ? nullptr : residency, source, block_label, mode)
             : run_layer(plan.metadata, ffn_input, lease, reference_only ? nullptr : materializer,
-                reference_only ? nullptr : residency, source, block_label, false, plan.namespace_base);
+                reference_only ? nullptr : residency, source, block_label, false, plan.namespace_base,
+                false, mode);
+        if (timing != nullptr) timing->actual_ffn_ns += clock_ns() - actual_ffn_start;
         if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == failure_block) {
             result.ok = false;
             return result;
         }
+        LayerRun reference_ffn;
         std::shared_ptr<RangeSource> ref_source = source;
         std::shared_ptr<TensorResidencyStore> ref_residency = residency;
         std::shared_ptr<ResidentTensorMaterializer> ref_materializer = materializer;
@@ -546,13 +588,19 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         for (size_t i = 0; i < reference_ffn_input_with_residual.size(); ++i)
             reference_ffn_input_with_residual[i] = reference_attention.output[i] + reference.values[i];
         const Activation reference_dense_ffn_input{ reference_ffn_input_with_residual, { 2048, 1 } };
-        const LayerRun reference_ffn = dense_block
-            ? run_dense_layer(plan, reference_dense_ffn_input, lease, ref_materializer, ref_residency,
-                ref_source, "reference_" + block_label)
-            : run_layer(plan.metadata, Activation{ reference_attention.output, { 2048, 1 } }, lease,
-                ref_materializer, ref_residency,
-                ref_source, "reference_" + block_label, false, plan.namespace_base);
-        if (!reference_only) {
+        if (runs_reference_control(mode)) {
+            const uint64_t reference_ffn_start = clock_ns();
+            reference_ffn = dense_block
+                ? run_dense_layer(plan, reference_dense_ffn_input, lease, ref_materializer, ref_residency,
+                    ref_source, "reference_" + block_label, mode)
+                : run_layer(plan.metadata, Activation{ reference_attention.output, { 2048, 1 } }, lease,
+                    ref_materializer, ref_residency,
+                    ref_source, "reference_" + block_label, false, plan.namespace_base, false, mode);
+            if (timing != nullptr) timing->reference_ffn_ns += clock_ns() - reference_ffn_start;
+        } else {
+            reference_ffn = actual_ffn;
+        }
+        if (!reference_only && runs_reference_control(mode)) {
             parity(actual_attention.output, reference_attention.output,
                 (block_label + "_attention_parity").c_str());
             parity(actual_ffn.final_output, reference_ffn.reference_output,
@@ -570,16 +618,19 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         result.ffn_inputs.push_back(std::move(ffn_input_with_residual));
         result.ffn_normalized.push_back(actual_ffn.normalized_input);
         result.ffn_outputs.push_back(actual_ffn.final_output);
-        result.router_parity = result.router_parity && actual_ffn.selection.ids == reference_ffn.selection.ids;
+        result.router_parity = result.router_parity &&
+            (!runs_reference_control(mode) || actual_ffn.selection.ids == reference_ffn.selection.ids);
         result.weights.push_back(actual_ffn.weights);
         result.block_outputs.push_back(actual_ffn.final_output);
-        result.ok = result.ok && actual_ffn.ok && actual_ffn.selection.ids == reference_ffn.selection.ids;
+        result.ok = result.ok && actual_ffn.ok &&
+            (!runs_reference_control(mode) || actual_ffn.selection.ids == reference_ffn.selection.ids);
         result.peak_active_persistent = std::max(result.peak_active_persistent,
             actual_ffn.peak_active_persistent);
         if (!actual_ffn.ok) return result;
         ++result.completed_blocks;
         actual = Activation{ actual_ffn.final_output, { 2048, 1 } };
-        reference = Activation{ reference_ffn.reference_output, { 2048, 1 } };
+        reference = runs_reference_control(mode)
+            ? Activation{ reference_ffn.reference_output, { 2048, 1 } } : actual;
         previous_block_ready_ns = clock_ns();
     }
     result.output = actual;

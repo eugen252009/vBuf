@@ -4,6 +4,8 @@
 #include "multi_expert_moe_poc12.cpp"
 #undef VBUF_POC12_LIBRARY_ONLY
 
+#include "vbuf_runtime_mode.h"
+
 #include <chrono>
 
 namespace {
@@ -173,7 +175,8 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
     const std::shared_ptr<TensorResidencyStore> & residency,
     const std::shared_ptr<RangeSource> & source, const std::string & label,
-    bool preload_gates, uint32_t namespace_base = 0, bool no_jit_fallback = false) {
+    bool preload_gates, uint32_t namespace_base = 0, bool no_jit_fallback = false,
+    RuntimeMode mode = RuntimeMode::Qualification) {
     constexpr uint32_t width = 2048;
     constexpr float epsilon = 1e-6f;
     LayerRun result;
@@ -189,14 +192,16 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     norm_materializer.request(norm_graph.router, norm_ref, norm_ref.view.payload_len);
     const RunResult norm_actual = execute(norm_graph, input.view(), lease, &norm_materializer);
     const std::vector<float> norm_values = floats(norm_actual.output);
-    const auto norm_payload = materialized_payload(&norm_materializer, norm_graph.router, norm_ref);
-    const std::vector<float> norm_reference = rmsnorm_reference(input,
-        reinterpret_cast<const float *>(norm_payload.data()), width, epsilon);
     result.normalized_input = norm_values;
-    result.reference_normalized_input = norm_reference;
-    const bool norm_ok = norm_actual.error == AdapterError::None &&
-        (!no_jit_fallback || norm_materializer.state(norm_graph.router) != MaterializationState::Failed) &&
-        parity(norm_values, norm_reference, "normalized_input_parity");
+    bool norm_ok = norm_actual.error == AdapterError::None &&
+        (!no_jit_fallback || norm_materializer.state(norm_graph.router) != MaterializationState::Failed);
+    if (runs_reference_control(mode)) {
+        const auto norm_payload = materialized_payload(&norm_materializer, norm_graph.router, norm_ref);
+        const std::vector<float> norm_reference = rmsnorm_reference(input,
+            reinterpret_cast<const float *>(norm_payload.data()), width, epsilon);
+        result.reference_normalized_input = norm_reference;
+        norm_ok = norm_ok && parity(norm_values, norm_reference, "normalized_input_parity");
+    }
     result.ok = result.ok && norm_ok;
     if (!norm_ok) {
         std::printf("%s normalization_failure final_output=INVALID resources_after_teardown=0\n", label.c_str());
@@ -208,27 +213,28 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     OffsetMaterializer router_materializer(materializer, namespace_base + 501);
     router_materializer.request(router_graph.router, router_ref, router_ref.view.payload_len);
     RoutedResult routed = route_activation(router_graph, normalized, lease,
-        &router_materializer, router_ref, width, 64, 6);
-    const auto router_payload = materialized_payload(&router_materializer, router_graph.router, router_ref);
-    const float * router_weights = reinterpret_cast<const float *>(router_payload.data());
-    const std::vector<float> reference_logits = reference_scores(router_weights, width, 64, normalized);
+        &router_materializer, router_ref, width, 64, 6, mode);
     result.router_logits = routed.logits;
-    result.reference_router_logits = reference_logits;
     result.selection = routed.selection;
     result.weights = routed.weights;
     result.router_first_consumer_start_ns = routed.first_consumer_start_ns;
-    TopKSelection reference_selection;
-    std::string topk_error;
-    deterministic_top_k(reference_logits, 64, 6, &reference_selection, &topk_error);
-    const std::vector<float> reference_weights = normalized_selected_weights(reference_logits, reference_selection);
-    const bool selected_weights_ok = parity(routed.weights, reference_weights, "selected_weight_parity");
-    result.ok = result.ok && selected_weights_ok;
+    if (runs_reference_control(mode)) {
+        const auto router_payload = materialized_payload(&router_materializer, router_graph.router, router_ref);
+        const float * router_weights = reinterpret_cast<const float *>(router_payload.data());
+        const std::vector<float> reference_logits = reference_scores(router_weights, width, 64, normalized);
+        result.reference_router_logits = reference_logits;
+        TopKSelection reference_selection;
+        std::string topk_error;
+        deterministic_top_k(reference_logits, 64, 6, &reference_selection, &topk_error);
+        const std::vector<float> reference_weights = normalized_selected_weights(reference_logits, reference_selection);
+        result.ok = result.ok && parity(routed.weights, reference_weights, "selected_weight_parity");
+    }
     std::printf("%s topk_ids=%s normalized_weights=", label.c_str(), ids_text(routed.selection).c_str());
     for (float weight : routed.weights) std::printf("%g,", weight);
     std::printf("\n");
 
     MultiRun routed_run = execute_selected(metadata, routed.selection, normalized, lease,
-        materializer, residency, label + "_routed", source, preload_gates, namespace_base, no_jit_fallback);
+        materializer, residency, label + "_routed", source, preload_gates, namespace_base, no_jit_fallback, mode);
     result.ok = result.ok && routed_run.ok;
     if (!routed_run.ok) {
         std::printf("%s selected_expert_failure final_output=INVALID final_composition=NOT_EXECUTED "
@@ -237,10 +243,13 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     }
     std::vector<float> routed_actual, routed_reference;
     std::string merge_error;
-    const bool routed_merge_ok = weighted_merge(routed_run.actual, routed.weights,
-        &routed_actual, &merge_error) && weighted_merge(routed_run.reference, routed.weights,
-        &routed_reference, &merge_error) && parity(routed_actual, routed_reference,
-        "routed_merge_parity");
+    bool routed_merge_ok = weighted_merge(routed_run.actual, routed.weights,
+        &routed_actual, &merge_error);
+    if (runs_reference_control(mode)) {
+        routed_merge_ok = routed_merge_ok && weighted_merge(routed_run.reference, routed.weights,
+            &routed_reference, &merge_error) && parity(routed_actual, routed_reference,
+            "routed_merge_parity");
+    }
     result.routed_aggregate = routed_actual;
     result.reference_routed_aggregate = routed_reference;
     result.routed_first_consumer_start_ns = routed_run.first_consumer_start_ns;
@@ -249,35 +258,41 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     const ExpertTensor shared_gate = shared_tensor(lookup(metadata, "blk.1.ffn_gate_shexp.weight"));
     const ExpertTensor shared_up = shared_tensor(lookup(metadata, "blk.1.ffn_up_shexp.weight"));
     const ExpertTensor shared_down = shared_tensor(lookup(metadata, "blk.1.ffn_down_shexp.weight"));
-    ExpertGraph shared_reference_graph = build_expert_graph(shared_gate, shared_up, shared_down);
     OffsetMaterializer shared_materializer(materializer, namespace_base + 600);
-    const RunResult shared_reference = execute_expert(shared_reference_graph, normalized.view(), lease,
-        &shared_materializer);
     ExpertGraph shared_actual_graph = build_expert_graph(shared_gate, shared_up, shared_down);
     result.execution_start_ns = clock_ns();
     const RunResult shared_actual = execute_expert(shared_actual_graph, normalized.view(), lease,
         &shared_materializer, no_jit_fallback);
     result.execution_end_ns = clock_ns();
     const std::vector<float> shared_actual_values = floats(shared_actual.output);
-    const std::vector<float> shared_reference_values = floats(shared_reference.output);
-    const bool shared_ok = shared_actual.error == AdapterError::None &&
-        shared_reference.error == AdapterError::None &&
-        parity(shared_actual_values, shared_reference_values, "shared_expert_parity");
+    bool shared_ok = shared_actual.error == AdapterError::None;
+    std::vector<float> shared_reference_values;
+    if (runs_reference_control(mode)) {
+        ExpertGraph shared_reference_graph = build_expert_graph(shared_gate, shared_up, shared_down);
+        const RunResult shared_reference = execute_expert(shared_reference_graph, normalized.view(), lease,
+            &shared_materializer);
+        shared_reference_values = floats(shared_reference.output);
+        shared_ok = shared_ok && shared_reference.error == AdapterError::None &&
+            parity(shared_actual_values, shared_reference_values, "shared_expert_parity");
+    }
     result.ok = result.ok && shared_ok;
     result.shared_output = shared_actual_values;
     result.reference_shared_output = shared_reference_values;
     result.shared_first_consumer_start_ns = shared_actual.first_consumer_start_ns;
 
     std::vector<float> composed_actual, composed_reference, final_actual;
-    const bool compose_ok = weighted_merge({ routed_actual, shared_actual_values }, { 1.0f, 1.0f },
-        &composed_actual, &merge_error) && weighted_merge({ routed_reference, shared_reference_values },
-        { 1.0f, 1.0f }, &composed_reference, &merge_error) &&
-        parity(composed_actual, composed_reference, "pre_residual_composition_parity") &&
+    bool compose_ok = weighted_merge({ routed_actual, shared_actual_values }, { 1.0f, 1.0f },
+        &composed_actual, &merge_error) &&
         weighted_merge({ composed_actual, input.values }, { 1.0f, 1.0f }, &final_actual, &merge_error);
     std::vector<float> final_reference;
-    const bool reference_compose_ok = weighted_merge({ composed_reference, input.values },
-        { 1.0f, 1.0f }, &final_reference, &merge_error) &&
-        parity(final_actual, final_reference, "final_layer_parity");
+    bool reference_compose_ok = true;
+    if (runs_reference_control(mode)) {
+        reference_compose_ok = weighted_merge({ routed_reference, shared_reference_values },
+            { 1.0f, 1.0f }, &composed_reference, &merge_error) &&
+            parity(composed_actual, composed_reference, "pre_residual_composition_parity") &&
+            weighted_merge({ composed_reference, input.values }, { 1.0f, 1.0f },
+                &final_reference, &merge_error) && parity(final_actual, final_reference, "final_layer_parity");
+    }
     result.ok = result.ok && compose_ok && reference_compose_ok;
     result.pre_residual = composed_actual;
     result.reference_pre_residual = composed_reference;

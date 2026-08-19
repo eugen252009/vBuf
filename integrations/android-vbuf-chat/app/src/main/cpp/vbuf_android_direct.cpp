@@ -48,6 +48,11 @@ constexpr const char * TAG = "vbuf-android-direct";
 constexpr uint64_t RESIDENCY_BUDGET = 256 * 1024 * 1024;
 constexpr uint32_t MAX_CONTEXT = 128;
 constexpr uint32_t MODEL_BLOCKS = 27;
+#ifdef VBUF_ANDROID_QUALIFICATION
+constexpr RuntimeMode ANDROID_RUNTIME_MODE = RuntimeMode::Qualification;
+#else
+constexpr RuntimeMode ANDROID_RUNTIME_MODE = RuntimeMode::NormalInference;
+#endif
 
 uint64_t android_now_ns() {
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -244,7 +249,8 @@ struct StepResult {
 
 class DirectSession final {
 public:
-    DirectSession(const std::string & metadata_path, const std::string & endpoint) {
+    DirectSession(const std::string & metadata_path, const std::string & endpoint)
+        : mode_(ANDROID_RUNTIME_MODE) {
         const uint64_t start = android_now_ns();
         load_metadata(metadata_path, &metadata_);
         tokenizer_ = std::make_unique<ByteBpeTokenizer>(metadata_.handle);
@@ -282,13 +288,46 @@ public:
         if (prompt_tokens.empty()) throw std::runtime_error("prompt produced no tokens");
         if (prompt_tokens.size() + max_tokens > MAX_CONTEXT)
             throw std::runtime_error("prompt exceeds bounded context");
+        prompt_token_count_ = prompt_tokens.size();
+        std::fprintf(stderr, "BASELINE_PROMPT mode=%s token_count=%llu\n",
+            mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
+            static_cast<unsigned long long>(prompt_token_count_));
         const uint64_t start = android_now_ns();
+        RuntimeTiming timing;
+        prefill_ms_ = 0;
+        last_position_ms_ = 0;
         uint32_t input = prompt_tokens.front();
         uint32_t position = 0;
         for (uint32_t prompt_token : prompt_tokens) {
             if (cancelled_.load(std::memory_order_relaxed)) throw std::runtime_error("cancelled");
             input = prompt_token;
-            const StepResult step = run_step(input, position++);
+            const uint64_t position_start = android_now_ns();
+            const RuntimeTiming timing_before = timing;
+            const StepResult step = run_step(input, position++, &timing);
+            last_position_ms_ = (android_now_ns() - position_start) / 1000000;
+            prefill_ms_ += last_position_ms_;
+            __android_log_print(ANDROID_LOG_INFO, TAG,
+                "BASELINE mode=%s position=%u kind=prompt total_ms=%llu actual_attention_ms=%llu "
+                "reference_attention_ms=%s actual_ffn_ms=%llu reference_ffn_ms=%s output_head_ms=%llu "
+                "reference_output_head_ms=%s",
+                mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
+                position - 1, static_cast<unsigned long long>(last_position_ms_),
+                static_cast<unsigned long long>((timing.actual_attention_ns - timing_before.actual_attention_ns) / 1000000),
+                mode_ == RuntimeMode::Qualification
+                    ? std::to_string((timing.reference_attention_ns - timing_before.reference_attention_ns) / 1000000).c_str()
+                    : "NOT_EXECUTED",
+                static_cast<unsigned long long>((timing.actual_ffn_ns - timing_before.actual_ffn_ns) / 1000000),
+                mode_ == RuntimeMode::Qualification
+                    ? std::to_string((timing.reference_ffn_ns - timing_before.reference_ffn_ns) / 1000000).c_str()
+                    : "NOT_EXECUTED",
+                static_cast<unsigned long long>((timing.actual_output_head_ns - timing_before.actual_output_head_ns) / 1000000),
+                mode_ == RuntimeMode::Qualification
+                    ? std::to_string((timing.reference_output_head_ns - timing_before.reference_output_head_ns) / 1000000).c_str()
+                    : "NOT_EXECUTED");
+            std::fprintf(stderr, "BASELINE mode=%s position=%u kind=prompt total_ms=%llu\n",
+                mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
+                position - 1, static_cast<unsigned long long>(last_position_ms_));
+            log_position_metrics(position - 1, "prompt");
             input = step.next;
         }
         const uint64_t first_token_start = android_now_ns();
@@ -296,7 +335,32 @@ public:
         uint32_t generated = 0;
         for (; generated < max_tokens; ++generated) {
             if (cancelled_.load(std::memory_order_relaxed)) throw std::runtime_error("cancelled");
-            const StepResult step = run_step(input, position++);
+            const uint64_t position_start = android_now_ns();
+            const RuntimeTiming timing_before = timing;
+            const StepResult step = run_step(input, position++, &timing);
+            last_position_ms_ = (android_now_ns() - position_start) / 1000000;
+            __android_log_print(ANDROID_LOG_INFO, TAG,
+                "BASELINE mode=%s position=%u kind=generated total_ms=%llu actual_attention_ms=%llu "
+                "reference_attention_ms=%s actual_ffn_ms=%llu reference_ffn_ms=%s output_head_ms=%llu "
+                "reference_output_head_ms=%s",
+                mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
+                position - 1, static_cast<unsigned long long>(last_position_ms_),
+                static_cast<unsigned long long>((timing.actual_attention_ns - timing_before.actual_attention_ns) / 1000000),
+                mode_ == RuntimeMode::Qualification
+                    ? std::to_string((timing.reference_attention_ns - timing_before.reference_attention_ns) / 1000000).c_str()
+                    : "NOT_EXECUTED",
+                static_cast<unsigned long long>((timing.actual_ffn_ns - timing_before.actual_ffn_ns) / 1000000),
+                mode_ == RuntimeMode::Qualification
+                    ? std::to_string((timing.reference_ffn_ns - timing_before.reference_ffn_ns) / 1000000).c_str()
+                    : "NOT_EXECUTED",
+                static_cast<unsigned long long>((timing.actual_output_head_ns - timing_before.actual_output_head_ns) / 1000000),
+                mode_ == RuntimeMode::Qualification
+                    ? std::to_string((timing.reference_output_head_ns - timing_before.reference_output_head_ns) / 1000000).c_str()
+                    : "NOT_EXECUTED");
+            std::fprintf(stderr, "BASELINE mode=%s position=%u kind=generated total_ms=%llu\n",
+                mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
+                position - 1, static_cast<unsigned long long>(last_position_ms_));
+            log_position_metrics(position - 1, "generated");
             output += tokenizer_->decode(step.next);
             input = step.next;
             {
@@ -308,6 +372,7 @@ public:
             if (tokenizer_->is_eos(input)) break;
         }
         generation_ms_ = (android_now_ns() - start) / 1000000;
+        timing_ = timing;
         generated_tokens_ = generated + 1;
         {
             std::lock_guard lock(progress_mutex_);
@@ -327,6 +392,24 @@ public:
         progress_active_ = false;
     }
 
+    void log_position_metrics(uint32_t position, const char * kind) const {
+        const RangeSourceMetrics transport = source_->metrics();
+        uint64_t hits = 0, misses = 0, evictions = 0;
+        for (const auto & event : residency_->trace()) {
+            if (event.kind == ResidencyEventKind::Hit) ++hits;
+            if (event.kind == ResidencyEventKind::Miss) ++misses;
+            if (event.kind == ResidencyEventKind::Evict) ++evictions;
+        }
+        std::fprintf(stderr, "BASELINE_METRICS mode=%s position=%u kind=%s requests=%llu bytes=%llu "
+            "hits=%llu misses=%llu evictions=%llu reload_bytes=%llu peak_resident=%llu\n",
+            mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
+            position, kind, static_cast<unsigned long long>(transport.requests),
+            static_cast<unsigned long long>(transport.bytes), static_cast<unsigned long long>(hits),
+            static_cast<unsigned long long>(misses), static_cast<unsigned long long>(evictions),
+            static_cast<unsigned long long>(reload_bytes_),
+            static_cast<unsigned long long>(peak_resident_bytes_));
+    }
+
     std::string metrics() const {
         const RangeSourceMetrics transport = source_->metrics();
         uint64_t hits = 0, misses = 0, evictions = 0;
@@ -339,9 +422,24 @@ public:
             1000.0 * static_cast<double>(generated_tokens_) / generation_ms_;
         return "Model: DeepSeek-V2-Lite IQ2_XXS\n"
             "Residency budget: 256 MiB\n"
+            "Runtime mode: " + std::string(mode_ == RuntimeMode::Qualification
+                ? "QUALIFICATION" : "NORMAL_INFERENCE") + "\n"
+            "Prompt tokens: " + std::to_string(prompt_token_count_) + "\n"
             "Model open: " + std::to_string(open_ms_) + " ms\n"
             "TTFT: " + std::to_string(ttft_ms_) + " ms\n"
             "Generation: " + std::to_string(generation_ms_) + " ms\n"
+            "Prefill: " + std::to_string(prefill_ms_) + " ms\n"
+            "Last position: " + std::to_string(last_position_ms_) + " ms\n"
+            "Actual attention: " + std::to_string(timing_.actual_attention_ns / 1000000) + " ms\n"
+            "Reference attention: " + (mode_ == RuntimeMode::Qualification
+                ? std::to_string(timing_.reference_attention_ns / 1000000) : "NOT_EXECUTED") + "\n"
+            "Actual FFN: " + std::to_string(timing_.actual_ffn_ns / 1000000) + " ms\n"
+            "Reference FFN: " + (mode_ == RuntimeMode::Qualification
+                ? std::to_string(timing_.reference_ffn_ns / 1000000) : "NOT_EXECUTED") + "\n"
+            "Actual output head: " + std::to_string(timing_.actual_output_head_ns / 1000000) + " ms\n"
+            "Reference output head: " + (mode_ == RuntimeMode::Qualification
+                ? std::to_string(timing_.reference_output_head_ns / 1000000) : "NOT_EXECUTED") + "\n"
+            "Materialization wait: NOT_INSTRUMENTED\n"
             "Tokens/sec: " + std::to_string(tokens_per_second) + "\n"
             "HTTP requests: " + std::to_string(transport.requests) + "\n"
             "Returned bytes: " + std::to_string(transport.bytes) + "\n"
@@ -372,15 +470,16 @@ private:
         }
     }
 
-    StepResult run_step(uint32_t token, uint32_t position) {
+    StepResult run_step(uint32_t token, uint32_t position, RuntimeTiming * timing) {
         const size_t trace_begin = residency_->trace().size();
         const uint64_t start = android_now_ns();
-        const Activation input = run_embedding(embedding_, token, lease_, materializer_, "android_embedding");
+        const Activation input = run_embedding(embedding_, token, lease_, materializer_, "android_embedding", mode_, timing);
         const SequenceRun sequence = run_sequence(plans_, input, position, &actual_k_, &actual_v_,
-            &reference_k_, &reference_v_, lease_, materializer_, residency_, source_, "android_generation");
+            &reference_k_, &reference_v_, lease_, materializer_, residency_, source_, "android_generation",
+            false, nullptr, 2, mode_, timing);
         if (!sequence.ok) throw std::runtime_error("direct runtime execution failed");
         const std::vector<float> logits = run_output_head(output_norm_, output_, sequence.output,
-            lease_, materializer_, "android_logits", 900000 + position * 100);
+            lease_, materializer_, "android_logits", 900000 + position * 100, mode_, timing);
         const uint32_t next = greedy(logits);
         const TraceDelta delta = trace_delta(plans_, residency_->trace(), trace_begin,
             residency_->trace().size(), &loaded_residency_ids_);
@@ -415,6 +514,11 @@ private:
     uint64_t reload_bytes_ = 0;
     uint64_t peak_resident_bytes_ = 0;
     uint64_t peak_active_bytes_ = 0;
+    RuntimeMode mode_ = RuntimeMode::NormalInference;
+    RuntimeTiming timing_;
+    uint64_t prefill_ms_ = 0;
+    uint64_t last_position_ms_ = 0;
+    uint64_t prompt_token_count_ = 0;
 };
 
 std::mutex session_mutex;

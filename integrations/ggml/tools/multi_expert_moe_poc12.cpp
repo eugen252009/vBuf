@@ -4,6 +4,8 @@
 #include "router_driven_moe_poc11.cpp"
 #undef main
 
+#include "vbuf_runtime_mode.h"
+
 #include "vbuf_weighted_merge.h"
 #include "vbuf_source_selection.h"
 
@@ -59,20 +61,23 @@ std::vector<float> normalized_selected_weights(const std::vector<float> & logits
 
 RoutedResult route_activation(RouterGraph & graph, const Activation & activation,
     const std::shared_ptr<const void> & lease, TensorMaterializer * materializer,
-    const PersistentTensorRef & router, uint32_t input_dim, uint32_t expert_count, uint32_t k) {
+    const PersistentTensorRef & router, uint32_t input_dim, uint32_t expert_count, uint32_t k,
+    RuntimeMode mode = RuntimeMode::Qualification) {
     const RunResult runtime = execute(graph, activation.view(), lease, materializer);
     if (runtime.error != AdapterError::None) throw std::runtime_error("router execution failed");
     const std::vector<float> logits = floats(runtime.output);
-    if (materializer == nullptr || !materializer->request(graph.router, router, router.view.payload_len) ||
-        materializer->wait(graph.router) != MaterializationState::Ready)
-        throw std::runtime_error("router reference payload materialization failed");
-    const auto payload = materializer->obtain_ready_tensor(graph.router);
-    if (!payload) throw std::runtime_error("router reference payload unavailable");
-    const std::vector<float> reference = reference_scores(
-        reinterpret_cast<const float *>(payload->storage.base + payload->storage.payload_offset),
-        input_dim, expert_count, activation);
-    materializer->release(graph.router);
-    if (!parity(logits, reference, "router_score_parity")) throw std::runtime_error("router parity failed");
+    if (runs_reference_control(mode)) {
+        if (materializer == nullptr || !materializer->request(graph.router, router, router.view.payload_len) ||
+            materializer->wait(graph.router) != MaterializationState::Ready)
+            throw std::runtime_error("router reference payload materialization failed");
+        const auto payload = materializer->obtain_ready_tensor(graph.router);
+        if (!payload) throw std::runtime_error("router reference payload unavailable");
+        const std::vector<float> reference = reference_scores(
+            reinterpret_cast<const float *>(payload->storage.base + payload->storage.payload_offset),
+            input_dim, expert_count, activation);
+        materializer->release(graph.router);
+        if (!parity(logits, reference, "router_score_parity")) throw std::runtime_error("router parity failed");
+    }
     RoutedResult result;
     result.logits = logits;
     result.first_consumer_start_ns = runtime.first_consumer_start_ns;
@@ -118,7 +123,8 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
     const std::shared_ptr<TensorResidencyStore> & residency, const std::string & label,
     const std::shared_ptr<RangeSource> & source, bool preload_gates,
     uint32_t namespace_base = 0,
-    bool no_jit_fallback = false) {
+    bool no_jit_fallback = false,
+    RuntimeMode mode = RuntimeMode::Qualification) {
     MultiRun result;
     result.selected_bytes = 0;
     result.materialization_events_before = shared_materializer->trace().size();
@@ -140,10 +146,13 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
                 static_cast<unsigned long long>(tensor->bytes));
 
         OffsetMaterializer offset(shared_materializer, base);
-        ExpertGraph reference_graph = build_expert_graph(gate, up, down);
-        const RunResult reference = execute_expert(reference_graph, activation.view(), lease,
-            &offset);
-        result.reference.push_back(floats(reference.output));
+        RunResult reference;
+        const bool has_reference = runs_reference_control(mode);
+        if (has_reference) {
+            ExpertGraph reference_graph = build_expert_graph(gate, up, down);
+            reference = execute_expert(reference_graph, activation.view(), lease, &offset);
+            result.reference.push_back(floats(reference.output));
+        }
         if (preload_gates && rank % 2 == 0 && residency->peek(base) == nullptr) {
             LocalVbufRangeMaterializer local(std::make_shared<LocalVbufRangeSource>(
                 metadata.artifact->data, metadata.artifact->size));
@@ -177,9 +186,12 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
         if (result.first_consumer_start_ns == 0 ||
             (actual.first_consumer_start_ns != 0 && actual.first_consumer_start_ns < result.first_consumer_start_ns))
             result.first_consumer_start_ns = actual.first_consumer_start_ns;
-        result.ok = result.ok && actual.error == AdapterError::None && reference.error == AdapterError::None;
-        if (actual.error == AdapterError::None && reference.error == AdapterError::None)
-            result.ok = result.ok && parity(result.actual.back(), result.reference.back(), "expert_parity");
+        result.ok = result.ok && actual.error == AdapterError::None;
+        if (has_reference) {
+            result.ok = result.ok && reference.error == AdapterError::None;
+            if (reference.error == AdapterError::None)
+                result.ok = result.ok && parity(result.actual.back(), result.reference.back(), "expert_parity");
+        }
         std::printf("%s expert_id=%u consumer_wait=not_instrumented acquire_release=recorded "
             "peak_active=%llu peak_resident=%llu\n", label.c_str(), expert,
             static_cast<unsigned long long>(actual.report.peak_active_weight_bytes),

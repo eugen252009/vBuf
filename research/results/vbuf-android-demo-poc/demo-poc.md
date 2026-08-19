@@ -183,15 +183,18 @@ generation result and must not be treated as parity qualification.
 
 ## 11. Limitations
 
-- The full APK builds with the locally available Gradle JDK 17, but the default
-  host JRE alone is insufficient because it has no `javac`.
+- Historical APK qualification used a locally available Gradle JDK 17; the
+  current environment's installed JDK 21 has no `javac`, so the finalized
+  baseline used the Android native probe path.
 - The hardware generation path has not yet returned actual output for an
   arbitrary prompt.
 - The first UI progress-polling rebuild has not yet been requalified to a
   completed generated token.
 - The dense-prompt router parity failure must be diagnosed before Phase A can
   pass.
-- No performance baseline was frozen.
+- The later controlled normal-inference baseline is frozen in
+  `normal-inference-baseline.md`; this original demo report remains the
+  historical Phase A result.
 - No D3 optimization was attempted.
 
 ## 12. Phase A Verdict
