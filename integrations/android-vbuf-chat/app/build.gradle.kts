@@ -12,18 +12,18 @@ android {
         minSdk = 29
         targetSdk = 36
         versionCode = 1
-    versionName = "0.1"
+        versionName = "0.2"
 
-    buildFeatures {
-        buildConfig = true
-    }
-
-    val remoteUrl = (project.findProperty("vbufRemoteUrl") as String?) ?: ""
-    buildTypes {
-        getByName("debug") {
-            buildConfigField("String", "VBUF_REMOTE_URL", "\"${remoteUrl.replace("\\\"", "\\\\\"")}\"")
+        buildFeatures {
+            buildConfig = true
         }
-    }
+
+        val remoteUrl = (project.findProperty("vbufRemoteUrl") as String?) ?: ""
+        buildTypes {
+            getByName("debug") {
+                buildConfigField("String", "VBUF_REMOTE_URL", "\"${remoteUrl.replace("\\\"", "\\\\\"")}\"")
+            }
+        }
 
         ndk {
             abiFilters += "arm64-v8a"
@@ -31,14 +31,10 @@ android {
 
         externalNativeBuild {
             cmake {
-                arguments += "-DLLAMA_SRC=/tmp/llama.cpp-step21"
+                arguments += "-DGGML_SRC=/tmp/llama.cpp-step21/ggml"
                 arguments += "-DVBUF_RUST_LIB=${project.projectDir}/src/main/jniLibs/arm64-v8a/libvbuf_ml.so"
                 arguments += "-DGGML_NATIVE=OFF"
                 arguments += "-DGGML_CPU_ALL_VARIANTS=OFF"
-                arguments += "-DLLAMA_BUILD_COMMON=OFF"
-                arguments += "-DLLAMA_BUILD_TESTS=OFF"
-                arguments += "-DLLAMA_BUILD_EXAMPLES=OFF"
-                arguments += "-DLLAMA_BUILD_SERVER=OFF"
                 arguments += "-DGGML_BACKEND_DL=OFF"
                 arguments += "-DGGML_OPENMP=OFF"
                 arguments += "-DANDROID_STL=c++_shared"

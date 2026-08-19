@@ -205,6 +205,7 @@ void write_summary(const std::string & path, const std::vector<PositionEvidence>
 
 } // namespace
 
+#ifndef VBUF_POC22_LIBRARY_ONLY
 int main(int argc, char ** argv) {
     if (argc < 8) {
         std::fprintf(stderr, "usage: autoregressive_poc22 <vbuf> <endpoint> <capture-dir> "
@@ -488,3 +489,4 @@ int main(int argc, char ** argv) {
         return 16;
     }
 }
+#endif

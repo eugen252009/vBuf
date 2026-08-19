@@ -1,26 +1,24 @@
-# Android ARM64 vBuf Chat POC
+# Android ARM64 vBuf-ML Direct Runtime Demo
 
-This is a Phase A local-inference consumer for the Pixel 7 Pro. It intentionally
-uses a local Qwen3-0.6B vBuf artifact to isolate Android ARM64 native loading,
-tokenization, prompt evaluation, and bounded greedy generation from Phase B
-HTTP Range loading.
+This is the Android user-facing demo for the canonical direct PoC22/vBuf-ML
+runtime. It uses the DeepSeek-V2-Lite IQ2_XXS semantic bootstrap, fetches the
+validated physical payload ranges over HTTP, keeps residency bounded at 256 MiB,
+and executes the borrowed tensors through the GGML CPU backend.
 
-Validated target: Pixel 7 Pro, Android 17, `arm64-v8a`. The successful run opened
-the local model in 1680 ms and generated 16 bounded tokens in 20620 ms. The
-observed native heap PSS was 736924 KiB and total PSS was 1492923 KiB.
+The native JNI library is an adapter around the existing direct runtime. It does
+not use `llama_model_loader`, preload the model, or own source acquisition.
 
 ```text
 Java Activity
     -> JNI facade
-    -> llama_model_load_vbuf_direct
-    -> existing vBuf/ML FFI + source-independent llama integration
-    -> llama.cpp / ggml CPU backend
+    -> PoC22 direct runtime
+    -> vBuf-ML consumer / HttpRangeSource / materializer / residency
+    -> GGML CPU backend
 ```
 
-The model remains a vBuf artifact. Kotlin/Java does not parse vBuf, and the
-native backend does not know whether a future materialized span came from SELF,
-file, or HTTP RangeSource. Phase B only needs to replace the local source
-materialization input; it is not implemented here.
+The Java UI does not parse vBuf. Prompt tokenization uses the validated
+tokenizer metadata in the semantic bootstrap; generated text is decoded from
+the returned runtime token IDs.
 
 ## Build Prerequisites
 
@@ -30,7 +28,7 @@ The workstation must provide:
 - Android NDK `27.1.12297006`;
 - CMake 3.22.1;
 - Java 17+ and the Gradle wrapper;
-- the prepared pinned llama.cpp checkout at `/tmp/llama.cpp-step21`;
+- the prepared pinned ggml checkout at `/tmp/llama.cpp-step21/ggml`;
 - an Android Rust `aarch64-linux-android` cdylib build of `vbuf-ml`.
 
 The Android inference worker uses an explicit 8 MiB stack. The current parser
@@ -57,23 +55,33 @@ integrations/android-vbuf-chat/gradlew \
 Deploy the local Phase A model to the app's private storage during development:
 
 ```sh
-adb push research-models/Qwen3-0.6B-Q8_0.vbuf /data/local/tmp/
+adb push /tmp/opencode/deepseek-v2-lite-imat/DeepSeek-V2-Lite.IQ2_XXS.semantic.vbuf /data/local/tmp/
 adb shell run-as com.eugen.vbufchat mkdir -p files/models
 adb shell run-as com.eugen.vbufchat cp \
-  /data/local/tmp/Qwen3-0.6B-Q8_0.vbuf files/models/
+  /data/local/tmp/DeepSeek-V2-Lite.IQ2_XXS.semantic.vbuf \
+  files/models/
 adb install -r integrations/android-vbuf-chat/app/build/outputs/apk/debug/app-debug.apk
 adb shell monkey -p com.eugen.vbufchat 1
-adb logcat -s vbuf-android-chat
+adb logcat -s vbuf-android-direct
 ```
 
-The verified Phase A evidence is recorded in
-`research/results/vbuf-android-arm64-chat-poc/phase-a-local-chat.json`.
+Build the APK with the endpoint configured as a debug build property:
+
+```sh
+integrations/android-vbuf-chat/gradlew \
+  -p integrations/android-vbuf-chat \
+  -PvbufRemoteUrl=http://127.0.0.1:18124 \
+  assembleDebug
+```
+
+Use `adb reverse tcp:18124 tcp:18124` for the canonical local range server.
 
 ## Scope
 
-The UI is deliberately minimal: status, prompt, a bounded Generate button, and
-generated text. It does not implement accounts, history, caching, prefetch,
-remote loading, GPU backends, or production chat behavior.
+The UI is deliberately minimal: model status, prompt, bounded Generate and
+Cancel controls, generated text, and measured runtime counters. It does not
+implement accounts, history, GPU backends, or production chat behavior.
 
-Phase B is intentionally not implemented. Its next step is semantic bootstrap
-plus a real Wi-Fi HTTP `RangeSource` feeding the same Android ARM64 compute path.
+Generation is bounded to the existing direct runtime context and uses the
+current required readiness and lease boundaries. `consumer_wait` remains
+explicitly `not instrumented`.

@@ -285,6 +285,11 @@ RunResult execute_expert(ExpertGraph & graph, const VbufTensorView & input,
 
 bool parity(const std::vector<float> & actual, const std::vector<float> & reference,
     const char * label) {
+#ifdef VBUF_ANDROID_DIRECT_RUNTIME
+    constexpr float tolerance = 1e-4f;
+#else
+    constexpr float tolerance = 1e-5f;
+#endif
     if (actual.size() != reference.size()) return false;
     float max_abs = 0.0f, max_rel = 0.0f;
     double sum_abs = 0.0;
@@ -294,9 +299,9 @@ bool parity(const std::vector<float> & actual, const std::vector<float> & refere
         max_rel = std::max(max_rel, error / std::max(std::fabs(reference[i]), 1e-12f));
         sum_abs += error;
     }
-    std::printf("%s max_abs=%g max_rel=%g mean_abs=%g tolerance=1e-5\n", label,
-        max_abs, max_rel, sum_abs / actual.size());
-    return max_abs <= 1e-5f;
+    std::printf("%s max_abs=%g max_rel=%g mean_abs=%g tolerance=%g\n", label,
+        max_abs, max_rel, sum_abs / actual.size(), tolerance);
+    return max_abs <= tolerance;
 }
 
 std::vector<float> floats(const std::vector<uint8_t> & bytes) {

@@ -6,8 +6,10 @@ final class NativeInference {
     }
 
     static native String open(String modelPath, String endpoint);
-    static native String probeRemote(String modelPath, String endpoint);
     static native String generate(String prompt, int maxTokens);
+    static native String progress();
+    static native String metrics();
+    static native void cancel();
     static native void closeModel();
 
     private NativeInference() {}
