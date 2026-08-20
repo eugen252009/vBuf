@@ -74,7 +74,7 @@ Build the APK with the endpoint configured as a debug build property:
 ```sh
 integrations/android-vbuf-chat/gradlew \
   -p integrations/android-vbuf-chat \
-  -PvbufRemoteUrl=http://127.0.0.1:18124 \
+  -PvbufRemoteUrl=http://127.0.0.1:18124/models/DeepSeek-V2-Lite.IQ2_XXS.vbuf \
   assembleDebug
 ```
 

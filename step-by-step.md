@@ -2167,6 +2167,138 @@ Canonical final classification: **CCC_DIRECTION_REJECTED** and
 
 ---
 
+### Step 31 — Progressive local source qualification
+
+**Class:** documentation/research gate first; source-layer implementation only
+after the gates below pass.
+
+**Goal:** determine whether the qualified vBuf-ML Android payload path can use a
+same-offset sparse canonical mirror for progressive local reuse, without changing
+the v0.6 wire contract, semantic bootstrap, tensor representation, materializer,
+lease, residency, scheduler, backend, or inference behavior.
+
+**Current evidence:** the semantic bootstrap is separate from the external
+payload, and the qualified Android path carries `TensorRef.source_offset`
+directly into the range source. This supports the sparse-mirror hypothesis for
+one immutable external payload artifact. It does not establish the design for
+arbitrary multi-source models, full offline completeness, or power-loss
+durability.
+
+**Non-negotiable ownership:** source identity, source resolution, range coverage,
+remote fallback, persistence, materialization inputs, retention, and load
+planning remain vBuf-ML runtime/source concerns. No llama.cpp loader or backend
+becomes the owner of this policy.
+
+#### Step 31A — Canonical-offset and source-authority audit
+
+- Inventory source identity, declared size, locator, profile/version, hash scope,
+  and source bindings for the target model.
+- Prove that every target external TensorRef addresses one immutable random-access
+  payload artifact directly, with no hidden offset rebasing.
+- Record the relationship between semantic bootstrap, payload artifact, v0.6
+  headers/control regions, and TensorRef payload ranges.
+- Determine whether a local same-offset payload mirror can be consumed by the
+  existing semantic bootstrap and native source boundary unchanged.
+- Capture requested intervals, bytewise union, repeated overlap, reuse distance,
+  requested bytes, remote bytes, and overfetch under the unchanged Android
+  configuration.
+
+**Gate:** if canonical offset equality or immutable source identity cannot be
+proven, stop the sparse-mirror path and return to a qualified block or
+runtime-local envelope design. Do not guess a rebase rule.
+
+**Step 31A result:** **CONDITIONAL PASS for the qualified single-source path.**
+The Android audit completed with batched prefill, normal inference, four
+generated tokens, `4,287` HTTP range requests, and `4,745,501,920` returned
+bytes. The bytewise union was `1,377,067,264` bytes; requested bytes exceeded
+that union by `3,368,434,656` bytes through repeated/reloaded ranges. Direct
+`PersistentTensorRef.source_offset` to `RangeSource::read_range()` preserves
+the canonical payload offset with no rebasing. The detailed evidence is in
+`docs/vbuf-ml/step31a-canonical-offset-source-authority-audit.md`.
+
+The result does not authorize persistence. `SourceId(1)` alone is not an
+immutable cross-session artifact identity, and the trace covers only the
+observed prompt and four-token execution rather than complete model coverage.
+
+#### Step 31B — Persistent representation decision
+
+Compare these alternatives using the 31A evidence:
+
+1. sparse canonical mirror plus minimal explicit coverage;
+2. canonical block persistence with sufficient stream/source context;
+3. runtime-local envelope/record persistence.
+
+Prefer the sparse mirror only when it satisfies identity, offset, validation,
+partial-read, crash/publication, and lookup requirements without duplicating
+model semantics. Choose the smallest coverage unit justified by actual request
+geometry: arbitrary intervals, fixed source chunks, canonical blocks, or
+TensorRef ranges. Sparse file holes are never coverage state.
+
+#### Step 31C — Minimal source-layer mechanism
+
+After 24B authorizes implementation:
+
+- add local exact-range lookup and explicit coverage lookup at the source layer;
+- on an uncovered request, fetch the canonical remote range and use it for the
+  current request;
+- validate before publishing bytes and coverage at the canonical offset;
+- support fully local, fully remote, and qualified partial-coverage reads;
+- keep stream-only as a persistence-bypass policy;
+- keep persistent source coverage separate from `TensorResidencyStore` RAM
+  accounting and leases;
+- make the coverage accelerator rebuildable and non-authoritative.
+
+No semantic execution or materialization contract changes are permitted in this
+step. A partial local read must fetch the uncovered portion unless measured
+request geometry justifies a more complex split/coalescing policy.
+
+#### Step 31D — Crash, corruption, and recovery qualification
+
+Qualify interrupted writes, process death during tee, concurrent same-range
+requests, sparse holes, corruption, source mismatch, disk full, deletion,
+coverage-index loss, and model replacement. Define separately whether process
+crash publication and power-loss durability are required before reporting a
+range as retained. Readers must see uncovered, previously valid, or newly valid
+bytes, never partially published coverage.
+
+#### Step 31E — Cold/warm physical qualification
+
+Run an empty-persistence remote cold control and then warm local reuse with the
+same Pixel/model/semantic bootstrap/prompt/generated sequence/runtime mode,
+batching, GGML configuration, thread count, and 256 MiB residency cap. Record
+remote/local bytes, requests, coverage hits/misses, materialization timing,
+decode time, compute time, output, and validated source-range equivalence.
+
+The result must distinguish transport, persistence, materialization, residency,
+and compute effects. It must not claim a speedup from source persistence without
+the corresponding measured local/remote attribution.
+
+#### Step 31F — Retention and offline completion
+
+- add stream-only, cache-as-used, bounded retention, and keep-model policy above
+  the source mechanism;
+- choose storage budgets from measured reuse and coverage simulation, not the
+  256 MiB RAM setting;
+- use the same mirror for missing-range acquisition and offline completion;
+- distinguish encountered TensorRef coverage from complete declared source
+  coverage, including headers, padding/control regions, and never-routed MoE
+  ranges;
+- report exact incompleteness rather than implying offline readiness.
+
+#### Step 31G — Deferred experiments
+
+Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
+replacement, model-aware policy tuning, mobile-data UX, residency tuning,
+backend tuning, and Android-specific inference changes independent of this
+qualification. Revisit them only after the source mechanism and cold/warm
+attribution are correct.
+
+**Expected outcome:** a measured sparse-mirror qualification, a measured
+alternative selection, or a documented no-go. None changes the generic vBuf
+format or transfers runtime ownership to llama.cpp.
+
+---
+
 ## 5. Runtime-derived requirement checklist
 
 The following questions must have concrete answers before the corresponding profile field is frozen:
