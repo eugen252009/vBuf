@@ -2,7 +2,7 @@
 
 Date: 2026-08-20
 Starting commit: `096752e`
-Status: **HOST-QUALIFIED; PHYSICAL CONFIRMATION BLOCKED**
+Status: **QUALIFICATION INPUTS RESTORED; PHYSICAL CONFIRMATION BLOCKED BY ADB**
 
 ## Proven 31G Root Cause
 
@@ -74,15 +74,71 @@ PAYLOAD_POINTER_LEASE: PASS; unchanged
 COPY_MOVE_GEOMETRY: PASS
 HOST_ROOT_CAUSE_REPRODUCED_BEFORE_FIX: NOT EXECUTED; Step 31G physical trace is the pre-fix evidence
 HOST_ROOT_CAUSE_FIXED_AFTER_FIX: PASS; deterministic cache-lifetime regression
-PHYSICAL_ENVIRONMENT_AVAILABLE: NO
+PHYSICAL_ENVIRONMENT_AVAILABLE: YES; ADB_SERVICE_UNAVAILABLE
 PHYSICAL_512_RUN_EXECUTED: NO
-PHYSICAL_FIX_CONFIRMATION: BLOCKED_BY_MISSING_QUALIFICATION_ARTIFACT
+PHYSICAL_FIX_CONFIRMATION: BLOCKED_BY_ADB_CONNECTION
 ```
 
-The canonical local model artifact and range server are unavailable in this
-workspace. No substitute model, prompt, or source was used. The former
-512 MiB Android failure is therefore not claimed physically fixed, and no
-new downstream physical failure is claimed.
+The exact qualification source was restored from the recorded Hugging Face
+provenance:
+
+```text
+HF_REPOSITORY: legraphista/DeepSeek-V2-Lite-IMat-GGUF
+HF_REVISION: 3048fc1df365e992c92a055324e8fd872e5763b9
+HF_FILENAME: DeepSeek-V2-Lite.IQ2_XXS.gguf
+SOURCE_SIZE: 5640619552
+SOURCE_SHA256: 3b7da33584bebf89afcdbdd2e7a8e3e47e11092971559371f13b510f475e3c0c
+
+IMPORTER: scripts/build_step18_manifest.py + scripts/convert_gguf_to_vbuf_ml.py
+IMPORTER_COMMIT: 41945b3
+IMPORT_COMMAND: |
+  python3 scripts/build_step18_manifest.py --root /home/eugen/projekte/vBuf
+    --source /home/eugen/projekte/vBuf/.qualification-iq2xxs/DeepSeek-V2-Lite.IQ2_XXS.gguf
+    --output-dir /tmp/opencode/deepseek-v2-lite-imat
+    --manifest /tmp/opencode/deepseek-v2-lite-imat/DeepSeek-V2-Lite.IQ2_XXS-manifest.json
+  python3 scripts/convert_gguf_to_vbuf_ml.py
+    /home/eugen/projekte/vBuf/.qualification-iq2xxs/DeepSeek-V2-Lite.IQ2_XXS.gguf
+    /tmp/opencode/deepseek-v2-lite-imat/DeepSeek-V2-Lite.IQ2_XXS-manifest.json
+    /tmp/opencode/deepseek-v2-lite-imat/DeepSeek-V2-Lite.IQ2_XXS.vbuf
+    --integrity none --evidence-dir /tmp/opencode/deepseek-v2-lite-imat/evidence
+  cargo run --quiet --manifest-path rust/Cargo.toml -p vbuf-ml
+    --bin vbuf-ml-semantic-bootstrap --
+    /tmp/opencode/deepseek-v2-lite-imat/DeepSeek-V2-Lite.IQ2_XXS.vbuf
+    /tmp/opencode/deepseek-v2-lite-imat/DeepSeek-V2-Lite.IQ2_XXS.semantic.vbuf
+    http://127.0.0.1:18124/DeepSeek-V2-Lite.IQ2_XXS.vbuf
+PAYLOAD_OUTPUT: /tmp/opencode/deepseek-v2-lite-imat/DeepSeek-V2-Lite.IQ2_XXS.vbuf
+PAYLOAD_SIZE: 5639819878
+PAYLOAD_SHA256: 2ef0cdde67154ecc68bd82558007a4ea9da36262c4405007cb83306f68456e47
+HISTORICAL_PAYLOAD_SHA256: 2ef0cdde67154ecc68bd82558007a4ea9da36262c4405007cb83306f68456e47
+PAYLOAD_IDENTITY: EXACT_IDENTITY_MATCH
+
+SEMANTIC_OUTPUT: /tmp/opencode/deepseek-v2-lite-imat/DeepSeek-V2-Lite.IQ2_XXS.semantic.vbuf
+SEMANTIC_SIZE: 3206424
+SEMANTIC_SHA256: 668bf438b7f170d885eff987d7796312d078a026ffbd65998ea17d5a28e3ab9c
+HISTORICAL_SEMANTIC_SHA256: 639ac345136de7f3d36c8fea15a8bf7fca70d3d518915a3371a9bd9cc02df910
+SEMANTIC_HASH_RELATIONSHIP: STRUCTURALLY_REGENERATED; BYTE_HASH_DIFFERS
+```
+
+The payload `SourceHash` is the authoritative artifact identity and matches
+exactly. The semantic bootstrap has the recorded historical size and the
+same separate external-source structure, but its historical byte hash is not
+reproduced by the current generator; that distinction is retained rather than
+silently claiming semantic byte identity.
+
+The unchanged range server was started with:
+
+```text
+python3 scripts/range_server.py --file /tmp/opencode/deepseek-v2-lite-imat/DeepSeek-V2-Lite.IQ2_XXS.vbuf --port 18124 --log
+```
+
+An HTTP range probe returned `206 Partial Content`,
+`Content-Range: bytes 0-15/5639819878`, 16 bytes, and byte-exact payload
+content. Android deployment was then blocked when the previously connected
+wireless ADB endpoint `192.168.188.33:46013` began refusing connections. The
+semantic bootstrap was not copied to the device, `adb reverse` was not
+restored, and no physical 512 MiB run was started. No substitute model,
+prompt, or source was used; the former Android failure remains physically
+unconfirmed and no new downstream physical failure is claimed.
 
 ## Scope Classification
 
