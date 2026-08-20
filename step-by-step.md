@@ -2346,7 +2346,29 @@ the 4 KiB coverage representation, four-token output, and the
 decode was `109,632`/`102,465` ms. These are inclusive existing timers, not
 exclusive source-latency measurements.
 
-#### Step 31E — Crash, corruption, and recovery qualification
+#### Step 31E — Physical residency curve qualification
+
+**Status:** **MEASUREMENT COMPLETE FOR THE VALID DEVICE RANGE; LARGER POINTS
+PHYSICALLY CONSTRAINED.** The focused report is
+`research/results/vbuf-android-demo-poc/step31e-residency-curve.md`.
+
+The experiment varied only the active `TensorResidencyStore` budget at exact
+`268,435,456`, `536,870,912`, `1,073,741,824`, and `2,147,483,648` byte caps.
+The sparse payload mirror, authoritative 4 KiB coverage, 1 MiB acquisition
+window, source identity, materializer, backend, thread/runtime configuration,
+prompt, batched prefill, and four-token workload remained fixed. Each point
+used a fresh app process while retaining the mirror and coverage sidecar.
+
+The 256 MiB point completed with zero remote bytes, `69,699` ms prefill,
+`25,279` ms mean decode, `134,436` ms FFN, `4,217` evictions, and `3,025`
+reacquisitions. The 512 MiB, 1 GiB, and 2 GiB points also remained fully local
+and reduced partial-run evictions/reacquisitions, but each failed at the first
+decode before producing a comparable token result. No working-set threshold or
+successful larger-cap speedup is claimed. The result is device-constrained and
+inconclusive for A-versus-B attribution; no production residency default is
+changed.
+
+#### Step 31F — Crash, corruption, and recovery qualification
 
 Qualify interrupted writes, process death during tee, concurrent same-range
 requests, sparse holes, corruption, source mismatch, disk full, deletion,
@@ -2355,17 +2377,15 @@ crash publication and power-loss durability are required before reporting a
 range as retained. Readers must see uncovered, previously valid, or newly valid
 bytes, never partially published coverage.
 
-#### Step 31F — Extended cold/warm attribution
+#### Step 31G — Extended cold/warm attribution
 
-**Core gate completed in Step 31D.** The Pixel 7 Pro cold/warm result records
-remote/local bytes, requests, coverage hits/misses, existing materialization and
-compute timing scopes, output, source-range equivalence, and the unchanged
-256 MiB residency cap. Any future repeat must preserve the same workload and
-continue distinguishing transport, persistence, materialization, residency,
-and compute effects; it must not claim a speedup from source persistence without
-the corresponding measured local/remote attribution.
+**Core source gate completed in Step 31D; residency curve attempted in Step
+31E.** Any future repeat must preserve the same workload and continue
+distinguishing transport, persistence, materialization, residency, and compute
+effects. It must not claim a speedup from source persistence without the
+corresponding measured local/remote attribution.
 
-#### Step 31G — Retention and offline completion
+#### Step 31H — Retention and offline completion
 
 - add stream-only, cache-as-used, bounded retention, and keep-model policy above
   the source mechanism;
@@ -2377,7 +2397,7 @@ the corresponding measured local/remote attribution.
   ranges;
 - report exact incompleteness rather than implying offline readiness.
 
-#### Step 31H — Deferred experiments
+#### Step 31I — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
 replacement, model-aware policy tuning, mobile-data UX, residency tuning,

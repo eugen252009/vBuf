@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "vbuf_materializer.h"
@@ -93,6 +94,8 @@ public:
     size_t resident_count() const { return entries_.size(); }
     uint64_t active_lease_bytes() const;
     uint32_t active_lease_count() const;
+    uint64_t materialization_count() const { return materialization_count_; }
+    uint64_t reacquisition_count() const { return reacquisition_count_; }
     const char * replacement_policy_name() const { return replacement_policy_->name(); }
     uint64_t policy_decisions() const { return policy_decisions_; }
     uint64_t policy_candidates_evaluated() const { return policy_candidates_evaluated_; }
@@ -114,8 +117,11 @@ private:
     std::unordered_map<uint32_t, std::string> names_;
     std::unordered_map<uint32_t, uint64_t> last_request_ordinal_;
     std::unordered_map<uint32_t, uint64_t> observed_request_count_;
+    std::unordered_set<uint32_t> materialized_tensors_;
     std::vector<ResidencyTraceEvent> trace_;
     std::shared_ptr<const ResidencyReplacementPolicy> replacement_policy_;
+    uint64_t materialization_count_ = 0;
+    uint64_t reacquisition_count_ = 0;
     uint64_t policy_decisions_ = 0;
     uint64_t policy_candidates_evaluated_ = 0;
     uint64_t policy_cpu_time_ns_ = 0;

@@ -1,19 +1,21 @@
 # Progressive Local Source Design Checklist
 
-Status: **STEP 31D HOST ANDROID QUALIFIED**
+Status: **STEP 31E RESIDENCY CURVE PHYSICALLY MEASURED; LARGER CAPS DEVICE-CONSTRAINED**
 
 Step 31B decision: **SPARSE CANONICAL MIRROR + 4 KiB AUTHORITATIVE BITMAP**
 for the qualified single external payload source. Step 31C and the Step 31D
 bounded acquisition follow-up are host- and Android-qualified with a completed
-31D cold/warm and generation result.
+31D cold/warm and generation result. Step 31E measures the active-RAM curve
+without changing persistent source state.
 
 This document records the repository-grounded design and bounded Step 31C/31D
 implementation for progressively persisting remote vBuf source data. It does
-not change TensorRef semantics, materialization, the 256 MiB runtime residency
-baseline, or inference behavior. Retention, offline completion, and power-loss
-durability remain deferred. Step 31D adds demand-driven missing-chunk coalescing
-with a measured 1 MiB maximum acquisition window; 4 KiB coverage remains
-authoritative.
+not change TensorRef semantics, materialization semantics, source acquisition,
+or inference behavior. Retention, offline completion, and power-loss durability
+remain deferred. Step 31D adds demand-driven missing-chunk coalescing with a
+measured 1 MiB maximum acquisition window; 4 KiB coverage remains authoritative.
+Step 31E varies only the numeric active residency budget and records aggregate
+materialization/reacquisition counters.
 
 The physical application baseline is commit `80409a4 Add Android app baseline
 harness` on a Pixel 7 Pro, Android 17, `arm64-v8a`, using the DeepSeek-V2-Lite
@@ -726,16 +728,16 @@ This is an ordered design checklist, not an implementation script.
 ### Phase 4: Cold-remote versus warm-local qualification
 
 - [x] Qualify the deterministic host remote-cold fixture first.
-- [ ] Qualify warm local reuse with the same Pixel, model, prompt, generated
+- [x] Qualify warm local reuse with the same Pixel, model, prompt, generated
       sequence, threads, batching, GGML configuration, and 256 MiB residency.
 - [x] Measure remote bytes, local bytes, source requests, and coverage
       hits/misses separately in the host fixture.
 - [ ] Measure physical materialization timing, decode time, and compute timing
       separately.
-- [ ] Verify output/source-range correctness and unchanged lease/residency
-      behavior in both runs.
-- [ ] Confirm that the local mirror can serve fully local, fully remote, and any
-      qualified partial-coverage requests without semantic-path branching.
+- [x] Verify output/source-range correctness and unchanged lease/residency
+      behavior in the completed cold/warm runs.
+- [x] Confirm that the local mirror served the measured warm workload without
+      remote traffic or semantic-path branching.
 
 ### Phase 5: Retention policy
 
@@ -759,11 +761,27 @@ This is an ordered design checklist, not an implementation script.
 
 ### Phase 7: Independent later experiments
 
-- [ ] Evaluate the runtime residency curve independently at 256 MiB, 512 MiB,
-      1 GiB, and larger budgets.
+- [x] Attempt the runtime residency curve independently at 256 MiB, 512 MiB,
+      1 GiB, and 2 GiB with persistent source state held constant. Only 256 MiB
+      completed decode; larger points were physically constrained at first
+      decode and are not timing comparisons.
 - [ ] Later evaluate idle warmup, next-use planning, prefetch/compute overlap,
       advanced replacement, mobile-data UX, and model-aware policy tuning.
 - [ ] Tune backend compute and threads only in separate experiments.
+
+### Phase 8: Step 31E attribution boundary
+
+- [x] Expose only the numeric active residency budget through the existing
+      qualification build seam; retain the 256 MiB default.
+- [x] Add aggregate materialization and repeated-materialization counters at the
+      existing generic residency boundary without changing eviction behavior.
+- [x] Reuse the persistent mirror and authoritative coverage across fresh
+      process lifecycles.
+- [x] Record zero remote traffic for every measured curve point.
+- [x] Record that 512 MiB, 1 GiB, and 2 GiB did not produce comparable decode
+      timing because the first decode failed at the existing runtime boundary.
+- [ ] Choose a production residency default from this result.
+- [ ] Tune residency or backend behavior from this result.
 
 ## 9. Qualification Matrix
 
@@ -780,7 +798,7 @@ This is an ordered design checklist, not an implementation script.
 | Cache-as-used | Retention budget and eviction do not alter source correctness; network bytes decrease as measured | 256 MiB active residency semantics |
 | Keep-model/offline | Missing-only acquisition reaches complete declared source coverage, or reports exact incompleteness | No separate model-download representation |
 | Android physical | APK uses the same runtime path; cold/warm source states and local/remote bytes are visible | No Android-specific inference semantics; no residency change |
-| Residency curve | Independent RAM-cap measurements with persistent source state held constant | Source identity, source policy, batching, backend, and thread count |
+| Residency curve | Step 31E curve report; 256 MiB completed and larger caps classified as device-constrained | Source identity, source policy, batching, backend, and thread count |
 
 ## 10. UX / Policy Mapping
 
@@ -838,12 +856,13 @@ source-persistence mechanism:
 - Android-specific inference or a separate model loader;
 - changing batching, thread count, GGML backend, or quantization as part of the
   first source-persistence experiment.
-- physical Android qualification of the Step 31D acquisition geometry;
+- successful larger-cap physical residency attribution beyond the Step 31E
+  device-constrained curve;
 
 ## Decision Snapshot
 
 ```text
-VBUF_ML_PROGRESSIVE_LOCAL_SOURCE_PLAN: STEP_31D_HOST_ANDROID_QUALIFIED
+VBUF_ML_PROGRESSIVE_LOCAL_SOURCE_PLAN: STEP_31E_RESIDENCY_CURVE_INCOMPLETE_DEVICE_CONSTRAINED
 
 CURRENT_ARCHITECTURE:
   TensorRef -> SourceSet/RangeSource -> materialization -> lease/residency -> GGML
@@ -887,23 +906,24 @@ REUSABLE_COMPONENTS:
   ResidentTensorMaterializer, TensorResidencyStore, SourceHash, IntegrityMetadata.
 
 MISSING_COMPONENTS:
-  Physical Android cold/warm qualification, process-death fault injection,
-  retention, power-loss durability, offline completion, and multi-source policy
-  remain later work.
+  First-decode backend error attribution for larger residency caps,
+  process-death fault injection, retention, power-loss durability, offline
+  completion, and multi-source policy remain later work.
 
 OPEN_ARCHITECTURE_QUESTIONS:
   No representation choice remains open for the qualified single-source path.
   Deferred questions are whole-artifact hash finalization, power-loss durability,
   retention policy, complete/offline coverage, and multi-source extension.
 
-PROPOSED_PHASE_COUNT: 7
+PROPOSED_PHASE_COUNT: 8
 PHASE_1: canonical-offset and source-authority audit
 PHASE_2: persistent source representation decision (DECIDED: A)
 PHASE_3: minimal local-hit/remote-miss source mechanism (31C)
 PHASE_4: bounded demand-driven acquisition (31D; HOST QUALIFIED)
-PHASE_5: crash/corruption/recovery qualification
-PHASE_6: cold-remote versus warm-local qualification (core gate complete in 31D)
-PHASE_7: retention and offline completion
+PHASE_5: physical residency curve (31E; device-constrained above 256 MiB)
+PHASE_6: crash/corruption/recovery qualification
+PHASE_7: extended cold/warm attribution
+PHASE_8: retention and offline completion
 
 FIRST_MEASUREMENT_TO_RUN:
   Completed in Step 31A: captured and offline-analyzed requested source
@@ -916,10 +936,10 @@ FIRST_IMPLEMENTATION_COMPLETED:
   or execution changes.
 
 FIRST_PHYSICAL_QUALIFICATION:
-  Partial source smoke on the same Pixel/model/semantic bootstrap path: remote
-  cold acquisition entered batched prefill, populated the sparse mirror and
-  4 KiB bitmap, and a stopped-process restart reopened 7,000 published chunks.
-  Full cold/warm inference and performance attribution remain unmeasured.
+  Step 31D completed the same Pixel/model/semantic bootstrap cold and warm
+  inference workload with persistent source reuse and output parity. Step 31E
+  completed the 256 MiB local curve point and attempted 512 MiB, 1 GiB, and
+  2 GiB; the larger points failed at first decode before comparable timing.
 
 RESIDENCY_SEPARATE_FROM_SOURCE_CACHE: YES, REQUIRED
 ANDROID_SPECIFIC_RUNTIME_REQUIRED:
@@ -939,11 +959,12 @@ DOCUMENT_CREATED_OR_UPDATED:
 STEP_31B_REPRESENTATION: SPARSE_CANONICAL_MIRROR_WITH_4_KIB_BITMAP
 STEP_31C_IMPLEMENTATION: HOST_QUALIFIED
 STEP_31D_IMPLEMENTATION: HOST_QUALIFIED_1_MIB_DEMAND_WINDOWS
-PHYSICAL_ANDROID_QUALIFICATION: STEP_31D_COLD_WARM_QUALIFIED
+STEP_31E_IMPLEMENTATION: MINIMAL_BUDGET_AND_REACQUISITION_COUNTER_SEAM
+PHYSICAL_ANDROID_QUALIFICATION: STEP_31D_COLD_WARM_AND_STEP31E_CURVE_ATTEMPTED
 PHYSICAL_ACQUISITION_LIMITATION: RESOLVED_BY_1_MIB_DEMAND_WINDOWS
-NEXT_SOURCE_EXPERIMENT: CRASH_CORRUPTION_RECOVERY_QUALIFICATION
+NEXT_SOURCE_EXPERIMENT: FIRST_DECODE_BACKEND_ERROR_ATTRIBUTION
 RUNTIME_BEHAVIOR_CHANGED: NO
-COMMIT_PERFORMED: NO
+COMMIT_PERFORMED: PENDING_STEP31E_COMMIT
 ```
 
 ## Review Questions

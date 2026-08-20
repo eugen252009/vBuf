@@ -19,6 +19,11 @@ android {
         }
 
         val remoteUrl = (project.findProperty("vbufRemoteUrl") as String?) ?: ""
+        val residencyBudgetBytes = (project.findProperty("vbufResidencyBudgetBytes") as String?)
+            ?: "268435456"
+        require(residencyBudgetBytes.matches(Regex("[1-9][0-9]*"))) {
+            "vbufResidencyBudgetBytes must be a positive decimal byte count"
+        }
         buildTypes {
             getByName("debug") {
                 buildConfigField("String", "VBUF_REMOTE_URL", "\"${remoteUrl.replace("\\\"", "\\\\\"")}\"")
@@ -40,6 +45,7 @@ android {
                 arguments += "-DGGML_BACKEND_DL=OFF"
                 arguments += "-DGGML_OPENMP=OFF"
                 arguments += "-DANDROID_STL=c++_shared"
+                arguments += "-DVBUF_RESIDENCY_BUDGET_BYTES=$residencyBudgetBytes"
             }
         }
     }

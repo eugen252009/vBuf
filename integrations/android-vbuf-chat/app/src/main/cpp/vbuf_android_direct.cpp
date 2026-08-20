@@ -56,7 +56,10 @@ extern "C" uint32_t vbuf_ml_consumer_source_identity(
 namespace {
 
 constexpr const char * TAG = "vbuf-android-direct";
-constexpr uint64_t RESIDENCY_BUDGET = 256 * 1024 * 1024;
+#ifndef VBUF_RESIDENCY_BUDGET_BYTES
+#define VBUF_RESIDENCY_BUDGET_BYTES 268435456
+#endif
+constexpr uint64_t RESIDENCY_BUDGET = static_cast<uint64_t>(VBUF_RESIDENCY_BUDGET_BYTES);
 constexpr uint32_t MAX_CONTEXT = 128;
 constexpr uint32_t MODEL_BLOCKS = 27;
 #ifdef VBUF_ANDROID_QUALIFICATION
@@ -266,6 +269,8 @@ struct DecodeTokenMetrics {
     uint64_t residency_misses = 0;
     uint64_t evictions = 0;
     uint64_t reload_bytes = 0;
+    uint64_t materializations = 0;
+    uint64_t reacquisitions = 0;
     uint64_t peak_resident_bytes = 0;
     uint64_t actual_compute_ms = 0;
 };
@@ -417,6 +422,8 @@ public:
             token_metrics.residency_misses = counters_after.residency_misses - counters_before.residency_misses;
             token_metrics.evictions = counters_after.evictions - counters_before.evictions;
             token_metrics.reload_bytes = counters_after.reload_bytes - counters_before.reload_bytes;
+            token_metrics.materializations = counters_after.materializations - counters_before.materializations;
+            token_metrics.reacquisitions = counters_after.reacquisitions - counters_before.reacquisitions;
             token_metrics.peak_resident_bytes = counters_after.peak_resident_bytes;
             token_metrics.actual_compute_ms =
                 (timing.actual_attention_ns - timing_before.actual_attention_ns +
@@ -501,7 +508,7 @@ public:
             "acquisition_windows=%llu acquisition_window_bytes=%llu "
             "local_source_bytes=%llu local_chunk_hits=%llu remote_chunk_misses=%llu "
             "chunks_covered=%llu hits=%llu misses=%llu evictions=%llu "
-            "reload_bytes=%llu peak_resident=%llu\n",
+            "reload_bytes=%llu materializations=%llu reacquisitions=%llu peak_resident=%llu\n",
             mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
             position, kind,
             static_cast<unsigned long long>(persistence.consumer_requests),
@@ -517,6 +524,8 @@ public:
             static_cast<unsigned long long>(hits),
             static_cast<unsigned long long>(misses), static_cast<unsigned long long>(evictions),
             static_cast<unsigned long long>(reload_bytes_),
+            static_cast<unsigned long long>(residency_->materialization_count()),
+            static_cast<unsigned long long>(residency_->reacquisition_count()),
             static_cast<unsigned long long>(peak_resident_bytes_));
     }
 
@@ -532,7 +541,7 @@ public:
         const double tokens_per_second = generation_ms_ == 0 ? 0.0 :
             1000.0 * static_cast<double>(generated_tokens_) / generation_ms_;
         return "Model: DeepSeek-V2-Lite IQ2_XXS\n"
-            "Residency budget: 256 MiB\n"
+            "Residency budget bytes: " + std::to_string(RESIDENCY_BUDGET) + "\n"
             "Runtime mode: " + std::string(mode_ == RuntimeMode::Qualification
                 ? "QUALIFICATION" : "NORMAL_INFERENCE") + "\n"
             "Prefill mode: " + prefill_mode_ + "\n"
@@ -581,6 +590,9 @@ public:
             "Payload mirror: " + source_->mirror_path() + "\n"
             "Residency hits/misses/evictions: " + std::to_string(hits) + "/" +
             std::to_string(misses) + "/" + std::to_string(evictions) + "\n"
+            "Residency materializations/reacquisitions: " +
+                std::to_string(residency_->materialization_count()) + "/" +
+                std::to_string(residency_->reacquisition_count()) + "\n"
             "Reload bytes: " + std::to_string(reload_bytes_) + "\n"
             "Peak resident bytes: " + std::to_string(peak_resident_bytes_) + "\n"
             "Peak active bytes: " + std::to_string(peak_active_bytes_) + "\n"
@@ -608,6 +620,8 @@ private:
         result.residency_misses = misses;
         result.evictions = evictions;
         result.reload_bytes = reload_bytes_;
+        result.materializations = residency_->materialization_count();
+        result.reacquisitions = residency_->reacquisition_count();
         result.peak_resident_bytes = peak_resident_bytes_;
         return result;
     }
@@ -621,7 +635,9 @@ private:
             std::to_string(token.residency_hits) + " misses=" +
             std::to_string(token.residency_misses) + " evictions=" +
             std::to_string(token.evictions) + " reload_bytes=" +
-            std::to_string(token.reload_bytes) + " peak_resident=" +
+            std::to_string(token.reload_bytes) + " materializations=" +
+            std::to_string(token.materializations) + " reacquisitions=" +
+            std::to_string(token.reacquisitions) + " peak_resident=" +
             std::to_string(token.peak_resident_bytes) + " actual_compute=" +
             std::to_string(token.actual_compute_ms) + " ms";
     }

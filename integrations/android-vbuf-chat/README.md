@@ -78,6 +78,11 @@ integrations/android-vbuf-chat/gradlew \
   assembleDebug
 ```
 
+The active vBuf-ML residency budget defaults to `268435456` bytes. A
+qualification build may vary only that numeric budget with, for example,
+`-PvbufResidencyBudgetBytes=536870912`; the residency algorithm and policy stay
+unchanged.
+
 Use `adb reverse tcp:18124 tcp:18124` for the canonical local range server.
 
 ## Scope

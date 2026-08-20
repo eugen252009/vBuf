@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(VBUF_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../../..")
 set(GGML_SRC "/tmp/llama.cpp-step21/ggml" CACHE PATH "Pinned ggml checkout")
 set(VBUF_RUST_LIB "${CMAKE_CURRENT_LIST_DIR}/../jniLibs/arm64-v8a/libvbuf_ml.so" CACHE FILEPATH "Android vbuf-ml cdylib")
+set(VBUF_RESIDENCY_BUDGET_BYTES "268435456" CACHE STRING "vBuf-ML active residency budget")
+
+if(NOT VBUF_RESIDENCY_BUDGET_BYTES MATCHES "^[1-9][0-9]*$")
+    message(FATAL_ERROR "VBUF_RESIDENCY_BUDGET_BYTES must be a positive decimal byte count")
+endif()
 
 if(NOT EXISTS "${GGML_SRC}/CMakeLists.txt")
     message(FATAL_ERROR "GGML_SRC must point at the prepared pinned ggml checkout")
@@ -67,3 +72,5 @@ target_link_libraries(vbuf_android_chat
     log
     android
     c++_shared)
+target_compile_definitions(vbuf_android_chat PRIVATE
+    VBUF_RESIDENCY_BUDGET_BYTES=${VBUF_RESIDENCY_BUDGET_BYTES})

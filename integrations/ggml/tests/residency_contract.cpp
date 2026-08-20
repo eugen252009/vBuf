@@ -62,12 +62,14 @@ int main() {
     materializer.release(3);
     assert(store->resident_bytes() == sizeof(bytes));
     assert(fake->request_count == 1 && fake->obtain_count == 1);
+    assert(store->materialization_count() == 1 && store->reacquisition_count() == 0);
 
     assert(materializer.state(3) == vbuf_ggml::MaterializationState::Ready);
     const auto warm = materializer.obtain_ready_tensor(3);
     assert(warm.has_value() && warm->view.payload == cold->view.payload);
     materializer.release(3);
     assert(fake->request_count == 1 && fake->obtain_count == 1);
+    assert(store->materialization_count() == 1 && store->reacquisition_count() == 0);
 
     auto duplicate = make_tensor(bytes, sizeof(bytes));
     assert(!store->insert(3, "blk.0.ffn_down.weight", duplicate));
@@ -90,6 +92,7 @@ int main() {
     materializer.release(3);
     assert(fake->request_count == 2 && fake->obtain_count == 2);
     assert(store->resident_bytes() == sizeof(bytes));
+    assert(store->materialization_count() == 2 && store->reacquisition_count() == 1);
     store->clear();
     assert(store->resident_count() == 0);
     return 0;

@@ -139,6 +139,8 @@ void TensorResidencyStore::note_request(uint32_t tensor_ref, const std::string &
 
 void TensorResidencyStore::note_materialize(uint32_t tensor_ref, const std::string & tensor_name,
     const std::string & source_id) {
+    ++materialization_count_;
+    if (!materialized_tensors_.insert(tensor_ref).second) ++reacquisition_count_;
     add_event(tensor_ref, tensor_name, ResidencyEventKind::Materialize,
         resident_bytes_, 0, source_id);
 }
