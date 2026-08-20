@@ -302,6 +302,12 @@ comparison isolates batching against serial normal inference. These rows answer
 different questions and must not be divided together to manufacture a
 cumulative speedup.
 
+The largest measured isolated runtime optimization is batched prompt prefill:
+`3.459x` and `71.1%` for this qualification case. Runtime-mode separation
+established the normal-inference baseline by removing qualification/reference
+execution: `2.079x` at the controlled position boundary. These scopes are not
+combined into a cumulative speedup.
+
 ## 15. Historical vs Current Measurements
 
 Historical reports preserve earlier D2.3 four-position qualification, Qwen

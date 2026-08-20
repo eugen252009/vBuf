@@ -200,6 +200,12 @@ The mode split isolates qualification/reference overhead. The full-prefill
 comparison isolates batching against serial normal inference; the rows answer
 different questions and are not cumulative speedups.
 
+The largest measured isolated runtime optimization is batched prompt prefill:
+`3.459x` and `71.1%` for this qualification case. Runtime-mode separation
+established the normal-inference baseline by removing qualification/reference
+execution: `2.079x` at the controlled position boundary. These scopes are not
+combined into a cumulative speedup.
+
 ## Core Model
 
 The architecture keeps these concepts separate:
@@ -335,10 +341,16 @@ a complete semantic model bootstrap. The 32B bootstrap contains complete
 bootstrap, model metadata, tensor directory, tokenizer, and source metadata;
 its tensor payload bytes copied during discovery are zero.
 
-## Cross-Architecture Qualification
+## Historical Cross-Architecture Storage/Source Qualification
+
+The following table records an earlier shared Qwen3-32B portability
+qualification. It primarily proves storage, source, addressing, materialization,
+and FFI portability for that test scope; it is not the current Android direct-
+runtime capability matrix. The later DeepSeek ARM64 direct-runtime and batched
+prefill qualification is documented in the current Android section above.
 
 The same 32B semantic bootstrap was parsed on four real architectures. The
-shared normalized discovery digest is
+shared normalized discovery digest for that historical test is
 `f731868eafcd1830244c4dbb28c198b13a204e468adb1d89859c127eccce1f3f`.
 
 | Capability | x86_64 | ARM32 / ARMv7 | ARM64 / AArch64 | riscv64 |
@@ -357,16 +369,19 @@ shared normalized discovery digest is
 | Bounded ggml compute | PASS | NOT_QUALIFIED | PASS (Android local) | NOT_QUALIFIED |
 | Full external token path | NOT_RUN | NOT_QUALIFIED | NOT_QUALIFIED | NOT_QUALIFIED |
 
-Hardware identities and detailed raw results:
+Hardware identities and detailed raw results for this historical qualification:
 
 - x86_64: development workstation. See [`research/results/vbuf-autoregressive-generation-poc22-x86/`](research/results/vbuf-autoregressive-generation-poc22-x86/).
 - ARM32: Cubietech Cubietruck Plus, Allwinner A83T, `armv7l`, 32-bit userspace. See [`ARM32 evidence`](research/results/vbuf-cross-architecture/arm32/).
 - ARM64: Google Pixel 7 Pro, GS201, Android 17, Termux, `aarch64`. See [`ARM64 evidence`](research/results/vbuf-cross-architecture/arm64/).
 - riscv64: Orange Pi RV2, Ky X1 / `ky,x60`, Ubuntu 24.04.4, `riscv64`. See [`RISC-V evidence`](research/results/vbuf-cross-architecture/riscv64/).
 
-The table proves storage, source, addressing, materialization, and committed
-FFI portability. It does not imply that every architecture has a qualified
-llama/ggml backend or token-generation path.
+Within this historical matrix, the table proves storage, source, addressing,
+materialization, and committed FFI portability. Its `NOT_QUALIFIED` and
+`NOT_RUN` cells remain valid for that exact Qwen3-32B test scope. They do not
+override the later current DeepSeek ARM64 direct-runtime qualification, and
+they do not imply that every architecture has a qualified llama/ggml backend or
+token-generation path.
 
 The ARM64 Android local-compute result is an earlier Phase A Qwen3-0.6B proof:
 the Pixel 7 Pro opened the local vBuf artifact and completed bounded real
@@ -374,7 +389,7 @@ autoregressive generation. That historical Qwen result did not qualify remote
 external token generation; the later DeepSeek direct-runtime qualification
 documented above does. See [`Android Phase A evidence`](research/results/vbuf-android-arm64-chat-poc/).
 
-The Android Phase B proof adds a direct Wi-Fi HTTP Range source: the Pixel 7 Pro
+The historical Android Phase B proof adds a direct Wi-Fi HTTP Range source: the Pixel 7 Pro
 opened the Qwen3-0.6B semantic bootstrap without the full model artifact on the
 device, materialized the external tensor payloads, and completed bounded real
 autoregressive generation. Tokenizer text/type, merge, and all 310 tensor
@@ -383,9 +398,11 @@ payloads matched the direct source. The 53.203 s model open transferred
 construction behavior; remote transfer and residency are not optimized yet.
 See [`Android Phase B evidence`](research/results/vbuf-android-arm64-chat-poc/phase-b-remote-chat.json).
 
-### Android Remote Loading
+### Historical Android Remote Loading (Qwen Phase B/C/D)
 
-Phase C measured remote-load transport without changing `EAGER_ALL` residency.
+The following Phase C/D measurements are historical Qwen remote-loading
+evidence, not the current DeepSeek prompt-prefill result. Phase C measured
+remote-load transport without changing `EAGER_ALL` residency.
 The historical Phase C large-range probe reached `29.763 MB/s`, but used Pixel
 toybox `netcat` and a different direct HTTP Range benchmark scope. A separate
 ARM64 source-transfer snapshot used ADB reverse HTTP; neither historical result
@@ -414,14 +431,16 @@ evidence but regressed and were not retained.
 
 The full artifact is not copied onto the Pixel, but the backend remains
 `EAGER_ALL`, so the selected path still transfers and retains almost all tensor
-payload bytes during model construction. The clean current path remains
+payload bytes during model construction. That historical path remained
 dominated by serialized remote payload acquisition; whether request scheduling
-has meaningful transport headroom is measured separately in the matched
+had meaningful transport headroom was measured separately in the matched
 [`Phase D0.3 transport control`](research/results/vbuf-android-arm64-chat-poc/phase-d0.3-transport-control.md).
 
-## Shared 32B Proof
+## Historical Shared 32B Proof
 
-The authoritative source is `Qwen3-32B-Q8_0.vbuf`,
+This section records the earlier shared Qwen3-32B cross-architecture proof. It
+is historical storage/source evidence and is not the current DeepSeek ARM64
+model-execution matrix. The authoritative source is `Qwen3-32B-Q8_0.vbuf`,
 `34,816,197,376` bytes, SHA-256
 `84597064d5b3530572959345286368b17e891e640b5958bba7f0b67980cd119d`.
 
@@ -445,9 +464,11 @@ The same discovery digest, exact range, and payload hash matched across all
 four qualified architectures. ARM32, ARM64, and riscv64 completed this proof
 without possessing, mapping, or downloading the full model.
 
-## Performance Snapshot
+## Historical Cross-Architecture Performance Snapshot
 
-These are directly measured ARM64 and riscv64 results. TensorRef lookup is a
+These are directly measured results from the earlier cross-architecture storage,
+source, and local-layout qualification. They are not the current DeepSeek
+ARM64 direct-runtime or prompt-prefill measurements. TensorRef lookup is a
 hot-loop microbenchmark, not end-to-end latency. ARM64 source transfer used
 ADB reverse HTTP and is not directly comparable to riscv64 direct LAN HTTP.
 
@@ -472,7 +493,7 @@ The measured conclusion is `LOCAL_LAYOUT_LATENCY_BENEFIT: NO`,
 remote deployment, source indirection, and bounded residency, not local parser
 acceleration.
 
-## Backend Separation
+## Historical Backend Separation Evidence
 
 The llama.cpp integration is one source-agnostic consumer, not a definition of
 vBuf. On x86_64, materialized external bytes crossed the committed FFI boundary
@@ -486,8 +507,11 @@ external HTTP: 220.409927
 ```
 
 The outputs matched exactly, with zero observed absolute or relative error and
-without full-source mapping or download. ARM32, ARM64, and riscv64 compute
-backends remain separately unqualified; this is not a storage or source failure.
+without full-source mapping or download. Within this earlier bounded-operation
+qualification, ARM32 and riscv64 model-compute backends remained separately
+unqualified. The later DeepSeek ARM64 direct-runtime work separately qualified
+real GGML model execution on the Pixel; this does not qualify ARM32, riscv64,
+or every backend path.
 
 The ARM32 qualification also found a hard-coded `i8` assumption in the FFI test
 harness. It was fixed generically with `core::ffi::c_char`; no production FFI,
@@ -498,7 +522,8 @@ storage, or persistent-format semantics changed.
 From the repository root:
 
 ```sh
-cargo test --manifest-path rust/Cargo.toml -p vbuf-ml
+cargo test --manifest-path rust/Cargo.toml --workspace
+python3 scripts/verify_portable_graph_neutrality.py
 ```
 
 The current focused evidence includes the committed vbuf-ML tests for bootstrap,
@@ -506,6 +531,19 @@ consumer, consumer FFI, external sources, range loading, source profiles, and
 tensor directories. The Rust package is at [`rust/vbuf-ml`](rust/vbuf-ml/), the
 llama adapter is at [`integrations/llama.cpp`](integrations/llama.cpp/), and
 qualification records are under [`research/results`](research/results/).
+
+Current verification status:
+
+| Check | Status |
+|---|---|
+| Rust workspace tests | PASS |
+| Native CTest | PASS, 21/21 |
+| Portable graph neutrality guard | PASS, `FORBIDDEN_LEAKAGE_COUNT=0` |
+| ARM64 direct probe build | PASS |
+| APK build | Not rebuilt; blocked by unavailable usable `javac` |
+
+The APK status is an environment/build-verification limitation, not a runtime
+failure. The ARM64 direct probe was built and physically qualified separately.
 
 ## Evidence and Scope
 
