@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -16,30 +17,45 @@ public final class MainActivity extends Activity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor(runnable ->
             new Thread(null, runnable, "vbuf-worker", 8L * 1024L * 1024L));
     private TextView status;
+    private TextView progress;
     private TextView output;
     private TextView metrics;
     private EditText prompt;
     private Button open;
     private Button generate;
     private Button cancel;
+    private final long appStartMs = SystemClock.elapsedRealtime();
+    private long appStartToReadyMs = -1L;
     private final Handler progressHandler = new Handler(Looper.getMainLooper());
     private final Runnable progressPoll = new Runnable() {
         @Override
         public void run() {
             final String value = NativeInference.progress();
-            final int newline = value.indexOf('\n');
-            if (value.startsWith("ACTIVE") && newline >= 0) {
-                output.setText(value.substring(newline + 1));
-                progressHandler.postDelayed(this, 750L);
-            }
+            if (applyProgress(value)) progressHandler.postDelayed(this, 750L);
         }
     };
+
+    private boolean applyProgress(String value) {
+        final int newline = value.indexOf('\n');
+        if (newline < 0) return false;
+        final String header = value.substring(0, newline);
+        progress.setText(header);
+        final String text = value.substring(newline + 1);
+        if (!text.isEmpty()) output.setText(text);
+        if (header.contains("phase=PREFILL")) {
+            status.setText("Prefill · batched prompt rows");
+        } else if (header.contains("phase=DECODE")) {
+            status.setText("Decode · autoregressive");
+        }
+        return value.startsWith("ACTIVE");
+    }
 
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_main);
         status = findViewById(R.id.status);
+        progress = findViewById(R.id.progress);
         output = findViewById(R.id.output);
         metrics = findViewById(R.id.metrics);
         prompt = findViewById(R.id.prompt);
@@ -68,9 +84,10 @@ public final class MainActivity extends Activity {
         status.setText("Opening model · semantic discovery");
         File model = modelFile();
         worker.execute(() -> {
-            String result = NativeInference.open(model.getAbsolutePath(), BuildConfig.VBUF_REMOTE_URL);
+            String result = NativeInference.open(model.getAbsolutePath(), BuildConfig.VBUF_REMOTE_URL, false);
             runOnUiThread(() -> {
                 final boolean ready = result.startsWith("OPEN_OK");
+                if (ready) appStartToReadyMs = SystemClock.elapsedRealtime() - appStartMs;
                 status.setText(ready ? "Ready · direct vBuf-ML runtime" : result);
                 generate.setEnabled(ready);
                 open.setEnabled(!ready);
@@ -92,9 +109,11 @@ public final class MainActivity extends Activity {
         progressHandler.post(progressPoll);
         worker.execute(() -> {
             String result = NativeInference.generate(text, 4);
+            final String finalProgress = NativeInference.progress();
             progressHandler.removeCallbacks(progressPoll);
             runOnUiThread(() -> {
                 final boolean success = !result.startsWith("GEN_FAIL");
+                applyProgress(finalProgress);
                 output.setText(success ? result : "");
                 status.setText(success ? "Completed" : result);
                 generate.setEnabled(success);
@@ -114,7 +133,9 @@ public final class MainActivity extends Activity {
     private void refreshMetrics() {
         worker.execute(() -> {
             final String value = NativeInference.metrics();
-            runOnUiThread(() -> metrics.setText(value));
+            final String appMetrics = appStartToReadyMs >= 0
+                    ? "APP_START_TO_READY_MS: " + appStartToReadyMs + "\n" : "";
+            runOnUiThread(() -> metrics.setText(appMetrics + value));
         });
     }
 

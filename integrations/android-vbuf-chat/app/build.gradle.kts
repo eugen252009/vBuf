@@ -31,7 +31,9 @@ android {
 
         externalNativeBuild {
             cmake {
-                arguments += "-DGGML_SRC=/tmp/llama.cpp-step21/ggml"
+                val ggmlSrc = (project.findProperty("vbufGgmlSrc") as String?)
+                    ?: "/tmp/llama.cpp-step21/ggml"
+                arguments += "-DGGML_SRC=$ggmlSrc"
                 arguments += "-DVBUF_RUST_LIB=${project.projectDir}/src/main/jniLibs/arm64-v8a/libvbuf_ml.so"
                 arguments += "-DGGML_NATIVE=OFF"
                 arguments += "-DGGML_CPU_ALL_VARIANTS=OFF"

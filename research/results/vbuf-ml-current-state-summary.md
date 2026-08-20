@@ -332,9 +332,14 @@ position 0.
 | Portable program/lowering | Implemented |
 | Generic GGML adapter | Implemented and contract-qualified |
 | Android arm64 direct runtime | Physically qualified |
+| Android application harness | Physically qualified over the direct runtime |
 | `NormalInference` / `Qualification` modes | Implemented and qualified |
 | Layer-major prompt batching | Implemented and physically qualified in normal mode |
 | Autoregressive decode | Implemented; unchanged by batching |
+
+The Android app baseline is recorded separately from the direct-probe baseline:
+the app measured `126,792 ms` batched prefill and displayed four generated
+tokens (`----`) on the Pixel. See [`android-app-baseline.md`](vbuf-android-demo-poc/android-app-baseline.md).
 
 ## 17. Current Limitations
 

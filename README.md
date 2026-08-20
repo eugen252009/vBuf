@@ -169,6 +169,7 @@ parallel.
 | Bounded residency | Implemented |
 | Portable program/lowering and generic GGML adapter | Implemented and contract-qualified |
 | Android arm64 direct runtime | Physically qualified |
+| Android application harness | Physically qualified over the direct runtime; see [`Android app baseline`](research/results/vbuf-android-demo-poc/android-app-baseline.md) |
 | Normal/Qualification runtime modes | Implemented and qualified |
 | Layer-major prompt batching | Implemented and physically qualified in normal mode |
 | Autoregressive decode | Implemented; unchanged by batching |

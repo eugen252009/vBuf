@@ -248,10 +248,23 @@ struct StepResult {
     uint64_t elapsed_ns = 0;
 };
 
+struct DecodeTokenMetrics {
+    uint64_t elapsed_ms = 0;
+    uint64_t source_requests = 0;
+    uint64_t source_bytes = 0;
+    uint64_t residency_hits = 0;
+    uint64_t residency_misses = 0;
+    uint64_t evictions = 0;
+    uint64_t reload_bytes = 0;
+    uint64_t peak_resident_bytes = 0;
+    uint64_t actual_compute_ms = 0;
+};
+
 class DirectSession final {
 public:
-    DirectSession(const std::string & metadata_path, const std::string & endpoint)
-        : mode_(ANDROID_RUNTIME_MODE) {
+    DirectSession(const std::string & metadata_path, const std::string & endpoint,
+        RuntimeMode mode = ANDROID_RUNTIME_MODE)
+        : mode_(mode) {
         const uint64_t start = android_now_ns();
         load_metadata(metadata_path, &metadata_);
         tokenizer_ = std::make_unique<ByteBpeTokenizer>(metadata_.handle);
@@ -276,15 +289,24 @@ public:
     std::string generate(const std::string & prompt, uint32_t max_tokens) {
         if (prompt.empty()) throw std::runtime_error("prompt is empty");
         if (max_tokens == 0 || max_tokens > 64) throw std::runtime_error("invalid token limit");
+        const uint64_t generation_start = android_now_ns();
         cancelled_.store(false, std::memory_order_relaxed);
         {
             std::lock_guard lock(progress_mutex_);
             progress_text_.clear();
             progress_tokens_ = 0;
+            progress_prompt_tokens_ = 0;
+            progress_phase_ = "TOKENIZING";
             progress_active_ = true;
         }
         reset_state();
         loaded_residency_ids_.clear();
+        prompt_char_count_ = prompt.size();
+        decode_token_metrics_.clear();
+        first_decode_token_ms_ = 0;
+        decode_ms_total_ = 0;
+        generated_text_chars_ = 0;
+        ttft_ms_ = 0;
         const std::vector<uint32_t> prompt_tokens = tokenizer_->encode(prompt);
         if (prompt_tokens.empty()) throw std::runtime_error("prompt produced no tokens");
         if (prompt_tokens.size() + max_tokens > MAX_CONTEXT)
@@ -292,10 +314,14 @@ public:
         const vbuf_ggml::PromptBatch prompt_batch{ prompt_tokens, 0 };
         prompt_batch.validate();
         prompt_token_count_ = prompt_tokens.size();
+        {
+            std::lock_guard lock(progress_mutex_);
+            progress_prompt_tokens_ = prompt_token_count_;
+            progress_phase_ = "PREFILL";
+        }
         std::fprintf(stderr, "BASELINE_PROMPT mode=%s token_count=%llu\n",
             mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
             static_cast<unsigned long long>(prompt_token_count_));
-        const uint64_t start = android_now_ns();
         RuntimeTiming timing;
         prefill_ms_ = 0;
         last_position_ms_ = 0;
@@ -346,6 +372,10 @@ public:
             std::fprintf(stderr, "PREFILL mode=SERIAL prompt_tokens=%zu batch_size=1 total_ms=%llu\n",
                 prompt_tokens.size(), static_cast<unsigned long long>(prefill_ms_));
         }
+        {
+            std::lock_guard lock(progress_mutex_);
+            progress_phase_ = "DECODE";
+        }
         const uint64_t first_token_start = android_now_ns();
         std::string output;
         uint32_t generated = 0;
@@ -353,8 +383,28 @@ public:
             if (cancelled_.load(std::memory_order_relaxed)) throw std::runtime_error("cancelled");
             const uint64_t position_start = android_now_ns();
             const RuntimeTiming timing_before = timing;
+            const DecodeTokenMetrics counters_before = snapshot_counters();
             const StepResult step = run_step(input, position++, &timing);
             last_position_ms_ = (android_now_ns() - position_start) / 1000000;
+            const DecodeTokenMetrics counters_after = snapshot_counters();
+            DecodeTokenMetrics token_metrics;
+            token_metrics.elapsed_ms = last_position_ms_;
+            token_metrics.source_requests = counters_after.source_requests - counters_before.source_requests;
+            token_metrics.source_bytes = counters_after.source_bytes - counters_before.source_bytes;
+            token_metrics.residency_hits = counters_after.residency_hits - counters_before.residency_hits;
+            token_metrics.residency_misses = counters_after.residency_misses - counters_before.residency_misses;
+            token_metrics.evictions = counters_after.evictions - counters_before.evictions;
+            token_metrics.reload_bytes = counters_after.reload_bytes - counters_before.reload_bytes;
+            token_metrics.peak_resident_bytes = counters_after.peak_resident_bytes;
+            token_metrics.actual_compute_ms =
+                (timing.actual_attention_ns - timing_before.actual_attention_ns +
+                    timing.actual_ffn_ns - timing_before.actual_ffn_ns +
+                    timing.actual_output_head_ns - timing_before.actual_output_head_ns) / 1000000;
+            decode_token_metrics_.push_back(token_metrics);
+            if (generated == 0) {
+                first_decode_token_ms_ = last_position_ms_;
+                ttft_ms_ = (android_now_ns() - first_token_start) / 1000000;
+            }
             __android_log_print(ANDROID_LOG_INFO, TAG,
                 "BASELINE mode=%s position=%u kind=generated total_ms=%llu actual_attention_ms=%llu "
                 "reference_attention_ms=%s actual_ffn_ms=%llu reference_ffn_ms=%s output_head_ms=%llu "
@@ -384,14 +434,16 @@ public:
                 progress_text_ = output;
                 progress_tokens_ = generated + 1;
             }
-            if (generated == 0) ttft_ms_ = (android_now_ns() - first_token_start) / 1000000;
             if (tokenizer_->is_eos(input)) break;
         }
-        generation_ms_ = (android_now_ns() - start) / 1000000;
+        decode_ms_total_ = (android_now_ns() - first_token_start) / 1000000;
+        generation_ms_ = (android_now_ns() - generation_start) / 1000000;
         timing_ = timing;
-        generated_tokens_ = generated + 1;
+        generated_tokens_ = generated;
+        generated_text_chars_ = output.size();
         {
             std::lock_guard lock(progress_mutex_);
+            progress_phase_ = "COMPLETE";
             progress_active_ = false;
         }
         return output.empty() ? "<empty>" : output;
@@ -400,11 +452,15 @@ public:
     std::string progress() const {
         std::lock_guard lock(progress_mutex_);
         return std::string(progress_active_ ? "ACTIVE" : "IDLE") +
-            " tokens=" + std::to_string(progress_tokens_) + "\n" + progress_text_;
+            " phase=" + progress_phase_ +
+            " prompt_tokens=" + std::to_string(progress_prompt_tokens_) +
+            " generated_tokens=" + std::to_string(progress_tokens_) +
+            "\n" + progress_text_;
     }
 
-    void finish_progress() {
+    void finish_progress(const char * phase = "COMPLETE") {
         std::lock_guard lock(progress_mutex_);
+        progress_phase_ = phase;
         progress_active_ = false;
     }
 
@@ -442,11 +498,20 @@ public:
                 ? "QUALIFICATION" : "NORMAL_INFERENCE") + "\n"
             "Prefill mode: " + prefill_mode_ + "\n"
             "Prefill batch size: " + std::to_string(prefill_batch_size_) + "\n"
+            "Prompt chars: " + std::to_string(prompt_char_count_) + "\n"
             "Prompt tokens: " + std::to_string(prompt_token_count_) + "\n"
             "Model open: " + std::to_string(open_ms_) + " ms\n"
-            "TTFT: " + std::to_string(ttft_ms_) + " ms\n"
-            "Generation: " + std::to_string(generation_ms_) + " ms\n"
             "Prefill: " + std::to_string(prefill_ms_) + " ms\n"
+            "Generated tokens: " + std::to_string(generated_tokens_) + "\n"
+            "Generated text chars: " + std::to_string(generated_text_chars_) + "\n"
+            "First decode token: " + std::to_string(first_decode_token_ms_) + " ms\n"
+            "TTFT: " + std::to_string(ttft_ms_) + " ms\n"
+            "Decode token 1: " + decode_token_line(0) + "\n"
+            "Decode token 2: " + decode_token_line(1) + "\n"
+            "Decode token 3: " + decode_token_line(2) + "\n"
+            "Decode token 4: " + decode_token_line(3) + "\n"
+            "Decode total: " + std::to_string(decode_ms_total_) + " ms\n"
+            "Total generation: " + std::to_string(generation_ms_) + " ms\n"
             "Prefill layer sequence: " + std::to_string(prefill_layer_sequence_ms_) + " ms\n"
             "Last position: " + std::to_string(last_position_ms_) + " ms\n"
             "Actual attention: " + std::to_string(timing_.actual_attention_ns / 1000000) + " ms\n"
@@ -477,6 +542,39 @@ public:
     }
 
 private:
+    DecodeTokenMetrics snapshot_counters() const {
+        const RangeSourceMetrics transport = source_->metrics();
+        uint64_t hits = 0, misses = 0, evictions = 0;
+        for (const auto & event : residency_->trace()) {
+            if (event.kind == ResidencyEventKind::Hit) ++hits;
+            if (event.kind == ResidencyEventKind::Miss) ++misses;
+            if (event.kind == ResidencyEventKind::Evict) ++evictions;
+        }
+        DecodeTokenMetrics result;
+        result.source_requests = transport.requests;
+        result.source_bytes = transport.bytes;
+        result.residency_hits = hits;
+        result.residency_misses = misses;
+        result.evictions = evictions;
+        result.reload_bytes = reload_bytes_;
+        result.peak_resident_bytes = peak_resident_bytes_;
+        return result;
+    }
+
+    std::string decode_token_line(size_t index) const {
+        if (index >= decode_token_metrics_.size()) return "UNMEASURED";
+        const DecodeTokenMetrics & token = decode_token_metrics_[index];
+        return std::to_string(token.elapsed_ms) + " ms requests=" +
+            std::to_string(token.source_requests) + " bytes=" +
+            std::to_string(token.source_bytes) + " hits=" +
+            std::to_string(token.residency_hits) + " misses=" +
+            std::to_string(token.residency_misses) + " evictions=" +
+            std::to_string(token.evictions) + " reload_bytes=" +
+            std::to_string(token.reload_bytes) + " peak_resident=" +
+            std::to_string(token.peak_resident_bytes) + " actual_compute=" +
+            std::to_string(token.actual_compute_ms) + " ms";
+    }
+
     void reset_state() {
         actual_k_.clear();
         actual_v_.clear();
@@ -525,12 +623,19 @@ private:
     std::atomic<bool> cancelled_ = false;
     mutable std::mutex progress_mutex_;
     std::string progress_text_;
+    std::string progress_phase_ = "IDLE";
     uint64_t progress_tokens_ = 0;
+    uint64_t progress_prompt_tokens_ = 0;
     bool progress_active_ = false;
     uint64_t open_ms_ = 0;
+    uint64_t prompt_char_count_ = 0;
     uint64_t ttft_ms_ = 0;
     uint64_t generation_ms_ = 0;
     uint64_t generated_tokens_ = 0;
+    uint64_t generated_text_chars_ = 0;
+    uint64_t first_decode_token_ms_ = 0;
+    uint64_t decode_ms_total_ = 0;
+    std::vector<DecodeTokenMetrics> decode_token_metrics_;
     uint64_t reload_bytes_ = 0;
     uint64_t peak_resident_bytes_ = 0;
     uint64_t peak_active_bytes_ = 0;
@@ -554,13 +659,16 @@ jstring string_result(JNIEnv * env, const std::string & value) {
 } // namespace
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_eugen_vbufchat_NativeInference_open(JNIEnv * env, jclass, jstring metadata, jstring endpoint) {
+Java_com_eugen_vbufchat_NativeInference_open(JNIEnv * env, jclass, jstring metadata, jstring endpoint,
+    jboolean qualification) {
     std::lock_guard lock(session_mutex);
     if (session) return string_result(env, "OPEN_OK already_open");
     const char * raw_metadata = env->GetStringUTFChars(metadata, nullptr);
     const char * raw_endpoint = env->GetStringUTFChars(endpoint, nullptr);
     try {
-        session = std::make_unique<DirectSession>(raw_metadata, raw_endpoint);
+        const RuntimeMode requested_mode = qualification == JNI_TRUE
+            ? RuntimeMode::Qualification : RuntimeMode::NormalInference;
+        session = std::make_unique<DirectSession>(raw_metadata, raw_endpoint, requested_mode);
         env->ReleaseStringUTFChars(metadata, raw_metadata);
         env->ReleaseStringUTFChars(endpoint, raw_endpoint);
         return string_result(env, "OPEN_OK DeepSeek-V2-Lite IQ2_XXS direct-runtime");
@@ -586,7 +694,7 @@ Java_com_eugen_vbufchat_NativeInference_generate(JNIEnv * env, jclass, jstring p
         env->ReleaseStringUTFChars(prompt, raw_prompt);
         return string_result(env, output);
     } catch (const std::exception & error) {
-        active->finish_progress();
+        active->finish_progress("ERROR");
         env->ReleaseStringUTFChars(prompt, raw_prompt);
         __android_log_print(ANDROID_LOG_ERROR, TAG, "generation failed: %s", error.what());
         return string_result(env, std::string("GEN_FAIL ") + error.what());

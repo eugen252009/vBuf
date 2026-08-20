@@ -20,8 +20,17 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
          android:text="Idle"
+         android:textColor="#53615E"
+         android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/progress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="IDLE phase=IDLE"
         android:textColor="#53615E"
-        android:textSize="13sp" />
+        android:textSize="12sp" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -68,12 +77,17 @@
         android:layout_height="wrap_content"
         android:text="Cancel" />
 
-    <TextView
-        android:id="@+id/metrics"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="Model: not open"
-        android:textColor="#53615E"
-        android:textSize="12sp" />
+        android:layout_height="0dp"
+        android:layout_weight="0.45"
+        android:layout_marginTop="10dp">
+        <TextView
+            android:id="@+id/metrics"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Model: not open"
+            android:textColor="#53615E"
+            android:textSize="12sp" />
+    </ScrollView>
 </LinearLayout>

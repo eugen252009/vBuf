@@ -52,6 +52,10 @@ integrations/android-vbuf-chat/gradlew \
   -p integrations/android-vbuf-chat assembleDebug
 ```
 
+When the pinned checkout is elsewhere, pass it explicitly with
+`-PvbufGgmlSrc=/path/to/ggml`. The app remains a thin adapter over the direct
+vBuf-ML runtime; this is only a build-source configuration seam.
+
 Deploy the local Phase A model to the app's private storage during development:
 
 ```sh
