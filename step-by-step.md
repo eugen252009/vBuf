@@ -2319,25 +2319,34 @@ warm source qualification. It includes no eviction, offline completion,
 prefetch, multi-source policy, residency change, backend change, or inference
 semantic change.
 
-#### Future source-acquisition follow-up — coalesced/windowed missing chunks
+#### Step 31D — Bounded demand-driven missing-chunk acquisition
 
-**Status:** **DEFERRED; NOT IMPLEMENTED IN STEP 31C.** Physical Android source
-smoke showed that 4 KiB coverage publication is correct but that acquiring every
-missing 4 KiB chunk as a separate upstream HTTP request causes request
-amplification and makes full cold inference impractical on the current test
-transport. This does not invalidate the 4 KiB authoritative bitmap.
+**Status:** **IMPLEMENTED and HOST/ANDROID-QUALIFIED.**
+Physical Android source smoke showed that 4 KiB coverage publication is correct
+but that acquiring every missing 4 KiB chunk as a separate upstream HTTP
+request causes request amplification. This does not invalidate the 4 KiB
+authoritative bitmap.
 
-The isolated follow-up should preserve 4 KiB validity/publication units while
-allowing adjacent missing chunks to be acquired in bounded larger ranges. It
-must detect contiguous missing chunks, choose a measured maximum window, write
-canonical same-offset bytes, publish only complete individual 4 KiB bits, avoid
-pathological overfetch, reduce request count, and return exactly the original
-consumer slice. Candidate windows such as 64 KiB, 256 KiB, 1 MiB, and 4 MiB are
-future measurements, not a decision here. The implementation must remain below
-the `RangeSource` consumer contract; TensorRef, materialization, residency,
-GGML, and inference semantics remain unaware.
+The implementation preserves 4 KiB validity/publication units, detects
+contiguous missing chunks within the current consumer request, and splits runs
+at a measured maximum `1 MiB` window. It writes canonical same-offset bytes,
+publishes only complete individual 4 KiB bits, avoids future-range prefetch,
+reduces request count, and returns exactly the original consumer slice. The
+offline 4,287-range replay estimates 1,850 upstream requests versus 336,990
+one-chunk requests, with `0.236%` chunk-boundary overhead over the bytewise
+union. The implementation remains below the `RangeSource` consumer contract;
+TensorRef, materialization, residency, GGML, and inference semantics remain
+unaware. See `research/results/vbuf-android-demo-poc/step31d-bounded-acquisition.md`.
 
-#### Step 31D — Crash, corruption, and recovery qualification
+The Pixel 7 Pro cold control completed with 1,850 upstream windows and
+`1,380,311,040` remote bytes. The identical warm run completed after process
+restart with zero upstream requests and zero remote bytes. Both runs preserved
+the 4 KiB coverage representation, four-token output, and the
+`268,435,456`-byte residency cap. Cold/warm prefill was `179,800`/`67,329` ms;
+decode was `109,632`/`102,465` ms. These are inclusive existing timers, not
+exclusive source-latency measurements.
+
+#### Step 31E — Crash, corruption, and recovery qualification
 
 Qualify interrupted writes, process death during tee, concurrent same-range
 requests, sparse holes, corruption, source mismatch, disk full, deletion,
@@ -2346,19 +2355,17 @@ crash publication and power-loss durability are required before reporting a
 range as retained. Readers must see uncovered, previously valid, or newly valid
 bytes, never partially published coverage.
 
-#### Step 31E — Cold/warm physical qualification
+#### Step 31F — Extended cold/warm attribution
 
-Run an empty-persistence remote cold control and then warm local reuse with the
-same Pixel/model/semantic bootstrap/prompt/generated sequence/runtime mode,
-batching, GGML configuration, thread count, and 256 MiB residency cap. Record
-remote/local bytes, requests, coverage hits/misses, materialization timing,
-decode time, compute time, output, and validated source-range equivalence.
-
-The result must distinguish transport, persistence, materialization, residency,
-and compute effects. It must not claim a speedup from source persistence without
+**Core gate completed in Step 31D.** The Pixel 7 Pro cold/warm result records
+remote/local bytes, requests, coverage hits/misses, existing materialization and
+compute timing scopes, output, source-range equivalence, and the unchanged
+256 MiB residency cap. Any future repeat must preserve the same workload and
+continue distinguishing transport, persistence, materialization, residency,
+and compute effects; it must not claim a speedup from source persistence without
 the corresponding measured local/remote attribution.
 
-#### Step 31F — Retention and offline completion
+#### Step 31G — Retention and offline completion
 
 - add stream-only, cache-as-used, bounded retention, and keep-model policy above
   the source mechanism;
@@ -2370,7 +2377,7 @@ the corresponding measured local/remote attribution.
   ranges;
 - report exact incompleteness rather than implying offline readiness.
 
-#### Step 31G — Deferred experiments
+#### Step 31H — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
 replacement, model-aware policy tuning, mobile-data UX, residency tuning,

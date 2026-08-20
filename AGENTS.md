@@ -199,6 +199,48 @@ Do not claim payload parity, generation, direct-source regression, or backend
 qualification without an actual recorded result. Keep local, remote, and
 cross-platform qualification evidence distinct.
 
+## Android Build / Qualification Environment
+
+The Android SDK is installed at `/home/eugen/Android/Sdk`. The established user
+zsh configuration and `source.zsh` setup provide the normal Java/Android
+environment exports. If an agent starts in a shell where those variables are
+not visible, it must first source that established user shell environment.
+
+Known-good environment and build inputs are:
+
+```text
+JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64
+ANDROID_HOME=/home/eugen/Android/Sdk
+ANDROID_SDK_ROOT=/home/eugen/Android/Sdk
+ANDROID_NDK_HOME=/home/eugen/Android/Sdk/ndk/27.1.12297006
+GGML source=/home/eugen/projekte/llama.cpp/ggml
+CMake=3.22.1
+```
+
+The Android build currently requires the local GGML source override
+`-PvbufGgmlSrc=/home/eugen/projekte/llama.cpp/ggml`. The historical default
+`/tmp/llama.cpp-step21/ggml` may not exist and is not the only valid GGML source
+location. Qualification APKs using the remote payload source must also preserve
+the documented `vbufRemoteUrl` Gradle property from the Android README/build
+instructions.
+
+Before reporting the Android SDK, JDK, NDK, CMake, or GGML checkout as
+unavailable, first load the established user shell environment and check the
+known-good paths documented here. Missing environment-variable discovery is not
+evidence that the toolchain is absent.
+
+Canonical build shape using the repository Gradle wrapper:
+
+```bash
+source <existing user source.zsh / established shell setup>
+
+./integrations/android-vbuf-chat/gradlew \
+  -p integrations/android-vbuf-chat \
+  -PvbufGgmlSrc=/home/eugen/projekte/llama.cpp/ggml \
+  <existing documented vbufRemoteUrl property when required> \
+  assembleDebug
+```
+
 ## Change Discipline
 
 Before changing runtime behavior, locate the latest canonical implementation

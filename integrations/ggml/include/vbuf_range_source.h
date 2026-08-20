@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -86,8 +86,13 @@ struct ProgressiveSourceIdentity {
 };
 
 struct ProgressiveRangeMetrics {
+    uint64_t consumer_requests = 0;
+    uint64_t consumer_requested_bytes = 0;
+    uint64_t upstream_remote_requests = 0;
+    uint64_t upstream_remote_bytes = 0;
+    uint64_t acquisition_windows = 0;
+    uint64_t acquisition_window_bytes = 0;
     uint64_t local_source_bytes = 0;
-    uint64_t remote_source_bytes = 0;
     uint64_t local_chunk_hits = 0;
     uint64_t remote_chunk_misses = 0;
     uint64_t chunks_published = 0;
@@ -118,7 +123,7 @@ public:
 
 private:
     bool open_store();
-    bool ensure_chunk(uint64_t chunk_index);
+    bool acquire_window(uint64_t first_chunk, uint64_t last_chunk);
     bool publish_chunk(uint64_t chunk_index);
     bool read_local(uint64_t offset, uint64_t length, uint8_t * destination);
     bool write_at(uint64_t offset, const uint8_t * source, size_t length);

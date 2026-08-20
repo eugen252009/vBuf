@@ -495,15 +495,22 @@ public:
             if (event.kind == ResidencyEventKind::Miss) ++misses;
             if (event.kind == ResidencyEventKind::Evict) ++evictions;
         }
-        std::fprintf(stderr, "BASELINE_METRICS mode=%s position=%u kind=%s requests=%llu bytes=%llu "
-            "local_source_bytes=%llu remote_source_bytes=%llu local_chunk_hits=%llu "
-            "remote_chunk_misses=%llu chunks_covered=%llu hits=%llu misses=%llu evictions=%llu "
+        std::fprintf(stderr, "BASELINE_METRICS mode=%s position=%u kind=%s "
+            "consumer_requests=%llu consumer_requested_bytes=%llu "
+            "upstream_remote_requests=%llu upstream_remote_bytes=%llu "
+            "acquisition_windows=%llu acquisition_window_bytes=%llu "
+            "local_source_bytes=%llu local_chunk_hits=%llu remote_chunk_misses=%llu "
+            "chunks_covered=%llu hits=%llu misses=%llu evictions=%llu "
             "reload_bytes=%llu peak_resident=%llu\n",
             mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
-            position, kind, static_cast<unsigned long long>(transport.requests),
-            static_cast<unsigned long long>(transport.bytes),
+            position, kind,
+            static_cast<unsigned long long>(persistence.consumer_requests),
+            static_cast<unsigned long long>(persistence.consumer_requested_bytes),
+            static_cast<unsigned long long>(persistence.upstream_remote_requests),
+            static_cast<unsigned long long>(persistence.upstream_remote_bytes),
+            static_cast<unsigned long long>(persistence.acquisition_windows),
+            static_cast<unsigned long long>(persistence.acquisition_window_bytes),
             static_cast<unsigned long long>(persistence.local_source_bytes),
-            static_cast<unsigned long long>(persistence.remote_source_bytes),
             static_cast<unsigned long long>(persistence.local_chunk_hits),
             static_cast<unsigned long long>(persistence.remote_chunk_misses),
             static_cast<unsigned long long>(persistence.covered_chunks),
@@ -560,8 +567,13 @@ public:
             "Tokens/sec: " + std::to_string(tokens_per_second) + "\n"
             "HTTP requests: " + std::to_string(transport.requests) + "\n"
             "Returned bytes: " + std::to_string(transport.bytes) + "\n"
+            "Consumer requests: " + std::to_string(persistence.consumer_requests) + "\n"
+            "Consumer requested bytes: " + std::to_string(persistence.consumer_requested_bytes) + "\n"
+            "Upstream remote requests: " + std::to_string(persistence.upstream_remote_requests) + "\n"
+            "Upstream remote bytes: " + std::to_string(persistence.upstream_remote_bytes) + "\n"
+            "Acquisition windows: " + std::to_string(persistence.acquisition_windows) + "\n"
+            "Acquisition window bytes: " + std::to_string(persistence.acquisition_window_bytes) + "\n"
             "Local source bytes: " + std::to_string(persistence.local_source_bytes) + "\n"
-            "Remote source bytes: " + std::to_string(persistence.remote_source_bytes) + "\n"
             "Local chunk hits: " + std::to_string(persistence.local_chunk_hits) + "\n"
             "Remote chunk misses: " + std::to_string(persistence.remote_chunk_misses) + "\n"
             "Chunks covered: " + std::to_string(persistence.covered_chunks) + "\n"

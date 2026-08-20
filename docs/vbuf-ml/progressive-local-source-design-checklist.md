@@ -1,17 +1,19 @@
 # Progressive Local Source Design Checklist
 
-Status: **IMPLEMENTED / HOST QUALIFIED; PHYSICAL ANDROID QUALIFICATION PARTIAL**
+Status: **STEP 31D HOST ANDROID QUALIFIED**
 
 Step 31B decision: **SPARSE CANONICAL MIRROR + 4 KiB AUTHORITATIVE BITMAP**
-for the qualified single external payload source. Step 31C is implemented and
-host-qualified; physical Android qualification has partial cold-acquisition
-evidence but no completed cold/warm or generation result.
+for the qualified single external payload source. Step 31C and the Step 31D
+bounded acquisition follow-up are host- and Android-qualified with a completed
+31D cold/warm and generation result.
 
-This document records the repository-grounded design and bounded Step 31C
+This document records the repository-grounded design and bounded Step 31C/31D
 implementation for progressively persisting remote vBuf source data. It does
 not change TensorRef semantics, materialization, the 256 MiB runtime residency
 baseline, or inference behavior. Retention, offline completion, and power-loss
-durability remain deferred.
+durability remain deferred. Step 31D adds demand-driven missing-chunk coalescing
+with a measured 1 MiB maximum acquisition window; 4 KiB coverage remains
+authoritative.
 
 The physical application baseline is commit `80409a4 Add Android app baseline
 harness` on a Pixel 7 Pro, Android 17, `arm64-v8a`, using the DeepSeek-V2-Lite
@@ -836,13 +838,12 @@ source-persistence mechanism:
 - Android-specific inference or a separate model loader;
 - changing batching, thread count, GGML backend, or quantization as part of the
   first source-persistence experiment.
-- coalesced or windowed upstream acquisition; coverage remains authoritative at
-  4 KiB, while acquisition geometry must be measured separately.
+- physical Android qualification of the Step 31D acquisition geometry;
 
 ## Decision Snapshot
 
 ```text
-VBUF_ML_PROGRESSIVE_LOCAL_SOURCE_PLAN: DESIGN CHECKLIST ONLY
+VBUF_ML_PROGRESSIVE_LOCAL_SOURCE_PLAN: STEP_31D_HOST_ANDROID_QUALIFIED
 
 CURRENT_ARCHITECTURE:
   TensorRef -> SourceSet/RangeSource -> materialization -> lease/residency -> GGML
@@ -898,11 +899,11 @@ OPEN_ARCHITECTURE_QUESTIONS:
 PROPOSED_PHASE_COUNT: 7
 PHASE_1: canonical-offset and source-authority audit
 PHASE_2: persistent source representation decision (DECIDED: A)
-PHASE_3: minimal local-hit/remote-miss source mechanism
-PHASE_4: cold-remote versus warm-local qualification
-PHASE_5: retention policy
-PHASE_6: offline completion using the same mirror
-PHASE_7: independent later experiments
+PHASE_3: minimal local-hit/remote-miss source mechanism (31C)
+PHASE_4: bounded demand-driven acquisition (31D; HOST QUALIFIED)
+PHASE_5: crash/corruption/recovery qualification
+PHASE_6: cold-remote versus warm-local qualification (core gate complete in 31D)
+PHASE_7: retention and offline completion
 
 FIRST_MEASUREMENT_TO_RUN:
   Completed in Step 31A: captured and offline-analyzed requested source
@@ -934,11 +935,13 @@ DOCUMENT_CREATED_OR_UPDATED:
   docs/vbuf-ml/progressive-local-source-design-checklist.md
   docs/vbuf-ml/step31b-persistent-source-representation-decision.md
   research/results/vbuf-android-demo-poc/step31c-progressive-local-source.md
+  research/results/vbuf-android-demo-poc/step31d-bounded-acquisition.md
 STEP_31B_REPRESENTATION: SPARSE_CANONICAL_MIRROR_WITH_4_KIB_BITMAP
 STEP_31C_IMPLEMENTATION: HOST_QUALIFIED
-PHYSICAL_ANDROID_QUALIFICATION: PARTIALLY_QUALIFIED_SOURCE_SMOKE
-PHYSICAL_ACQUISITION_LIMITATION: 4_KIB_REQUEST_AMPLIFICATION_OBSERVED
-NEXT_SOURCE_EXPERIMENT: COALESCED_OR_WINDOWED_MISSING_CHUNK_ACQUISITION
+STEP_31D_IMPLEMENTATION: HOST_QUALIFIED_1_MIB_DEMAND_WINDOWS
+PHYSICAL_ANDROID_QUALIFICATION: STEP_31D_COLD_WARM_QUALIFIED
+PHYSICAL_ACQUISITION_LIMITATION: RESOLVED_BY_1_MIB_DEMAND_WINDOWS
+NEXT_SOURCE_EXPERIMENT: CRASH_CORRUPTION_RECOVERY_QUALIFICATION
 RUNTIME_BEHAVIOR_CHANGED: NO
 COMMIT_PERFORMED: NO
 ```

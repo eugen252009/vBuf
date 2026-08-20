@@ -56,6 +56,9 @@ constexpr std::array<uint8_t, 8> PROGRESSIVE_COVERAGE_MAGIC = {
     'V', 'B', 'U', 'F', 'P', 'C', 'O', 'V' };
 constexpr uint32_t PROGRESSIVE_COVERAGE_VERSION = 1;
 constexpr uint64_t PROGRESSIVE_COVERAGE_HEADER_BYTES = 80;
+constexpr uint64_t PROGRESSIVE_MAX_ACQUISITION_BYTES = 1u << 20;
+constexpr uint64_t PROGRESSIVE_MAX_ACQUISITION_CHUNKS =
+    PROGRESSIVE_MAX_ACQUISITION_BYTES / ProgressiveRangeSource::CHUNK_SIZE;
 
 void put_u16(uint8_t * destination, uint16_t value) {
     destination[0] = static_cast<uint8_t>(value);
@@ -426,24 +429,28 @@ bool ProgressiveRangeSource::publish_chunk(uint64_t chunk_index) {
     return true;
 }
 
-bool ProgressiveRangeSource::ensure_chunk(uint64_t chunk_index) {
-    if (bit_is_set(chunk_index)) {
-        ++metrics_.local_chunk_hits;
-        return true;
-    }
-    const uint64_t offset = chunk_index * CHUNK_SIZE;
-    const uint64_t length = chunk_length(chunk_index);
+bool ProgressiveRangeSource::acquire_window(uint64_t first_chunk, uint64_t last_chunk) {
+    const uint64_t offset = first_chunk * CHUNK_SIZE;
+    const uint64_t end = last_chunk + 1 == chunk_count()
+        ? identity_.declared_size : (last_chunk + 1) * CHUNK_SIZE;
+    const uint64_t length = end - offset;
     std::vector<uint8_t> bytes(static_cast<size_t>(length));
     RangeReadResult remote_result;
-    ++metrics_.remote_chunk_misses;
+    metrics_.remote_chunk_misses += last_chunk - first_chunk + 1;
     if (!remote_->read_range(offset, length, bytes.data(), &remote_result) ||
         remote_result.requested_offset != offset || remote_result.requested_length != length ||
         remote_result.returned_bytes != length) {
         return false;
     }
-    metrics_.remote_source_bytes += length;
     if (!write_at(offset, bytes.data(), bytes.size())) return false;
-    return publish_chunk(chunk_index);
+    ++metrics_.upstream_remote_requests;
+    metrics_.upstream_remote_bytes += length;
+    ++metrics_.acquisition_windows;
+    metrics_.acquisition_window_bytes += length;
+    for (uint64_t chunk = first_chunk; chunk <= last_chunk; ++chunk) {
+        if (!publish_chunk(chunk)) return false;
+    }
+    return true;
 }
 
 bool ProgressiveRangeSource::read_range(uint64_t offset, uint64_t length,
@@ -460,13 +467,29 @@ bool ProgressiveRangeSource::read_range(uint64_t offset, uint64_t length,
         return false;
     }
     std::lock_guard<std::mutex> lock(mutex_);
+    ++metrics_.consumer_requests;
+    metrics_.consumer_requested_bytes += length;
     const uint64_t first_chunk = offset / CHUNK_SIZE;
     const uint64_t last_chunk = (end - 1) / CHUNK_SIZE;
-    for (uint64_t chunk = first_chunk; chunk <= last_chunk; ++chunk) {
-        if (!ensure_chunk(chunk)) {
+    uint64_t chunk = first_chunk;
+    while (chunk <= last_chunk) {
+        if (bit_is_set(chunk)) {
+            ++metrics_.local_chunk_hits;
+            ++chunk;
+            continue;
+        }
+        const uint64_t window_first = chunk;
+        uint64_t window_last = chunk;
+        while (window_last < last_chunk &&
+            window_last - window_first + 1 < PROGRESSIVE_MAX_ACQUISITION_CHUNKS &&
+            !bit_is_set(window_last + 1)) {
+            ++window_last;
+        }
+        if (!acquire_window(window_first, window_last)) {
             result->error = "progressive source acquisition or publication failed";
             return false;
         }
+        chunk = window_last + 1;
     }
     if (!read_local(offset, length, destination)) {
         result->error = "progressive local mirror read failed";
@@ -482,9 +505,9 @@ bool ProgressiveRangeSource::read_range(uint64_t offset, uint64_t length,
 RangeSourceMetrics ProgressiveRangeSource::metrics() const {
     std::lock_guard<std::mutex> lock(mutex_);
     RangeSourceMetrics result{};
-    result.requests = metrics_.remote_chunk_misses;
-    result.bytes = metrics_.remote_source_bytes;
-    result.unique_bytes = metrics_.remote_source_bytes;
+    result.requests = metrics_.upstream_remote_requests;
+    result.bytes = metrics_.upstream_remote_bytes;
+    result.unique_bytes = metrics_.upstream_remote_bytes;
     return result;
 }
 
