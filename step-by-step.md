@@ -2222,25 +2222,68 @@ observed prompt and four-token execution rather than complete model coverage.
 
 #### Step 31B — Persistent representation decision
 
-Compare these alternatives using the 31A evidence:
+**Decision:** select **A, a sparse canonical same-offset mirror**, with a
+minimal authoritative fixed-chunk coverage map and an immutable artifact
+identity binding. The semantic bootstrap remains separate. The detailed
+decision record is `docs/vbuf-ml/step31b-persistent-source-representation-decision.md`.
+
+The persistent artifact identity for the qualified source is:
+
+```text
+(declared_size, SourceHash.algorithm=1, full 32-byte SHA-256 SourceHash.value)
+```
+
+`SourceId(1)` and the source-profile binding select the descriptor but are not
+identity by themselves; locator, endpoint, path, tensor identity, and RAM
+residency are not identity. The existing semantic-bootstrap source profile
+already carries the declared payload size and full-source SHA-256. A thin
+future source-boundary seam must expose that existing identity to persistence;
+no second hashing subsystem or TensorRef redesign is authorized.
+
+The authoritative coverage unit is a 4 KiB logical source chunk. The
+`5,639,819,878`-byte payload requires `1,376,910` chunks and a one-bit bitmap of
+`172,114` bytes. Rounding the measured Step 31A ranges to touched chunks would
+add a derived `17,924,896` bytes of acquisition, far below the measured
+`3,368,434,656` repeated bytes. This is a runtime source-cache granularity,
+not a v0.6 format alignment rule.
+
+Only `MISSING` and `VALID` are externally observable. A transient `ACQUIRING`
+state is in-memory only. A chunk becomes valid only after exact remote framing,
+declared-size containment, a complete canonical write, and coverage-bit
+publication. Sparse holes never authorize a hit. The first partial-coverage
+strategy fetches the complete touched chunks rather than splitting local and
+remote subranges.
+
+The current source profile provides an expected whole-artifact SHA-256, but the
+range path has no per-range digest and does not verify a whole-artifact hash
+while serving individual ranges. Step 31C may therefore claim structural
+validation and source-identity binding under a trusted immutable source
+contract, not adversarial remote authenticity. Whole-artifact verification and
+power-loss durability remain deferred.
+
+The alternatives were compared as follows:
 
 1. sparse canonical mirror plus minimal explicit coverage;
 2. canonical block persistence with sufficient stream/source context;
 3. runtime-local envelope/record persistence.
 
-Prefer the sparse mirror only when it satisfies identity, offset, validation,
-partial-read, crash/publication, and lookup requirements without duplicating
-model semantics. Choose the smallest coverage unit justified by actual request
-geometry: arbitrary intervals, fixed source chunks, canonical blocks, or
-TensorRef ranges. Sparse file holes are never coverage state.
+Canonical block persistence is rejected because external TensorRef payload
+ranges are already consumed at canonical offsets, while isolated v0.6 blocks
+require stream context and would introduce a second persistence representation.
+Runtime-local envelopes are rejected because they duplicate payload/model
+semantics and lose direct byte-for-byte artifact equivalence. The sparse mirror
+has the smallest new state and reuses the existing local/remote RangeSource
+boundary.
+
+Step 31B is **DECIDED**. It does not implement any of the selected mechanism.
 
 #### Step 31C — Minimal source-layer mechanism
 
-After 24B authorizes implementation:
+After this representation gate authorizes implementation:
 
 - add local exact-range lookup and explicit coverage lookup at the source layer;
-- on an uncovered request, fetch the canonical remote range and use it for the
-  current request;
+- on an uncovered request, fetch the complete touched 4 KiB canonical chunks
+  and use the requested bytes for the current request;
 - validate before publishing bytes and coverage at the canonical offset;
 - support fully local, fully remote, and qualified partial-coverage reads;
 - keep stream-only as a persistence-bypass policy;
@@ -2249,8 +2292,15 @@ After 24B authorizes implementation:
 - make the coverage accelerator rebuildable and non-authoritative.
 
 No semantic execution or materialization contract changes are permitted in this
-step. A partial local read must fetch the uncovered portion unless measured
-request geometry justifies a more complex split/coalescing policy.
+step. A request touching any missing 4 KiB chunk fetches the complete touched
+chunk set; local/missing subrange splitting is deferred.
+
+The smallest 31C acceptance slice is one qualified source identity, a same-size
+sparse payload mirror, a 4 KiB authoritative bitmap, local containment checks,
+remote fallback, canonical writes followed by bit publication, and a cold-then-
+warm source qualification. It includes no eviction, offline completion,
+prefetch, multi-source policy, residency change, backend change, or inference
+semantic change.
 
 #### Step 31D — Crash, corruption, and recovery qualification
 

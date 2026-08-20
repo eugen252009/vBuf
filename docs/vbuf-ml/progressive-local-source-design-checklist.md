@@ -2,6 +2,10 @@
 
 Status: **DESIGN / PLANNING ONLY**
 
+Step 31B decision: **SPARSE CANONICAL MIRROR + 4 KiB AUTHORITATIVE BITMAP**
+for the qualified single external payload source. Step 31C remains
+unimplemented.
+
 This document records a repository-grounded design direction for progressively
 persisting remote vBuf source data. It does not implement persistence, change a
 source, change Android behavior, change the 256 MiB runtime residency baseline,
@@ -77,6 +81,10 @@ The identity is stable only within the profile's identity contract. A numeric
 `SourceId` is not a content hash and is not, by itself, proof that two source
 artifacts are the same model. Source hashes are optional and currently are
 descriptive metadata; no source-wide verification is automatically performed.
+For the qualified semantic-bootstrap generator, the external descriptor does
+carry a full-source SHA-256 (`SourceHash.algorithm == 1`) and the exact source
+length. Step 31B selects that existing pair as the persistent mirror identity;
+it does not make `SourceId` or the locator authoritative identity.
 
 ### 1.3 Current source and range APIs
 
@@ -167,6 +175,10 @@ single-source and source-ID-blind above `RangeSource`.
 SHA-256 metadata for selected canonical payloads. Verification is explicit and
 target-scoped. It does not authenticate a publisher, protect against a changed
 remote locator, or verify an external source-wide artifact automatically.
+
+Separately, the target source profile carries a full-source SHA-256 through
+`SourceHash`. That value supplies an expected artifact identity, but the current
+range-loading path does not verify it while serving individual external ranges.
 
 The current C++ materializer records an FNV-1a payload hash in telemetry. That
 hash is not an integrity contract and must not be used as the cache's authority.
@@ -323,8 +335,9 @@ the exact type name and ownership should follow the existing Rust `SourceSet`
 and C++ `RangeSource` boundaries rather than introducing an Android-specific
 loader or a backend-owned cache.
 
-The preferred first hypothesis is now a sparse mirror of the same immutable
-canonical payload artifact:
+Step 31B selects a sparse mirror of the same immutable canonical payload
+artifact. The selected first coverage unit is a fixed 4 KiB logical source
+chunk, represented by a minimal authoritative bitmap:
 
 ```text
 remote payload artifact: [----------------------------------]
@@ -335,11 +348,12 @@ local sparse mirror:     [██████......████████....�
 For a missing range, the conceptual operation is:
 
 ```text
-read remote(offset, length)
+identify all touched 4 KiB chunks
+    -> read complete canonical chunks remotely
     -> validate response and source identity
-    -> use bytes for the current materialization
-    -> pwrite bytes at the same local offset
-    -> publish coverage only after the write contract succeeds
+    -> use the requested bytes for the current materialization
+    -> pwrite complete chunks at the same local offsets
+    -> publish bitmap bits only after the writes succeed
 ```
 
 For a covered range, the source reads the same offset and length from local
@@ -352,17 +366,20 @@ The sparse mirror is a partially materialized copy of the existing source
 artifact. A separate minimal coverage state is still required because sparse
 holes read as zeroes and zeroes may be valid source bytes.
 
-The representation decision remains conditional on Phase 1. Compare:
+The representation decision is no longer conditional for the qualified
+single-source path. Compare:
 
 1. sparse canonical mirror plus minimal coverage state;
 2. canonical block persistence with enough source/stream context;
 3. a runtime-local envelope/record store only if the first two cannot preserve
    correctness or practical lookup.
 
-The repository evidence currently favors option 1 for the qualified single
-external payload artifact. It does not authorize implementation yet, and it
-does not establish that a sparse mirror is sufficient for arbitrary multi-source
-models or complete canonical-artifact reconstruction.
+Step 31B selects option 1 for the qualified single external payload artifact.
+It does not authorize implementation yet, and it does not establish that a
+sparse mirror is sufficient for arbitrary multi-source models or complete
+canonical-artifact reconstruction. The exact identity, bitmap publication,
+crash boundary, integrity limitation, and alternative comparison are recorded
+in `docs/vbuf-ml/step31b-persistent-source-representation-decision.md`.
 
 ## 3. Required Invariants
 
@@ -514,6 +531,13 @@ The genuinely missing pieces are:
 
 ### Coverage representation
 
+**Step 31B resolution:** use fixed 4 KiB source chunks and a one-bit
+authoritative bitmap. The measured irregular request boundaries make exact
+TensorRef coverage a poor authority, while a 4 KiB bitmap remains compact and
+adds only derived low single-digit-percent rounded acquisition overhead on the
+31A trace. Arbitrary interval journals and canonical block maps are deferred or
+rejected for the first implementation.
+
 - Should coverage track arbitrary byte intervals, fixed source chunks, canonical
   v0.6 physical blocks, or TensorRef ranges?
 - What request geometry and overlap distribution make one representation cheaper
@@ -523,6 +547,12 @@ The genuinely missing pieces are:
 - How are overlapping writes and partial-range reads published atomically?
 
 ### Identity and integrity
+
+**Step 31B resolution:** the mirror key is `(declared_size, full-source
+SHA-256 SourceHash)`. `SourceId` remains profile binding context, not identity.
+The target profile has the expected full hash, but range-only acquisition does
+not verify it per range; the first implementation uses a trusted immutable
+source contract and defers whole-artifact final verification.
 
 - Are `SourceId` values generated deterministically and immutably for each
   artifact, or are they merely profile-local labels?
@@ -539,6 +569,11 @@ The genuinely missing pieces are:
   source replacement? Existing SHA-256 metadata is not a signature.
 
 ### Store and platform behavior
+
+**Step 31B resolution:** the semantic bootstrap remains separate; the payload
+mirror is model/source scoped by its identity header. Process-crash publication
+is required for 31C, power-loss durability is deferred, and per-range `fsync`
+is not required for the first qualification.
 
 - What Android flash directory and quota API should own the sparse payload mirror
   and its minimal coverage state?
@@ -641,15 +676,15 @@ This is an ordered design checklist, not an implementation script.
 
 ### Phase 1: Canonical-offset and source-authority audit
 
-- [ ] Inventory the target model's source-profile `SourceId`, declared size,
+- [x] Inventory the target model's source-profile `SourceId`, declared size,
       locator, source hash, and binding count.
-- [ ] Prove whether all target external TensorRefs address one immutable random-
+- [x] Prove whether all target external TensorRefs address one immutable random-
       access payload artifact directly, without offset rebasing.
-- [ ] Record the exact relationship between the separate semantic bootstrap,
+- [x] Record the exact relationship between the separate semantic bootstrap,
       payload artifact, v0.6 headers, and TensorRef payload ranges.
-- [ ] Determine whether an existing local semantic bootstrap can consume a
+- [x] Determine whether an existing local semantic bootstrap can consume a
       same-offset payload mirror unchanged.
-- [ ] Capture a no-cache-change source range trace and derive bytewise union,
+- [x] Capture a no-cache-change source range trace and derive bytewise union,
       new unique bytes, repeated overlap, reuse distance, request count,
       requested bytes, and overfetch where measurable.
 - [ ] Simulate source-coverage policies and candidate storage budgets before
@@ -657,17 +692,17 @@ This is an ordered design checklist, not an implementation script.
 
 ### Phase 2: Persistent source representation decision
 
-- [ ] Compare, using the Phase 1 facts, (A) sparse canonical mirror plus minimal
+- [x] Compare, using the Phase 1 facts, (A) sparse canonical mirror plus minimal
       coverage, (B) canonical block persistence, and (C) a runtime-local
       envelope/record store.
-- [ ] Prefer the sparse mirror if remote and local offsets are provably
+- [x] Prefer the sparse mirror if remote and local offsets are provably
       identical, the declared size is stable, and coverage can be published
       safely without duplicating model semantics.
-- [ ] Define whether coverage tracks arbitrary intervals, fixed source chunks,
+- [x] Define whether coverage tracks arbitrary intervals, fixed source chunks,
       canonical blocks, or TensorRef ranges from actual request geometry.
-- [ ] Define source identity, coverage, validation, and incomplete/full-mirror
+- [x] Define source identity, coverage, validation, and incomplete/full-mirror
       states independently from the semantic bootstrap.
-- [ ] Reject a more complex record/envelope format unless the mirror alternatives
+- [x] Reject a more complex record/envelope format unless the mirror alternatives
       fail a correctness, identity, recovery, or practical-lookup requirement.
 
 ### Phase 3: Minimal local-hit / remote-miss source mechanism
@@ -675,13 +710,13 @@ This is an ordered design checklist, not an implementation script.
 - [ ] Add the smallest source-layer local sparse-mirror read and coverage lookup
       seam, without changing `TensorRef`, materializer, lease, residency, or
       GGML contracts.
-- [ ] On a miss, read the remote canonical range, validate it, use it for the
-      current request, write the same bytes at the same canonical offset, and
-      publish coverage only after the defined publication step succeeds.
+- [ ] On a miss, read the complete touched 4 KiB chunks from the remote
+      canonical source, validate them, use the requested bytes for the current
+      request, write chunks at the same canonical offsets, and publish coverage
+      only after the defined publication step succeeds.
 - [ ] Keep stream-only as a policy that bypasses persistence entirely.
-- [ ] Define the simplest correct handling for partial requested ranges: whole
-      remote fetch first unless measured geometry justifies interval splitting or
-      a natural source-chunk unit.
+- [ ] Define the simplest correct handling for partial requested ranges: fetch
+      complete touched 4 KiB chunks first; defer interval splitting/coalescing.
 - [ ] Keep persistent source coverage separate from active RAM residency.
 
 ### Phase 4: Cold-remote versus warm-local qualification
@@ -765,7 +800,7 @@ shared paths, tensor sizes, and reuse distances differ.
 | Remote read interrupted | No publication; current request fails or retries under an explicit future source policy |
 | Flash write interrupted | Unpublished mirror bytes are ignored; coverage is not published for the incomplete interval |
 | Process death during tee | Only previously published coverage remains visible; the remote result may still complete the current request |
-| Partial requested range | The uncovered portion is fetched remotely; a partial local read is never treated as complete |
+| Partial requested range | The complete touched 4 KiB coverage chunks are fetched remotely; a partial local read is never treated as complete |
 | Sparse hole read | Coverage lookup rejects it; hole contents never authorize a cache hit |
 | Corrupt mirror bytes | Coverage is invalidated or quarantined for the affected interval; remote fallback may repair it |
 | Source identity mismatch | The local mirror is not reused, even when offset/length match |
@@ -812,8 +847,9 @@ SELF_DESCRIBING_BLOCK_SUPPORT:
   isolated block lacks global BaseShift/stream context, source identity, and digest.
 
 SOURCE_IDENTITY_SUPPORT:
-  PARTIAL/PRESENT. Rust SourceId and optional SourceDescriptor hashes exist;
-  SourceId is not a global content identity and is not verified automatically.
+  DECIDED. The persistent key is declared source size plus SourceHash algorithm
+  1 (full SHA-256) and digest. SourceId(1) selects the profile binding but is
+  not identity; the locator is not identity.
 
 LOCAL_FILE_SOURCE_SUPPORT:
   YES. Rust MmapSource/PositionedFileSource and C++ mapped LocalVbufRangeSource
@@ -824,8 +860,9 @@ HYBRID_SOURCE_SUPPORT:
   per-range local coverage plus remote tee does not.
 
 REBUILDABLE_COVERAGE_FEASIBLE:
-  PLAUSIBLE BUT UNPROVEN. It requires an authoritative coverage representation
-  that can be recovered or rebuilt; sparse-file hole state is not sufficient.
+  DECIDED. A one-bit-per-4-KiB-chunk bitmap is authoritative; an in-memory
+  lookup accelerator is optional and rebuildable. Sparse-file holes are not
+  coverage.
 
 CRASH_SAFE_PUBLICATION_SUPPORT:
   NO EXISTING PERSISTENT SUPPORT. The future store must define it explicitly.
@@ -840,18 +877,19 @@ REUSABLE_COMPONENTS:
   ResidentTensorMaterializer, TensorResidencyStore, SourceHash, IntegrityMetadata.
 
 MISSING_COMPONENTS:
-  Source artifact identity binding, canonical-offset qualification, minimal
-  coverage state, crash-safe mirror publication, hybrid partial-coverage source,
-  retention policy, source-aware native plumbing, and range-level telemetry.
+  Step 31C implementation of the selected source identity/bitmap publication,
+  local/remote source composition, process-crash qualification, and source-aware
+  native identity plumbing. Retention, durability, offline completion, and
+  multi-source policy remain later work.
 
 OPEN_ARCHITECTURE_QUESTIONS:
-  Whether the qualified source permits a same-offset sparse mirror; the minimum
-  coverage granularity and durability contract; how complete/offline coverage is
-  defined; and whether a block/envelope design is needed after that audit.
+  No representation choice remains open for the qualified single-source path.
+  Deferred questions are whole-artifact hash finalization, power-loss durability,
+  retention policy, complete/offline coverage, and multi-source extension.
 
 PROPOSED_PHASE_COUNT: 7
 PHASE_1: canonical-offset and source-authority audit
-PHASE_2: persistent source representation decision
+PHASE_2: persistent source representation decision (DECIDED: A)
 PHASE_3: minimal local-hit/remote-miss source mechanism
 PHASE_4: cold-remote versus warm-local qualification
 PHASE_5: retention policy
@@ -859,15 +897,14 @@ PHASE_6: offline completion using the same mirror
 PHASE_7: independent later experiments
 
 FIRST_MEASUREMENT_TO_RUN:
-  Capture and offline-analyze requested source intervals for the unchanged
-  80409a4 Android configuration, including per-token union and repeated overlap.
+  Completed in Step 31A: captured and offline-analyzed requested source
+  intervals for the unchanged 80409a4 Android configuration.
 
 FIRST_IMPLEMENTATION_TO_ATTEMPT:
-  None until canonical-offset equality, source identity, coverage granularity,
-  and publication/durability invariants are qualified. If the sparse-mirror
-  gate passes, implement a source-layer same-offset mirror with explicit
-  coverage, local-hit/remote-miss resolution, and tee-on-remote-read policy;
-  no residency or execution changes.
+  Step 31C: one qualified source, same-size sparse payload mirror, existing
+  SourceHash/declared-size identity, 4 KiB bitmap, local-hit/remote-miss
+  resolution, canonical writes followed by bit publication, and no residency
+  or execution changes.
 
 FIRST_PHYSICAL_QUALIFICATION:
   Same Pixel/model/prompt/GGML/thread/batching/256 MiB setup: remote cold control
@@ -885,6 +922,8 @@ AUTHORITATIVE_COVERAGE_STATE_REQUIRED:
 
 DOCUMENT_CREATED_OR_UPDATED:
   docs/vbuf-ml/progressive-local-source-design-checklist.md
+  docs/vbuf-ml/step31b-persistent-source-representation-decision.md
+STEP_31B_REPRESENTATION: SPARSE_CANONICAL_MIRROR_WITH_4_KIB_BITMAP
 IMPLEMENTATION_PERFORMED: NO
 RUNTIME_BEHAVIOR_CHANGED: NO
 COMMIT_PERFORMED: NO
@@ -904,22 +943,21 @@ COMMIT_PERFORMED: NO
 
    Only for a qualified source identity and declared size, where local offset `o`
    denotes the same source byte as remote offset `o`, and coverage proves the
-   requested interval was completely validated and published. The mirror is not
-   automatically valid for arbitrary multi-source models.
+   touched 4 KiB chunks were completely validated and published. The mirror is
+   not automatically valid for arbitrary multi-source models.
 
 3. **What auxiliary coverage structure, if any, is required?**
 
-   An explicit authoritative interval/chunk/bitmap representation is required;
-   sparse-hole reads are not coverage. A compact lookup accelerator may be added
-   for performance, but it must be rebuildable and never authorize a hit by
-   itself.
+    An explicit one-bit-per-4 KiB-chunk bitmap is required; sparse-hole reads are
+    not coverage. A compact lookup accelerator may be added for performance, but
+    it must be rebuildable and never authorize a hit by itself.
 
 4. **How is source identity guaranteed across remote and local copies?**
 
-   By binding both to immutable artifact identity, declared size, locator/profile
-   facts, and a validated hash/integrity contract. Current `SourceId` is useful
-   plumbing but insufficient alone because it is numeric/profile-scoped and
-   hashes are optional and not automatically verified.
+    By binding both to the existing full-source SHA-256 `SourceHash` and declared
+    size from the source profile. `SourceId` is useful profile plumbing but
+    insufficient alone because it is numeric/profile-scoped; the locator is not
+    identity and range-only reads do not independently verify the whole hash.
 
 5. **What does complete/offline coverage mean?**
 
