@@ -2,6 +2,7 @@
 #define VBUF_POC22_LIBRARY_ONLY
 #include "autoregressive_poc22.cpp"
 #undef VBUF_POC22_LIBRARY_ONLY
+#include "vbuf_prefill_batch.h"
 
 #include <jni.h>
 #include <android/log.h>
@@ -288,6 +289,8 @@ public:
         if (prompt_tokens.empty()) throw std::runtime_error("prompt produced no tokens");
         if (prompt_tokens.size() + max_tokens > MAX_CONTEXT)
             throw std::runtime_error("prompt exceeds bounded context");
+        const vbuf_ggml::PromptBatch prompt_batch{ prompt_tokens, 0 };
+        prompt_batch.validate();
         prompt_token_count_ = prompt_tokens.size();
         std::fprintf(stderr, "BASELINE_PROMPT mode=%s token_count=%llu\n",
             mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
@@ -298,37 +301,50 @@ public:
         last_position_ms_ = 0;
         uint32_t input = prompt_tokens.front();
         uint32_t position = 0;
-        for (uint32_t prompt_token : prompt_tokens) {
-            if (cancelled_.load(std::memory_order_relaxed)) throw std::runtime_error("cancelled");
-            input = prompt_token;
-            const uint64_t position_start = android_now_ns();
-            const RuntimeTiming timing_before = timing;
-            const StepResult step = run_step(input, position++, &timing);
-            last_position_ms_ = (android_now_ns() - position_start) / 1000000;
-            prefill_ms_ += last_position_ms_;
-            __android_log_print(ANDROID_LOG_INFO, TAG,
-                "BASELINE mode=%s position=%u kind=prompt total_ms=%llu actual_attention_ms=%llu "
-                "reference_attention_ms=%s actual_ffn_ms=%llu reference_ffn_ms=%s output_head_ms=%llu "
-                "reference_output_head_ms=%s",
-                mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
-                position - 1, static_cast<unsigned long long>(last_position_ms_),
-                static_cast<unsigned long long>((timing.actual_attention_ns - timing_before.actual_attention_ns) / 1000000),
-                mode_ == RuntimeMode::Qualification
-                    ? std::to_string((timing.reference_attention_ns - timing_before.reference_attention_ns) / 1000000).c_str()
-                    : "NOT_EXECUTED",
-                static_cast<unsigned long long>((timing.actual_ffn_ns - timing_before.actual_ffn_ns) / 1000000),
-                mode_ == RuntimeMode::Qualification
-                    ? std::to_string((timing.reference_ffn_ns - timing_before.reference_ffn_ns) / 1000000).c_str()
-                    : "NOT_EXECUTED",
-                static_cast<unsigned long long>((timing.actual_output_head_ns - timing_before.actual_output_head_ns) / 1000000),
-                mode_ == RuntimeMode::Qualification
-                    ? std::to_string((timing.reference_output_head_ns - timing_before.reference_output_head_ns) / 1000000).c_str()
-                    : "NOT_EXECUTED");
-            std::fprintf(stderr, "BASELINE mode=%s position=%u kind=prompt total_ms=%llu\n",
-                mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
-                position - 1, static_cast<unsigned long long>(last_position_ms_));
-            log_position_metrics(position - 1, "prompt");
-            input = step.next;
+        const bool batched_prefill = mode_ == RuntimeMode::NormalInference;
+        prefill_batch_size_ = batched_prefill ? prompt_batch.size() : 1;
+        prefill_mode_ = batched_prefill ? "BATCHED" : "SERIAL";
+        if (batched_prefill) {
+            const size_t trace_begin = residency_->trace().size();
+            const uint64_t prefill_start = android_now_ns();
+            std::vector<Activation> embeddings;
+            embeddings.reserve(prompt_batch.size());
+            for (uint32_t prompt_token : prompt_batch.token_ids) {
+                if (cancelled_.load(std::memory_order_relaxed)) throw std::runtime_error("cancelled");
+                embeddings.push_back(run_embedding(embedding_, prompt_token, lease_, materializer_,
+                    "android_prefill_embedding", mode_, &timing));
+            }
+            const uint64_t sequence_start = android_now_ns();
+            const std::vector<Activation> sequence = run_sequence_batched(plans_, embeddings,
+                &actual_k_, &actual_v_, lease_, materializer_, residency_, &timing);
+            prefill_layer_sequence_ms_ = (android_now_ns() - sequence_start) / 1000000;
+            if (sequence.empty()) throw std::runtime_error("batched prefill produced no output");
+            const std::vector<float> logits = run_output_head(output_norm_, output_, sequence.back(),
+                lease_, materializer_, "android_logits", 900000, mode_, &timing);
+            input = greedy(logits);
+            position = static_cast<uint32_t>(prompt_tokens.size());
+            prefill_ms_ = (android_now_ns() - prefill_start) / 1000000;
+            last_position_ms_ = prefill_ms_;
+            const TraceDelta delta = trace_delta(plans_, residency_->trace(), trace_begin,
+                residency_->trace().size(), &loaded_residency_ids_);
+            reload_bytes_ += delta.reload_bytes;
+            peak_resident_bytes_ = std::max(peak_resident_bytes_, residency_->resident_bytes());
+            std::fprintf(stderr, "PREFILL mode=BATCHED prompt_tokens=%zu batch_size=%zu total_ms=%llu\n",
+                prompt_batch.size(), prompt_batch.size(), static_cast<unsigned long long>(prefill_ms_));
+            log_position_metrics(position - 1, "prefill_batch");
+        } else {
+            for (uint32_t prompt_token : prompt_tokens) {
+                if (cancelled_.load(std::memory_order_relaxed)) throw std::runtime_error("cancelled");
+                input = prompt_token;
+                const uint64_t position_start = android_now_ns();
+                const StepResult step = run_step(input, position++, &timing);
+                last_position_ms_ = (android_now_ns() - position_start) / 1000000;
+                prefill_ms_ += last_position_ms_;
+                input = step.next;
+            }
+            prefill_layer_sequence_ms_ = timing.actual_attention_ns / 1000000 + timing.actual_ffn_ns / 1000000;
+            std::fprintf(stderr, "PREFILL mode=SERIAL prompt_tokens=%zu batch_size=1 total_ms=%llu\n",
+                prompt_tokens.size(), static_cast<unsigned long long>(prefill_ms_));
         }
         const uint64_t first_token_start = android_now_ns();
         std::string output;
@@ -424,16 +440,20 @@ public:
             "Residency budget: 256 MiB\n"
             "Runtime mode: " + std::string(mode_ == RuntimeMode::Qualification
                 ? "QUALIFICATION" : "NORMAL_INFERENCE") + "\n"
+            "Prefill mode: " + prefill_mode_ + "\n"
+            "Prefill batch size: " + std::to_string(prefill_batch_size_) + "\n"
             "Prompt tokens: " + std::to_string(prompt_token_count_) + "\n"
             "Model open: " + std::to_string(open_ms_) + " ms\n"
             "TTFT: " + std::to_string(ttft_ms_) + " ms\n"
             "Generation: " + std::to_string(generation_ms_) + " ms\n"
             "Prefill: " + std::to_string(prefill_ms_) + " ms\n"
+            "Prefill layer sequence: " + std::to_string(prefill_layer_sequence_ms_) + " ms\n"
             "Last position: " + std::to_string(last_position_ms_) + " ms\n"
             "Actual attention: " + std::to_string(timing_.actual_attention_ns / 1000000) + " ms\n"
             "Reference attention: " + (mode_ == RuntimeMode::Qualification
                 ? std::to_string(timing_.reference_attention_ns / 1000000) : "NOT_EXECUTED") + "\n"
             "Actual FFN: " + std::to_string(timing_.actual_ffn_ns / 1000000) + " ms\n"
+            "Actual router/MoE: " + std::to_string(timing_.actual_router_moe_ns / 1000000) + " ms\n"
             "Reference FFN: " + (mode_ == RuntimeMode::Qualification
                 ? std::to_string(timing_.reference_ffn_ns / 1000000) : "NOT_EXECUTED") + "\n"
             "Actual output head: " + std::to_string(timing_.actual_output_head_ns / 1000000) + " ms\n"
@@ -519,6 +539,9 @@ private:
     uint64_t prefill_ms_ = 0;
     uint64_t last_position_ms_ = 0;
     uint64_t prompt_token_count_ = 0;
+    std::string prefill_mode_ = "SERIAL";
+    uint64_t prefill_batch_size_ = 1;
+    uint64_t prefill_layer_sequence_ms_ = 0;
 };
 
 std::mutex session_mutex;

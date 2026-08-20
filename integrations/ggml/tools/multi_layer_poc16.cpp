@@ -131,6 +131,43 @@ struct SequenceRun {
     std::vector<std::vector<float>> weights;
 };
 
+Activation batch_rows(const std::vector<Activation> & rows) {
+    if (rows.empty()) return {};
+    const uint64_t width = rows.front().dimensions.at(0);
+    Activation result;
+    result.values.reserve(static_cast<size_t>(width) * rows.size());
+    for (const Activation & row : rows) {
+        if (row.dimensions.size() < 2 || row.dimensions[0] != width || row.dimensions[1] != 1 ||
+            row.values.size() != width)
+            throw std::runtime_error("batched activation row geometry mismatch");
+        result.values.insert(result.values.end(), row.values.begin(), row.values.end());
+    }
+    result.dimensions = { width, rows.size() };
+    return result;
+}
+
+Activation batch_row(const Activation & batch, size_t row) {
+    if (batch.dimensions.size() < 2 || row >= batch.dimensions[1])
+        throw std::runtime_error("batched activation row out of range");
+    const size_t width = static_cast<size_t>(batch.dimensions[0]);
+    Activation result;
+    result.values.assign(batch.values.begin() + row * width, batch.values.begin() + (row + 1) * width);
+    result.dimensions = { width, 1 };
+    return result;
+}
+
+RunResult execute_expert_batch(ExpertGraph & graph, const Activation & input,
+    const std::shared_ptr<const void> & lease,
+    TensorMaterializer * materializer) {
+    return execute_expert(graph, input.view(), lease, materializer);
+}
+
+RunResult execute_router_batch(RouterGraph & graph, const Activation & input,
+    const std::shared_ptr<const void> & lease,
+    TensorMaterializer * materializer) {
+    return execute(graph, input.view(), lease, materializer);
+}
+
 uint32_t trace_block(uint32_t ref) {
     if (ref >= 100000) return ref / 100000;
     return ref / 10000;
@@ -507,6 +544,193 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
     result.peak_resident = residency->resident_bytes();
     std::printf("%s dense_block=YES final_composition=%s\n", label.c_str(), result.ok ? "PASS" : "FAIL");
     return result;
+}
+
+std::vector<Activation> run_dense_layer_batch(const LayerPlan & plan,
+    const std::vector<Activation> & inputs, const std::shared_ptr<const void> & lease,
+    const std::shared_ptr<ResidentTensorMaterializer> & materializer,
+    const std::shared_ptr<TensorResidencyStore> & residency) {
+    if (inputs.empty()) return {};
+    constexpr uint32_t width = 2048;
+    const Activation input = batch_rows(inputs);
+    const Meta norm_meta = lookup(plan.metadata, "blk.1.ffn_norm.weight");
+    const PersistentTensorRef norm_ref = full_ref(norm_meta);
+    RouterGraph norm_graph = build_norm_graph(norm_ref);
+    OffsetMaterializer norm_materializer(materializer, plan.namespace_base + 500);
+    norm_materializer.request(norm_graph.router, norm_ref, norm_ref.view.payload_len);
+    const RunResult normalized_run = execute_router_batch(norm_graph, input, lease, &norm_materializer);
+    if (normalized_run.error != AdapterError::None) throw std::runtime_error("batched dense norm failed");
+    const Activation normalized{ floats(normalized_run.output), { width, inputs.size() } };
+
+    const ExpertTensor gate = dense_tensor(lookup(plan.metadata, "blk.1.ffn_gate.weight"));
+    const ExpertTensor up = dense_tensor(lookup(plan.metadata, "blk.1.ffn_up.weight"));
+    const ExpertTensor down = dense_tensor(lookup(plan.metadata, "blk.1.ffn_down.weight"));
+    ExpertGraph graph = build_expert_graph(gate, up, down);
+    OffsetMaterializer expert_materializer(materializer, plan.namespace_base + 700);
+    expert_materializer.request(graph.gate, gate.ref(), gate.bytes);
+    expert_materializer.request(graph.up, up.ref(), up.bytes);
+    expert_materializer.request(graph.down, down.ref(), down.bytes);
+    const RunResult ffn_run = execute_expert_batch(graph, normalized, lease, &expert_materializer);
+    if (ffn_run.error != AdapterError::None) throw std::runtime_error("batched dense FFN failed");
+    const Activation ffn{ floats(ffn_run.output), { width, inputs.size() } };
+    std::vector<Activation> result;
+    result.reserve(inputs.size());
+    for (size_t row = 0; row < inputs.size(); ++row) {
+        Activation output = batch_row(ffn, row);
+        for (size_t i = 0; i < width; ++i) output.values[i] += inputs[row].values[i];
+        result.push_back(std::move(output));
+    }
+    return result;
+}
+
+std::vector<Activation> run_moe_layer_batch(const LayerPlan & plan,
+    const std::vector<Activation> & inputs, const std::shared_ptr<const void> & lease,
+    const std::shared_ptr<ResidentTensorMaterializer> & materializer,
+    const std::shared_ptr<TensorResidencyStore> & residency) {
+    if (inputs.empty()) return {};
+    constexpr uint32_t width = 2048;
+    constexpr uint32_t experts = 64;
+    constexpr uint32_t top_k = 6;
+    const Activation input = batch_rows(inputs);
+    const Meta norm_meta = lookup(plan.metadata, "blk.1.ffn_norm.weight");
+    const PersistentTensorRef norm_ref = full_ref(norm_meta);
+    RouterGraph norm_graph = build_norm_graph(norm_ref);
+    OffsetMaterializer norm_materializer(materializer, plan.namespace_base + 500);
+    norm_materializer.request(norm_graph.router, norm_ref, norm_ref.view.payload_len);
+    const RunResult norm_run = execute_router_batch(norm_graph, input, lease, &norm_materializer);
+    if (norm_run.error != AdapterError::None) throw std::runtime_error("batched MoE norm failed");
+    const Activation normalized{ floats(norm_run.output), { width, inputs.size() } };
+    const Meta router_meta = lookup(plan.metadata, "blk.1.ffn_gate_inp.weight");
+    const PersistentTensorRef router_ref = full_ref(router_meta);
+    RouterGraph router_graph = build_router_graph(router_ref);
+    OffsetMaterializer router_materializer(materializer, plan.namespace_base + 501);
+    router_materializer.request(router_graph.router, router_ref, router_ref.view.payload_len);
+    const RunResult router_run = execute_router_batch(router_graph, normalized, lease, &router_materializer);
+    if (router_run.error != AdapterError::None) throw std::runtime_error("batched MoE router failed");
+    const std::vector<float> logits = floats(router_run.output);
+    if (logits.size() != static_cast<size_t>(experts) * inputs.size())
+        throw std::runtime_error("batched MoE router shape mismatch");
+
+    std::vector<TopKSelection> selections(inputs.size());
+    std::vector<std::vector<float>> weights(inputs.size());
+    std::vector<std::vector<size_t>> rows_by_expert(experts);
+    for (size_t row = 0; row < inputs.size(); ++row) {
+        std::vector<float> row_logits(experts);
+        for (uint32_t expert = 0; expert < experts; ++expert)
+            row_logits[expert] = logits[expert + experts * row];
+        std::string error;
+        if (!deterministic_top_k(row_logits, experts, top_k, &selections[row], &error))
+            throw std::runtime_error(error);
+        weights[row] = normalized_selected_weights(row_logits, selections[row]);
+        for (uint32_t expert : selections[row].ids) rows_by_expert[expert].push_back(row);
+    }
+
+    std::vector<std::vector<float>> routed_by_expert(experts,
+        std::vector<float>(inputs.size() * width, 0.0f));
+    const Meta gate_meta = lookup(plan.metadata, "blk.1.ffn_gate_exps.weight");
+    const Meta up_meta = lookup(plan.metadata, "blk.1.ffn_up_exps.weight");
+    const Meta down_meta = lookup(plan.metadata, "blk.1.ffn_down_exps.weight");
+    for (uint32_t expert = 0; expert < experts; ++expert) {
+        if (rows_by_expert[expert].empty()) continue;
+        const ExpertTensor gate = make_expert(gate_meta, expert);
+        const ExpertTensor up = make_expert(up_meta, expert);
+        const ExpertTensor down = make_expert(down_meta, expert);
+        std::vector<Activation> expert_inputs;
+        expert_inputs.reserve(rows_by_expert[expert].size());
+        for (size_t row : rows_by_expert[expert]) expert_inputs.push_back(batch_row(normalized, row));
+        const Activation expert_batch = batch_rows(expert_inputs);
+        ExpertGraph graph = build_expert_graph(gate, up, down);
+        OffsetMaterializer expert_materializer(materializer,
+            plan.namespace_base + expert * 3);
+        expert_materializer.request(graph.gate, gate.ref(), gate.bytes);
+        expert_materializer.request(graph.up, up.ref(), up.bytes);
+        expert_materializer.request(graph.down, down.ref(), down.bytes);
+        const RunResult expert_run = execute_expert_batch(graph, expert_batch, lease, &expert_materializer);
+        if (expert_run.error != AdapterError::None) throw std::runtime_error("batched expert failed");
+        const std::vector<float> expert_values = floats(expert_run.output);
+        for (size_t grouped = 0; grouped < rows_by_expert[expert].size(); ++grouped) {
+            const size_t row = rows_by_expert[expert][grouped];
+            for (size_t i = 0; i < width; ++i)
+                routed_by_expert[expert][row * width + i] = expert_values[grouped * width + i];
+        }
+    }
+
+    std::vector<float> routed(inputs.size() * width, 0.0f);
+    for (size_t row = 0; row < inputs.size(); ++row) {
+        std::vector<std::vector<float>> values;
+        values.reserve(selections[row].ids.size());
+        for (uint32_t expert : selections[row].ids)
+            values.emplace_back(routed_by_expert[expert].begin() + row * width,
+                routed_by_expert[expert].begin() + (row + 1) * width);
+        std::vector<float> merged;
+        std::string merge_error;
+        if (!weighted_merge(values, weights[row], &merged, &merge_error))
+            throw std::runtime_error("batched routed merge failed: " + merge_error);
+        std::copy(merged.begin(), merged.end(), routed.begin() + row * width);
+    }
+
+    const ExpertTensor shared_gate = shared_tensor(lookup(plan.metadata, "blk.1.ffn_gate_shexp.weight"));
+    const ExpertTensor shared_up = shared_tensor(lookup(plan.metadata, "blk.1.ffn_up_shexp.weight"));
+    const ExpertTensor shared_down = shared_tensor(lookup(plan.metadata, "blk.1.ffn_down_shexp.weight"));
+    ExpertGraph shared_graph = build_expert_graph(shared_gate, shared_up, shared_down);
+    OffsetMaterializer shared_materializer(materializer, plan.namespace_base + 600);
+    shared_materializer.request(shared_graph.gate, shared_gate.ref(), shared_gate.bytes);
+    shared_materializer.request(shared_graph.up, shared_up.ref(), shared_up.bytes);
+    shared_materializer.request(shared_graph.down, shared_down.ref(), shared_down.bytes);
+    const RunResult shared_run = execute_expert_batch(shared_graph, normalized, lease, &shared_materializer);
+    if (shared_run.error != AdapterError::None) throw std::runtime_error("batched shared expert failed");
+    const std::vector<float> shared_values = floats(shared_run.output);
+
+    std::vector<Activation> result;
+    result.reserve(inputs.size());
+    for (size_t row = 0; row < inputs.size(); ++row) {
+        Activation output;
+        output.values.resize(width);
+        output.dimensions = { width, 1 };
+        for (size_t i = 0; i < width; ++i)
+            output.values[i] = routed[row * width + i] + shared_values[row * width + i];
+        for (size_t i = 0; i < width; ++i)
+            output.values[i] += inputs[row].values[i];
+        result.push_back(std::move(output));
+    }
+    (void)residency;
+    return result;
+}
+
+std::vector<Activation> run_sequence_batched(const std::vector<LayerPlan> & plans,
+    const std::vector<Activation> & inputs, std::vector<RuntimeStateSlot> * actual_k,
+    std::vector<RuntimeStateSlot> * actual_v, const std::shared_ptr<const void> & lease,
+    const std::shared_ptr<ResidentTensorMaterializer> & materializer,
+    const std::shared_ptr<TensorResidencyStore> & residency, RuntimeTiming * timing = nullptr) {
+    std::vector<Activation> current = inputs;
+    for (size_t layer = 0; layer < plans.size(); ++layer) {
+        std::vector<Activation> attention_outputs;
+        attention_outputs.reserve(current.size());
+        const AttentionTensors tensors = attention_tensors(plans[layer].metadata);
+        for (size_t row = 0; row < current.size(); ++row) {
+            const uint64_t start = clock_ns();
+            const TokenData attention = compute_token(tensors, current[row], static_cast<uint32_t>(row),
+                &(*actual_k)[layer], &(*actual_v)[layer], lease, materializer, "batched_prefill_attention");
+            if (attention.output.empty()) throw std::runtime_error("batched attention failed");
+            if (timing != nullptr) timing->actual_attention_ns += clock_ns() - start;
+            Activation ffn_input{ attention.output, { 2048, 1 } };
+            if (layer == 0) {
+                for (size_t i = 0; i < ffn_input.values.size(); ++i)
+                    ffn_input.values[i] += current[row].values[i];
+            }
+            attention_outputs.push_back(std::move(ffn_input));
+        }
+        const uint64_t ffn_start = clock_ns();
+        if (layer == 0) {
+            current = run_dense_layer_batch(plans[layer], attention_outputs, lease, materializer, residency);
+        } else {
+            const uint64_t router_moe_start = clock_ns();
+            current = run_moe_layer_batch(plans[layer], attention_outputs, lease, materializer, residency);
+            if (timing != nullptr) timing->actual_router_moe_ns += clock_ns() - router_moe_start;
+        }
+        if (timing != nullptr) timing->actual_ffn_ns += clock_ns() - ffn_start;
+    }
+    return current;
 }
 
 SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation & input,
