@@ -105,6 +105,7 @@ ExpertTensor shared_tensor(const Meta & meta) {
 
 struct LayerRun {
     bool ok = true;
+    std::string failure_detail;
     std::vector<float> final_output;
     std::vector<float> reference_output;
     uint64_t payload_ready_ns = 0;
@@ -204,6 +205,8 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     }
     result.ok = result.ok && norm_ok;
     if (!norm_ok) {
+        result.failure_detail = norm_actual.detail.empty() ?
+            vbuf_ggml::adapter_error_name(norm_actual.error) : norm_actual.detail;
         std::printf("%s normalization_failure final_output=INVALID resources_after_teardown=0\n", label.c_str());
         return result;
     }
@@ -237,6 +240,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
         materializer, residency, label + "_routed", source, preload_gates, namespace_base, no_jit_fallback, mode);
     result.ok = result.ok && routed_run.ok;
     if (!routed_run.ok) {
+        result.failure_detail = routed_run.failure_detail;
         std::printf("%s selected_expert_failure final_output=INVALID final_composition=NOT_EXECUTED "
             "resources_after_teardown=0\n", label.c_str());
         return result;
@@ -254,6 +258,8 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     result.reference_routed_aggregate = routed_reference;
     result.routed_first_consumer_start_ns = routed_run.first_consumer_start_ns;
     result.ok = result.ok && routed_merge_ok;
+    if (!routed_merge_ok && result.failure_detail.empty())
+        result.failure_detail = "routed expert merge failed: " + merge_error;
 
     const ExpertTensor shared_gate = shared_tensor(lookup(metadata, "blk.1.ffn_gate_shexp.weight"));
     const ExpertTensor shared_up = shared_tensor(lookup(metadata, "blk.1.ffn_up_shexp.weight"));
@@ -276,6 +282,9 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
             parity(shared_actual_values, shared_reference_values, "shared_expert_parity");
     }
     result.ok = result.ok && shared_ok;
+    if (!shared_ok && result.failure_detail.empty())
+        result.failure_detail = shared_actual.detail.empty() ?
+            vbuf_ggml::adapter_error_name(shared_actual.error) : shared_actual.detail;
     result.shared_output = shared_actual_values;
     result.reference_shared_output = shared_reference_values;
     result.shared_first_consumer_start_ns = shared_actual.first_consumer_start_ns;
@@ -294,6 +303,8 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
                 &final_reference, &merge_error) && parity(final_actual, final_reference, "final_layer_parity");
     }
     result.ok = result.ok && compose_ok && reference_compose_ok;
+    if (!result.ok && result.failure_detail.empty())
+        result.failure_detail = "MoE residual composition failed: " + merge_error;
     result.pre_residual = composed_actual;
     result.reference_pre_residual = composed_reference;
     result.peak_active_persistent = std::max({ norm_actual.report.peak_active_weight_bytes,

@@ -238,6 +238,10 @@ AdapterError TensorDependencyExecutor::execute(
         }
 
         const TensorWaveOp & operation = operations_[selected];
+        const auto annotate_failure = [&]() {
+            if (error_detail != nullptr && !error_detail->empty())
+                *error_detail = operation.op_id + ": " + *error_detail;
+        };
         TensorWaveTraceStep trace;
         trace.op_id = operation.op_id;
         trace.op_kind = operation.kind;
@@ -257,6 +261,7 @@ AdapterError TensorDependencyExecutor::execute(
             if (materializer != nullptr) {
                 MaterializedTensor ready{};
                 if (!obtain_ready(input_ref.index, persistent, &ready)) {
+                    annotate_failure();
                     return AdapterError::InvalidArgument;
                 }
                 materialized_inputs.push_back(ready);
@@ -311,6 +316,7 @@ AdapterError TensorDependencyExecutor::execute(
                     MaterializedTensor ready{};
                     if (!obtain_ready(input_ref.index, persistent_[input_ref.index], &ready)) {
                         ggml_free(context);
+                        annotate_failure();
                         return AdapterError::InvalidArgument;
                     }
                     materialized_inputs.push_back(ready);
@@ -365,6 +371,18 @@ AdapterError TensorDependencyExecutor::execute(
             auto tensor = BorrowedGgmlTensor::create(*view, &input_error, error_detail);
             if (!tensor) {
                 ggml_free(context);
+                if (error_detail != nullptr) {
+                    const std::string input_name = input_ref.kind == TensorWaveRef::Kind::Persistent
+                        ? persistent_[input_ref.index].name : values_[input_ref.index].name;
+                    *error_detail = input_name + ": " + *error_detail + " rank=" +
+                        std::to_string(view->rank) + " dims=";
+                    for (uint8_t dimension = 0; dimension < view->rank; ++dimension) {
+                        if (dimension != 0) *error_detail += ",";
+                        *error_detail += std::to_string(view->dimensions[dimension]);
+                    }
+                    *error_detail += " payload_bytes=" + std::to_string(view->payload_len);
+                }
+                annotate_failure();
                 return input_error;
             }
             const bool diagnostic_repack = std::getenv("VBUF_AUDIT_REPACKED_DOWN") != nullptr &&
@@ -375,6 +393,7 @@ AdapterError TensorDependencyExecutor::execute(
                 : tensor->bind_cpu(storage, error_detail);
             if (binding_error != AdapterError::None) {
                 ggml_free(context);
+                annotate_failure();
                 return binding_error;
             }
             if (std::getenv("VBUF_REPACK_V3_GATE_ONLY") != nullptr && diagnostic_repack) {
@@ -422,6 +441,7 @@ AdapterError TensorDependencyExecutor::execute(
         if (result == nullptr) {
             ggml_free(context);
             set_detail(error_detail, "tensor wave operation construction failed");
+            annotate_failure();
             return AdapterError::TensorConstructionFailed;
         }
         ggml_cgraph * graph = ggml_new_graph(context);
@@ -434,6 +454,7 @@ AdapterError TensorDependencyExecutor::execute(
             if (compute != nullptr) ggml_backend_buffer_free(compute);
             ggml_free(context);
             set_detail(error_detail, "tensor wave operation execution failed");
+            annotate_failure();
             return AdapterError::BackendAllocationFailed;
         }
         ggml_backend_synchronize(backend);
@@ -527,8 +548,16 @@ AdapterError TensorDependencyExecutor::execute(
 
     report->all_persistent_released = resident.empty() && active_weight_bytes == 0;
     report->active_transient_bytes = active_transient_bytes;
-    return report->all_persistent_released && report->external_output_preserved
-        ? AdapterError::None : AdapterError::BackendAllocationFailed;
+    if (!report->all_persistent_released || !report->external_output_preserved) {
+        if (error_detail != nullptr) {
+            *error_detail = std::string("tensor wave completion invariant failed: ") +
+                "all_persistent_released=" + (report->all_persistent_released ? "true" : "false") +
+                " external_output_preserved=" +
+                (report->external_output_preserved ? "true" : "false");
+        }
+        return AdapterError::BackendAllocationFailed;
+    }
+    return AdapterError::None;
 }
 
 } // namespace vbuf_ggml

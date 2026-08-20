@@ -662,7 +662,11 @@ private:
         const SequenceRun sequence = run_sequence(plans_, input, position, &actual_k_, &actual_v_,
             &reference_k_, &reference_v_, lease_, materializer_, residency_, source_, "android_generation",
             false, nullptr, 2, mode_, timing);
-        if (!sequence.ok) throw std::runtime_error("direct runtime execution failed");
+        if (!sequence.ok) {
+            const std::string detail = sequence.failure_detail.empty() ? "unknown failure" :
+                sequence.failure_detail;
+            throw std::runtime_error("direct runtime execution failed: " + detail);
+        }
         const std::vector<float> logits = run_output_head(output_norm_, output_, sequence.output,
             lease_, materializer_, "android_logits", 900000 + position * 100, mode_, timing);
         const uint32_t next = greedy(logits);

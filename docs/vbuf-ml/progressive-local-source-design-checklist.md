@@ -1,6 +1,6 @@
 # Progressive Local Source Design Checklist
 
-Status: **STEP 31E RESIDENCY CURVE PHYSICALLY MEASURED; LARGER CAPS DEVICE-CONSTRAINED**
+Status: **STEP 31F FIRST-DECODE FAILURE SURFACED; ROOT CAUSE UNRESOLVED**
 
 Step 31B decision: **SPARSE CANONICAL MIRROR + 4 KiB AUTHORITATIVE BITMAP**
 for the qualified single external payload source. Step 31C and the Step 31D
@@ -15,7 +15,11 @@ or inference behavior. Retention, offline completion, and power-loss durability
 remain deferred. Step 31D adds demand-driven missing-chunk coalescing with a
 measured 1 MiB maximum acquisition window; 4 KiB coverage remains authoritative.
 Step 31E varies only the numeric active residency budget and records aggregate
-materialization/reacquisition counters.
+materialization/reacquisition counters. Step 31F preserves the existing
+executor and runtime error detail through the Android boundary and physically
+identifies the fixed 512 MiB first-decode failure as malformed tensor geometry
+for `blk.1.ffn_down_shexp.weight` in `block 7` `expert_down_matmul`; it does not
+fix or reinterpret that failure.
 
 The physical application baseline is commit `80409a4 Add Android app baseline
 harness` on a Pixel 7 Pro, Android 17, `arm64-v8a`, using the DeepSeek-V2-Lite

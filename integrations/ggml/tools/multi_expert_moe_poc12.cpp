@@ -90,6 +90,7 @@ RoutedResult route_activation(RouterGraph & graph, const Activation & activation
 
 struct MultiRun {
     bool ok = true;
+    std::string failure_detail;
     std::vector<std::vector<float>> actual;
     std::vector<std::vector<float>> reference;
     uint64_t selected_bytes = 0;
@@ -199,6 +200,8 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
         result.peak_active = std::max(result.peak_active, actual.report.peak_active_weight_bytes);
         result.peak_resident = std::max(result.peak_resident, residency->resident_bytes());
         if (actual.error != AdapterError::None) {
+            result.failure_detail = actual.detail.empty() ?
+                vbuf_ggml::adapter_error_name(actual.error) : actual.detail;
             std::printf("%s expert_id=%u execution=FAILED final_merge=NOT_EXECUTED\n", label.c_str(), expert);
             result.ok = false;
             break;

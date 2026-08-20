@@ -110,6 +110,7 @@ LayerPlan make_plan(const Metadata & all, uint32_t block_id, uint32_t namespace_
 
 struct SequenceRun {
     bool ok = true;
+    std::string failure_detail;
     bool router_parity = true;
     size_t completed_blocks = 0;
     uint64_t peak_active_persistent = 0;
@@ -426,8 +427,11 @@ Activation run_embedding(const Meta & full, uint32_t token,
     const RunResult actual = execute_expert(actual_graph, scale.view(), lease, &scoped_materializer);
     if (timing != nullptr) timing->actual_embedding_ns += clock_ns() - actual_start;
     const std::vector<float> actual_values = floats(actual.output);
-    if (actual.error != AdapterError::None)
-        throw std::runtime_error(std::string(label) + " failed");
+    if (actual.error != AdapterError::None) {
+        const std::string detail = actual.detail.empty() ?
+            vbuf_ggml::adapter_error_name(actual.error) : actual.detail;
+        throw std::runtime_error(std::string(label) + " failed: " + detail);
+    }
     if (runs_reference_control(mode)) {
         ExpertGraph reference_graph = build_embedding_graph(row);
         const uint64_t reference_start = clock_ns();
@@ -435,8 +439,11 @@ Activation run_embedding(const Meta & full, uint32_t token,
             &scoped_materializer);
         if (timing != nullptr) timing->reference_embedding_ns += clock_ns() - reference_start;
         const std::vector<float> reference_values = floats(reference.output);
-        if (reference.error != AdapterError::None || !parity(actual_values, reference_values, label))
-            throw std::runtime_error(std::string(label) + " failed");
+        if (reference.error != AdapterError::None || !parity(actual_values, reference_values, label)) {
+            const std::string detail = reference.detail.empty() ?
+                vbuf_ggml::adapter_error_name(reference.error) : reference.detail;
+            throw std::runtime_error(std::string(label) + " failed: " + detail);
+        }
     }
     return { actual_values, { 2048, 1 } };
 }
@@ -452,8 +459,11 @@ std::vector<float> run_output_head(const Meta & norm, const Meta & output,
     const RunResult actual = execute_expert(actual_graph, hidden.view(), lease, &scoped_materializer);
     if (timing != nullptr) timing->actual_output_head_ns += clock_ns() - actual_start;
     const std::vector<float> actual_values = floats(actual.output);
-    if (actual.error != AdapterError::None)
-        throw std::runtime_error(std::string(label) + " failed");
+    if (actual.error != AdapterError::None) {
+        const std::string detail = actual.detail.empty() ?
+            vbuf_ggml::adapter_error_name(actual.error) : actual.detail;
+        throw std::runtime_error(std::string(label) + " failed: " + detail);
+    }
     if (runs_reference_control(mode)) {
         ExpertGraph reference_graph = build_output_graph(norm, output);
         const uint64_t reference_start = clock_ns();
@@ -461,8 +471,11 @@ std::vector<float> run_output_head(const Meta & norm, const Meta & output,
             &scoped_materializer);
         if (timing != nullptr) timing->reference_output_head_ns += clock_ns() - reference_start;
         const std::vector<float> reference_values = floats(reference.output);
-        if (reference.error != AdapterError::None || !parity(actual_values, reference_values, label))
-            throw std::runtime_error(std::string(label) + " failed");
+        if (reference.error != AdapterError::None || !parity(actual_values, reference_values, label)) {
+            const std::string detail = reference.detail.empty() ?
+                vbuf_ggml::adapter_error_name(reference.error) : reference.detail;
+            throw std::runtime_error(std::string(label) + " failed: " + detail);
+        }
     }
     return actual_values;
 }
@@ -499,6 +512,9 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
     }
     result.normalized_input = norm_values;
     result.ok = norm_actual.error == AdapterError::None;
+    if (!result.ok)
+        result.failure_detail = norm_actual.detail.empty() ? vbuf_ggml::adapter_error_name(norm_actual.error) :
+            norm_actual.detail;
     if (runs_reference_control(mode)) {
         const auto norm_payload = materialized_payload(&norm_materializer, norm_graph.router, norm_ref);
         const std::vector<float> norm_reference = rmsnorm_reference(input,
@@ -521,10 +537,14 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
         lease, &dense_materializer);
     const std::vector<float> actual_values = floats(actual.output);
     result.ok = result.ok && actual.error == AdapterError::None;
+    if (actual.error != AdapterError::None && result.failure_detail.empty())
+        result.failure_detail = actual.detail.empty() ? vbuf_ggml::adapter_error_name(actual.error) : actual.detail;
     std::string merge_error;
     result.final_output.resize(width);
-    if (!weighted_merge({ actual_values, input.values }, { 1.0f, 1.0f }, &result.final_output, &merge_error))
+    if (!weighted_merge({ actual_values, input.values }, { 1.0f, 1.0f }, &result.final_output, &merge_error)) {
         result.ok = false;
+        result.failure_detail = "dense FFN residual merge failed: " + merge_error;
+    }
     if (runs_reference_control(mode)) {
         ExpertGraph reference_graph = build_expert_graph(gate, up, down);
         const RunResult reference = execute_expert(reference_graph,
@@ -542,6 +562,12 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
     result.peak_active_persistent = std::max(norm_actual.report.peak_active_weight_bytes,
         actual.report.peak_active_weight_bytes);
     result.peak_resident = residency->resident_bytes();
+    if (!result.ok && result.failure_detail.empty()) {
+        result.failure_detail = "dense FFN failed without detail: actual_error=" +
+            std::string(vbuf_ggml::adapter_error_name(actual.error)) +
+            " actual_output_bytes=" + std::to_string(actual.output.size()) +
+            " norm_output_bytes=" + std::to_string(norm_actual.output.size());
+    }
     std::printf("%s dense_block=YES final_composition=%s\n", label.c_str(), result.ok ? "PASS" : "FAIL");
     return result;
 }
@@ -769,10 +795,12 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
             timing->reference_attention_ns += clock_ns() - reference_attention_start;
         if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == failure_block) {
             result.ok = false;
+            result.failure_detail = "controlled source failure";
             return result;
         }
         if (actual_attention.output.empty() || reference_attention.output.empty()) {
             result.ok = false;
+            result.failure_detail = "attention output is empty";
             return result;
         }
         const std::string block_label = std::string(label) + "_blk" + std::to_string(plan.block_id);
@@ -795,6 +823,7 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         if (timing != nullptr) timing->actual_ffn_ns += clock_ns() - actual_ffn_start;
         if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == failure_block) {
             result.ok = false;
+            result.failure_detail = "controlled source failure";
             return result;
         }
         LayerRun reference_ffn;
@@ -850,7 +879,13 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
             (!runs_reference_control(mode) || actual_ffn.selection.ids == reference_ffn.selection.ids);
         result.peak_active_persistent = std::max(result.peak_active_persistent,
             actual_ffn.peak_active_persistent);
-        if (!actual_ffn.ok) return result;
+        if (!actual_ffn.ok) {
+            result.failure_detail = actual_ffn.failure_detail.empty()
+                ? "block " + std::to_string(plan.block_id) +
+                    " FFN returned ok=false without detail"
+                : actual_ffn.failure_detail;
+            return result;
+        }
         ++result.completed_blocks;
         actual = Activation{ actual_ffn.final_output, { 2048, 1 } };
         reference = runs_reference_control(mode)

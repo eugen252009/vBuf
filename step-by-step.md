@@ -2370,6 +2370,16 @@ changed.
 
 #### Step 31F — Crash, corruption, and recovery qualification
 
+**First-decode failure attribution completed diagnostically; root cause
+unresolved.** The fixed 512 MiB Android workload remained fully local, reached
+the first decode after `67,419` ms batched prefill, and failed in `block 7` at
+`expert_down_matmul` while constructing `blk.1.ffn_down_shexp.weight`. The
+reported rank-2 view had dimensions
+`12970367413557264240,0` and `1,486,848` payload bytes. The source/materializer
+and Android boundary now preserve operation, tensor, geometry, and invariant
+details. This is descriptor-corruption/lifetime evidence, not a proven OOM or
+backend allocation failure; no workaround or runtime behavior change was made.
+
 Qualify interrupted writes, process death during tee, concurrent same-range
 requests, sparse holes, corruption, source mismatch, disk full, deletion,
 coverage-index loss, and model replacement. Define separately whether process

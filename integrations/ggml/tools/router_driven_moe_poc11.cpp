@@ -106,6 +106,7 @@ struct ExpertGraph {
 
 struct RunResult {
     AdapterError error = AdapterError::None;
+    std::string detail;
     std::vector<uint8_t> output;
     TensorWaveReport report;
     uint64_t first_consumer_start_ns = 0;
@@ -226,6 +227,7 @@ RunResult execute(RouterGraph & graph, const VbufTensorView & input,
             if (std::string(phase) == "start" && first_consumer_start_ns == 0)
                 first_consumer_start_ns = execution_now_ns();
         });
+    result.detail = detail;
     result.first_consumer_start_ns = first_consumer_start_ns;
     if (result.error != AdapterError::None) std::fprintf(stderr, "router_detail=%s\n", detail.c_str());
     return result;
@@ -264,6 +266,7 @@ RunResult execute_expert(ExpertGraph & graph, const VbufTensorView & input,
             if (std::string(phase) == "start" && first_consumer_start_ns == 0)
                 first_consumer_start_ns = execution_now_ns();
         });
+    result.detail = detail;
     result.first_consumer_start_ns = first_consumer_start_ns;
     if (result.error != AdapterError::None) {
         std::fprintf(stderr, "expert_detail=%s\n", detail.c_str());
