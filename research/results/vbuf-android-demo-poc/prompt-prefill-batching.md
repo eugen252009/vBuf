@@ -411,7 +411,7 @@ APK_BUILD: BLOCKED_ENVIRONMENT_MISSING_JAVAC_AND_ANDROID_SETUP
 TEMPORARY_INSTRUMENTATION_REMOVED: YES
 UNRELATED_CHANGES_PRESENT: NO observed
 RESEARCH_REPORT: research/results/vbuf-android-demo-poc/prompt-prefill-batching.md
-COMMIT_PERFORMED: YES, ccdcdf5
+COMMIT_PERFORMED: YES, ccdcdf5 implementation and 5d2b09b documentation
 PUSH_PERFORMED: NO
-FINAL_WORKTREE_STATUS: documentation consolidation pending; physical normal-path qualification complete
+FINAL_WORKTREE_STATUS: clean after documentation consolidation; physical normal-path qualification complete
 ```
