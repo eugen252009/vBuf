@@ -11,6 +11,195 @@ optional semantic/profile layer for model metadata, tokenizers, tensor
 directories, and external tensor sources. vBuf is not defined by machine
 learning or by any particular backend such as llama.cpp or ggml.
 
+## Current Runtime Architecture
+
+vBuf-ML is the optional ML semantic/runtime layer above the generic vBuf
+substrate. Its canonical direct-runtime path is:
+
+```text
+artifact / semantic bootstrap
+        |
+        v
+vBuf discovery
+        |
+        v
+vBuf-ML semantic bindings
+        |
+        v
+TensorRef(SourceId, offset, length)
+        |
+        v
+source resolution
+        |
+        v
+materialization / readiness
+        |
+        v
+bounded residency + lease
+        |
+        v
+portable/backend execution
+        |
+        v
+GGML compute
+```
+
+vBuf-ML owns semantic tensor discovery, source resolution, physical ranges,
+materialization, readiness, payload lifetime, leases, residency, scheduling,
+and runtime integration. A backend consumes ready borrowed or materialized
+tensors and owns execution mechanics. GGML is an allowed execution backend and
+qualification target, not the owner or definition of vBuf-ML acquisition policy.
+
+The portable execution boundary is:
+
+```text
+Importer -> PortableProgram -> generic lowering -> ExecutionGraph
+    -> TensorBindings -> materialization/readiness/residency
+    -> ready PersistentTensorRef + lease -> C ABI
+    -> generic backend adapter -> compute
+```
+
+## External Payloads And Residency
+
+Semantic metadata and tensor payload need not be colocated:
+
+```text
+semantic-bootstrap.vbuf -> TensorRef(SourceId, offset, length)
+    -> file / HTTP Range / other RangeSource -> bounded materialization
+```
+
+A semantic bootstrap can contain metadata and TensorRefs while payload bytes
+remain in an external file or range source. A local payload-bearing artifact
+continues to use the `SELF` source and borrowed mmap path. The runtime can keep
+only required tensor payloads resident even when the model is much larger than
+available memory. Process RSS and vBuf-ML residency are different metrics.
+
+The current Android qualification used a `5,639,819,878`-byte DeepSeek-V2-Lite
+IQ2_XXS vBuf payload with a `268,435,456`-byte (`256 MiB`) vBuf-ML residency
+cap. The full payload was not loaded into 256 MiB.
+
+## Runtime Modes
+
+The direct runtime has explicit modes:
+
+| Mode | Behavior |
+|---|---|
+| `NormalInference` | Actual runtime computation only; reference/oracle work is not executed. |
+| `Qualification` | Actual plus reference/oracle computation, parity checks, and fail-closed behavior. |
+
+Qualification controls must not be mistaken for production inference cost.
+Qualification remains serial. Normal inference does not execute reference work.
+Autoregressive decode remains the unchanged single-position path.
+
+## Android Qualification And Performance
+
+The current physical target is a Pixel 7 Pro running Android 17, arm64-v8a,
+with DeepSeek-V2-Lite IQ2_XXS, a seven-token prompt, and a 256 MiB residency
+cap. The prompt was:
+
+```text
+Explain the purpose of bounded generation
+```
+
+The controlled runtime-mode split is:
+
+| Mode | Position time |
+|---|---:|
+| Qualification | 73,588 ms |
+| Normal position 0 | 35,397 ms |
+| Normal position 1 | 40,060 ms |
+
+Normal position 0 versus qualification is a derived `2.079x` speedup and
+`51.9%` wall-clock reduction. The directly measured removed reference
+component subtotal is `23,772 ms`; the observed wall-clock delta is `38,191 ms`,
+with `14,419 ms` unattributed or not separately instrumented. The entire delta
+is not attributed to reference compute. An earlier `~109.7 s` position is a
+historical qualification-heavy diagnostic, not this controlled baseline.
+
+The measured full-prompt normal-inference comparison is:
+
+| Seven-token prompt prefill | Time | Human-readable |
+|---|---:|---:|
+| Serial | `284,415 ms` | `284.4 s`, about `4 min 44.4 s` |
+| Batched | `82,231 ms` | `82.2 s`, about `1 min 22.2 s` |
+
+This is a measured physical Pixel result for the stated model, prompt, source,
+runtime, and cap: `3.459x` speedup, `71.1%` wall-clock reduction, and
+`202,184 ms` saved, about `3 min 22.2 s`. It is not a universal speedup claim.
+
+The batched path is layer-major. Causal attention and KV updates remain ordered
+per prompt position, while FFN, router, shared expert, and grouped routed-expert
+work uses larger GGML operations across prompt rows. This is not full
+position-level parallelism. Grouping experts for execution must not change the
+semantic reduction order: each token's routed contributions are accumulated in
+original TopK-rank order because floating-point addition is order-sensitive.
+
+The seven-token batched run completed through decode and matched the serial
+control's first continuation:
+
+```text
+serial:  -
+batched: -
+```
+
+Detailed evidence is in [`vBuf-ML current-state summary`](research/results/vbuf-ml-current-state-summary.md)
+and [`prompt-prefill-batching.md`](research/results/vbuf-android-demo-poc/prompt-prefill-batching.md).
+
+The original serial prefill was position-major and token-by-token:
+
+```text
+token 0 -> all layers
+token 1 -> all layers
+...
+token N -> all layers
+```
+
+The current batching result changes backend matrix granularity, not model
+semantics. It does not make the whole transformer or decode loop fully
+parallel.
+
+## Current Capabilities
+
+| Capability | Status |
+|---|---|
+| Generic vBuf substrate | Implemented |
+| External `RangeSource` payloads | Implemented |
+| vBuf-ML semantic bootstrap and TensorRef ranges | Implemented |
+| Bounded materialization, readiness, and leases | Implemented |
+| Bounded residency | Implemented |
+| Portable program/lowering and generic GGML adapter | Implemented and contract-qualified |
+| Android arm64 direct runtime | Physically qualified |
+| Normal/Qualification runtime modes | Implemented and qualified |
+| Layer-major prompt batching | Implemented and physically qualified in normal mode |
+| Autoregressive decode | Implemented; unchanged by batching |
+
+The real DeepSeek-V2-Lite target is a qualification example, not a
+DeepSeek-specific format. Backend/model neutrality remains a design requirement.
+
+## Current Limitations
+
+- Causal attention and KV state transitions remain ordered per prompt position.
+- Autoregressive decode remains token-serial by definition.
+- Full hidden-state, KV, and final-logit hashes for every batched prompt row were not retained; first-decode parity and router/MoE audit were recorded.
+- Materialization and request/reload amplification remain observable; no new prefetch or compute/materialization overlap was implemented.
+- Backend thread configuration was not separately tuned; the existing Android configuration keeps OpenMP disabled.
+- The APK was not rebuilt in the final direct-probe qualification because the current environment lacks a usable `javac`; the changed ARM64 direct probe was built and physically run.
+
+## Performance Progression
+
+| Stage | Result | Classification |
+|---|---:|---|
+| Qualification-heavy diagnostic position | `~109.7 s` | Historical diagnostic |
+| Controlled Qualification position | `73,588 ms` | Measured |
+| Controlled Normal position 0 | `35,397 ms` | Measured |
+| Controlled Normal position 1 | `40,060 ms` | Measured |
+| Serial seven-token full prefill | `284,415 ms` | Measured |
+| Batched seven-token full prefill | `82,231 ms` | Measured |
+
+The mode split isolates qualification/reference overhead. The full-prefill
+comparison isolates batching against serial normal inference; the rows answer
+different questions and are not cumulative speedups.
+
 ## Core Model
 
 The architecture keeps these concepts separate:
@@ -179,10 +368,11 @@ The table proves storage, source, addressing, materialization, and committed
 FFI portability. It does not imply that every architecture has a qualified
 llama/ggml backend or token-generation path.
 
-The ARM64 Android local-compute result is a separate Phase A proof: the Pixel 7
-Pro opened the local Qwen3-0.6B vBuf artifact and completed bounded real
-autoregressive generation. It does not qualify ARM64 remote/external token
-generation; see [`Android Phase A evidence`](research/results/vbuf-android-arm64-chat-poc/).
+The ARM64 Android local-compute result is an earlier Phase A Qwen3-0.6B proof:
+the Pixel 7 Pro opened the local vBuf artifact and completed bounded real
+autoregressive generation. That historical Qwen result did not qualify remote
+external token generation; the later DeepSeek direct-runtime qualification
+documented above does. See [`Android Phase A evidence`](research/results/vbuf-android-arm64-chat-poc/).
 
 The Android Phase B proof adds a direct Wi-Fi HTTP Range source: the Pixel 7 Pro
 opened the Qwen3-0.6B semantic bootstrap without the full model artifact on the

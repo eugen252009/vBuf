@@ -100,6 +100,18 @@ If a feature concerns reference logits, generation parity, backend correctness,
 numerical behavior, or comparison against llama.cpp, llama.cpp may be used as
 the oracle or backend qualification target.
 
+## Prompt Prefill Ordering
+
+Normal prompt prefill may batch backend matrix work across prompt rows while
+preserving ordered causal attention and KV state transitions. Position-level
+parallelism is not implied. Per-token router and TopK decisions remain semantic
+row-local decisions. Routed experts may be grouped for execution, but their
+contributions MUST be accumulated in the original per-token TopK rank order;
+backend scheduling or expert-ID grouping must not change floating-point
+reduction order. Qualification mode remains serial with its reference/oracle
+and fail-closed parity behavior; normal inference does not execute reference
+work. Autoregressive decode remains the existing single-position path.
+
 ## Architectural Ownership
 
 ```text
