@@ -147,8 +147,14 @@ bool ParallelRangeMaterializer::request(uint32_t tensor_ref,
                 tensor_.view.payload_len, 0, 0, 0, tensor_.source_offset, 0, 0, 0, "striped", {}, 0 });
             return;
         }
-        ready_.view = tensor_.view;
-        ready_.view.payload = owner_->data;
+        if (!ready_.assign_view(tensor_.view)) {
+            owner_.reset();
+            state_ = MaterializationState::Failed;
+            trace_.push_back({ tensor_ref_, tensor_.name, "STRIPED_FAILED", state_, now_ns(),
+                tensor_.view.payload_len, 0, 0, 0, tensor_.source_offset, 0, 0, 0, "striped", {}, 0 });
+            return;
+        }
+        ready_.payload = owner_->data;
         ready_.storage = { owner_->data, owner_->size, 0,
             std::shared_ptr<const void>(owner_, owner_->data) };
         ready_.bytes = owner_->size;

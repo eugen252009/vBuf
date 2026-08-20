@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -20,9 +21,31 @@ enum class MaterializationState {
 };
 
 struct MaterializedTensor {
-    VbufTensorView view{};
+    // Geometry is value-owned; payload remains borrowed through `storage.lease`.
+    uint8_t representation = 0;
+    uint8_t rank = 0;
+    std::array<uint64_t, GGML_MAX_DIMS> dimensions{};
+    const uint8_t * payload = nullptr;
+    uint64_t payload_len = 0;
     VbufBorrowedStorage storage{};
     uint64_t bytes = 0;
+
+    bool assign_view(const VbufTensorView & source) {
+        if (source.rank > dimensions.size() ||
+            (source.rank != 0 && source.dimensions == nullptr)) return false;
+        representation = source.representation;
+        rank = source.rank;
+        dimensions.fill(0);
+        for (uint8_t index = 0; index < rank; ++index)
+            dimensions[index] = source.dimensions[index];
+        payload = source.payload;
+        payload_len = source.payload_len;
+        return true;
+    }
+
+    VbufTensorView view() const {
+        return { representation, rank, dimensions.data(), payload, payload_len };
+    }
 };
 
 struct MaterializationTraceEvent {

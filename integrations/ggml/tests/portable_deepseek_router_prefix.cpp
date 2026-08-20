@@ -46,7 +46,7 @@ std::shared_ptr<HeldPayload> hold_payload(
     held->ref = ref;
     held->payload = std::move(*payload);
     held->tensor = tensor;
-    held->tensor.view = held->payload.view;
+    held->tensor.view = held->payload.view();
     return held;
 }
 

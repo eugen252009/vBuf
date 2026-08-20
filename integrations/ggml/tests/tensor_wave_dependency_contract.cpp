@@ -5,6 +5,7 @@
 #include <array>
 #include <cassert>
 #include <cstring>
+#include <cstdio>
 #include <memory>
 #include <string>
 
@@ -45,8 +46,8 @@ private:
 };
 
 struct Fixture {
-    std::array<float, 1> weight{{ 3.0f }};
-    std::array<float, 1> input{{ 2.0f }};
+    alignas(64) std::array<float, 1> weight{{ 3.0f }};
+    alignas(64) std::array<float, 1> input{{ 2.0f }};
     uint64_t dimensions[2]{ 1, 1 };
     vbuf_ggml::PersistentTensorRef tensor() const {
         return { 7, "embedding.weight", { 0, 2, dimensions, nullptr, sizeof(weight) }, 0 };
@@ -73,8 +74,10 @@ vbuf_ggml::AdapterError execute(vbuf_ggml::TensorDependencyExecutor & executor,
     std::vector<uint8_t> output;
     std::vector<int64_t> shape;
     vbuf_ggml::TensorWaveReport report;
-    const auto provider = [](const vbuf_ggml::VbufTensorView &) {
-        return vbuf_ggml::VbufBorrowedStorage{};
+    const vbuf_ggml::VbufBorrowedStorage input_storage{
+        reinterpret_cast<const uint8_t *>(fixture.input.data()), sizeof(fixture.input), 0, {} };
+    const auto provider = [input_storage](const vbuf_ggml::VbufTensorView &) {
+        return input_storage;
     };
     return executor.execute(input, provider, &output, &shape, &report, detail, {}, materializer);
 }
@@ -93,7 +96,12 @@ int main() {
     auto executor = make_graph(tensor);
 
     // A dependency with no prefetch request is requested and waited at consume time.
-    assert(execute(executor, fixture, &materializer) == vbuf_ggml::AdapterError::None);
+    std::string first_detail;
+    const auto first_result = execute(executor, fixture, &materializer, &first_detail);
+    if (first_result != vbuf_ggml::AdapterError::None)
+        std::fprintf(stderr, "first execution failed: %s detail=%s\n",
+            vbuf_ggml::adapter_error_name(first_result), first_detail.c_str());
+    assert(first_result == vbuf_ggml::AdapterError::None);
     assert(source->reads() == 1);
 
     // A resident payload is immediately ready and does not re-read the source.
@@ -107,9 +115,13 @@ int main() {
     auto failed_residency = std::make_shared<vbuf_ggml::TensorResidencyStore>(sizeof(fixture.weight));
     vbuf_ggml::ResidentTensorMaterializer failed_materializer(failed_backing, failed_residency);
     std::string detail;
-    assert(execute(executor, fixture, &failed_materializer, &detail) ==
-        vbuf_ggml::AdapterError::InvalidArgument);
-    assert(detail == "persistent tensor is not ready: FAILED");
+    const auto failed_result = execute(executor, fixture, &failed_materializer, &detail);
+    if (failed_result != vbuf_ggml::AdapterError::InvalidArgument ||
+        detail != "multiply: persistent tensor is not ready: FAILED")
+        std::fprintf(stderr, "failed producer result=%s detail=%s\n",
+            vbuf_ggml::adapter_error_name(failed_result), detail.c_str());
+    assert(failed_result == vbuf_ggml::AdapterError::InvalidArgument);
+    assert(detail == "multiply: persistent tensor is not ready: FAILED");
     assert(failed_residency->active_lease_count() == 0);
 
     // A borrowed resident payload prevents eviction until its materializer lease is released.
@@ -118,7 +130,7 @@ int main() {
     const auto borrowed = materializer.obtain_ready_tensor(0);
     assert(borrowed.has_value());
     assert(materializer.request(0, tensor, sizeof(fixture.weight)));
-    assert(std::memcmp(borrowed->view.payload, fixture.weight.data(), sizeof(fixture.weight)) == 0);
+    assert(std::memcmp(borrowed->view().payload, fixture.weight.data(), sizeof(fixture.weight)) == 0);
     assert(!residency->evict(0));
     materializer.release(0);
     assert(residency->evict(0));

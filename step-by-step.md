@@ -2402,7 +2402,21 @@ The existing 256 MiB successful qualification remains the comparison control
 from Step 31E. A fresh control rerun requires restoring the local model artifact
 and range server; no new 256 MiB result is claimed by Step 31G.
 
-#### Step 31H — Retention and offline completion
+#### Step 31H — Own cached materialized tensor geometry
+
+**Host-qualified ownership repair completed; physical confirmation is blocked.**
+`MaterializedTensor` now owns its rank and inline geometry while preserving the
+existing leased payload pointer and residency behavior. The residency contract
+verifies geometry after source-scope destruction, cache-hit retrieval, copy,
+move, and vector relocation. Host materializer, residency, striped,
+tensor-wave, adapter, source-fallback, Rust, native Release CTest, neutrality,
+and Android ARM64/`assembleDebug` checks pass. The canonical local model and
+range server are unavailable, so no physical 512 MiB result is claimed.
+Evidence: `research/results/vbuf-android-demo-poc/step31h-owned-materialized-tensor-geometry.md`.
+
+Do not resume the residency curve in Step 31H.
+
+#### Step 31I — Retention and offline completion
 
 - add stream-only, cache-as-used, bounded retention, and keep-model policy above
   the source mechanism;
@@ -2414,7 +2428,7 @@ and range server; no new 256 MiB result is claimed by Step 31G.
   ranges;
 - report exact incompleteness rather than implying offline readiness.
 
-#### Step 31I — Deferred experiments
+#### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
 replacement, model-aware policy tuning, mobile-data UX, residency tuning,

@@ -20,7 +20,9 @@ int main() {
     const auto ready = materializer.obtain_ready_tensor(0);
     assert(ready.has_value());
     assert(ready->bytes == sizeof(source));
-    assert(std::memcmp(ready->view.payload, source, sizeof(source)) == 0);
+    const vbuf_ggml::VbufTensorView ready_view = ready->view();
+    assert(ready_view.rank == 2 && ready_view.dimensions[0] == 4 && ready_view.dimensions[1] == 1);
+    assert(std::memcmp(ready_view.payload, source, sizeof(source)) == 0);
     assert(materializer.active_ready_bytes() == sizeof(source));
     materializer.release(0);
     assert(materializer.state(0) == vbuf_ggml::MaterializationState::Released);

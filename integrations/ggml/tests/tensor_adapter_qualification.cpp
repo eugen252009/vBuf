@@ -225,10 +225,11 @@ bool materialized_null_payload_binding() {
     if (!payload) return false;
     std::string detail;
     AdapterError create_error = AdapterError::None;
-    const auto tensor = BorrowedGgmlTensor::create(payload->view, &create_error, &detail);
+    const VbufTensorView payload_view = payload->view();
+    const auto tensor = BorrowedGgmlTensor::create(payload_view, &create_error, &detail);
     const AdapterError bind_error = tensor ? tensor->bind_cpu(payload->storage, &detail) : create_error;
     const bool bound = tensor && bind_error == AdapterError::None &&
-        tensor->bound_data() == payload->view.payload &&
+        tensor->bound_data() == payload_view.payload &&
         reinterpret_cast<const float *>(tensor->bound_data())[0] == 7.0f &&
         reinterpret_cast<const float *>(tensor->bound_data())[1] == 11.0f;
     materializer.release(0);

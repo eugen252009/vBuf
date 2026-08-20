@@ -204,10 +204,15 @@ bool LocalVbufRangeMaterializer::request(
         const uint64_t finalization_start_ns = now_ns();
         {
             std::lock_guard<std::mutex> lock(impl_->mutex);
+            if (!raw->ready.assign_view(raw->tensor.view)) {
+                impl_->inflight_bytes -= owner->size;
+                raw->state = MaterializationState::Failed;
+                impl_->record(*raw, MaterializationState::Failed);
+                return;
+            }
             raw->owner = owner;
-            raw->ready.view = raw->tensor.view;
-            raw->ready.view.payload = owner->data;
-            raw->ready.view.payload_len = owner->size;
+            raw->ready.payload = owner->data;
+            raw->ready.payload_len = owner->size;
             raw->ready.storage = { owner->data, owner->size,
                 0, std::shared_ptr<const void>(owner, owner->data) };
             raw->ready.bytes = owner->size;

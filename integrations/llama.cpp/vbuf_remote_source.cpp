@@ -152,7 +152,7 @@ bool VbufRemoteSource::tensor(uint64_t index, std::string & name, ggml_type & ty
         auto found = materialized_.find(index);
         if (found != materialized_.end()) materialized = found->second;
     }
-    payload = materialized ? materialized->view.payload : nullptr;
+    payload = materialized ? materialized->view().payload : nullptr;
     return true;
 }
 

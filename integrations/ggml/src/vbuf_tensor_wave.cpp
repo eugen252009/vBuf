@@ -301,6 +301,7 @@ AdapterError TensorDependencyExecutor::execute(
         ggml_backend_t backend = nullptr;
         for (const TensorWaveRef & input_ref : operation.inputs) {
             const VbufTensorView * view = nullptr;
+            VbufTensorView materialized_view{};
             VbufBorrowedStorage storage{};
             if (input_ref.kind == TensorWaveRef::Kind::Persistent) {
                 view = &persistent_[input_ref.index].view;
@@ -310,7 +311,8 @@ AdapterError TensorDependencyExecutor::execute(
                 if (found != materialized_refs.end()) {
                     const MaterializedTensor & materialized = materialized_inputs[
                         static_cast<size_t>(found - materialized_refs.begin())];
-                    view = &materialized.view;
+                    materialized_view = materialized.view();
+                    view = &materialized_view;
                     storage = materialized.storage;
                 } else if (materializer != nullptr) {
                     MaterializedTensor ready{};
@@ -322,7 +324,8 @@ AdapterError TensorDependencyExecutor::execute(
                     materialized_inputs.push_back(ready);
                     materialized_refs.push_back(input_ref.index);
                     const MaterializedTensor & materialized = materialized_inputs.back();
-                    view = &materialized.view;
+                    materialized_view = materialized.view();
+                    view = &materialized_view;
                     storage = materialized.storage;
                 }
             } else {

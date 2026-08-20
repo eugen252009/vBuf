@@ -60,7 +60,9 @@ int main() {
     assert(materializer.wait(3) == vbuf_ggml::MaterializationState::Ready);
     const auto ready = materializer.obtain_ready_tensor(3);
     assert(ready.has_value());
-    assert(std::memcmp(ready->view.payload, payload.data(), length) == 0);
+    const vbuf_ggml::VbufTensorView ready_view = ready->view();
+    assert(ready_view.rank == 2 && ready_view.dimensions[0] == 4 && ready_view.dimensions[1] == 1);
+    assert(std::memcmp(ready_view.payload, payload.data(), length) == 0);
     assert(materializer.stripe_trace().size() == 2);
     const auto & a = materializer.stripe_trace()[0];
     const auto & b = materializer.stripe_trace()[1];

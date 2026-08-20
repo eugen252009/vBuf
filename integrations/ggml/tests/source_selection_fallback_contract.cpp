@@ -64,7 +64,7 @@ int main() {
     assert(materializer.wait(0) == MaterializationState::Ready);
     const auto ready = materializer.obtain_ready_tensor(0);
     assert(ready.has_value());
-    assert(std::memcmp(ready->view.payload, artifact, sizeof(artifact)) == 0);
+    assert(std::memcmp(ready->view().payload, artifact, sizeof(artifact)) == 0);
     assert(primary->reads == 1);
     assert(fallback->reads == 1);
     materializer.release(0);

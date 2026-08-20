@@ -8,9 +8,13 @@ namespace {
 
 vbuf_ggml::MaterializedTensor tensor(uint64_t bytes) {
     auto owner = std::make_shared<std::vector<uint8_t>>(bytes);
-    const uint64_t * dimensions = new uint64_t[2]{ bytes, 1 };
+    const uint64_t dimensions[] = { bytes, 1 };
     const vbuf_ggml::VbufTensorView view{ 0, 2, dimensions, owner->data(), bytes };
-    return { view, { owner->data(), bytes, 0, std::shared_ptr<const void>(owner, owner->data()) }, bytes };
+    vbuf_ggml::MaterializedTensor result{};
+    assert(result.assign_view(view));
+    result.storage = { owner->data(), bytes, 0, std::shared_ptr<const void>(owner, owner->data()) };
+    result.bytes = bytes;
+    return result;
 }
 
 uint32_t run_trace() {

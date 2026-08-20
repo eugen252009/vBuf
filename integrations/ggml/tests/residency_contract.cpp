@@ -2,6 +2,12 @@
 
 #include <cassert>
 #include <cstring>
+#include <cstdlib>
+#include <utility>
+#include <vector>
+
+#undef assert
+#define assert(condition) do { if (!(condition)) std::abort(); } while (false)
 
 namespace {
 
@@ -39,9 +45,22 @@ private:
 
 vbuf_ggml::MaterializedTensor make_tensor(const uint8_t * bytes, size_t size) {
     auto owner = std::make_shared<std::vector<uint8_t>>(bytes, bytes + size);
-    const uint64_t * dimensions = new uint64_t[2]{ 4, 1 };
+    const uint64_t dimensions[] = { 4, 1 };
     const vbuf_ggml::VbufTensorView view{ 0, 2, dimensions, owner->data(), size };
-    return { view, { owner->data(), size, 0, std::shared_ptr<const void>(owner, owner->data()) }, size };
+    vbuf_ggml::MaterializedTensor result{};
+    assert(result.assign_view(view));
+    result.storage = { owner->data(), size, 0, std::shared_ptr<const void>(owner, owner->data()) };
+    result.bytes = size;
+    return result;
+}
+
+void assert_geometry(const vbuf_ggml::MaterializedTensor & tensor,
+    const uint8_t * payload, size_t payload_size) {
+    const vbuf_ggml::VbufTensorView view = tensor.view();
+    assert(view.representation == 0);
+    assert(view.rank == 2 && view.dimensions[0] == 4 && view.dimensions[1] == 1);
+    assert(view.payload == payload && view.payload_len == payload_size);
+    assert(tensor.bytes == payload_size);
 }
 
 } // namespace
@@ -58,7 +77,8 @@ int main() {
     assert(materializer.request(3, tensor, sizeof(bytes)));
     assert(materializer.wait(3) == vbuf_ggml::MaterializationState::Ready);
     const auto cold = materializer.obtain_ready_tensor(3);
-    assert(cold.has_value() && std::memcmp(cold->view.payload, bytes, sizeof(bytes)) == 0);
+    assert(cold.has_value() && std::memcmp(cold->view().payload, bytes, sizeof(bytes)) == 0);
+    assert_geometry(*cold, cold->view().payload, sizeof(bytes));
     materializer.release(3);
     assert(store->resident_bytes() == sizeof(bytes));
     assert(fake->request_count == 1 && fake->obtain_count == 1);
@@ -66,7 +86,19 @@ int main() {
 
     assert(materializer.state(3) == vbuf_ggml::MaterializationState::Ready);
     const auto warm = materializer.obtain_ready_tensor(3);
-    assert(warm.has_value() && warm->view.payload == cold->view.payload);
+    assert(warm.has_value() && warm->view().payload == cold->view().payload);
+    assert_geometry(*warm, warm->view().payload, sizeof(bytes));
+
+    vbuf_ggml::MaterializedTensor copied = *warm;
+    assert_geometry(copied, warm->view().payload, sizeof(bytes));
+    vbuf_ggml::MaterializedTensor moved = std::move(copied);
+    assert_geometry(moved, warm->view().payload, sizeof(bytes));
+    std::vector<vbuf_ggml::MaterializedTensor> relocated;
+    relocated.reserve(1);
+    relocated.push_back(moved);
+    relocated.push_back(*cold);
+    assert_geometry(relocated[0], warm->view().payload, sizeof(bytes));
+    assert_geometry(relocated[1], cold->view().payload, sizeof(bytes));
     materializer.release(3);
     assert(fake->request_count == 1 && fake->obtain_count == 1);
     assert(store->materialization_count() == 1 && store->reacquisition_count() == 0);
@@ -74,12 +106,11 @@ int main() {
     auto duplicate = make_tensor(bytes, sizeof(bytes));
     assert(!store->insert(3, "blk.0.ffn_down.weight", duplicate));
     auto other = make_tensor(bytes, sizeof(bytes));
-    assert(!store->insert(4, "other", other));
-    assert(store->resident_count() == 1);
     assert(store->acquire(3));
-    assert(!store->evict(3));
+    assert(!store->insert(4, "other", other));
     assert(store->release(3));
     assert(store->insert(4, "other", other));
+    assert(store->resident_count() == 1);
     assert(store->resident_count() == 1 && store->resident_bytes() == sizeof(bytes));
     assert(store->acquire(4));
     assert(!store->evict(4));

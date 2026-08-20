@@ -82,7 +82,7 @@ int main(int argc, char ** argv) {
     std::printf("ready bytes=%llu\n", static_cast<unsigned long long>(ready->bytes));
     if (length <= 64 * 1024 * 1024) {
         std::printf("payload_hash=%016llx\n",
-            static_cast<unsigned long long>(fnv1a(ready->view.payload, ready->bytes)));
+            static_cast<unsigned long long>(fnv1a(ready->view().payload, ready->bytes)));
     }
     if (warm) {
         const size_t cold_stripe_operations = striped->stripe_trace().size();
