@@ -1,6 +1,6 @@
 # Progressive Local Source Design Checklist
 
-Status: **STEP 31F FIRST-DECODE FAILURE SURFACED; ROOT CAUSE UNRESOLVED**
+Status: **STEP 31G FIRST-INVALID DESCRIPTOR BOUNDARY QUALIFIED; UNDERLYING LIFETIME CAUSE UNRESOLVED**
 
 Step 31B decision: **SPARSE CANONICAL MIRROR + 4 KiB AUTHORITATIVE BITMAP**
 for the qualified single external payload source. Step 31C and the Step 31D

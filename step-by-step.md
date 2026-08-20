@@ -2389,11 +2389,18 @@ bytes, never partially published coverage.
 
 #### Step 31G — Extended cold/warm attribution
 
-**Core source gate completed in Step 31D; residency curve attempted in Step
-31E.** Any future repeat must preserve the same workload and continue
-distinguishing transport, persistence, materialization, residency, and compute
-effects. It must not claim a speedup from source persistence without the
-corresponding measured local/remote attribution.
+**First-invalid descriptor boundary qualified.** The canonical 512 MiB trace
+shows valid `executor_persistent` geometry followed by malformed geometry at
+`resident_ready`; the payload remains valid and the malformed view propagates
+through `executor_ready` and `pre_ggml`. The result proves a shape-owner
+lifetime mismatch/dangling borrowed descriptor view exposed by the residency
+cache hit; the exact construction or reuse event that invalidated the shape
+storage remains unresolved. No runtime repair was made. Evidence:
+`research/results/vbuf-android-demo-poc/step31g-descriptor-provenance.md`.
+
+The existing 256 MiB successful qualification remains the comparison control
+from Step 31E. A fresh control rerun requires restoring the local model artifact
+and range server; no new 256 MiB result is claimed by Step 31G.
 
 #### Step 31H — Retention and offline completion
 
