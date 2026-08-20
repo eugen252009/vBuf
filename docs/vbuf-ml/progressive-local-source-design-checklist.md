@@ -1,15 +1,17 @@
 # Progressive Local Source Design Checklist
 
-Status: **DESIGN / PLANNING ONLY**
+Status: **IMPLEMENTED / HOST QUALIFIED; PHYSICAL ANDROID QUALIFICATION PARTIAL**
 
 Step 31B decision: **SPARSE CANONICAL MIRROR + 4 KiB AUTHORITATIVE BITMAP**
-for the qualified single external payload source. Step 31C remains
-unimplemented.
+for the qualified single external payload source. Step 31C is implemented and
+host-qualified; physical Android qualification has partial cold-acquisition
+evidence but no completed cold/warm or generation result.
 
-This document records a repository-grounded design direction for progressively
-persisting remote vBuf source data. It does not implement persistence, change a
-source, change Android behavior, change the 256 MiB runtime residency baseline,
-or authorize a commit.
+This document records the repository-grounded design and bounded Step 31C
+implementation for progressively persisting remote vBuf source data. It does
+not change TensorRef semantics, materialization, the 256 MiB runtime residency
+baseline, or inference behavior. Retention, offline completion, and power-loss
+durability remain deferred.
 
 The physical application baseline is commit `80409a4 Add Android app baseline
 harness` on a Pixel 7 Pro, Android 17, `arm64-v8a`, using the DeepSeek-V2-Lite
@@ -707,25 +709,27 @@ This is an ordered design checklist, not an implementation script.
 
 ### Phase 3: Minimal local-hit / remote-miss source mechanism
 
-- [ ] Add the smallest source-layer local sparse-mirror read and coverage lookup
+- [x] Add the smallest source-layer local sparse-mirror read and coverage lookup
       seam, without changing `TensorRef`, materializer, lease, residency, or
       GGML contracts.
-- [ ] On a miss, read the complete touched 4 KiB chunks from the remote
+- [x] On a miss, read the complete touched 4 KiB chunks from the remote
       canonical source, validate them, use the requested bytes for the current
       request, write chunks at the same canonical offsets, and publish coverage
       only after the defined publication step succeeds.
 - [ ] Keep stream-only as a policy that bypasses persistence entirely.
-- [ ] Define the simplest correct handling for partial requested ranges: fetch
+- [x] Define the simplest correct handling for partial requested ranges: fetch
       complete touched 4 KiB chunks first; defer interval splitting/coalescing.
-- [ ] Keep persistent source coverage separate from active RAM residency.
+- [x] Keep persistent source coverage separate from active RAM residency.
 
 ### Phase 4: Cold-remote versus warm-local qualification
 
-- [ ] Qualify unchanged remote cold behavior first.
+- [x] Qualify the deterministic host remote-cold fixture first.
 - [ ] Qualify warm local reuse with the same Pixel, model, prompt, generated
       sequence, threads, batching, GGML configuration, and 256 MiB residency.
-- [ ] Measure remote bytes, local bytes, source requests, coverage hits/misses,
-      materialization timing, decode time, and compute timing separately.
+- [x] Measure remote bytes, local bytes, source requests, and coverage
+      hits/misses separately in the host fixture.
+- [ ] Measure physical materialization timing, decode time, and compute timing
+      separately.
 - [ ] Verify output/source-range correctness and unchanged lease/residency
       behavior in both runs.
 - [ ] Confirm that the local mirror can serve fully local, fully remote, and any
@@ -832,6 +836,8 @@ source-persistence mechanism:
 - Android-specific inference or a separate model loader;
 - changing batching, thread count, GGML backend, or quantization as part of the
   first source-persistence experiment.
+- coalesced or windowed upstream acquisition; coverage remains authoritative at
+  4 KiB, while acquisition geometry must be measured separately.
 
 ## Decision Snapshot
 
@@ -856,8 +862,9 @@ LOCAL_FILE_SOURCE_SUPPORT:
   exist; no persistent partial-coverage store exists.
 
 HYBRID_SOURCE_SUPPORT:
-  PARTIAL. Static SourceSet and primary/fallback materializer support exist;
-  per-range local coverage plus remote tee does not.
+  YES for the bounded C++ source path. `ProgressiveRangeSource` composes an
+  existing remote RangeSource with a same-offset sparse mirror and bitmap;
+  materialization remains unchanged.
 
 REBUILDABLE_COVERAGE_FEASIBLE:
   DECIDED. A one-bit-per-4-KiB-chunk bitmap is authoritative; an in-memory
@@ -865,7 +872,9 @@ REBUILDABLE_COVERAGE_FEASIBLE:
   coverage.
 
 CRASH_SAFE_PUBLICATION_SUPPORT:
-  NO EXISTING PERSISTENT SUPPORT. The future store must define it explicitly.
+  HOST-QUALIFIED for process ordering: complete chunk write precedes one-bit
+  publication, and reopen trusts only a valid sidecar. Power-loss durability
+  and fsync policy remain deferred.
 
 UNIQUE_RANGE_TELEMETRY_AVAILABLE:
   PARTIAL. Exact-range unique counters and materialization offsets exist; a
@@ -877,10 +886,9 @@ REUSABLE_COMPONENTS:
   ResidentTensorMaterializer, TensorResidencyStore, SourceHash, IntegrityMetadata.
 
 MISSING_COMPONENTS:
-  Step 31C implementation of the selected source identity/bitmap publication,
-  local/remote source composition, process-crash qualification, and source-aware
-  native identity plumbing. Retention, durability, offline completion, and
-  multi-source policy remain later work.
+  Physical Android cold/warm qualification, process-death fault injection,
+  retention, power-loss durability, offline completion, and multi-source policy
+  remain later work.
 
 OPEN_ARCHITECTURE_QUESTIONS:
   No representation choice remains open for the qualified single-source path.
@@ -900,15 +908,17 @@ FIRST_MEASUREMENT_TO_RUN:
   Completed in Step 31A: captured and offline-analyzed requested source
   intervals for the unchanged 80409a4 Android configuration.
 
-FIRST_IMPLEMENTATION_TO_ATTEMPT:
+FIRST_IMPLEMENTATION_COMPLETED:
   Step 31C: one qualified source, same-size sparse payload mirror, existing
   SourceHash/declared-size identity, 4 KiB bitmap, local-hit/remote-miss
   resolution, canonical writes followed by bit publication, and no residency
   or execution changes.
 
 FIRST_PHYSICAL_QUALIFICATION:
-  Same Pixel/model/prompt/GGML/thread/batching/256 MiB setup: remote cold control
-  followed by warm local reuse, measuring remote/local bytes and decode timing.
+  Partial source smoke on the same Pixel/model/semantic bootstrap path: remote
+  cold acquisition entered batched prefill, populated the sparse mirror and
+  4 KiB bitmap, and a stopped-process restart reopened 7,000 published chunks.
+  Full cold/warm inference and performance attribution remain unmeasured.
 
 RESIDENCY_SEPARATE_FROM_SOURCE_CACHE: YES, REQUIRED
 ANDROID_SPECIFIC_RUNTIME_REQUIRED:
@@ -923,8 +933,12 @@ AUTHORITATIVE_COVERAGE_STATE_REQUIRED:
 DOCUMENT_CREATED_OR_UPDATED:
   docs/vbuf-ml/progressive-local-source-design-checklist.md
   docs/vbuf-ml/step31b-persistent-source-representation-decision.md
+  research/results/vbuf-android-demo-poc/step31c-progressive-local-source.md
 STEP_31B_REPRESENTATION: SPARSE_CANONICAL_MIRROR_WITH_4_KIB_BITMAP
-IMPLEMENTATION_PERFORMED: NO
+STEP_31C_IMPLEMENTATION: HOST_QUALIFIED
+PHYSICAL_ANDROID_QUALIFICATION: PARTIALLY_QUALIFIED_SOURCE_SMOKE
+PHYSICAL_ACQUISITION_LIMITATION: 4_KIB_REQUEST_AMPLIFICATION_OBSERVED
+NEXT_SOURCE_EXPERIMENT: COALESCED_OR_WINDOWED_MISSING_CHUNK_ACQUISITION
 RUNTIME_BEHAVIOR_CHANGED: NO
 COMMIT_PERFORMED: NO
 ```

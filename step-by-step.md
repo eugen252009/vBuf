@@ -2279,7 +2279,24 @@ Step 31B is **DECIDED**. It does not implement any of the selected mechanism.
 
 #### Step 31C — Minimal source-layer mechanism
 
-After this representation gate authorizes implementation:
+**Status:** **IMPLEMENTED and HOST-QUALIFIED; physical Android qualification
+PARTIAL.** The generic C++ `ProgressiveRangeSource` now composes an
+existing remote `RangeSource` with a same-offset sparse payload file and an
+identity-bound `.coverage` sidecar. The focused contract test covers cold and
+warm reads, final-EOF chunking, partial coverage, reopen, identity mismatch,
+remote/truncated failures, and concurrent same-chunk acquisition. The result
+report is `research/results/vbuf-android-demo-poc/step31c-progressive-local-source.md`.
+
+The Android direct session obtains the existing profile's declared size and
+full SHA-256 through the source-profile C ABI seam and uses a metadata-derived
+payload mirror path. A Pixel 7 Pro was subsequently attached and a physical
+cold-acquisition smoke run entered batched prefill, but full cold/warm and
+generation qualification remains incomplete because serialized 4 KiB
+acquisition is request-heavy on the local test transport. The partial result
+and the nginx keep-alive boundary diagnosis are recorded in the Step 31C
+report.
+
+The bounded implementation follows this contract:
 
 - add local exact-range lookup and explicit coverage lookup at the source layer;
 - on an uncovered request, fetch the complete touched 4 KiB canonical chunks
@@ -2301,6 +2318,24 @@ remote fallback, canonical writes followed by bit publication, and a cold-then-
 warm source qualification. It includes no eviction, offline completion,
 prefetch, multi-source policy, residency change, backend change, or inference
 semantic change.
+
+#### Future source-acquisition follow-up — coalesced/windowed missing chunks
+
+**Status:** **DEFERRED; NOT IMPLEMENTED IN STEP 31C.** Physical Android source
+smoke showed that 4 KiB coverage publication is correct but that acquiring every
+missing 4 KiB chunk as a separate upstream HTTP request causes request
+amplification and makes full cold inference impractical on the current test
+transport. This does not invalidate the 4 KiB authoritative bitmap.
+
+The isolated follow-up should preserve 4 KiB validity/publication units while
+allowing adjacent missing chunks to be acquired in bounded larger ranges. It
+must detect contiguous missing chunks, choose a measured maximum window, write
+canonical same-offset bytes, publish only complete individual 4 KiB bits, avoid
+pathological overfetch, reduce request count, and return exactly the original
+consumer slice. Candidate windows such as 64 KiB, 256 KiB, 1 MiB, and 4 MiB are
+future measurements, not a decision here. The implementation must remain below
+the `RangeSource` consumer contract; TensorRef, materialization, residency,
+GGML, and inference semantics remain unaware.
 
 #### Step 31D — Crash, corruption, and recovery qualification
 

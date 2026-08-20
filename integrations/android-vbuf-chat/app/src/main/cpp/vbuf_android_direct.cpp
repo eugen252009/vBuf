@@ -25,6 +25,14 @@
 
 struct VbufMlConsumerHandle;
 
+struct VbufMlSourceIdentityInfo {
+    uint64_t source_id;
+    uint64_t declared_size;
+    uint16_t hash_algorithm;
+    uint16_t hash_len;
+    uint8_t full_source_hash[32];
+};
+
 struct VbufMlTokenView {
     const char * text;
     uint64_t text_len;
@@ -42,6 +50,8 @@ extern "C" uint32_t vbuf_ml_consumer_special_token(
     const VbufMlConsumerHandle *, uint8_t, uint64_t *);
 extern "C" uint32_t vbuf_ml_consumer_add_bos(
     const VbufMlConsumerHandle *, bool *);
+extern "C" uint32_t vbuf_ml_consumer_source_identity(
+    const VbufMlConsumerHandle *, uint64_t, VbufMlSourceIdentityInfo *);
 
 namespace {
 
@@ -267,12 +277,24 @@ public:
         : mode_(mode) {
         const uint64_t start = android_now_ns();
         load_metadata(metadata_path, &metadata_);
+        VbufMlSourceIdentityInfo source_identity{};
+        if (vbuf_ml_consumer_source_identity(metadata_.handle, 1, &source_identity) != 0) {
+            throw std::runtime_error("qualified source identity unavailable");
+        }
         tokenizer_ = std::make_unique<ByteBpeTokenizer>(metadata_.handle);
         for (uint32_t block = 0; block < MODEL_BLOCKS; ++block) {
             plans_.push_back(make_plan(metadata_, block, (block + 1) * 10000));
         }
         lease_ = model_lease(metadata_.handle);
-        source_ = std::make_shared<HttpRangeSource>(endpoint);
+        auto remote = std::make_shared<HttpRangeSource>(endpoint);
+        ProgressiveSourceIdentity persistent_identity;
+        persistent_identity.declared_size = source_identity.declared_size;
+        persistent_identity.hash_algorithm = source_identity.hash_algorithm;
+        std::copy(std::begin(source_identity.full_source_hash),
+            std::end(source_identity.full_source_hash),
+            persistent_identity.full_source_hash.begin());
+        source_ = std::make_shared<ProgressiveRangeSource>(std::move(remote),
+            metadata_path + ".payload", persistent_identity);
         residency_ = std::make_shared<TensorResidencyStore>(RESIDENCY_BUDGET,
             ResidencyReplacementPolicyKind::CostAware);
         backing_ = std::make_shared<LocalVbufRangeMaterializer>(source_);
@@ -466,6 +488,7 @@ public:
 
     void log_position_metrics(uint32_t position, const char * kind) const {
         const RangeSourceMetrics transport = source_->metrics();
+        const ProgressiveRangeMetrics persistence = source_->progressive_metrics();
         uint64_t hits = 0, misses = 0, evictions = 0;
         for (const auto & event : residency_->trace()) {
             if (event.kind == ResidencyEventKind::Hit) ++hits;
@@ -473,10 +496,18 @@ public:
             if (event.kind == ResidencyEventKind::Evict) ++evictions;
         }
         std::fprintf(stderr, "BASELINE_METRICS mode=%s position=%u kind=%s requests=%llu bytes=%llu "
-            "hits=%llu misses=%llu evictions=%llu reload_bytes=%llu peak_resident=%llu\n",
+            "local_source_bytes=%llu remote_source_bytes=%llu local_chunk_hits=%llu "
+            "remote_chunk_misses=%llu chunks_covered=%llu hits=%llu misses=%llu evictions=%llu "
+            "reload_bytes=%llu peak_resident=%llu\n",
             mode_ == RuntimeMode::Qualification ? "QUALIFICATION" : "NORMAL_INFERENCE",
             position, kind, static_cast<unsigned long long>(transport.requests),
-            static_cast<unsigned long long>(transport.bytes), static_cast<unsigned long long>(hits),
+            static_cast<unsigned long long>(transport.bytes),
+            static_cast<unsigned long long>(persistence.local_source_bytes),
+            static_cast<unsigned long long>(persistence.remote_source_bytes),
+            static_cast<unsigned long long>(persistence.local_chunk_hits),
+            static_cast<unsigned long long>(persistence.remote_chunk_misses),
+            static_cast<unsigned long long>(persistence.covered_chunks),
+            static_cast<unsigned long long>(hits),
             static_cast<unsigned long long>(misses), static_cast<unsigned long long>(evictions),
             static_cast<unsigned long long>(reload_bytes_),
             static_cast<unsigned long long>(peak_resident_bytes_));
@@ -484,6 +515,7 @@ public:
 
     std::string metrics() const {
         const RangeSourceMetrics transport = source_->metrics();
+        const ProgressiveRangeMetrics persistence = source_->progressive_metrics();
         uint64_t hits = 0, misses = 0, evictions = 0;
         for (const auto & event : residency_->trace()) {
             if (event.kind == ResidencyEventKind::Hit) ++hits;
@@ -528,6 +560,13 @@ public:
             "Tokens/sec: " + std::to_string(tokens_per_second) + "\n"
             "HTTP requests: " + std::to_string(transport.requests) + "\n"
             "Returned bytes: " + std::to_string(transport.bytes) + "\n"
+            "Local source bytes: " + std::to_string(persistence.local_source_bytes) + "\n"
+            "Remote source bytes: " + std::to_string(persistence.remote_source_bytes) + "\n"
+            "Local chunk hits: " + std::to_string(persistence.local_chunk_hits) + "\n"
+            "Remote chunk misses: " + std::to_string(persistence.remote_chunk_misses) + "\n"
+            "Chunks covered: " + std::to_string(persistence.covered_chunks) + "\n"
+            "Coverage bytes: " + std::to_string(persistence.coverage_bytes) + "\n"
+            "Payload mirror: " + source_->mirror_path() + "\n"
             "Residency hits/misses/evictions: " + std::to_string(hits) + "/" +
             std::to_string(misses) + "/" + std::to_string(evictions) + "\n"
             "Reload bytes: " + std::to_string(reload_bytes_) + "\n"
@@ -611,7 +650,7 @@ private:
     std::unique_ptr<ByteBpeTokenizer> tokenizer_;
     std::vector<LayerPlan> plans_;
     std::shared_ptr<const void> lease_;
-    std::shared_ptr<HttpRangeSource> source_;
+    std::shared_ptr<ProgressiveRangeSource> source_;
     std::shared_ptr<LocalVbufRangeMaterializer> backing_;
     std::shared_ptr<TensorResidencyStore> residency_;
     std::shared_ptr<ResidentTensorMaterializer> materializer_;

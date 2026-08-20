@@ -2,10 +2,14 @@
 #include "vbuf_d0_1_diagnostics.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstring>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <limits>
 #include <sstream>
+#include <stdexcept>
 #include <unordered_map>
 #include <vector>
 #include <arpa/inet.h>
@@ -48,6 +52,67 @@ bool checked_end(uint64_t offset, uint64_t length, uint64_t * end) {
     return true;
 }
 
+constexpr std::array<uint8_t, 8> PROGRESSIVE_COVERAGE_MAGIC = {
+    'V', 'B', 'U', 'F', 'P', 'C', 'O', 'V' };
+constexpr uint32_t PROGRESSIVE_COVERAGE_VERSION = 1;
+constexpr uint64_t PROGRESSIVE_COVERAGE_HEADER_BYTES = 80;
+
+void put_u16(uint8_t * destination, uint16_t value) {
+    destination[0] = static_cast<uint8_t>(value);
+    destination[1] = static_cast<uint8_t>(value >> 8);
+}
+
+void put_u32(uint8_t * destination, uint32_t value) {
+    for (size_t index = 0; index < 4; ++index)
+        destination[index] = static_cast<uint8_t>(value >> (index * 8));
+}
+
+void put_u64(uint8_t * destination, uint64_t value) {
+    for (size_t index = 0; index < 8; ++index)
+        destination[index] = static_cast<uint8_t>(value >> (index * 8));
+}
+
+uint16_t get_u16(const uint8_t * source) {
+    return static_cast<uint16_t>(source[0]) |
+        static_cast<uint16_t>(source[1]) << 8;
+}
+
+uint32_t get_u32(const uint8_t * source) {
+    uint32_t value = 0;
+    for (size_t index = 0; index < 4; ++index)
+        value |= static_cast<uint32_t>(source[index]) << (index * 8);
+    return value;
+}
+
+uint64_t get_u64(const uint8_t * source) {
+    uint64_t value = 0;
+    for (size_t index = 0; index < 8; ++index)
+        value |= static_cast<uint64_t>(source[index]) << (index * 8);
+    return value;
+}
+
+bool positioned_write(int fd, const uint8_t * source, size_t length, uint64_t offset) {
+    size_t written = 0;
+    while (written < length) {
+        const ssize_t count = pwrite(fd, source + written, length - written,
+            static_cast<off_t>(offset + written));
+        if (count <= 0) return false;
+        written += static_cast<size_t>(count);
+    }
+    return true;
+}
+
+bool positioned_read(int fd, uint8_t * destination, size_t length, uint64_t offset) {
+    size_t read_bytes = 0;
+    while (read_bytes < length) {
+        const ssize_t count = pread(fd, destination + read_bytes, length - read_bytes,
+            static_cast<off_t>(offset + read_bytes));
+        if (count <= 0) return false;
+        read_bytes += static_cast<size_t>(count);
+    }
+    return true;
+}
+
 } // namespace
 
 LocalVbufRangeSource::LocalVbufRangeSource(const uint8_t * mapped_base,
@@ -56,7 +121,10 @@ LocalVbufRangeSource::LocalVbufRangeSource(const uint8_t * mapped_base,
 
 bool LocalVbufRangeSource::read_range(uint64_t offset, uint64_t length,
     uint8_t * destination, RangeReadResult * result) {
-    *result = { offset, length, 0, 0, 0, source_id_, {}, {} };
+    *result = {};
+    result->requested_offset = offset;
+    result->requested_length = length;
+    result->source_id = source_id_;
     uint64_t end = 0;
     if (destination == nullptr || mapped_base_ == nullptr || !checked_end(offset, length, &end) ||
         end > artifact_bytes_) {
@@ -82,7 +150,10 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
     const uint64_t request_start_ns = now_ns();
     std::unique_lock<std::mutex> socket_lock(socket_mutex_);
     const uint64_t mutex_acquired_ns = now_ns();
-    *result = { offset, length, 0, 0, 0, endpoint_, {}, {} };
+    *result = {};
+    result->requested_offset = offset;
+    result->requested_length = length;
+    result->source_id = endpoint_;
     uint64_t end = 0;
     if (destination == nullptr || !checked_end(offset, length, &end)) {
         result->error = "invalid HTTP range";
@@ -280,6 +351,223 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
 RangeSourceMetrics HttpRangeSource::metrics() const {
     std::lock_guard<std::mutex> lock(socket_mutex_);
     return summarize_metrics(request_durations_ns_, transferred_bytes_, unique_ranges_, connection_endpoints_);
+}
+
+ProgressiveRangeSource::ProgressiveRangeSource(std::shared_ptr<RangeSource> remote,
+    std::string mirror_path, ProgressiveSourceIdentity identity)
+    : remote_(std::move(remote)), mirror_path_(std::move(mirror_path)),
+      coverage_path_(mirror_path_ + ".coverage"), identity_(identity) {
+    if (!remote_ || identity_.hash_algorithm != 1 || identity_.declared_size == 0) {
+        throw std::runtime_error("invalid progressive source identity");
+    }
+    if (!open_store()) {
+        if (coverage_fd_ >= 0) close(coverage_fd_);
+        if (mirror_fd_ >= 0) close(mirror_fd_);
+        coverage_fd_ = -1;
+        mirror_fd_ = -1;
+        throw std::runtime_error("progressive source store cannot be opened");
+    }
+}
+
+ProgressiveRangeSource::~ProgressiveRangeSource() {
+    if (coverage_fd_ >= 0) close(coverage_fd_);
+    if (mirror_fd_ >= 0) close(mirror_fd_);
+}
+
+uint64_t ProgressiveRangeSource::chunk_count() const {
+    return identity_.declared_size / CHUNK_SIZE +
+        (identity_.declared_size % CHUNK_SIZE == 0 ? 0 : 1);
+}
+
+uint64_t ProgressiveRangeSource::chunk_length(uint64_t chunk_index) const {
+    const uint64_t offset = chunk_index * CHUNK_SIZE;
+    return std::min(CHUNK_SIZE, identity_.declared_size - offset);
+}
+
+bool ProgressiveRangeSource::valid_range(uint64_t offset, uint64_t length, uint64_t * end) const {
+    return length != 0 && checked_end(offset, length, end) && *end <= identity_.declared_size;
+}
+
+bool ProgressiveRangeSource::read_at(uint64_t offset, uint8_t * destination, size_t length) const {
+    return positioned_read(mirror_fd_, destination, length, offset);
+}
+
+bool ProgressiveRangeSource::write_at(uint64_t offset, const uint8_t * source, size_t length) {
+    return positioned_write(mirror_fd_, source, length, offset);
+}
+
+bool ProgressiveRangeSource::read_local(uint64_t offset, uint64_t length, uint8_t * destination) {
+    return read_at(offset, destination, static_cast<size_t>(length));
+}
+
+bool ProgressiveRangeSource::bit_is_set(uint64_t chunk_index) const {
+    const size_t byte = static_cast<size_t>(chunk_index / 8);
+    const uint8_t mask = static_cast<uint8_t>(1u << (chunk_index % 8));
+    return (coverage_[byte] & mask) != 0;
+}
+
+void ProgressiveRangeSource::set_bit(uint64_t chunk_index) {
+    const size_t byte = static_cast<size_t>(chunk_index / 8);
+    coverage_[byte] |= static_cast<uint8_t>(1u << (chunk_index % 8));
+}
+
+bool ProgressiveRangeSource::publish_chunk(uint64_t chunk_index) {
+    const size_t byte = static_cast<size_t>(chunk_index / 8);
+    const uint8_t mask = static_cast<uint8_t>(1u << (chunk_index % 8));
+    const uint8_t value = static_cast<uint8_t>(coverage_[byte] | mask);
+    if (!positioned_write(coverage_fd_, &value, 1, PROGRESSIVE_COVERAGE_HEADER_BYTES + byte)) {
+        return false;
+    }
+    if (!bit_is_set(chunk_index)) {
+        set_bit(chunk_index);
+        ++metrics_.covered_chunks;
+        ++metrics_.chunks_published;
+    }
+    return true;
+}
+
+bool ProgressiveRangeSource::ensure_chunk(uint64_t chunk_index) {
+    if (bit_is_set(chunk_index)) {
+        ++metrics_.local_chunk_hits;
+        return true;
+    }
+    const uint64_t offset = chunk_index * CHUNK_SIZE;
+    const uint64_t length = chunk_length(chunk_index);
+    std::vector<uint8_t> bytes(static_cast<size_t>(length));
+    RangeReadResult remote_result;
+    ++metrics_.remote_chunk_misses;
+    if (!remote_->read_range(offset, length, bytes.data(), &remote_result) ||
+        remote_result.requested_offset != offset || remote_result.requested_length != length ||
+        remote_result.returned_bytes != length) {
+        return false;
+    }
+    metrics_.remote_source_bytes += length;
+    if (!write_at(offset, bytes.data(), bytes.size())) return false;
+    return publish_chunk(chunk_index);
+}
+
+bool ProgressiveRangeSource::read_range(uint64_t offset, uint64_t length,
+    uint8_t * destination, RangeReadResult * result) {
+    RangeReadResult local_result;
+    if (result == nullptr) result = &local_result;
+    *result = {};
+    result->requested_offset = offset;
+    result->requested_length = length;
+    result->source_id = "progressive-local";
+    uint64_t end = 0;
+    if (destination == nullptr || !valid_range(offset, length, &end)) {
+        result->error = "progressive range is outside the declared source";
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    const uint64_t first_chunk = offset / CHUNK_SIZE;
+    const uint64_t last_chunk = (end - 1) / CHUNK_SIZE;
+    for (uint64_t chunk = first_chunk; chunk <= last_chunk; ++chunk) {
+        if (!ensure_chunk(chunk)) {
+            result->error = "progressive source acquisition or publication failed";
+            return false;
+        }
+    }
+    if (!read_local(offset, length, destination)) {
+        result->error = "progressive local mirror read failed";
+        return false;
+    }
+    metrics_.local_source_bytes += length;
+    result->first_byte_timestamp_ns = now_ns();
+    result->returned_bytes = length;
+    result->status_code = 200;
+    return true;
+}
+
+RangeSourceMetrics ProgressiveRangeSource::metrics() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    RangeSourceMetrics result{};
+    result.requests = metrics_.remote_chunk_misses;
+    result.bytes = metrics_.remote_source_bytes;
+    result.unique_bytes = metrics_.remote_source_bytes;
+    return result;
+}
+
+ProgressiveRangeMetrics ProgressiveRangeSource::progressive_metrics() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return metrics_;
+}
+
+bool ProgressiveRangeSource::chunk_is_covered(uint64_t chunk_index) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return chunk_index < chunk_count() && bit_is_set(chunk_index);
+}
+
+bool ProgressiveRangeSource::write_sidecar_header() const {
+    std::array<uint8_t, PROGRESSIVE_COVERAGE_HEADER_BYTES> header{};
+    std::copy(PROGRESSIVE_COVERAGE_MAGIC.begin(), PROGRESSIVE_COVERAGE_MAGIC.end(), header.begin());
+    put_u32(header.data() + 8, PROGRESSIVE_COVERAGE_VERSION);
+    put_u64(header.data() + 16, identity_.declared_size);
+    put_u16(header.data() + 24, identity_.hash_algorithm);
+    put_u16(header.data() + 26, static_cast<uint16_t>(identity_.full_source_hash.size()));
+    put_u32(header.data() + 28, static_cast<uint32_t>(CHUNK_SIZE));
+    put_u64(header.data() + 32, chunk_count());
+    put_u64(header.data() + 40, coverage_.size());
+    std::copy(identity_.full_source_hash.begin(), identity_.full_source_hash.end(), header.begin() + 48);
+    return positioned_write(coverage_fd_, header.data(), header.size(), 0);
+}
+
+bool ProgressiveRangeSource::initialize_sidecar() {
+    coverage_.assign(static_cast<size_t>((chunk_count() + 7) / 8), 0);
+    metrics_.coverage_bytes = coverage_.size();
+    if (!write_sidecar_header()) return false;
+    if (!coverage_.empty() && !positioned_write(coverage_fd_, coverage_.data(), coverage_.size(),
+        PROGRESSIVE_COVERAGE_HEADER_BYTES)) return false;
+    return true;
+}
+
+bool ProgressiveRangeSource::read_sidecar_header() {
+    std::array<uint8_t, PROGRESSIVE_COVERAGE_HEADER_BYTES> header{};
+    if (!positioned_read(coverage_fd_, header.data(), header.size(), 0) ||
+        !std::equal(PROGRESSIVE_COVERAGE_MAGIC.begin(), PROGRESSIVE_COVERAGE_MAGIC.end(), header.begin()) ||
+        get_u32(header.data() + 8) != PROGRESSIVE_COVERAGE_VERSION ||
+        get_u64(header.data() + 16) != identity_.declared_size ||
+        get_u16(header.data() + 24) != identity_.hash_algorithm ||
+        get_u16(header.data() + 26) != identity_.full_source_hash.size() ||
+        get_u32(header.data() + 28) != CHUNK_SIZE ||
+        get_u64(header.data() + 32) != chunk_count() ||
+        get_u64(header.data() + 40) != (chunk_count() + 7) / 8 ||
+        !std::equal(identity_.full_source_hash.begin(), identity_.full_source_hash.end(), header.begin() + 48)) {
+        return false;
+    }
+    coverage_.resize(static_cast<size_t>((chunk_count() + 7) / 8));
+    metrics_.coverage_bytes = coverage_.size();
+    if (!coverage_.empty() && !positioned_read(coverage_fd_, coverage_.data(), coverage_.size(),
+        PROGRESSIVE_COVERAGE_HEADER_BYTES)) return false;
+    if (chunk_count() % 8 != 0 && !coverage_.empty()) {
+        const uint8_t valid_mask = static_cast<uint8_t>((1u << (chunk_count() % 8)) - 1u);
+        if ((coverage_.back() & static_cast<uint8_t>(~valid_mask)) != 0) return false;
+    }
+    metrics_.covered_chunks = 0;
+    for (uint64_t chunk = 0; chunk < chunk_count(); ++chunk)
+        if (bit_is_set(chunk)) ++metrics_.covered_chunks;
+    return true;
+}
+
+bool ProgressiveRangeSource::open_store() {
+    mirror_fd_ = open(mirror_path_.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0600);
+    if (mirror_fd_ < 0) return false;
+    struct stat mirror_stat{};
+    if (fstat(mirror_fd_, &mirror_stat) != 0) return false;
+    coverage_fd_ = open(coverage_path_.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0600);
+    if (coverage_fd_ < 0) return false;
+    struct stat coverage_stat{};
+    if (fstat(coverage_fd_, &coverage_stat) != 0) return false;
+    if (mirror_stat.st_size == 0 && coverage_stat.st_size != 0) return false;
+    if (mirror_stat.st_size == 0) {
+        if (ftruncate(mirror_fd_, static_cast<off_t>(identity_.declared_size)) != 0) return false;
+    } else if (static_cast<uint64_t>(mirror_stat.st_size) != identity_.declared_size) {
+        return false;
+    }
+    if (coverage_stat.st_size == 0) return initialize_sidecar();
+    const uint64_t expected_size = PROGRESSIVE_COVERAGE_HEADER_BYTES + (chunk_count() + 7) / 8;
+    if (static_cast<uint64_t>(coverage_stat.st_size) != expected_size) return false;
+    return read_sidecar_header();
 }
 
 } // namespace vbuf_ggml

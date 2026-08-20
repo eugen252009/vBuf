@@ -78,6 +78,15 @@ pub struct VbufMlTensorSourceInfo {
 }
 
 #[repr(C)]
+pub struct VbufMlSourceIdentityInfo {
+    pub source_id: u64,
+    pub declared_size: u64,
+    pub hash_algorithm: u16,
+    pub hash_len: u16,
+    pub full_source_hash: [u8; 32],
+}
+
+#[repr(C)]
 pub struct VbufMlModelMetadataInfo {
     pub context_length: u64,
     pub embedding_length: u64,
@@ -154,6 +163,51 @@ pub unsafe extern "C" fn vbuf_ml_consumer_open_metadata(
         }))
     }))
     .unwrap_or(std::ptr::null_mut())
+}
+
+/// Return the qualified full-source SHA-256 identity from the persisted source
+/// profile without reading any external payload bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_source_identity(
+    handle: *const VbufMlConsumerHandle,
+    source_id: u64,
+    info: *mut VbufMlSourceIdentityInfo,
+) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || info.is_null() {
+            return INVALID_ARGUMENT;
+        }
+        let Ok(Some(profile)) = crate::parse_source_profile(
+            &(*handle).model.view.validated,
+            &(*handle).model.view.bootstrap,
+        ) else {
+            return VALIDATION_ERROR;
+        };
+        let Some(descriptor) = profile.registry.get(crate::SourceId::new(source_id)) else {
+            return VALIDATION_ERROR;
+        };
+        let Some(size) = descriptor.declared_size else {
+            return VALIDATION_ERROR;
+        };
+        let Some(hash) = descriptor
+            .hashes
+            .iter()
+            .find(|hash| hash.algorithm == 1 && hash.value.len() == 32)
+        else {
+            return VALIDATION_ERROR;
+        };
+        let mut full_source_hash = [0u8; 32];
+        full_source_hash.copy_from_slice(&hash.value);
+        *info = VbufMlSourceIdentityInfo {
+            source_id,
+            declared_size: size,
+            hash_algorithm: hash.algorithm,
+            hash_len: hash.value.len() as u16,
+            full_source_hash,
+        };
+        OK
+    }))
+    .unwrap_or(VALIDATION_ERROR)
 }
 
 /// # Safety
