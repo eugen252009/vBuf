@@ -2601,13 +2601,14 @@ residency/source state is reused.
 
 #### Step 31S - Persistent server lifecycle, isolation, and residency qualification
 
-**Status: HOST-CONTRACT-QUALIFIED; PERSISTENT LIFECYCLE COMPLETE.** Step 31S
-qualified one persistent native server process across 20 deterministic A/B/C
-requests plus streaming, OpenAI client, cancellation, failure-recovery, and
-simultaneous-client traffic. A/B/A returned identical deterministic output;
-all logged post-request lease, inflight, generation, stream, and cancellation
-counters were zero. Warm requests reached zero additional source bytes while
-bounded payload residency remained active.
+**Status: HOST-CONTRACT-QUALIFIED; CONTROLLED-SOURCE-FAILURE-RECOVERY-QUALIFIED.**
+Step 31S qualified one persistent native server process across a 20-request
+baseline and a 40-request follow-up soak with one deterministic source failure
+and same-process recovery, plus streaming, OpenAI client, cancellation,
+failure-recovery, and simultaneous-client traffic. A/B/A returned identical
+deterministic output; all logged post-request lease, inflight, generation,
+stream, and cancellation counters were zero. Warm requests reached zero
+additional source bytes while bounded payload residency remained active.
 
 The qualification found and fixed unbounded persistent diagnostic histories in
 residency, materialization, and HTTP range-source metrics. Scalar counters and

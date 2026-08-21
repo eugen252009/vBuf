@@ -17,6 +17,8 @@ struct VbufGenerationConfig {
     uint32_t block_count = 2;
     uint64_t residency_capacity = 268435456;
     uint32_t max_new_tokens = 4;
+    // Qualification-only source fault injection. Zero leaves the source unchanged.
+    uint32_t source_failure_requests = 0;
     RuntimeMode mode = RuntimeMode::NormalInference;
     std::vector<uint32_t> prompt_tokens;
     std::optional<uint32_t> stop_token;

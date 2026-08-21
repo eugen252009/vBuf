@@ -107,14 +107,15 @@ RangeSource plus bounded residency behavior. Unsupported generation semantics
 are rejected rather than silently ignored. Evidence is in
 [`step31r-vbuf-compat-server-qualification.md`](research/results/vbuf-ml-integration/step31r-vbuf-compat-server-qualification.md).
 
-Step 31S additionally qualified one persistent server process across 20
-deterministic A/B/C requests, repeated SSE streams, real disconnect
-cancellation, failure recovery, serialized simultaneous clients, and Python
-OpenAI client traffic. Request leases, generation state, streams, and
-inflight materialization returned to zero after each logged request. Model
-payload residency intentionally persisted within the configured cap; diagnostic
-histories are trimmed between requests. Health remains dispatch-blocked during
-active serialized generation by policy. Evidence is in
+Step 31S additionally qualified one persistent server process across a 20-request
+baseline and a 40-request follow-up soak with one deterministic source failure
+and same-process recovery, repeated SSE streams, real disconnect cancellation,
+failure recovery, serialized simultaneous clients, and Python OpenAI client
+traffic. Request leases, generation state, streams, and inflight materialization
+returned to zero after each logged request. Model payload residency intentionally
+persisted within the configured cap; diagnostic histories are trimmed between
+requests. Health remains dispatch-blocked during active serialized generation by
+policy. Evidence is in
 [`step31s-persistent-server-lifecycle-qualification.md`](research/results/vbuf-ml-integration/step31s-persistent-server-lifecycle-qualification.md).
 
 ## Android Qualification And Performance

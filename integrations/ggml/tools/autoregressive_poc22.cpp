@@ -4,6 +4,7 @@
 
 #include "vbuf_generation.h"
 
+#include <atomic>
 #include <chrono>
 #include <fstream>
 #include <iomanip>
@@ -209,16 +210,46 @@ void write_summary(const std::string & path, const std::vector<PositionEvidence>
 
 namespace vbuf_ggml {
 
+class ControlledFailureRangeSource final : public RangeSource {
+public:
+    ControlledFailureRangeSource(std::shared_ptr<RangeSource> delegate, uint32_t failures)
+        : delegate_(std::move(delegate)), remaining_(failures) {}
+
+    bool read_range(uint64_t offset, uint64_t length, uint8_t * destination,
+        RangeReadResult * result) override {
+        uint32_t remaining = remaining_.load(std::memory_order_relaxed);
+        while (remaining != 0 && !remaining_.compare_exchange_weak(remaining, remaining - 1,
+                std::memory_order_relaxed, std::memory_order_relaxed)) {}
+        if (remaining != 0) {
+            if (result != nullptr) {
+                *result = {};
+                result->requested_offset = offset;
+                result->requested_length = length;
+                result->source_id = "controlled-failure";
+                result->error = "controlled source failure";
+            }
+            return false;
+        }
+        return delegate_->read_range(offset, length, destination, result);
+    }
+
+private:
+    std::shared_ptr<RangeSource> delegate_;
+    std::atomic<uint32_t> remaining_;
+};
+
 struct VbufGenerationSession::Impl {
     Metadata metadata;
     std::vector<LayerPlan> plans;
     mutable std::string source_endpoint;
     mutable uint64_t residency_capacity = 0;
-    mutable std::shared_ptr<HttpRangeSource> source;
+    mutable std::shared_ptr<HttpRangeSource> http_source;
+    mutable std::shared_ptr<RangeSource> source;
     mutable std::shared_ptr<TensorResidencyStore> residency;
     mutable std::shared_ptr<ResidentTensorMaterializer> materializer;
     mutable uint64_t request_count = 0;
     mutable uint64_t active_generations = 0;
+    mutable uint32_t source_failure_requests = 0;
 };
 
 VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
@@ -254,7 +285,7 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
     const auto clear_diagnostics = [&] {
         if (impl_->residency) impl_->residency->clear_trace();
         if (impl_->materializer) impl_->materializer->clear_trace();
-        if (impl_->source) impl_->source->clear_diagnostics();
+        if (impl_->http_source) impl_->http_source->clear_diagnostics();
     };
     try {
         if (config.prompt_tokens.empty())
@@ -272,10 +303,16 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         const std::vector<LayerPlan> & plans = impl_->plans;
 
         if (!impl_->source || impl_->source_endpoint != config.source_endpoint ||
-            impl_->residency_capacity != config.residency_capacity) {
+            impl_->residency_capacity != config.residency_capacity ||
+            impl_->source_failure_requests != config.source_failure_requests) {
             impl_->source_endpoint = config.source_endpoint;
             impl_->residency_capacity = config.residency_capacity;
-            impl_->source = std::make_shared<HttpRangeSource>(config.source_endpoint);
+            impl_->source_failure_requests = config.source_failure_requests;
+            impl_->http_source = std::make_shared<HttpRangeSource>(config.source_endpoint);
+            impl_->source = impl_->http_source;
+            if (config.source_failure_requests != 0)
+                impl_->source = std::make_shared<ControlledFailureRangeSource>(
+                    impl_->http_source, config.source_failure_requests);
             impl_->residency = std::make_shared<TensorResidencyStore>(config.residency_capacity,
                 ResidencyReplacementPolicyKind::CostAware);
             impl_->materializer = std::make_shared<ResidentTensorMaterializer>(
@@ -288,7 +325,7 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         result.resident_bytes_before = residency->resident_bytes();
         const uint64_t reacquisitions_before = residency->reacquisition_count();
         const size_t trace_before = residency->trace().size();
-        const uint64_t source_bytes_before = source->metrics().bytes;
+        const uint64_t source_bytes_before = impl_->http_source->metrics().bytes;
         const Meta embedding = lookup(all, "token_embd.weight");
         const Meta output_norm = lookup(all, "output_norm.weight");
         const Meta output = lookup(all, "output.weight");
@@ -399,7 +436,7 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
                 std::chrono::steady_clock::now() - decode_start).count());
         } else result.prefill_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now() - start).count());
-        const uint64_t source_bytes_after = source->metrics().bytes;
+        const uint64_t source_bytes_after = impl_->http_source->metrics().bytes;
         if (source_bytes_after >= source_bytes_before)
             result.source_bytes = std::max(result.source_bytes, source_bytes_after - source_bytes_before);
         clear_diagnostics();
@@ -417,7 +454,7 @@ VbufGenerationSnapshot VbufGenerationSession::snapshot() const {
     snapshot.request_count = impl_->request_count;
     snapshot.active_generations = impl_->active_generations;
     if (!impl_->source || !impl_->residency || !impl_->materializer) return snapshot;
-    const auto source = impl_->source->metrics();
+    const auto source = impl_->http_source->metrics();
     snapshot.resident_bytes = impl_->residency->resident_bytes();
     snapshot.resident_count = impl_->residency->resident_count();
     snapshot.active_lease_count = impl_->residency->active_lease_count();

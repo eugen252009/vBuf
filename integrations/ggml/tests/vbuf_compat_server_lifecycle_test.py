@@ -167,6 +167,16 @@ def invalid_request_recovery(base, model):
     return checks
 
 
+def runtime_failure_recovery(base, model):
+    status, _, body, _ = http_request(base, "POST", "/v1/chat/completions", {
+        "model": model, "messages": [{"role": "user", "content": "fault"}], "max_tokens": 1,
+    })
+    assert status == 500 and b"server_embedding failed" in body
+    recovered = chat(base, model, "Say hi")
+    assert recovered["content"]
+    return {"failed_status": status, "recovered": recovered}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", required=True)
@@ -179,6 +189,7 @@ def main():
     parser.add_argument("--capacity", type=int, default=268435456)
     parser.add_argument("--max-new-tokens", type=int, default=8)
     parser.add_argument("--requests", type=int, default=20)
+    parser.add_argument("--source-failure-requests", type=int, default=0)
     parser.add_argument("--evidence", default="")
     args = parser.parse_args()
     assert args.requests >= 6
@@ -195,12 +206,17 @@ def main():
         "--blocks", str(args.blocks),
         "--capacity", str(args.capacity),
         "--max-new-tokens", str(args.max_new_tokens),
+        "--source-failure-requests", str(args.source_failure_requests),
         "--runtime-mode", "normal",
     ], stdout=subprocess.DEVNULL, stderr=log_file)
     try:
         health_ready_ms = wait_ready(base)
         rss_start = rss_kib(process.pid)
         before_models = model_list(base)
+
+        runtime_failure = None
+        if args.source_failure_requests:
+            runtime_failure = runtime_failure_recovery(base, args.model)
 
         prompts = {"A": "Say hi", "B": "Count to one", "C": "Name a color"}
         order = ["A", "B", "A", "C", "B", "A"]
@@ -283,6 +299,15 @@ def main():
         process.wait(timeout=30)
         log_file.close()
         records = parse_request_logs(log_file.name)
+        assert len(records) >= 5
+        steady_tail_records = records[-5:]
+        assert max(int(record["peak_residency_bytes"]) for record in records) <= args.capacity
+        assert steady_tail_records[-1]["source_bytes"] == "0"
+        controlled_source_marker = False
+        if args.source_failure_requests:
+            with open(log_file.name, encoding="utf-8") as server_log:
+                controlled_source_marker = "source=controlled-failure" in server_log.read()
+            assert controlled_source_marker
         assert process.returncode == 0
         assert records and all(record.get("active_leases_after") == "0" for record in records)
         assert all(record.get("active_generations_after") == "0" for record in records)
@@ -301,6 +326,9 @@ def main():
             "stream_results": streams,
             "cancellation": cancellation,
             "recovery": recovery,
+            "runtime_failure": runtime_failure,
+            "source_failure_requests": args.source_failure_requests,
+            "controlled_source_marker": controlled_source_marker,
             "after_error": after_error,
             "openai_client": {
                 "model_list": True,
@@ -312,6 +340,10 @@ def main():
             "simultaneous": simultaneous,
             "models_stable": before_models == after_error_models == after_stream_models == after_cancel_models == final_models,
             "steady_tail": steady_tail,
+            "steady_tail_metrics": [
+                {key: int(record[key]) for key in ("source_bytes", "resident_bytes_after", "peak_residency_bytes")}
+                for record in steady_tail_records
+            ],
             "rss_kib": {"start": rss_start, "warmup": rss_warmup, "tail": rss_tail},
             "health_ready_ms": health_ready_ms,
             "records": records,
@@ -329,6 +361,9 @@ def main():
         print("STREAM_ISOLATION=PASS")
         print("CANCELLATION_RECOVERY=PASS")
         print("FAILURE_RECOVERY=PASS")
+        print("RUNTIME_FAILURE_RECOVERY=" + ("PASS" if runtime_failure else "NOT_REQUESTED"))
+        print("BOUNDED_RESIDENCY=PASS")
+        print("STEADY_TAIL_SOURCE_REUSE=PASS")
         print("CONCURRENCY_POLICY=SERIAL_QUEUE")
         print("HEALTH_DURING_GENERATION=PASS_BLOCKED_BY_SERIAL_DISPATCH")
         print("CLEAN_SHUTDOWN=PASS")

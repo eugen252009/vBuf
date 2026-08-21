@@ -81,6 +81,7 @@ struct ServerConfig {
     uint32_t blocks = 2;
     uint64_t capacity = 268435456;
     uint32_t max_new_tokens = 4;
+    uint32_t source_failure_requests = 0;
     vbuf_ggml::RuntimeMode mode = vbuf_ggml::RuntimeMode::NormalInference;
 };
 
@@ -817,6 +818,7 @@ static void handle_request(int fd, ServerRuntime * runtime) {
         generation.block_count = runtime->config.blocks;
         generation.residency_capacity = runtime->config.capacity;
         generation.max_new_tokens = max_tokens;
+        generation.source_failure_requests = runtime->config.source_failure_requests;
         generation.mode = runtime->config.mode;
         generation.prompt_tokens = prompt_tokens;
         generation.stop_token = runtime->tokenizer.eos();
@@ -945,6 +947,8 @@ static ServerConfig parse_args(int argc, char ** argv) {
         else if (arg == "--blocks") config.blocks = static_cast<uint32_t>(std::stoul(value()));
         else if (arg == "--capacity") config.capacity = std::stoull(value());
         else if (arg == "--max-new-tokens") config.max_new_tokens = static_cast<uint32_t>(std::stoul(value()));
+        else if (arg == "--source-failure-requests")
+            config.source_failure_requests = static_cast<uint32_t>(std::stoul(value()));
         else if (arg == "--runtime-mode") {
             const std::string mode = value();
             if (mode == "qualification") config.mode = vbuf_ggml::RuntimeMode::Qualification;
@@ -952,7 +956,7 @@ static ServerConfig parse_args(int argc, char ** argv) {
         } else fail("unknown argument: " + arg);
     }
     if (config.semantic_model.empty() || config.source_url.empty())
-        fail("usage: --semantic-model PATH --source-url URL [--model-alias ID --host HOST --port PORT --blocks N --capacity BYTES --max-new-tokens N]");
+        fail("usage: --semantic-model PATH --source-url URL [--model-alias ID --host HOST --port PORT --blocks N --capacity BYTES --max-new-tokens N --source-failure-requests N]");
     if (config.max_new_tokens == 0 || config.blocks == 0) fail("generation bounds must be positive");
     return config;
 }

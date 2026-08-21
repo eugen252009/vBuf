@@ -1,6 +1,6 @@
 # Step 31S Persistent vBuf Server Lifecycle Qualification
 
-Status: **HOST-CONTRACT-QUALIFIED; BOUNDED CACHE GROWTH OBSERVED**.
+Status: **HOST-CONTRACT-QUALIFIED; CONTROLLED-SOURCE-FAILURE-RECOVERY-QUALIFIED; BOUNDED CACHE GROWTH OBSERVED**.
 
 Target: Linux x86_64 workstation. No Android, ADB, Orange Pi, or physical
 RISC-V evidence is implied.
@@ -127,11 +127,18 @@ The same process received and recovered from:
 | unsupported `temperature` | `400` | PASS |
 | `max_tokens` above bound | `400` | PASS |
 
-No source/runtime failure was injected; `RUNTIME_FAILURE_RECOVERY` is
-`NOT_QUALIFIED` for this step. Existing runtime exceptions are converted to a
-server error response and the session guard/diagnostic cleanup path is in
-place, but no deterministic source-failure seam was added merely for this
-qualification.
+The follow-up qualification added one explicit source failure before the cold
+request. The same process returned `500` with the controlled materialization
+failure, then recovered on the next request with output `行车`. The captured
+server log contained `source=controlled-failure`, and the recovery request
+returned HTTP `200` with zero active leases, inflight bytes, generations,
+streams, and cancellation handles.
+
+The injection is qualification-only and request-count based. The default is
+zero, so normal serving behavior is unchanged; `--source-failure-requests 1`
+fails one source read and then permits subsequent reads. This qualifies
+controlled source-failure recovery, not arbitrary allocator, transport, or
+backend faults.
 
 Two simultaneous client threads both completed correctly. The policy is
 `SERIAL_QUEUE`; no parallel generation state mutation was observed or allowed.
@@ -167,6 +174,31 @@ Other prompts can reacquire ranges when the bounded residency policy evicts
 them; this is expected cache behavior, not request-state leakage. Across the
 qualification log, peak residency remained below the configured `268435456`
 byte cap and all post-request active lease/inflight counters were zero.
+
+## Follow-Up Forty-Request Soak
+
+The follow-up used the same process and configuration with
+`--source-failure-requests 1`, then ran a 40-request A/B/C corpus before the
+existing streaming, cancellation, concurrency, and five-request steady-tail
+checks. The faulted request, recovery request, and all 40 corpus requests
+completed without a server restart. The resulting evidence was:
+
+| Field | Result |
+|---|---:|
+| corpus requests | `40` |
+| controlled source failures | `1` |
+| failure response | HTTP `500` |
+| immediate recovery | HTTP `200`, output `行车` |
+| total logged request operations | `60` |
+| peak vBuf residency | `268190976` bytes |
+| configured residency cap | `268435456` bytes |
+| RSS start / warm-up / tail | `36624 / 304244 / 319148 KiB` |
+| final steady-tail source bytes | `0` |
+| final steady-tail resident bytes | `257858816` |
+
+The final three steady-tail requests fetched zero source bytes. The first two
+tail requests still reacquired ranges while the bounded working set converged;
+this is expected residency behavior, not request-state leakage.
 
 ## Memory Behavior
 
@@ -269,7 +301,9 @@ reported as a direct-runtime overhead comparison.
 - Full 26-layer request: `FULL_26_LAYER_MEASURED` and
   `X86_64_PHYSICALLY_MEASURED`.
 - Direct runtime/server overhead: `NOT_QUALIFIED` / `NOT_MEASURED`.
-- Runtime failure injection: `NOT_QUALIFIED`.
+- Controlled source-failure injection and recovery:
+  `X86_64_PHYSICALLY_MEASURED` and `HOST_CONTRACT_QUALIFIED`.
+- Arbitrary runtime/backend/allocator failure recovery: `NOT_QUALIFIED`.
 - Android/RISC-V physical execution: `NOT_QUALIFIED` for this host step.
 
 ## Verification
@@ -279,7 +313,9 @@ reported as a direct-runtime overhead comparison.
 - Native CTest: `23/23 PASS`.
 - Portable graph neutrality: `FORBIDDEN_LEAKAGE_COUNT=0`.
 - Existing HTTP integration: PASS.
-- Persistent sequential lifecycle harness: PASS, 20 corpus requests.
+- Persistent sequential lifecycle harness: PASS, 20 baseline corpus requests.
+- Follow-up faulted lifecycle harness: PASS, 40 corpus requests plus one
+  controlled source failure and same-process recovery.
 - KV/request isolation: PASS.
 - SSE stream isolation: PASS.
 - Real socket disconnect/cancellation: PASS.
@@ -294,5 +330,6 @@ payload caches, generated binaries, or large logs are repository artifacts.
 
 ## Next Experiment
 
-Run a longer bounded host soak with allocator/RSS sampling and a deterministic
-source-failure injection seam, without changing the serialized serving policy.
+Qualify a matched direct-runtime control for server overhead attribution, and
+separately expand source-failure coverage to a deterministic mid-request
+failure matrix. Neither should change the serialized serving policy.
