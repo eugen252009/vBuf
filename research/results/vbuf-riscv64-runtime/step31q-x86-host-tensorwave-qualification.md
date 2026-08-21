@@ -73,23 +73,25 @@ Executable: `vbuf_moe_tensor_wave_poc10`, selected layer 1 expert 0.
 
 ### Bounded Full Token Path
 
-Executable: `vbuf_autoregressive_poc22`, one token, two-block full-stack path.
+Executable: `vbuf_autoregressive_poc22`, four tokens, two-block full-stack path.
 
 - External semantic bootstrap: used.
 - External HTTP payload source: used.
 - Full token path attempted: `YES`.
-- Full token path completed: `YES`, one generated token.
-- Runtime/reference next-token ID: `47572 / 47572`.
+- Full token path completed: `YES`, four generated tokens.
+- Runtime/reference token sequence: `47572, 2805, 3058, 81831`.
+- Runtime/reference sequence parity: `PASS`.
 - Runtime/reference logits parity: exact.
 - Router selection parity: `PASS`.
 - Generated token feedback: `PASS`.
 - State alias violations: `0`.
 - Materializer identity collisions: `0`.
-- Source bytes: `27610112`.
-- Source reads: `23`.
-- Residency hits/misses/evictions: `238 / 69 / 0`.
-- Peak resident bytes: `199529120`.
+- Final runtime state bytes: `163840`.
+- Tracked source bytes/reload bytes: `61807616 / 16384`.
+- Residency hits/misses/evictions: `1034 / 149 / 12`.
+- Peak resident bytes: `233725952`.
 - Peak active bytes: `12607488`.
+- Total elapsed time: `2684549815 ns`.
 - Resources after teardown: `0`.
 
 ### Indexed Expert Backend Seam

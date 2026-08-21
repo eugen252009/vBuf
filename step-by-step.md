@@ -2565,8 +2565,8 @@ the local x86_64 host as a faster qualification environment. Rust and native
 CTest passed, portable-graph neutrality reported zero forbidden leakage, and
 real DeepSeek external ranges passed router, lease, and payload-pointer checks.
 The current TensorWave path passed real selected IQ2_XXS/IQ4_NL expert parity,
-and a bounded two-block full-stack path generated one token with exact runtime /
-reference next-token parity. Raw host `ggml_mul_mat_id` also passed against the
+and a bounded two-block full-stack path generated four tokens with exact
+runtime/reference sequence and logits parity. Raw host `ggml_mul_mat_id` also passed against the
 real quantized banks without repacking. Evidence:
 `research/results/vbuf-riscv64-runtime/step31q-x86-host-tensorwave-qualification.md`.
 

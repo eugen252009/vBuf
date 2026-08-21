@@ -892,8 +892,8 @@ This is an ordered design checklist, not an implementation script.
       lease retention, and exact TopK IDs on the host.
 - [x] Qualify real selected gate/up/down TensorWave execution with cold external
       materialization and warm residency parity.
-- [x] Complete a bounded full-stack external one-token path with runtime/reference
-      next-token parity and zero teardown leaks.
+- [x] Complete a bounded full-stack external four-token path with runtime/reference
+      sequence and logits parity and zero teardown leaks.
 - [x] Qualify raw host `ggml_mul_mat_id` parity over real IQ2_XXS/IQ4_NL banks
       without weight repacking.
 - [x] Record the Orange Pi SSH refusal and mark physical riscv64 qualification
