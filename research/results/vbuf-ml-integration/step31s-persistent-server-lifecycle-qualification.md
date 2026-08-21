@@ -200,7 +200,8 @@ canonical request, and shut down cleanly:
 - source bytes: `6327692864`
 - materialized bytes: `5998118912`
 - peak vBuf residency: `268412928` bytes
-- server total: `101521.902818 ms`
+- runtime elapsed: `101521.902818 ms`
+- server total request: `101522.312509 ms`
 - external HTTP wall time: `101522.664 ms`
 - prefill: `101505.706211 ms`
 - decode: `0 ms`
@@ -230,7 +231,8 @@ For the full 26-layer request:
 | prefill | `101505.706211 ms` |
 | decode | `0 ms` |
 | response serialization | `0.018220 ms` |
-| server total | `101521.902818 ms` |
+| runtime elapsed | `101521.902818 ms` |
+| total request | `101522.312509 ms` |
 
 A matched direct-runtime control using the same model, prompt, mode, generation
 count, and backend/thread settings was not available. Direct/server overhead is
