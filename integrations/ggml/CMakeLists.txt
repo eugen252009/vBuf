@@ -24,6 +24,8 @@ option(VBUF_ENABLE_CUDA "Build the pinned ggml CUDA backend" OFF)
 option(VBUF_ENABLE_CPU_REPACK "Build ggml CPU_REPACK for opt-in contract audits" OFF)
 option(VBUF_BUILD_PROBES "Build disposable substrate qualification probes" ON)
 option(VBUF_BUILD_REAL_GATE2B "Build the opt-in real DeepSeek Gate 2B qualification" OFF)
+option(VBUF_BUILD_MOE_GROUPING_MICROQUALIFICATION
+    "Build the opt-in host routed-expert grouping microqualification" OFF)
 
 include(FetchContent)
 
@@ -217,6 +219,13 @@ if(VBUF_BUILD_PROBES)
     add_executable(vbuf_striping_transport tools/striping_transport.cpp)
     target_compile_features(vbuf_striping_transport PRIVATE cxx_std_17)
     target_link_libraries(vbuf_striping_transport PRIVATE vbuf_region_executor)
+
+    if(VBUF_BUILD_MOE_GROUPING_MICROQUALIFICATION)
+        add_executable(vbuf_moe_grouping_microqualification
+            tests/moe_grouping_microqualification.cpp)
+        target_compile_features(vbuf_moe_grouping_microqualification PRIVATE cxx_std_17)
+        target_link_libraries(vbuf_moe_grouping_microqualification PRIVATE ggml)
+    endif()
 
     enable_testing()
     add_test(NAME vbuf_ggml_smoke COMMAND vbuf_ggml_smoke)

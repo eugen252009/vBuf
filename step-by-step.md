@@ -2491,6 +2491,22 @@ The selected next experiment is a separately authorized host/native
 not implement grouped execution, fuse gate/up, change execution order, or alter
 the current qualified runtime in Step 31L.
 
+#### Step 31M — Host/native `ggml_mul_mat_id` microqualification
+
+**Status: HOST-NATIVE MICROQUALIFICATION COMPLETE; NO RUNTIME CHANGE.**
+The opt-in `vbuf_moe_grouping_microqualification` probe compared six ordinary
+rank-2 `ggml_mul_mat` views with one raw `ggml_mul_mat_id` over the real
+DeepSeek-V2-Lite IQ2_XXS gate/up and IQ4_NL down tensor bytes. Outputs were
+bit-identical for both cases at one and eight CPU threads. At one thread,
+grouped gate/up was `1.062x` and down was `1.000x`; at eight threads, gate/up
+was `0.956x` and down was `1.098x`. This qualifies raw host capability and
+parity, not a stable performance improvement or Android/TensorWave support.
+Evidence: `research/results/vbuf-android-demo-poc/step31m-ggml-mul-mat-id-microqualification.md`.
+
+Keep the probe opt-in and outside CTest. Do not add `MUL_MAT_ID` to the vBuf
+adapter or alter grouped execution without a separately authorized backend and
+Android qualification.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
