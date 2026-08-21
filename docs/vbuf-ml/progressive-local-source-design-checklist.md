@@ -1,6 +1,6 @@
 # Progressive Local Source Design Checklist
 
-Status: **STEP 31M HOST-NATIVE GROUPED-MATMUL MICROQUALIFICATION COMPLETE; RETENTION/OFFLINE COMPLETION PENDING**
+Status: **STEP 31N EXPERT-BANK RANK DERIVABILITY AUDIT COMPLETE; RETENTION/OFFLINE COMPLETION PENDING**
 
 Step 31B decision: **SPARSE CANONICAL MIRROR + 4 KiB AUTHORITATIVE BITMAP**
 for the qualified single external payload source. Step 31C and the Step 31D
@@ -852,6 +852,23 @@ This is an ordered design checklist, not an implementation script.
 - [ ] Add grouped execution to the vBuf adapter; requires separately authorized
       backend and Android qualification.
 
+### Phase 13: Step 31N expert-bank rank / derivability audit
+
+- [x] Audit original DeepSeek rank-3 bank shapes, expert axis, quantization,
+      source offsets, and payload lengths from the import manifest.
+- [x] Trace canonical rank-3 metadata through selected rank-2 execution views
+      and identify the `PersistentTensorRef` provenance boundary.
+- [x] Verify contiguous fixed-stride layout and exact per-expert offsets for
+      gate, up, and down banks across all 26 MoE layers.
+- [x] Prove rank-3 -> rank-2 -> rank-3 geometry round-trip equality with the
+      offline manifest-driven helper.
+- [x] Audit raw GGML `ggml_mul_mat_id` dimensions, IDs, expert axis, stride,
+      quantization, and zero-copy view requirements.
+- [x] Reject canonical rank-3 TensorRef/model-format changes; recommend
+      backend-neutral rank-2 execution plus bank provenance.
+- [ ] Implement a grouped backend lowering seam; requires separate
+      authorization and Android/backend qualification.
+
 ## 9. Qualification Matrix
 
 | Stage | Required proof | Must remain unchanged |
@@ -1030,6 +1047,8 @@ DOCUMENT_CREATED_OR_UPDATED:
   research/results/vbuf-android-demo-poc/step31k-routed-expert-gate-up-attribution.md
   research/results/vbuf-android-demo-poc/step31l-routed-expert-grouping-opportunity.md
   research/results/vbuf-android-demo-poc/step31m-ggml-mul-mat-id-microqualification.md
+  research/results/vbuf-android-demo-poc/step31n-expert-bank-rank-derivability-audit.md
+  scripts/audit_step31n_expert_bank_rank.py
   integrations/ggml/tests/moe_grouping_microqualification.cpp
 STEP_31B_REPRESENTATION: SPARSE_CANONICAL_MIRROR_WITH_4_KIB_BITMAP
 STEP_31C_IMPLEMENTATION: HOST_QUALIFIED
@@ -1038,11 +1057,12 @@ STEP_31E_IMPLEMENTATION: MINIMAL_BUDGET_AND_REACQUISITION_COUNTER_SEAM
 PHYSICAL_ANDROID_QUALIFICATION: STEP_31D_COLD_WARM_STEP31E_ATTEMPT_AND_STEP31I_POST_FIX_CURVE
 PHYSICAL_ACQUISITION_LIMITATION: RESOLVED_BY_1_MIB_DEMAND_WINDOWS
 NEXT_SOURCE_EXPERIMENT: RETENTION_AND_OFFLINE_COMPLETION
-NEXT_DECODE_EXPERIMENT: ANDROID_BACKEND_GROUPED_MATMUL_QUALIFICATION_IF_AUTHORIZED
+NEXT_DECODE_EXPERIMENT: SEPARATELY_AUTHORIZED_BACKEND_NEUTRAL_INDEXED_BANK_LOWERING
 RUNTIME_BEHAVIOR_CHANGED: NO
 STEP_31L_IMPLEMENTATION: ANALYSIS_ONLY_NO_RUNTIME_CHANGE
 STEP_31M_IMPLEMENTATION: OPT_IN_HOST_NATIVE_PROBE_ONLY_NO_RUNTIME_CHANGE
-COMMIT_PERFORMED: STEP31M_COMMIT
+STEP_31N_IMPLEMENTATION: OFFLINE_RANK_DERIVABILITY_AUDIT_ONLY_NO_RUNTIME_CHANGE
+COMMIT_PERFORMED: STEP31N_COMMIT
 ```
 
 ## Review Questions

@@ -2507,6 +2507,25 @@ Keep the probe opt-in and outside CTest. Do not add `MUL_MAT_ID` to the vBuf
 adapter or alter grouped execution without a separately authorized backend and
 Android qualification.
 
+#### Step 31N - Expert-bank rank / derivability audit
+
+**Status: AUDIT COMPLETE; NO RUNTIME OR FORMAT CHANGE.**
+The canonical importer and vBuf-ML tensor directory preserve routed expert banks
+as rank-3 `[D0,D1,64]` descriptors. The selected execution path derives rank-2
+views using fixed source offsets and per-expert payload strides. An offline audit
+checked all 78 routed banks across 26 layers: gate/up stride `743424` bytes,
+down stride `1622016` bytes, exact bank spans, expert order, and rank-3 ->
+rank-2 -> rank-3 geometry all match. Rank 3 is therefore a backend view, not a
+new canonical TensorRef requirement. The current isolated TensorWave graph loses
+the explicit parent-bank relation, so the recommended future seam is rank-2
+execution plus backend-neutral bank provenance, not GGML-specific rank-3 state.
+Evidence: `research/results/vbuf-android-demo-poc/step31n-expert-bank-rank-derivability-audit.md`.
+
+The offline helper is `scripts/audit_step31n_expert_bank_rank.py`. Do not change
+TensorWave, TensorRef, materialization, persistence, residency, model format, or
+runtime semantics in Step 31N. Any future grouped-lowering prototype requires
+separate authorization.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
