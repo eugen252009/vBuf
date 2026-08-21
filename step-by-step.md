@@ -2421,6 +2421,16 @@ Do not resume the residency curve in Step 31H.
 
 #### Step 31I — Retention and offline completion
 
+**Post-31H residency subqualification completed.** The resumed Pixel 7 Pro
+curve used fresh app processes and the retained complete mirror while varying
+only the active residency budget. The 256 MiB, 512 MiB, 1 GiB, and 2 GiB points
+all completed batched prefill, four decode tokens, and output `----` with zero
+remote bytes. The larger-cap first-decode failures recorded by Step 31E did not
+recur after the Step 31H geometry ownership repair. Evidence:
+`research/results/vbuf-android-demo-poc/step31i-residency-curve-after-geometry-fix.md`.
+
+Retention and offline completion remain pending:
+
 - add stream-only, cache-as-used, bounded retention, and keep-model policy above
   the source mechanism;
 - choose storage budgets from measured reuse and coverage simulation, not the
