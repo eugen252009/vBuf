@@ -2472,6 +2472,25 @@ Step 31K changes only bounded observation and reporting. Do not implement or
 optimize a grouped gate/up path, change kernels, tune threads, change
 quantization, reuse graphs, prefetch experts, or change residency in this step.
 
+#### Step 31L — Routed-expert grouping opportunity qualification
+
+**Status: HOST-QUALIFIED OPPORTUNITY ANALYSIS; NO GROUPED EXECUTION IMPLEMENTED.**
+Step 31L audited the canonical routed-expert dataflow, actual Step 31K
+signatures, direct zero-copy slice layout, and checked-in GGML capabilities. The
+current path performs `1,872` routed matmul-like backend submissions over 624
+selected experts. Same-expert gate/up branches are semantically groupable in a
+single graph, and the raw GGML source exposes `ggml_mul_mat_id` for multi-expert
+grouping, but the current vBuf TensorWave adapter does not express either path.
+Measured directly submission-bound setup/result work is only `273 ms` versus
+`15,051 ms` of matmul compute; grouped compute improvement remains unproven.
+Evidence:
+`research/results/vbuf-android-demo-poc/step31l-routed-expert-grouping-opportunity.md`.
+
+The selected next experiment is a separately authorized host/native
+`ggml_mul_mat_id` microqualification on the actual IQ2_XXS/IQ4_NL geometry. Do
+not implement grouped execution, fuse gate/up, change execution order, or alter
+the current qualified runtime in Step 31L.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

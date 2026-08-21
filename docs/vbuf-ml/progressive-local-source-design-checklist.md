@@ -1,6 +1,6 @@
 # Progressive Local Source Design Checklist
 
-Status: **STEP 31K ROUTED-EXPERT ATTRIBUTION COMPLETE; RETENTION/OFFLINE COMPLETION PENDING**
+Status: **STEP 31L ROUTED-EXPERT GROUPING OPPORTUNITY QUALIFIED; RETENTION/OFFLINE COMPLETION PENDING**
 
 Step 31B decision: **SPARSE CANONICAL MIRROR + 4 KiB AUTHORITATIVE BITMAP**
 for the qualified single external payload source. Step 31C and the Step 31D
@@ -819,6 +819,25 @@ This is an ordered design checklist, not an implementation script.
 - [ ] Implement or optimize a gate/up alternative; this requires a separately
       authorized experiment and is not part of Step 31K.
 
+### Phase 11: Step 31L routed-expert grouping opportunity
+
+- [x] Map the actual token -> layer -> router -> selected expert -> gate/up ->
+      activation -> down -> weighted merge dataflow.
+- [x] Record the current 1,872 matmul-like submission structure and the one
+      gate/up plus one down operation signature.
+- [x] Separate same-expert graph grouping, multi-expert graph grouping,
+      `ggml_mul_mat_id`, and true fused-kernel opportunities.
+- [x] Audit raw GGML graph, batched, and indirect grouped-matmul capabilities
+      separately from current vBuf TensorWave adapter support.
+- [x] Preserve TopK rank and canonical floating-point reduction order in every
+      candidate; reject cross-layer grouping.
+- [x] Bound directly eliminable setup/result cost and keep compute benefit
+      explicitly unproven.
+- [x] Select a separately authorized host/native `ggml_mul_mat_id`
+      microqualification as the next experiment.
+- [ ] Implement grouped execution or a fused gate/up kernel; not part of Step
+      31L.
+
 ## 9. Qualification Matrix
 
 | Stage | Required proof | Must remain unchanged |
@@ -995,6 +1014,7 @@ DOCUMENT_CREATED_OR_UPDATED:
   research/results/vbuf-android-demo-poc/step31i-residency-curve-after-geometry-fix.md
   research/results/vbuf-android-demo-poc/step31j-post-residency-decode-attribution.md
   research/results/vbuf-android-demo-poc/step31k-routed-expert-gate-up-attribution.md
+  research/results/vbuf-android-demo-poc/step31l-routed-expert-grouping-opportunity.md
 STEP_31B_REPRESENTATION: SPARSE_CANONICAL_MIRROR_WITH_4_KIB_BITMAP
 STEP_31C_IMPLEMENTATION: HOST_QUALIFIED
 STEP_31D_IMPLEMENTATION: HOST_QUALIFIED_1_MIB_DEMAND_WINDOWS
@@ -1002,9 +1022,10 @@ STEP_31E_IMPLEMENTATION: MINIMAL_BUDGET_AND_REACQUISITION_COUNTER_SEAM
 PHYSICAL_ANDROID_QUALIFICATION: STEP_31D_COLD_WARM_STEP31E_ATTEMPT_AND_STEP31I_POST_FIX_CURVE
 PHYSICAL_ACQUISITION_LIMITATION: RESOLVED_BY_1_MIB_DEMAND_WINDOWS
 NEXT_SOURCE_EXPERIMENT: RETENTION_AND_OFFLINE_COMPLETION
-NEXT_DECODE_EXPERIMENT: SEPARATELY_AUTHORIZED_GATE_UP_IMPLEMENTATION_ALTERNATIVE
+NEXT_DECODE_EXPERIMENT: HOST_NATIVE_GGML_MUL_MAT_ID_MICROQUALIFICATION
 RUNTIME_BEHAVIOR_CHANGED: NO
-COMMIT_PERFORMED: PENDING_STEP31K_COMMIT
+STEP_31L_IMPLEMENTATION: ANALYSIS_ONLY_NO_RUNTIME_CHANGE
+COMMIT_PERFORMED: PENDING_STEP31L_COMMIT
 ```
 
 ## Review Questions
