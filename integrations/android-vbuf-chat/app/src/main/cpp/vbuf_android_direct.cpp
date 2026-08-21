@@ -273,6 +273,7 @@ struct DecodeTokenMetrics {
     uint64_t reacquisitions = 0;
     uint64_t peak_resident_bytes = 0;
     uint64_t actual_compute_ms = 0;
+    RuntimeTiming attribution;
 };
 
 class DirectSession final {
@@ -334,6 +335,7 @@ public:
         decode_ms_total_ = 0;
         generated_text_chars_ = 0;
         ttft_ms_ = 0;
+        decode_attribution_ = {};
         const std::vector<uint32_t> prompt_tokens = tokenizer_->encode(prompt);
         if (prompt_tokens.empty()) throw std::runtime_error("prompt produced no tokens");
         if (prompt_tokens.size() + max_tokens > MAX_CONTEXT)
@@ -429,6 +431,8 @@ public:
                 (timing.actual_attention_ns - timing_before.actual_attention_ns +
                     timing.actual_ffn_ns - timing_before.actual_ffn_ns +
                     timing.actual_output_head_ns - timing_before.actual_output_head_ns) / 1000000;
+            token_metrics.attribution = timing.delta(timing_before);
+            decode_attribution_.accumulate(token_metrics.attribution);
             decode_token_metrics_.push_back(token_metrics);
             if (generated == 0) {
                 first_decode_token_ms_ = last_position_ms_;
@@ -540,6 +544,61 @@ public:
         }
         const double tokens_per_second = generation_ms_ == 0 ? 0.0 :
             1000.0 * static_cast<double>(generated_tokens_) / generation_ms_;
+        const RuntimeTiming & attribution = decode_attribution_;
+        const auto stage_build = [&](AttributionStage stage) {
+            return attribution.stage_graph_build_ns[attribution_stage_index(stage)];
+        };
+        const auto stage_allocation = [&](AttributionStage stage) {
+            return attribution.stage_graph_allocation_ns[attribution_stage_index(stage)];
+        };
+        const auto stage_result = [&](AttributionStage stage) {
+            return attribution.stage_result_handling_ns[attribution_stage_index(stage)];
+        };
+        const auto stage_ready = [&](AttributionStage stage) {
+            switch (stage) {
+            case AttributionStage::Attention: return attribution.attention_ready_ns;
+            case AttributionStage::Router: return attribution.router_ready_ns;
+            case AttributionStage::DenseFfn: return attribution.dense_ffn_ready_ns;
+            case AttributionStage::RoutedExpert: return attribution.routed_expert_ready_ns;
+            case AttributionStage::SharedExpert: return attribution.shared_expert_ready_ns;
+            case AttributionStage::OutputHead: return attribution.output_head_ready_ns;
+            case AttributionStage::Embedding: return attribution.embedding_ready_ns;
+            default: return uint64_t{0};
+            }
+        };
+        const auto nonnegative_difference = [](uint64_t total, uint64_t parts) {
+            return total > parts ? total - parts : uint64_t{0};
+        };
+        const uint64_t attention_measured = stage_ready(AttributionStage::Attention) +
+            stage_build(AttributionStage::Attention) + stage_allocation(AttributionStage::Attention) +
+            attribution.attention_backend_compute_ns + stage_result(AttributionStage::Attention);
+        const uint64_t router_measured = stage_ready(AttributionStage::Router) +
+            stage_build(AttributionStage::Router) + stage_allocation(AttributionStage::Router) +
+            attribution.router_backend_compute_ns + attribution.router_selection_ns +
+            stage_result(AttributionStage::Router);
+        const uint64_t routed_measured = stage_ready(AttributionStage::RoutedExpert) +
+            stage_build(AttributionStage::RoutedExpert) + stage_allocation(AttributionStage::RoutedExpert) +
+            attribution.routed_expert_gate_up_compute_ns + attribution.routed_expert_activation_ns +
+            attribution.routed_expert_down_compute_ns + attribution.routed_expert_other_compute_ns +
+            attribution.routed_expert_accumulation_ns + stage_result(AttributionStage::RoutedExpert);
+        const uint64_t shared_measured = stage_ready(AttributionStage::SharedExpert) +
+            stage_build(AttributionStage::SharedExpert) + stage_allocation(AttributionStage::SharedExpert) +
+            attribution.shared_expert_backend_compute_ns + stage_result(AttributionStage::SharedExpert);
+        const uint64_t dense_measured = stage_ready(AttributionStage::DenseFfn) +
+            stage_build(AttributionStage::DenseFfn) + stage_allocation(AttributionStage::DenseFfn) +
+            attribution.dense_ffn_backend_compute_ns + stage_result(AttributionStage::DenseFfn);
+        const uint64_t output_measured = stage_ready(AttributionStage::OutputHead) +
+            stage_build(AttributionStage::OutputHead) + stage_allocation(AttributionStage::OutputHead) +
+            attribution.output_head_backend_compute_ns + stage_result(AttributionStage::OutputHead);
+        const uint64_t ffn_measured = router_measured + routed_measured + shared_measured + dense_measured;
+        const uint64_t ffn_other = nonnegative_difference(attribution.actual_ffn_ns, ffn_measured);
+        const uint64_t top_level_accounted = attribution.actual_embedding_ns +
+            attribution.actual_attention_ns + attribution.actual_ffn_ns +
+            attribution.actual_output_head_ns;
+        const uint64_t decode_wall_ns = decode_ms_total_ * 1000000ULL;
+        const uint64_t unaccounted = nonnegative_difference(decode_wall_ns, top_level_accounted);
+        const double accounted_percent = decode_wall_ns == 0 ? 0.0 :
+            100.0 * static_cast<double>(decode_wall_ns - unaccounted) / decode_wall_ns;
         return "Model: DeepSeek-V2-Lite IQ2_XXS\n"
             "Residency budget bytes: " + std::to_string(RESIDENCY_BUDGET) + "\n"
             "Runtime mode: " + std::string(mode_ == RuntimeMode::Qualification
@@ -572,7 +631,39 @@ public:
             "Actual output head: " + std::to_string(timing_.actual_output_head_ns / 1000000) + " ms\n"
             "Reference output head: " + (mode_ == RuntimeMode::Qualification
                 ? std::to_string(timing_.reference_output_head_ns / 1000000) : "NOT_EXECUTED") + "\n"
-            "Materialization wait: NOT_INSTRUMENTED\n"
+            "Materialization wait: " + std::to_string(attribution.attribution_ready_ns / 1000000) + " ms\n"
+            "Attribution decode wall: " + std::to_string(decode_wall_ns / 1000000) + " ms\n"
+            "Attribution accounted: " + std::to_string((decode_wall_ns - unaccounted) / 1000000) + " ms\n"
+            "Attribution unaccounted: " + std::to_string(unaccounted / 1000000) + " ms\n"
+            "Attribution accounted percent: " + std::to_string(accounted_percent) + "\n"
+            "Attribution embedding total: " + std::to_string(attribution.actual_embedding_ns / 1000000) + " ms\n"
+            "Attribution attention total: " + std::to_string(attribution.actual_attention_ns / 1000000) + " ms\n"
+            "Attribution attention ready: " + std::to_string(attribution.attention_ready_ns / 1000000) + " ms\n"
+            "Attribution attention compute: " + std::to_string(attribution.attention_backend_compute_ns / 1000000) + " ms\n"
+            "Attribution FFN total: " + std::to_string(attribution.actual_ffn_ns / 1000000) + " ms\n"
+            "Attribution router total: " + std::to_string(router_measured / 1000000) + " ms\n"
+            "Attribution router ready: " + std::to_string(attribution.router_ready_ns / 1000000) + " ms\n"
+            "Attribution router compute: " + std::to_string(attribution.router_backend_compute_ns / 1000000) + " ms\n"
+            "Attribution router selection: " + std::to_string(attribution.router_selection_ns / 1000000) + " ms\n"
+            "Attribution routed expert total: " + std::to_string(routed_measured / 1000000) + " ms\n"
+            "Attribution routed expert ready: " + std::to_string(attribution.routed_expert_ready_ns / 1000000) + " ms\n"
+            "Attribution routed gate up: " + std::to_string(attribution.routed_expert_gate_up_compute_ns / 1000000) + " ms\n"
+            "Attribution routed activation: " + std::to_string(attribution.routed_expert_activation_ns / 1000000) + " ms\n"
+            "Attribution routed down: " + std::to_string(attribution.routed_expert_down_compute_ns / 1000000) + " ms\n"
+            "Attribution routed accumulation: " + std::to_string(attribution.routed_expert_accumulation_ns / 1000000) + " ms\n"
+            "Attribution shared expert total: " + std::to_string(shared_measured / 1000000) + " ms\n"
+            "Attribution shared expert ready: " + std::to_string(attribution.shared_expert_ready_ns / 1000000) + " ms\n"
+            "Attribution shared expert compute: " + std::to_string(attribution.shared_expert_backend_compute_ns / 1000000) + " ms\n"
+            "Attribution dense FFN total: " + std::to_string(dense_measured / 1000000) + " ms\n"
+            "Attribution dense FFN ready: " + std::to_string(attribution.dense_ffn_ready_ns / 1000000) + " ms\n"
+            "Attribution FFN other: " + std::to_string(ffn_other / 1000000) + " ms\n"
+            "Attribution output head total: " + std::to_string(attribution.actual_output_head_ns / 1000000) + " ms\n"
+            "Attribution output head ready: " + std::to_string(attribution.output_head_ready_ns / 1000000) + " ms\n"
+            "Attribution output head compute: " + std::to_string(attribution.output_head_backend_compute_ns / 1000000) + " ms\n"
+            "Attribution graph build: " + std::to_string(attribution.graph_build_ns / 1000000) + " ms\n"
+            "Attribution graph allocation: " + std::to_string(attribution.graph_allocation_ns / 1000000) + " ms\n"
+            "Attribution backend compute: " + std::to_string(attribution.backend_compute_ns / 1000000) + " ms\n"
+            "Attribution result handling: " + std::to_string(attribution.result_handling_ns / 1000000) + " ms\n"
             "Tokens/sec: " + std::to_string(tokens_per_second) + "\n"
             "HTTP requests: " + std::to_string(transport.requests) + "\n"
             "Returned bytes: " + std::to_string(transport.bytes) + "\n"
@@ -629,6 +720,7 @@ private:
     std::string decode_token_line(size_t index) const {
         if (index >= decode_token_metrics_.size()) return "UNMEASURED";
         const DecodeTokenMetrics & token = decode_token_metrics_[index];
+        const RuntimeTiming & attribution = token.attribution;
         return std::to_string(token.elapsed_ms) + " ms requests=" +
             std::to_string(token.source_requests) + " bytes=" +
             std::to_string(token.source_bytes) + " hits=" +
@@ -639,7 +731,30 @@ private:
             std::to_string(token.materializations) + " reacquisitions=" +
             std::to_string(token.reacquisitions) + " peak_resident=" +
             std::to_string(token.peak_resident_bytes) + " actual_compute=" +
-            std::to_string(token.actual_compute_ms) + " ms";
+            std::to_string(token.actual_compute_ms) + " ms attribution_attention_ready=" +
+            std::to_string(attribution.attention_ready_ns / 1000000) +
+            " attribution_attention_compute=" +
+            std::to_string(attribution.attention_backend_compute_ns / 1000000) +
+            " attribution_router_compute=" +
+            std::to_string(attribution.router_backend_compute_ns / 1000000) +
+            " attribution_routed_gate_up=" +
+            std::to_string(attribution.routed_expert_gate_up_compute_ns / 1000000) +
+            " attribution_routed_activation=" +
+            std::to_string(attribution.routed_expert_activation_ns / 1000000) +
+            " attribution_routed_down=" +
+            std::to_string(attribution.routed_expert_down_compute_ns / 1000000) +
+            " attribution_routed_accumulation=" +
+            std::to_string(attribution.routed_expert_accumulation_ns / 1000000) +
+            " attribution_shared_compute=" +
+            std::to_string(attribution.shared_expert_backend_compute_ns / 1000000) +
+            " attribution_output_compute=" +
+            std::to_string(attribution.output_head_backend_compute_ns / 1000000) +
+            " attribution_graph_build=" +
+            std::to_string(attribution.graph_build_ns / 1000000) +
+            " attribution_graph_allocation=" +
+            std::to_string(attribution.graph_allocation_ns / 1000000) +
+            " attribution_result=" +
+            std::to_string(attribution.result_handling_ns / 1000000) + " ms";
     }
 
     void reset_state() {
@@ -658,7 +773,8 @@ private:
     StepResult run_step(uint32_t token, uint32_t position, RuntimeTiming * timing) {
         const size_t trace_begin = residency_->trace().size();
         const uint64_t start = android_now_ns();
-        const Activation input = run_embedding(embedding_, token, lease_, materializer_, "android_embedding", mode_, timing);
+        const Activation input = run_embedding(embedding_, token, lease_, materializer_,
+            "android_embedding", mode_, timing);
         const SequenceRun sequence = run_sequence(plans_, input, position, &actual_k_, &actual_v_,
             &reference_k_, &reference_v_, lease_, materializer_, residency_, source_, "android_generation",
             false, nullptr, 2, mode_, timing);
@@ -718,6 +834,7 @@ private:
     std::string prefill_mode_ = "SERIAL";
     uint64_t prefill_batch_size_ = 1;
     uint64_t prefill_layer_sequence_ms_ = 0;
+    RuntimeTiming decode_attribution_;
 };
 
 std::mutex session_mutex;

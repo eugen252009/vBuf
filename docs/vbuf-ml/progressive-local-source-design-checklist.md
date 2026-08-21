@@ -1,6 +1,6 @@
 # Progressive Local Source Design Checklist
 
-Status: **STEP 31I POST-FIX RESIDENCY CURVE COMPLETE; RETENTION/OFFLINE COMPLETION PENDING**
+Status: **STEP 31J POST-RESIDENCY ATTRIBUTION COMPLETE; RETENTION/OFFLINE COMPLETION PENDING**
 
 Step 31B decision: **SPARSE CANONICAL MIRROR + 4 KiB AUTHORITATIVE BITMAP**
 for the qualified single external payload source. Step 31C and the Step 31D
@@ -790,6 +790,20 @@ This is an ordered design checklist, not an implementation script.
 - [ ] Choose a production residency default from this result.
 - [ ] Tune residency or backend behavior from this result.
 
+### Phase 9: Step 31J post-residency attribution
+
+- [x] Measure the near/no-churn 2 GiB point with the canonical workload and
+      complete local mirror.
+- [x] Keep source traffic, evictions, and reacquisitions visible and confirm
+      zero remote bytes, zero evictions, and zero reacquisitions.
+- [x] Separate top-level embedding, attention, FFN, and output wall scopes from
+      nested readiness, graph, backend-compute, and result-handling phases.
+- [x] Aggregate routed expert gate/up, activation, down, and accumulation time
+      without changing expert ordering or semantic reduction order.
+- [x] Preserve the Step 31H cached geometry regression boundary.
+- [ ] Implement or optimize the next measured bottleneck; this is a separately
+      authorized experiment after Step 31J.
+
 ## 9. Qualification Matrix
 
 | Stage | Required proof | Must remain unchanged |
@@ -869,7 +883,7 @@ source-persistence mechanism:
 ## Decision Snapshot
 
 ```text
-VBUF_ML_PROGRESSIVE_LOCAL_SOURCE_PLAN: STEP_31I_RESIDENCY_CURVE_COMPLETE_RETENTION_OFFLINE_PENDING
+VBUF_ML_PROGRESSIVE_LOCAL_SOURCE_PLAN: STEP_31J_ATTRIBUTION_COMPLETE_RETENTION_OFFLINE_PENDING
 
 CURRENT_ARCHITECTURE:
   TensorRef -> SourceSet/RangeSource -> materialization -> lease/residency -> GGML
@@ -964,6 +978,7 @@ DOCUMENT_CREATED_OR_UPDATED:
   research/results/vbuf-android-demo-poc/step31c-progressive-local-source.md
   research/results/vbuf-android-demo-poc/step31d-bounded-acquisition.md
   research/results/vbuf-android-demo-poc/step31i-residency-curve-after-geometry-fix.md
+  research/results/vbuf-android-demo-poc/step31j-post-residency-decode-attribution.md
 STEP_31B_REPRESENTATION: SPARSE_CANONICAL_MIRROR_WITH_4_KIB_BITMAP
 STEP_31C_IMPLEMENTATION: HOST_QUALIFIED
 STEP_31D_IMPLEMENTATION: HOST_QUALIFIED_1_MIB_DEMAND_WINDOWS
@@ -971,8 +986,9 @@ STEP_31E_IMPLEMENTATION: MINIMAL_BUDGET_AND_REACQUISITION_COUNTER_SEAM
 PHYSICAL_ANDROID_QUALIFICATION: STEP_31D_COLD_WARM_STEP31E_ATTEMPT_AND_STEP31I_POST_FIX_CURVE
 PHYSICAL_ACQUISITION_LIMITATION: RESOLVED_BY_1_MIB_DEMAND_WINDOWS
 NEXT_SOURCE_EXPERIMENT: RETENTION_AND_OFFLINE_COMPLETION
+NEXT_DECODE_EXPERIMENT: ROUTED_EXPERT_GATE_UP_QUALIFICATION
 RUNTIME_BEHAVIOR_CHANGED: NO
-COMMIT_PERFORMED: PENDING_STEP31I_COMMIT
+COMMIT_PERFORMED: PENDING_STEP31J_COMMIT
 ```
 
 ## Review Questions

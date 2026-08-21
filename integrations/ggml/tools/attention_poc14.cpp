@@ -80,7 +80,9 @@ PersistentTensorRef persistent_ref(const Meta & meta) {
 OpResult run_op(const Meta & meta, const Activation & input, TensorWaveOpKind kind,
     const std::shared_ptr<const void> & lease,
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
-    const char * label, float parameter = 0.0f, bool no_jit_fallback = false) {
+    const char * label, float parameter = 0.0f, bool no_jit_fallback = false,
+    RuntimeTiming * timing = nullptr,
+    AttributionStage attribution_stage = AttributionStage::Attention) {
     RouterGraph graph;
     graph.executor = std::make_unique<TensorDependencyExecutor>();
     const uint32_t input_value = graph.executor->add_input("attention_input");
@@ -117,12 +119,16 @@ OpResult run_op(const Meta & meta, const Activation & input, TensorWaveOpKind ki
             static_cast<uint64_t>(address - base) + view.payload_len,
             static_cast<uint64_t>(address - base), lease };
     };
+    AttributionObserverState attribution_state;
+    const TensorWaveExecutionObserver attribution_observer =
+        make_attribution_observer(timing, attribution_stage, &attribution_state);
     const RunResult result = [&]() {
         RunResult timed;
         timed.error = graph.executor->execute(input.view(), provider, &timed.output, &output_shape,
             &timed.report, &detail, {}, active_materializer,
-            [&](const char *, const char * phase) {
+            [&](const char * operation, const char * phase) {
                 if (std::string(phase) == "start" && first_consumer_start == 0) first_consumer_start = now_ns();
+                attribution_observer(operation, phase);
             });
         if (timed.error != AdapterError::None) std::fprintf(stderr, "attention_detail=%s\n", detail.c_str());
         return timed;
@@ -196,30 +202,30 @@ TokenData compute_token(const AttentionTensors & tensors, const Activation & inp
     uint32_t position, RuntimeStateSlot * k_state, RuntimeStateSlot * v_state,
     const std::shared_ptr<const void> & lease,
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
-    const char * label, bool no_jit_fallback = false) {
+    const char * label, bool no_jit_fallback = false, RuntimeTiming * timing = nullptr) {
     constexpr float epsilon = 1e-6f;
     constexpr uint32_t heads = 16, q_head = 192, nope = 128, rope = 64, value = 128;
     TokenData data;
     const OpResult norm = run_op(tensors.norm, input, TensorWaveOpKind::RmsNorm, lease,
-        materializer, "attention_rms_norm", epsilon, no_jit_fallback);
+        materializer, "attention_rms_norm", epsilon, no_jit_fallback, timing);
     if (norm.error != AdapterError::None) return {};
     data.normalized = norm.values;
     const Activation normalized{ norm.values, { 2048, 1 } };
     const OpResult q_result = run_op(tensors.q, normalized, TensorWaveOpKind::MulMat, lease,
-        materializer, "attention_q", 0.0f, no_jit_fallback);
+        materializer, "attention_q", 0.0f, no_jit_fallback, timing);
     if (q_result.error != AdapterError::None) return {};
     const OpResult kv_a_result = run_op(tensors.kv_a, normalized, TensorWaveOpKind::MulMat, lease,
-        materializer, "attention_kv_a", 0.0f, no_jit_fallback);
+        materializer, "attention_kv_a", 0.0f, no_jit_fallback, timing);
     if (kv_a_result.error != AdapterError::None) return {};
     const std::vector<float> kv_compressed(kv_a_result.values.begin(), kv_a_result.values.begin() + 512);
     const std::vector<float> kv_rope(kv_a_result.values.begin() + 512, kv_a_result.values.end());
     const Activation kv_input{ kv_compressed, { 512, 1 } };
     const OpResult kv_norm = run_op(tensors.kv_a_norm, kv_input, TensorWaveOpKind::RmsNorm, lease,
-        materializer, "attention_kv_norm", epsilon, no_jit_fallback);
+        materializer, "attention_kv_norm", epsilon, no_jit_fallback, timing);
     if (kv_norm.error != AdapterError::None) return {};
     const Activation kv_norm_input{ kv_norm.values, { 512, 1 } };
     const OpResult kv_b_result = run_op(tensors.kv_b, kv_norm_input, TensorWaveOpKind::MulMat, lease,
-        materializer, "attention_kv_b", 0.0f, no_jit_fallback);
+        materializer, "attention_kv_b", 0.0f, no_jit_fallback, timing);
     if (kv_b_result.error != AdapterError::None) return {};
     data.q_nope.resize(heads * nope);
     data.q_pe.resize(heads * rope);
@@ -247,7 +253,7 @@ TokenData compute_token(const AttentionTensors & tensors, const Activation & inp
         1.0f / std::sqrt(192.0f), &probabilities);
     const Activation context_input{ data.context, { 2048, 1 } };
     const OpResult output = run_op(tensors.output, context_input, TensorWaveOpKind::MulMat,
-        lease, materializer, "attention_output", 0.0f, no_jit_fallback);
+        lease, materializer, "attention_output", 0.0f, no_jit_fallback, timing);
     if (output.error != AdapterError::None) return {};
     data.output = output.values;
     std::printf("%s position=%u state_k_positions=%u state_v_positions=%u attention_probs=",

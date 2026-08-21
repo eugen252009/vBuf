@@ -424,7 +424,8 @@ Activation run_embedding(const Meta & full, uint32_t token,
     const Activation scale{ { 1.0f }, { 1, 1 } };
     OffsetMaterializer scoped_materializer(materializer, 800000 + token * 100);
     const uint64_t actual_start = clock_ns();
-    const RunResult actual = execute_expert(actual_graph, scale.view(), lease, &scoped_materializer);
+    const RunResult actual = execute_expert(actual_graph, scale.view(), lease, &scoped_materializer,
+        false, timing, AttributionStage::Embedding);
     if (timing != nullptr) timing->actual_embedding_ns += clock_ns() - actual_start;
     const std::vector<float> actual_values = floats(actual.output);
     if (actual.error != AdapterError::None) {
@@ -456,7 +457,8 @@ std::vector<float> run_output_head(const Meta & norm, const Meta & output,
     ExpertGraph actual_graph = build_output_graph(norm, output);
     OffsetMaterializer scoped_materializer(materializer, materializer_base);
     const uint64_t actual_start = clock_ns();
-    const RunResult actual = execute_expert(actual_graph, hidden.view(), lease, &scoped_materializer);
+    const RunResult actual = execute_expert(actual_graph, hidden.view(), lease, &scoped_materializer,
+        false, timing, AttributionStage::OutputHead);
     if (timing != nullptr) timing->actual_output_head_ns += clock_ns() - actual_start;
     const std::vector<float> actual_values = floats(actual.output);
     if (actual.error != AdapterError::None) {
@@ -500,7 +502,8 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
     RouterGraph norm_graph = build_norm_graph(norm_ref);
     OffsetMaterializer norm_materializer(materializer, plan.namespace_base + 500);
     norm_materializer.request(norm_graph.router, norm_ref, norm_ref.view.payload_len);
-    const RunResult norm_actual = execute(norm_graph, input.view(), lease, &norm_materializer);
+    const RunResult norm_actual = execute(norm_graph, input.view(), lease, &norm_materializer,
+        false, timing, AttributionStage::DenseFfn);
     const std::vector<float> norm_values = floats(norm_actual.output);
     if (std::getenv("VBUF_AUDIT_FFN_NORM") != nullptr && plan.block_id == 0) {
         const RunResult norm_unmaterialized = execute(norm_graph, input.view(), lease,
@@ -534,7 +537,7 @@ LayerRun run_dense_layer(const LayerPlan & plan, const Activation & input,
     dense_materializer.request(actual_graph.up, up.ref(), up.bytes);
     dense_materializer.request(actual_graph.down, down.ref(), down.bytes);
     const RunResult actual = execute_expert(actual_graph, Activation{ norm_values, { width, 1 } }.view(),
-        lease, &dense_materializer);
+        lease, &dense_materializer, false, timing, AttributionStage::DenseFfn);
     const std::vector<float> actual_values = floats(actual.output);
     result.ok = result.ok && actual.error == AdapterError::None;
     if (actual.error != AdapterError::None && result.failure_detail.empty())
@@ -736,7 +739,8 @@ std::vector<Activation> run_sequence_batched(const std::vector<LayerPlan> & plan
         for (size_t row = 0; row < current.size(); ++row) {
             const uint64_t start = clock_ns();
             const TokenData attention = compute_token(tensors, current[row], static_cast<uint32_t>(row),
-                &(*actual_k)[layer], &(*actual_v)[layer], lease, materializer, "batched_prefill_attention");
+                &(*actual_k)[layer], &(*actual_v)[layer], lease, materializer,
+                "batched_prefill_attention", false, timing);
             if (attention.output.empty()) throw std::runtime_error("batched attention failed");
             if (timing != nullptr) timing->actual_attention_ns += clock_ns() - start;
             Activation ffn_input{ attention.output, { 2048, 1 } };
@@ -784,7 +788,8 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         RuntimeStateSlot * rv = &(*reference_v)[index];
         const uint64_t actual_attention_start = clock_ns();
         const TokenData actual_attention = compute_token(tensors, actual, position, ak, av, lease,
-            reference_only ? nullptr : materializer, (std::string(label) + "_blk" + std::to_string(plan.block_id)).c_str());
+            reference_only ? nullptr : materializer,
+            (std::string(label) + "_blk" + std::to_string(plan.block_id)).c_str(), false, timing);
         if (timing != nullptr) timing->actual_attention_ns += clock_ns() - actual_attention_start;
         const uint64_t reference_attention_start = clock_ns();
         const TokenData reference_attention = runs_reference_control(mode)
@@ -816,10 +821,10 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         const uint64_t actual_ffn_start = clock_ns();
         const LayerRun actual_ffn = dense_block
             ? run_dense_layer(plan, dense_ffn_input, lease, reference_only ? nullptr : materializer,
-                reference_only ? nullptr : residency, source, block_label, mode)
+                reference_only ? nullptr : residency, source, block_label, mode, timing)
             : run_layer(plan.metadata, ffn_input, lease, reference_only ? nullptr : materializer,
                 reference_only ? nullptr : residency, source, block_label, false, plan.namespace_base,
-                false, mode);
+                 false, mode, timing);
         if (timing != nullptr) timing->actual_ffn_ns += clock_ns() - actual_ffn_start;
         if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == failure_block) {
             result.ok = false;

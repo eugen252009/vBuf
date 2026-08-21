@@ -2,6 +2,7 @@
 #include "vbuf_residency.h"
 #include "vbuf_tensor_wave.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -68,7 +69,7 @@ vbuf_ggml::TensorDependencyExecutor make_graph(const vbuf_ggml::PersistentTensor
 
 vbuf_ggml::AdapterError execute(vbuf_ggml::TensorDependencyExecutor & executor,
     const Fixture & fixture, vbuf_ggml::TensorMaterializer * materializer,
-    std::string * detail = nullptr) {
+    std::string * detail = nullptr, std::vector<std::string> * phases = nullptr) {
     const vbuf_ggml::VbufTensorView input{ 0, 2, fixture.dimensions,
         reinterpret_cast<const uint8_t *>(fixture.input.data()), sizeof(fixture.input) };
     std::vector<uint8_t> output;
@@ -79,7 +80,13 @@ vbuf_ggml::AdapterError execute(vbuf_ggml::TensorDependencyExecutor & executor,
     const auto provider = [input_storage](const vbuf_ggml::VbufTensorView &) {
         return input_storage;
     };
-    return executor.execute(input, provider, &output, &shape, &report, detail, {}, materializer);
+    const vbuf_ggml::TensorWaveExecutionObserver observer = phases == nullptr
+        ? vbuf_ggml::TensorWaveExecutionObserver{}
+        : [phases](const char * operation, const char * phase) {
+            phases->push_back(std::string(operation) + ":" + phase);
+        };
+    return executor.execute(input, provider, &output, &shape, &report, detail, {}, materializer,
+        observer);
 }
 
 } // namespace
@@ -97,12 +104,19 @@ int main() {
 
     // A dependency with no prefetch request is requested and waited at consume time.
     std::string first_detail;
-    const auto first_result = execute(executor, fixture, &materializer, &first_detail);
+    std::vector<std::string> phases;
+    const auto first_result = execute(executor, fixture, &materializer, &first_detail, &phases);
     if (first_result != vbuf_ggml::AdapterError::None)
         std::fprintf(stderr, "first execution failed: %s detail=%s\n",
             vbuf_ggml::adapter_error_name(first_result), first_detail.c_str());
     assert(first_result == vbuf_ggml::AdapterError::None);
     assert(source->reads() == 1);
+    for (const char * phase : { "multiply:ready_start", "multiply:ready_end",
+        "multiply:graph_build_start", "multiply:graph_build_end",
+        "multiply:graph_allocation_start", "multiply:graph_allocation_end",
+        "multiply:compute_start", "multiply:compute_end",
+        "multiply:result_start", "multiply:result_end" })
+        assert(std::find(phases.begin(), phases.end(), phase) != phases.end());
 
     // A resident payload is immediately ready and does not re-read the source.
     assert(execute(executor, fixture, &materializer) == vbuf_ggml::AdapterError::None);
@@ -115,7 +129,8 @@ int main() {
     auto failed_residency = std::make_shared<vbuf_ggml::TensorResidencyStore>(sizeof(fixture.weight));
     vbuf_ggml::ResidentTensorMaterializer failed_materializer(failed_backing, failed_residency);
     std::string detail;
-    const auto failed_result = execute(executor, fixture, &failed_materializer, &detail);
+    std::vector<std::string> failed_phases;
+    const auto failed_result = execute(executor, fixture, &failed_materializer, &detail, &failed_phases);
     if (failed_result != vbuf_ggml::AdapterError::InvalidArgument ||
         detail != "multiply: persistent tensor is not ready: FAILED")
         std::fprintf(stderr, "failed producer result=%s detail=%s\n",
@@ -123,6 +138,9 @@ int main() {
     assert(failed_result == vbuf_ggml::AdapterError::InvalidArgument);
     assert(detail == "multiply: persistent tensor is not ready: FAILED");
     assert(failed_residency->active_lease_count() == 0);
+    assert(std::find(failed_phases.begin(), failed_phases.end(), "multiply:ready_start") != failed_phases.end());
+    assert(std::find(failed_phases.begin(), failed_phases.end(), "multiply:ready_end") != failed_phases.end());
+    assert(std::find(failed_phases.begin(), failed_phases.end(), "multiply:compute_start") == failed_phases.end());
 
     // A borrowed resident payload prevents eviction until its materializer lease is released.
     assert(materializer.request(0, tensor, sizeof(fixture.weight)));

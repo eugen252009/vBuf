@@ -177,7 +177,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     const std::shared_ptr<TensorResidencyStore> & residency,
     const std::shared_ptr<RangeSource> & source, const std::string & label,
     bool preload_gates, uint32_t namespace_base = 0, bool no_jit_fallback = false,
-    RuntimeMode mode = RuntimeMode::Qualification) {
+    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr) {
     constexpr uint32_t width = 2048;
     constexpr float epsilon = 1e-6f;
     LayerRun result;
@@ -216,7 +216,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     OffsetMaterializer router_materializer(materializer, namespace_base + 501);
     router_materializer.request(router_graph.router, router_ref, router_ref.view.payload_len);
     RoutedResult routed = route_activation(router_graph, normalized, lease,
-        &router_materializer, router_ref, width, 64, 6, mode);
+        &router_materializer, router_ref, width, 64, 6, mode, timing);
     result.router_logits = routed.logits;
     result.selection = routed.selection;
     result.weights = routed.weights;
@@ -237,7 +237,8 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     std::printf("\n");
 
     MultiRun routed_run = execute_selected(metadata, routed.selection, normalized, lease,
-        materializer, residency, label + "_routed", source, preload_gates, namespace_base, no_jit_fallback, mode);
+        materializer, residency, label + "_routed", source, preload_gates, namespace_base,
+        no_jit_fallback, mode, timing);
     result.ok = result.ok && routed_run.ok;
     if (!routed_run.ok) {
         result.failure_detail = routed_run.failure_detail;
@@ -247,8 +248,11 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     }
     std::vector<float> routed_actual, routed_reference;
     std::string merge_error;
+    const uint64_t routed_accumulation_start = clock_ns();
     bool routed_merge_ok = weighted_merge(routed_run.actual, routed.weights,
         &routed_actual, &merge_error);
+    if (timing != nullptr) timing->routed_expert_accumulation_ns +=
+        clock_ns() - routed_accumulation_start;
     if (runs_reference_control(mode)) {
         routed_merge_ok = routed_merge_ok && weighted_merge(routed_run.reference, routed.weights,
             &routed_reference, &merge_error) && parity(routed_actual, routed_reference,
@@ -268,7 +272,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     ExpertGraph shared_actual_graph = build_expert_graph(shared_gate, shared_up, shared_down);
     result.execution_start_ns = clock_ns();
     const RunResult shared_actual = execute_expert(shared_actual_graph, normalized.view(), lease,
-        &shared_materializer, no_jit_fallback);
+        &shared_materializer, no_jit_fallback, timing, AttributionStage::SharedExpert);
     result.execution_end_ns = clock_ns();
     const std::vector<float> shared_actual_values = floats(shared_actual.output);
     bool shared_ok = shared_actual.error == AdapterError::None;

@@ -62,8 +62,9 @@ std::vector<float> normalized_selected_weights(const std::vector<float> & logits
 RoutedResult route_activation(RouterGraph & graph, const Activation & activation,
     const std::shared_ptr<const void> & lease, TensorMaterializer * materializer,
     const PersistentTensorRef & router, uint32_t input_dim, uint32_t expert_count, uint32_t k,
-    RuntimeMode mode = RuntimeMode::Qualification) {
-    const RunResult runtime = execute(graph, activation.view(), lease, materializer);
+    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr) {
+    const RunResult runtime = execute(graph, activation.view(), lease, materializer, false,
+        timing, AttributionStage::Router);
     if (runtime.error != AdapterError::None) throw std::runtime_error("router execution failed");
     const std::vector<float> logits = floats(runtime.output);
     if (runs_reference_control(mode)) {
@@ -82,9 +83,11 @@ RoutedResult route_activation(RouterGraph & graph, const Activation & activation
     result.logits = logits;
     result.first_consumer_start_ns = runtime.first_consumer_start_ns;
     std::string error;
+    const uint64_t selection_start_ns = execution_now_ns();
     if (!deterministic_top_k(logits, expert_count, k, &result.selection, &error))
         throw std::runtime_error(error);
     result.weights = normalized_selected_weights(logits, result.selection);
+    if (timing != nullptr) timing->router_selection_ns += execution_now_ns() - selection_start_ns;
     return result;
 }
 
@@ -125,7 +128,7 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
     const std::shared_ptr<RangeSource> & source, bool preload_gates,
     uint32_t namespace_base = 0,
     bool no_jit_fallback = false,
-    RuntimeMode mode = RuntimeMode::Qualification) {
+    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr) {
     MultiRun result;
     result.selected_bytes = 0;
     result.materialization_events_before = shared_materializer->trace().size();
@@ -182,7 +185,7 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
             }
         }
         const RunResult actual = execute_expert(actual_graph, activation.view(), lease,
-            &offset, no_jit_fallback);
+            &offset, no_jit_fallback, timing, AttributionStage::RoutedExpert);
         result.actual.push_back(floats(actual.output));
         if (result.first_consumer_start_ns == 0 ||
             (actual.first_consumer_start_ns != 0 && actual.first_consumer_start_ns < result.first_consumer_start_ns))

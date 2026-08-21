@@ -173,13 +173,18 @@ AdapterError TensorDependencyExecutor::execute(
     size_t completed_count = 0;
 
     const auto obtain_ready = [&](uint32_t tensor_ref, const PersistentTensorRef & persistent,
-        MaterializedTensor * result) {
+        MaterializedTensor * result, const char * operation_id) {
         if (materializer == nullptr || result == nullptr) return false;
+        if (execution_observer) execution_observer(operation_id, "ready_start");
+        const auto finish = [&](bool success) {
+            if (execution_observer) execution_observer(operation_id, "ready_end");
+            return success;
+        };
         MaterializationState state = materializer->state(tensor_ref);
         if (state == MaterializationState::NotRequested || state == MaterializationState::Released) {
             if (!materializer->request(tensor_ref, persistent, persistent.view.payload_len)) {
                 set_detail(error_detail, "persistent tensor materialization request failed");
-                return false;
+                return finish(false);
             }
             state = materializer->state(tensor_ref);
         }
@@ -187,15 +192,15 @@ AdapterError TensorDependencyExecutor::execute(
         if (state != MaterializationState::Ready) {
             if (error_detail != nullptr) *error_detail = std::string("persistent tensor is not ready: ") +
                 materialization_state_name(state);
-            return false;
+            return finish(false);
         }
         const auto ready = materializer->obtain_ready_tensor(tensor_ref);
         if (!ready.has_value()) {
             set_detail(error_detail, "persistent tensor reported ready without a payload");
-            return false;
+            return finish(false);
         }
         *result = *ready;
-        return true;
+        return finish(true);
     };
 
     const auto notify_planner = [&]() {
@@ -260,7 +265,7 @@ AdapterError TensorDependencyExecutor::execute(
             bool materialized = false;
             if (materializer != nullptr) {
                 MaterializedTensor ready{};
-                if (!obtain_ready(input_ref.index, persistent, &ready)) {
+                if (!obtain_ready(input_ref.index, persistent, &ready, operation.op_id.c_str())) {
                     annotate_failure();
                     return AdapterError::InvalidArgument;
                 }
@@ -285,6 +290,7 @@ AdapterError TensorDependencyExecutor::execute(
         report->peak_active_weight_bytes = std::max(report->peak_active_weight_bytes,
             active_weight_bytes);
 
+        if (execution_observer) execution_observer(operation.op_id.c_str(), "graph_build_start");
         ggml_init_params params{};
         params.mem_size = 8 * 1024 * 1024;
         params.mem_buffer = nullptr;
@@ -316,7 +322,8 @@ AdapterError TensorDependencyExecutor::execute(
                     storage = materialized.storage;
                 } else if (materializer != nullptr) {
                     MaterializedTensor ready{};
-                    if (!obtain_ready(input_ref.index, persistent_[input_ref.index], &ready)) {
+                    if (!obtain_ready(input_ref.index, persistent_[input_ref.index], &ready,
+                            operation.op_id.c_str())) {
                         ggml_free(context);
                         annotate_failure();
                         return AdapterError::InvalidArgument;
@@ -449,11 +456,16 @@ AdapterError TensorDependencyExecutor::execute(
         }
         ggml_cgraph * graph = ggml_new_graph(context);
         ggml_build_forward_expand(graph, result);
+        if (execution_observer) execution_observer(operation.op_id.c_str(), "graph_build_end");
+        if (execution_observer) execution_observer(operation.op_id.c_str(), "graph_allocation_start");
         ggml_backend_buffer_t compute = ggml_backend_alloc_ctx_tensors(context, backend);
+        if (execution_observer) execution_observer(operation.op_id.c_str(), "graph_allocation_end");
         if (execution_observer) execution_observer(operation.op_id.c_str(), "start");
+        if (execution_observer) execution_observer(operation.op_id.c_str(), "compute_start");
         const ggml_status compute_status = compute == nullptr
             ? GGML_STATUS_FAILED : ggml_backend_graph_compute(backend, graph);
         if (compute_status != GGML_STATUS_SUCCESS) {
+            if (execution_observer) execution_observer(operation.op_id.c_str(), "compute_end");
             if (compute != nullptr) ggml_backend_buffer_free(compute);
             ggml_free(context);
             set_detail(error_detail, "tensor wave operation execution failed");
@@ -461,6 +473,7 @@ AdapterError TensorDependencyExecutor::execute(
             return AdapterError::BackendAllocationFailed;
         }
         ggml_backend_synchronize(backend);
+        if (execution_observer) execution_observer(operation.op_id.c_str(), "compute_end");
         if (std::getenv("VBUF_AUDIT_FFN_NORM") != nullptr && operation.op_id == "ffn_rms_norm") {
             ggml_tensor * unweighted = result->src[0];
             std::vector<float> values(ggml_nelements(unweighted));
@@ -471,6 +484,7 @@ AdapterError TensorDependencyExecutor::execute(
         if (execution_observer) execution_observer(operation.op_id.c_str(), "end");
 
         RuntimeValue produced;
+        if (execution_observer) execution_observer(operation.op_id.c_str(), "result_start");
         produced.bytes = std::make_shared<std::vector<uint8_t>>(ggml_nbytes(result));
         ggml_backend_tensor_get(result, produced.bytes->data(), 0, produced.bytes->size());
         if (std::getenv("VBUF_AUDIT_DENSE_FFN") != nullptr &&
@@ -513,6 +527,7 @@ AdapterError TensorDependencyExecutor::execute(
         ggml_backend_buffer_free(compute);
         ggml_free(context);
         borrowed.clear();
+        if (execution_observer) execution_observer(operation.op_id.c_str(), "result_end");
 
         for (const TensorWaveRef & input_ref : operation.inputs) {
             if (input_ref.kind == TensorWaveRef::Kind::Persistent) {

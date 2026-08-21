@@ -3,6 +3,7 @@
 #include "vbuf_residency.h"
 #include "vbuf_tensor_wave.h"
 #include "vbuf_topk.h"
+#include "vbuf_runtime_mode.h"
 
 #include <algorithm>
 #include <array>
@@ -112,6 +113,35 @@ struct RunResult {
     uint64_t first_consumer_start_ns = 0;
 };
 
+uint64_t execution_now_ns();
+
+struct AttributionObserverState {
+    uint64_t start_ns = 0;
+    const char * phase = nullptr;
+};
+
+TensorWaveExecutionObserver make_attribution_observer(RuntimeTiming * timing,
+    AttributionStage stage, AttributionObserverState * state) {
+    return [timing, stage, state](const char * operation, const char * phase) {
+        if (timing == nullptr || state == nullptr || phase == nullptr) return;
+        const std::string_view event(phase);
+        if (event.size() > 6 && event.substr(event.size() - 6) == "_start") {
+            state->phase = phase;
+            state->start_ns = execution_now_ns();
+            return;
+        }
+        if (event.size() > 4 && event.substr(event.size() - 4) == "_end" &&
+            state->phase != nullptr) {
+            const std::string_view started(state->phase);
+            const std::string_view base = started.substr(0, started.size() - 6);
+            timing->record_attribution(stage, operation, base,
+                execution_now_ns() - state->start_ns);
+            state->phase = nullptr;
+            state->start_ns = 0;
+        }
+    };
+}
+
 uint64_t execution_now_ns() {
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count());
@@ -206,7 +236,8 @@ std::shared_ptr<const void> model_lease(VbufMlConsumerHandle * handle) {
 
 RunResult execute(RouterGraph & graph, const VbufTensorView & input,
     const std::shared_ptr<const void> & lease, TensorMaterializer * materializer,
-    bool no_jit_fallback = false) {
+    bool no_jit_fallback = false, RuntimeTiming * timing = nullptr,
+    AttributionStage attribution_stage = AttributionStage::Other) {
     RunResult result;
     uint64_t storage_calls = 0;
     std::string detail;
@@ -221,11 +252,15 @@ RunResult execute(RouterGraph & graph, const VbufTensorView & input,
             static_cast<uint64_t>(address - base) + view.payload_len,
             static_cast<uint64_t>(address - base), lease };
     };
+    AttributionObserverState attribution_state;
+    const TensorWaveExecutionObserver attribution_observer =
+        make_attribution_observer(timing, attribution_stage, &attribution_state);
     result.error = graph.executor->execute(input, provider, &result.output, &shape,
         &result.report, &detail, {}, materializer,
-        [&](const char *, const char * phase) {
+        [&](const char * operation, const char * phase) {
             if (std::string(phase) == "start" && first_consumer_start_ns == 0)
                 first_consumer_start_ns = execution_now_ns();
+            attribution_observer(operation, phase);
         });
     result.detail = detail;
     result.first_consumer_start_ns = first_consumer_start_ns;
@@ -235,7 +270,8 @@ RunResult execute(RouterGraph & graph, const VbufTensorView & input,
 
 RunResult execute_expert(ExpertGraph & graph, const VbufTensorView & input,
     const std::shared_ptr<const void> & lease, TensorMaterializer * materializer,
-    bool no_jit_fallback = false) {
+    bool no_jit_fallback = false, RuntimeTiming * timing = nullptr,
+    AttributionStage attribution_stage = AttributionStage::Other) {
     RunResult result;
     uint64_t storage_calls = 0;
     std::string detail;
@@ -260,11 +296,15 @@ RunResult execute_expert(ExpertGraph & graph, const VbufTensorView & input,
             materializer->request(candidate.tensor_ref, tensor, tensor.view.payload_len);
         }
     };
+    AttributionObserverState attribution_state;
+    const TensorWaveExecutionObserver attribution_observer =
+        make_attribution_observer(timing, attribution_stage, &attribution_state);
     result.error = graph.executor->execute(input, provider, &result.output, &shape,
         &result.report, &detail, observer, materializer,
-        [&](const char *, const char * phase) {
+        [&](const char * operation, const char * phase) {
             if (std::string(phase) == "start" && first_consumer_start_ns == 0)
                 first_consumer_start_ns = execution_now_ns();
+            attribution_observer(operation, phase);
         });
     result.detail = detail;
     result.first_consumer_start_ns = first_consumer_start_ns;

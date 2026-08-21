@@ -2441,6 +2441,21 @@ Retention and offline completion remain pending:
   ranges;
 - report exact incompleteness rather than implying offline readiness.
 
+#### Step 31J — Post-residency decode / MoE bottleneck attribution
+
+**Status: PHYSICALLY MEASURED; ATTRIBUTION COMPLETE; NO OPTIMIZATION IMPLEMENTED.**
+The 2 GiB point was rerun with bounded phase instrumentation after Step 31I.
+It remained fully local with zero remote bytes, zero evictions, and zero
+reacquisitions. Instrumented decode was `33,704 ms` versus the Step 31I baseline
+of `33,252 ms`; measured instrumentation overhead was a modest `1.36%`.
+Routed expert work measured `16,821 ms`, with gate/up matmuls the largest routed
+component at `9,617 ms`. Backend compute was `25,550 ms`; readiness remained
+measurable at `4,718 ms`. Evidence:
+`research/results/vbuf-android-demo-poc/step31j-post-residency-decode-attribution.md`.
+
+Step 31J changes only bounded observation and reporting. Do not optimize the
+measured gate/up component in this step.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
