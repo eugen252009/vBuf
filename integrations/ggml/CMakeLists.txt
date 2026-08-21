@@ -112,6 +112,7 @@ add_library(vbuf_region_executor STATIC
     src/vbuf_tiered_residency.cpp
     src/vbuf_striped_materializer.cpp
     src/vbuf_topk.cpp
+    src/vbuf_indexed_expert.cpp
     src/vbuf_weighted_merge.cpp
     src/vbuf_runtime_state.cpp)
 target_compile_features(vbuf_region_executor PUBLIC cxx_std_17)
@@ -191,6 +192,11 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_topk_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_topk_contract PRIVATE vbuf_region_executor)
 
+    add_executable(vbuf_indexed_expert_lowering_contract
+        tests/indexed_expert_lowering_contract.cpp)
+    target_compile_features(vbuf_indexed_expert_lowering_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_indexed_expert_lowering_contract PRIVATE vbuf_region_executor)
+
     add_executable(vbuf_weighted_merge_contract tests/weighted_merge_contract.cpp)
     target_compile_features(vbuf_weighted_merge_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_weighted_merge_contract PRIVATE vbuf_region_executor)
@@ -224,7 +230,7 @@ if(VBUF_BUILD_PROBES)
         add_executable(vbuf_moe_grouping_microqualification
             tests/moe_grouping_microqualification.cpp)
         target_compile_features(vbuf_moe_grouping_microqualification PRIVATE cxx_std_17)
-        target_link_libraries(vbuf_moe_grouping_microqualification PRIVATE ggml)
+        target_link_libraries(vbuf_moe_grouping_microqualification PRIVATE vbuf_region_executor)
     endif()
 
     enable_testing()
@@ -254,6 +260,8 @@ if(VBUF_BUILD_PROBES)
     add_test(NAME vbuf_striped_materializer_contract
         COMMAND vbuf_striped_materializer_contract)
     add_test(NAME vbuf_topk_contract COMMAND vbuf_topk_contract)
+    add_test(NAME vbuf_indexed_expert_lowering_contract
+        COMMAND vbuf_indexed_expert_lowering_contract)
     add_test(NAME vbuf_weighted_merge_contract COMMAND vbuf_weighted_merge_contract)
     add_test(NAME vbuf_runtime_state_contract COMMAND vbuf_runtime_state_contract)
     add_test(NAME vbuf_source_selection_fallback_contract COMMAND vbuf_source_selection_fallback_contract)

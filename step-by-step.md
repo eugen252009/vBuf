@@ -2526,6 +2526,23 @@ TensorWave, TensorRef, materialization, persistence, residency, model format, or
 runtime semantics in Step 31N. Any future grouped-lowering prototype requires
 separate authorization.
 
+#### Step 31O - Backend-neutral indexed expert lowering
+
+**Status: HOST-QUALIFIED LOWERING SEAM; NO PRODUCTION RUNTIME CHANGE.**
+Step 31O adds an opt-in, backend-neutral lowerer that preserves the canonical
+rank-3 bank identity and ordered member provenance while deriving rank-2 views
+for the existing fallback path. The lowerer carries bank/member source offsets,
+expert IDs, TopK ranks, scores, and merge weights without copying or repacking
+payload bytes. An indexed-capable backend receives the full bank view; a
+rank-2-only backend receives one ordered member per TopK rank.
+
+The host-native qualification routes the two plans into the existing opt-in
+GGML `ggml_mul_mat_id` probe using the real DeepSeek IQ2_XXS and IQ4_NL banks.
+Both cases preserve bit-identical output against the six rank-2 baseline views.
+This does not add `MUL_MAT_ID` to TensorWave, alter materialization or
+residency, or qualify Android/full-model execution. Evidence:
+`research/results/vbuf-android-demo-poc/step31o-indexed-expert-lowering.md`.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

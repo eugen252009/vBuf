@@ -16,6 +16,7 @@
 #include "ggml-backend.h"
 #include "ggml-cpu.h"
 #include "ggml.h"
+#include "vbuf_indexed_expert.h"
 
 namespace {
 
@@ -84,7 +85,7 @@ bool check_status(ggml_status status, const char * operation) {
 }
 
 GraphRun build_graph(ggml_context * ctx, ggml_tensor * experts, ggml_tensor * input,
-    ggml_tensor * ids, bool grouped) {
+    ggml_tensor * ids, const vbuf_ggml::IndexedExpertLowering & lowering, bool grouped) {
     GraphRun run;
     run.graph = ggml_new_graph(ctx);
     if (grouped) {
@@ -93,9 +94,9 @@ GraphRun build_graph(ggml_context * ctx, ggml_tensor * experts, ggml_tensor * in
             ggml_build_forward_expand(run.graph, run.grouped);
         }
     } else {
-        run.outputs.reserve(kSelected);
-        for (int64_t rank = 0; rank < kSelected; ++rank) {
-            const size_t offset = static_cast<size_t>(kExpertIds[rank]) * experts->nb[2];
+        run.outputs.reserve(lowering.members.size());
+        for (size_t rank = 0; rank < lowering.members.size(); ++rank) {
+            const size_t offset = static_cast<size_t>(lowering.members[rank].payload_offset);
             ggml_tensor * expert = ggml_view_2d(
                 ctx, experts, experts->ne[0], experts->ne[1], experts->nb[1], offset);
             ggml_tensor * output = ggml_mul_mat(ctx, expert, input);
@@ -132,15 +133,37 @@ bool run_case(const Case & test_case, const MappedFile & file, ggml_backend_t ba
         ctx, test_case.weight_type, test_case.input_width, test_case.output_width, kExperts);
     ggml_tensor * input = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, test_case.input_width, 1);
     ggml_tensor * ids = ggml_new_tensor_2d(ctx, GGML_TYPE_I32, kSelected, 1);
-    GraphRun separate = build_graph(ctx, experts, input, ids, false);
-    GraphRun grouped = build_graph(ctx, experts, input, ids, true);
     const void * source = file.pointer(test_case.source_offset, test_case.payload_bytes);
+    const std::array<uint64_t, 3> bank_dimensions = {
+        static_cast<uint64_t>(test_case.input_width),
+        static_cast<uint64_t>(test_case.output_width),
+        static_cast<uint64_t>(kExperts) };
+    const vbuf_ggml::PersistentTensorRef bank{
+        31, test_case.name,
+        { 0, 3, bank_dimensions.data(), static_cast<const uint8_t *>(source), test_case.payload_bytes },
+        test_case.source_offset };
+    const vbuf_ggml::TopKSelection selection{
+        std::vector<uint32_t>(kExpertIds.begin(), kExpertIds.end()),
+        std::vector<float>(kSelected, 1.0f) };
+    const std::vector<float> merge_weights(kSelected, 1.0f);
+    vbuf_ggml::IndexedExpertLowering fallback;
+    vbuf_ggml::IndexedExpertLowering indexed;
+    std::string lowering_error;
+    const bool valid_lowering =
+        vbuf_ggml::lower_indexed_expert_bank(bank, selection, merge_weights,
+            vbuf_ggml::IndexedExpertExecutionCapability::Rank2Only, &fallback, &lowering_error) &&
+        vbuf_ggml::lower_indexed_expert_bank(bank, selection, merge_weights,
+            vbuf_ggml::IndexedExpertExecutionCapability::IndexedBank, &indexed, &lowering_error);
+    GraphRun separate = valid_lowering
+        ? build_graph(ctx, experts, input, ids, fallback, false) : GraphRun{};
+    GraphRun grouped = valid_lowering
+        ? build_graph(ctx, experts, input, ids, indexed, true) : GraphRun{};
     ggml_backend_buffer_t weights = source == nullptr
         ? nullptr : ggml_backend_cpu_buffer_from_ptr(const_cast<void *>(source), test_case.payload_bytes);
 
     bool valid = experts != nullptr && input != nullptr && ids != nullptr &&
         separate.graph != nullptr && grouped.graph != nullptr && grouped.grouped != nullptr &&
-        separate.outputs.size() == kSelected && weights != nullptr;
+        separate.outputs.size() == kSelected && weights != nullptr && valid_lowering;
     if (valid) {
         valid = ggml_backend_tensor_alloc(weights, experts, const_cast<void *>(source)) == GGML_STATUS_SUCCESS;
     }
@@ -154,7 +177,10 @@ bool run_case(const Case & test_case, const MappedFile & file, ggml_backend_t ba
                 std::cos(static_cast<float>(index) * 0.007f) * 0.25f;
         }
         ggml_backend_tensor_set(input, values.data(), 0, values.size() * sizeof(float));
-        ggml_backend_tensor_set(ids, kExpertIds.data(), 0, sizeof(kExpertIds));
+        std::array<int32_t, kSelected> lowered_ids{};
+        for (size_t rank = 0; rank < lowered_ids.size(); ++rank)
+            lowered_ids[rank] = static_cast<int32_t>(indexed.members[rank].expert_id);
+        ggml_backend_tensor_set(ids, lowered_ids.data(), 0, sizeof(lowered_ids));
 
         constexpr int warmup = 2;
         for (int iteration = 0; valid && iteration < warmup; ++iteration) {
