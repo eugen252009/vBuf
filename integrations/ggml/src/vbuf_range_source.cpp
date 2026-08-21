@@ -26,12 +26,12 @@ uint64_t now_ns() {
 }
 
 RangeSourceMetrics summarize_metrics(const std::vector<uint64_t> & durations,
-    uint64_t bytes, const std::unordered_set<std::string> & unique_ranges,
-    const std::unordered_set<std::string> & connections) {
+    uint64_t requests, uint64_t bytes, const std::unordered_set<std::string> & unique_ranges,
+    uint64_t connections) {
     RangeSourceMetrics metrics{};
-    metrics.requests = durations.size();
+    metrics.requests = requests;
     metrics.bytes = bytes;
-    metrics.connections = connections.size();
+    metrics.connections = connections;
     for (const std::string & range : unique_ranges) {
         const size_t separator = range.find(':');
         metrics.unique_bytes += std::stoull(range.substr(separator + 1));
@@ -190,7 +190,8 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
         result->error = "HTTP host resolution failed";
         return false;
     }
-    if (socket_fd_ < 0) {
+    const bool opened_connection = socket_fd_ < 0;
+    if (opened_connection) {
         for (addrinfo * address = addresses; address != nullptr; address = address->ai_next) {
             if (!local_source_ip_.empty() && address->ai_family != AF_INET) continue;
             socket_fd_ = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
@@ -211,6 +212,7 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
         result->error = "HTTP connection failed";
         return false;
     }
+    if (opened_connection) ++connection_count_;
     char local_host[NI_MAXHOST] = {};
     char local_service[NI_MAXSERV] = {};
     char remote_host[NI_MAXHOST] = {};
@@ -344,6 +346,7 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
         mutex_acquired_ns - request_start_ns, now_ns() - mutex_acquired_ns,
         memcpy_calls, memcpy_bytes, memcpy_ns);
     request_durations_ns_.push_back(now_ns() - request_start_ns);
+    ++request_count_;
     transferred_bytes_ += length;
     unique_ranges_.insert(std::to_string(offset) + ":" + std::to_string(length));
     if (!result->local_endpoint.empty()) connection_endpoints_.insert(result->local_endpoint);
@@ -353,7 +356,14 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
 
 RangeSourceMetrics HttpRangeSource::metrics() const {
     std::lock_guard<std::mutex> lock(socket_mutex_);
-    return summarize_metrics(request_durations_ns_, transferred_bytes_, unique_ranges_, connection_endpoints_);
+    return summarize_metrics(request_durations_ns_, request_count_, transferred_bytes_, unique_ranges_, connection_count_);
+}
+
+void HttpRangeSource::clear_diagnostics() {
+    std::lock_guard<std::mutex> lock(socket_mutex_);
+    request_durations_ns_.clear();
+    unique_ranges_.clear();
+    connection_endpoints_.clear();
 }
 
 ProgressiveRangeSource::ProgressiveRangeSource(std::shared_ptr<RangeSource> remote,

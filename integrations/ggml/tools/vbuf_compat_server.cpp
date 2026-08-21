@@ -573,6 +573,48 @@ struct ServerRuntime {
     ServerConfig config;
     VbufTokenizer tokenizer;
     std::unique_ptr<vbuf_ggml::VbufGenerationSession> session;
+    uint64_t active_requests = 0;
+    uint64_t active_streams = 0;
+    uint64_t active_cancellations = 0;
+};
+
+volatile sig_atomic_t shutdown_requested = 0;
+int listening_socket = -1;
+
+static uint64_t steady_now_ns() {
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+static void request_shutdown(int) {
+    shutdown_requested = 1;
+    if (listening_socket >= 0) ::shutdown(listening_socket, SHUT_RDWR);
+}
+
+class CounterScope {
+public:
+    explicit CounterScope(uint64_t * counter) : counter_(counter) { ++*counter_; }
+    ~CounterScope() { --*counter_; }
+    CounterScope(const CounterScope &) = delete;
+
+private:
+    uint64_t * counter_;
+};
+
+class RequestScope {
+public:
+    explicit RequestScope(ServerRuntime * runtime) : runtime_(runtime) { ++runtime_->active_requests; }
+    ~RequestScope() { release(); }
+    void release() {
+        if (runtime_ != nullptr) {
+            --runtime_->active_requests;
+            runtime_ = nullptr;
+        }
+    }
+    RequestScope(const RequestScope &) = delete;
+
+private:
+    ServerRuntime * runtime_;
 };
 
 static bool send_all(int fd, const std::string & data) {
@@ -709,9 +751,17 @@ static std::string make_completion_response(const std::string & id, const Server
 }
 
 static void handle_request(int fd, ServerRuntime * runtime) {
+    const uint64_t request_start_ns = steady_now_ns();
+    uint64_t http_parse_ns = 0;
+    uint64_t prompt_build_ns = 0;
+    uint64_t tokenize_ns = 0;
+    uint64_t response_serialization_ns = 0;
     try {
         HttpRequest request;
+        const uint64_t parse_start_ns = steady_now_ns();
         if (!read_request(fd, &request)) return;
+        http_parse_ns = steady_now_ns() - parse_start_ns;
+        RequestScope request_scope(runtime);
         if (request.method == "OPTIONS") { (void)send_response(fd, 200, "OK", "application/json", "{}"); return; }
         if (request.method == "GET" && request.path == "/health") {
             (void)send_response(fd, 200, "OK", "application/json", "{\"status\":\"ok\",\"runtime\":\"ready\"}");
@@ -739,12 +789,19 @@ static void handle_request(int fd, ServerRuntime * runtime) {
         const bool stream = top_level_bool(request.body, "stream", false);
         const std::string id = request_id();
         std::vector<uint32_t> prompt_tokens;
-        if (request.path == "/v1/chat/completions")
-            prompt_tokens = runtime->tokenizer.encode_chat(parse_messages(request.body));
-        else {
+        if (request.path == "/v1/chat/completions") {
+            const uint64_t prompt_start_ns = steady_now_ns();
+            const std::vector<Message> messages = parse_messages(request.body);
+            prompt_build_ns = steady_now_ns() - prompt_start_ns;
+            const uint64_t tokenize_start_ns = steady_now_ns();
+            prompt_tokens = runtime->tokenizer.encode_chat(messages);
+            tokenize_ns = steady_now_ns() - tokenize_start_ns;
+        } else {
             const std::string prompt = top_level_string(request.body, "prompt");
             if (prompt.empty()) fail("prompt is required");
+            const uint64_t tokenize_start_ns = steady_now_ns();
             prompt_tokens = runtime->tokenizer.encode_text(prompt, runtime->tokenizer.add_bos());
+            tokenize_ns = steady_now_ns() - tokenize_start_ns;
         }
         if (prompt_tokens.empty()) fail("prompt tokenization produced no tokens");
         if (prompt_tokens.size() + max_tokens > 4096) fail("prompt exceeds the bounded context limit");
@@ -763,7 +820,7 @@ static void handle_request(int fd, ServerRuntime * runtime) {
         generation.mode = runtime->config.mode;
         generation.prompt_tokens = prompt_tokens;
         generation.stop_token = runtime->tokenizer.eos();
-        generation.should_cancel = [&] { return disconnected; };
+        generation.should_cancel = [&] { return disconnected || shutdown_requested != 0; };
         generation.on_token = [&](uint32_t token, uint32_t) {
             const std::string piece = runtime->tokenizer.decode_token(token);
             output += piece;
@@ -784,33 +841,87 @@ static void handle_request(int fd, ServerRuntime * runtime) {
             return true;
         };
         vbuf_ggml::VbufGenerationResult result;
+        if (stream) {
+            const char * finish = nullptr;
+            {
+                CounterScope stream_scope(&runtime->active_streams);
+                {
+                    CounterScope cancellation_scope(&runtime->active_cancellations);
+                    StdoutSilencer silence;
+                    result = runtime->session->run(generation);
+                }
+                finish = result.tokens.size() >= max_tokens ? "length" : "stop";
+                if (!result.cancelled && result.error.empty()) {
+                    const uint64_t response_start_ns = steady_now_ns();
+                    std::ostringstream terminal;
+                    terminal << "data: {\"id\":\"" << id << "\",\"object\":\"chat.completion.chunk\",\"created\":" << now_seconds()
+                        << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"" << finish << "\"}]}\n\n"
+                        << "data: [DONE]\n\n";
+                    response_serialization_ns = steady_now_ns() - response_start_ns;
+                    (void)send_chunk(fd, terminal.str());
+                    (void)send_all(fd, "0\r\n\r\n");
+                }
+            }
+            request_scope.release();
+            const auto snapshot = runtime->session->snapshot();
+            std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
+                << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
+                << " generated_tokens=" << result.tokens.size() << " source_bytes=" << result.source_bytes
+                << " materialized_bytes=" << result.materialized_bytes << " resident_bytes_before=" << result.resident_bytes_before
+                << " resident_bytes_after=" << result.resident_bytes_after << " peak_residency_bytes=" << result.peak_resident_bytes
+                << " active_leases_after=" << snapshot.active_lease_count << " active_lease_bytes_after=" << snapshot.active_lease_bytes
+                << " active_inflight_bytes_after=" << snapshot.active_inflight_bytes
+                << " active_generations_after=" << snapshot.active_generations
+                << " active_streams_after=" << runtime->active_streams << " active_cancellations_after=" << runtime->active_cancellations
+                << " evictions=" << result.evictions << " reacquisitions=" << result.reacquisitions
+                << " prefill_ns=" << result.prefill_ns << " decode_ns=" << result.decode_ns
+                << " http_parse_ns=" << http_parse_ns << " prompt_build_ns=" << prompt_build_ns
+                << " tokenize_ns=" << tokenize_ns << " materialization_ns=UNINSTRUMENTED"
+                << " response_serialization_ns=" << response_serialization_ns
+                << " elapsed_ns=" << result.elapsed_ns << " finish_reason="
+                << (result.cancelled ? "cancelled" : result.error.empty() ? finish : "error")
+                << " cancelled=" << (result.cancelled ? "yes" : "no") << " error="
+                << (result.error.empty() ? "none" : json_escape(result.error)) << " total_ns="
+                << (steady_now_ns() - request_start_ns) << "\n";
+            return;
+        }
         {
+            CounterScope cancellation_scope(&runtime->active_cancellations);
             StdoutSilencer silence;
             result = runtime->session->run(generation);
         }
         const char * finish = result.tokens.size() >= max_tokens ? "length" : "stop";
-        const char * logged_finish = result.cancelled ? "cancelled" : finish;
-        std::cerr << "vbuf_request id=" << id << " model=" << runtime->config.model_alias
-            << " prompt_tokens=" << prompt_tokens.size() << " generated_tokens=" << result.tokens.size()
-            << " source_bytes=" << result.source_bytes << " materialized_bytes=" << result.materialized_bytes
-            << " peak_residency_bytes=" << result.peak_resident_bytes << " elapsed_ns=" << result.elapsed_ns
-            << " finish_reason=" << logged_finish << " cancelled=" << (result.cancelled ? "yes" : "no") << "\n";
-        if (!result.error.empty() && !result.cancelled) fail(result.error);
-        if (stream) {
-            if (!result.cancelled) {
-                std::ostringstream terminal;
-                terminal << "data: {\"id\":\"" << id << "\",\"object\":\"chat.completion.chunk\",\"created\":" << now_seconds()
-                    << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"" << finish << "\"}]}\n\n"
-                    << "data: [DONE]\n\n";
-                (void)send_chunk(fd, terminal.str());
-                (void)send_all(fd, "0\r\n\r\n");
-            }
-            return;
-        }
-        const std::string body = request.path == "/v1/chat/completions"
-            ? make_chat_response(id, runtime->config, output, prompt_tokens.size(), result.tokens.size(), finish)
-            : make_completion_response(id, runtime->config, output, prompt_tokens.size(), result.tokens.size(), finish);
-        (void)send_response(fd, 200, "OK", "application/json", body);
+        const int status = result.error.empty() || result.cancelled ? 200 : 500;
+        const uint64_t response_start_ns = steady_now_ns();
+        const std::string body = status == 200
+            ? (request.path == "/v1/chat/completions"
+                ? make_chat_response(id, runtime->config, output, prompt_tokens.size(), result.tokens.size(), finish)
+                : make_completion_response(id, runtime->config, output, prompt_tokens.size(), result.tokens.size(), finish))
+            : error_body(result.error, "server_error");
+        response_serialization_ns = steady_now_ns() - response_start_ns;
+        request_scope.release();
+        const bool sent = send_response(fd, status, status == 200 ? "OK" : "Internal Server Error",
+            "application/json", body);
+        const auto snapshot = runtime->session->snapshot();
+        std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
+            << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
+            << " generated_tokens=" << result.tokens.size() << " source_bytes=" << result.source_bytes
+            << " materialized_bytes=" << result.materialized_bytes << " resident_bytes_before=" << result.resident_bytes_before
+            << " resident_bytes_after=" << result.resident_bytes_after << " peak_residency_bytes=" << result.peak_resident_bytes
+            << " active_leases_after=" << snapshot.active_lease_count << " active_lease_bytes_after=" << snapshot.active_lease_bytes
+            << " active_inflight_bytes_after=" << snapshot.active_inflight_bytes
+            << " active_generations_after=" << snapshot.active_generations
+            << " active_streams_after=" << runtime->active_streams << " active_cancellations_after=" << runtime->active_cancellations
+            << " evictions=" << result.evictions << " reacquisitions=" << result.reacquisitions
+            << " prefill_ns=" << result.prefill_ns << " decode_ns=" << result.decode_ns
+            << " http_parse_ns=" << http_parse_ns << " prompt_build_ns=" << prompt_build_ns
+            << " tokenize_ns=" << tokenize_ns << " materialization_ns=UNINSTRUMENTED"
+            << " response_serialization_ns=" << response_serialization_ns
+            << " elapsed_ns=" << result.elapsed_ns << " finish_reason="
+            << (result.cancelled ? "cancelled" : result.error.empty() ? finish : "error")
+            << " cancelled=" << (result.cancelled ? "yes" : "no") << " error="
+            << (result.error.empty() ? "none" : json_escape(result.error)) << " sent=" << (sent ? "yes" : "no")
+            << " total_ns=" << (steady_now_ns() - request_start_ns) << "\n";
     } catch (const JsonError & error) {
         (void)send_response(fd, 400, "Bad Request", "application/json", error_body(error.what()));
     } catch (const std::exception & error) {
@@ -850,6 +961,8 @@ static ServerConfig parse_args(int argc, char ** argv) {
 
 int main(int argc, char ** argv) {
     std::signal(SIGPIPE, SIG_IGN);
+    std::signal(SIGINT, request_shutdown);
+    std::signal(SIGTERM, request_shutdown);
     try {
         const ServerConfig config = parse_args(argc, argv);
         if (config.host != "127.0.0.1" && config.host != "localhost")
@@ -866,15 +979,23 @@ int main(int argc, char ** argv) {
         address.sin_port = htons(config.port);
         if (::bind(server, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0 ||
             ::listen(server, 8) < 0) fail(std::string("bind/listen failed: ") + std::strerror(errno));
+        listening_socket = server;
         std::cerr << "vbuf-compat-server listening on " << config.host << ':' << config.port
             << " model=" << config.model_alias << " blocks=" << config.blocks
             << " runtime_mode=" << (config.mode == vbuf_ggml::RuntimeMode::NormalInference ? "normal" : "qualification") << "\n";
-        while (true) {
+        while (!shutdown_requested) {
             const int client = ::accept(server, nullptr, nullptr);
-            if (client < 0) continue;
+            if (client < 0) {
+                if (shutdown_requested) break;
+                continue;
+            }
             handle_request(client, &runtime);
             ::close(client);
         }
+        listening_socket = -1;
+        ::close(server);
+        std::cerr << "vbuf-compat-server stopped cleanly\n";
+        return 0;
     } catch (const std::exception & error) {
         std::cerr << "vbuf-compat-server: " << error.what() << '\n';
         return 1;

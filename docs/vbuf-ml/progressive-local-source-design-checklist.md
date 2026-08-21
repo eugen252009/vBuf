@@ -923,6 +923,29 @@ This is an ordered design checklist, not an implementation script.
 - [x] Record unsupported tools, embeddings, multimodal, reranking, and other
       out-of-scope semantics explicitly.
 
+### Phase 17: Step 31S persistent server lifecycle, isolation, and residency
+
+- [x] Map persistent server/model/source/residency state separately from
+      per-request prompt, KV, cancellation, stream, and lease state.
+- [x] Document explicit request-state, KV, cancellation, lease, generation,
+      residency, source-reuse, and post-failure invariants.
+- [x] Qualify one persistent process across a deterministic 20-request A/B/C
+      corpus and prove A/B/A deterministic output parity.
+- [x] Qualify repeated SSE streams with an actual parser and terminal-event
+      checks, without restarting the server between requests.
+- [x] Qualify real socket disconnect cancellation, follow-up recovery, and
+      post-request active lease/generation/stream counters.
+- [x] Qualify malformed-request recovery, serialized simultaneous clients,
+      health/model listing stability, and clean SIGTERM shutdown.
+- [x] Measure cold versus warm source/materialization/residency behavior and
+      distinguish reusable model payloads from forbidden KV/request reuse.
+- [x] Audit RSS and vBuf residency separately; trim persistent diagnostic
+      histories so lifecycle instrumentation cannot become an unbounded cache.
+- [x] Run a persistent full-26-layer `NormalInference` server request.
+- [x] Requalify the Python OpenAI client against llama-server and vBuf.
+- [x] Record uninstrumented timing boundaries and avoid an unmatched direct
+      runtime/server overhead claim.
+
 ## 9. Qualification Matrix
 
 | Stage | Required proof | Must remain unchanged |

@@ -105,6 +105,7 @@ public:
     uint64_t active_inflight_bytes() const override;
     uint64_t active_ready_bytes() const override;
     std::vector<MaterializationTraceEvent> trace() const override;
+    void clear_trace();
 
 private:
     struct Impl;

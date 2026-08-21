@@ -33,9 +33,35 @@ struct VbufGenerationResult {
     uint64_t source_bytes = 0;
     uint64_t materialized_bytes = 0;
     uint64_t reload_bytes = 0;
+    uint64_t resident_bytes_before = 0;
     uint64_t peak_resident_bytes = 0;
     uint64_t peak_active_bytes = 0;
+    uint64_t resident_bytes_after = 0;
+    uint32_t active_lease_count_after = 0;
+    uint64_t active_lease_bytes_after = 0;
+    uint64_t active_inflight_bytes_after = 0;
+    uint64_t evictions = 0;
+    uint64_t reacquisitions = 0;
+    uint64_t prefill_ns = 0;
+    uint64_t decode_ns = 0;
     uint64_t elapsed_ns = 0;
+};
+
+struct VbufGenerationSnapshot {
+    uint64_t request_count = 0;
+    uint64_t active_generations = 0;
+    uint64_t resident_bytes = 0;
+    uint64_t resident_count = 0;
+    uint32_t active_lease_count = 0;
+    uint64_t active_lease_bytes = 0;
+    uint64_t active_inflight_bytes = 0;
+    uint64_t source_requests = 0;
+    uint64_t source_bytes = 0;
+    uint64_t source_unique_bytes = 0;
+    uint64_t source_connections = 0;
+    uint64_t materializations = 0;
+    uint64_t reacquisitions = 0;
+    uint64_t eviction_events = 0;
 };
 
 bool validate_vbuf_generation_model(const std::string & semantic_model,
@@ -49,6 +75,7 @@ public:
     VbufGenerationSession & operator=(const VbufGenerationSession &) = delete;
 
     VbufGenerationResult run(const VbufGenerationConfig & config) const;
+    VbufGenerationSnapshot snapshot() const;
 
 private:
     struct Impl;

@@ -67,6 +67,7 @@ public:
     bool read_range(uint64_t offset, uint64_t length, uint8_t * destination,
         RangeReadResult * result) override;
     RangeSourceMetrics metrics() const;
+    void clear_diagnostics();
 
 private:
     std::string endpoint_;
@@ -77,6 +78,8 @@ private:
     std::unordered_set<std::string> unique_ranges_;
     std::unordered_set<std::string> connection_endpoints_;
     uint64_t transferred_bytes_ = 0;
+    uint64_t request_count_ = 0;
+    uint64_t connection_count_ = 0;
 };
 
 struct ProgressiveSourceIdentity {

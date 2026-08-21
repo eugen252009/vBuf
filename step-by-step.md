@@ -2599,6 +2599,26 @@ residency, TensorWave, or backend-neutral runtime contracts. Active generation
 is serialized; each request receives isolated KV state while safe weight
 residency/source state is reused.
 
+#### Step 31S - Persistent server lifecycle, isolation, and residency qualification
+
+**Status: HOST-CONTRACT-QUALIFIED; PERSISTENT LIFECYCLE COMPLETE.** Step 31S
+qualified one persistent native server process across 20 deterministic A/B/C
+requests plus streaming, OpenAI client, cancellation, failure-recovery, and
+simultaneous-client traffic. A/B/A returned identical deterministic output;
+all logged post-request lease, inflight, generation, stream, and cancellation
+counters were zero. Warm requests reached zero additional source bytes while
+bounded payload residency remained active.
+
+The qualification found and fixed unbounded persistent diagnostic histories in
+residency, materialization, and HTTP range-source metrics. Scalar counters and
+model payload residency persist; per-request traces are trimmed. RSS classified
+as bounded cache/allocator growth after warm-up, not a monotonic request-state
+leak. Health during active inference remains blocked by the documented
+single-request serial dispatch policy. The full 26-layer persistent
+`NormalInference` request returned `**,` in `101.522664 s` HTTP wall time with
+`268,412,928` bytes peak vBuf residency. Evidence:
+`research/results/vbuf-ml-integration/step31s-persistent-server-lifecycle-qualification.md`.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

@@ -217,6 +217,8 @@ struct VbufGenerationSession::Impl {
     mutable std::shared_ptr<HttpRangeSource> source;
     mutable std::shared_ptr<TensorResidencyStore> residency;
     mutable std::shared_ptr<ResidentTensorMaterializer> materializer;
+    mutable uint64_t request_count = 0;
+    mutable uint64_t active_generations = 0;
 };
 
 VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
@@ -243,6 +245,17 @@ bool validate_vbuf_generation_model(const std::string & semantic_model,
 VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & config) const {
     VbufGenerationResult result;
     const auto start = std::chrono::steady_clock::now();
+    ++impl_->request_count;
+    ++impl_->active_generations;
+    struct ActiveGenerationGuard {
+        VbufGenerationSession::Impl * impl;
+        ~ActiveGenerationGuard() { --impl->active_generations; }
+    } active_generation{ impl_.get() };
+    const auto clear_diagnostics = [&] {
+        if (impl_->residency) impl_->residency->clear_trace();
+        if (impl_->materializer) impl_->materializer->clear_trace();
+        if (impl_->source) impl_->source->clear_diagnostics();
+    };
     try {
         if (config.prompt_tokens.empty())
             throw std::runtime_error("prompt tokenization produced no tokens");
@@ -272,6 +285,9 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         const auto & source = impl_->source;
         const auto & residency = impl_->residency;
         const auto & backing = impl_->materializer;
+        result.resident_bytes_before = residency->resident_bytes();
+        const uint64_t reacquisitions_before = residency->reacquisition_count();
+        const size_t trace_before = residency->trace().size();
         const uint64_t source_bytes_before = source->metrics().bytes;
         const Meta embedding = lookup(all, "token_embd.weight");
         const Meta output_norm = lookup(all, "output_norm.weight");
@@ -288,6 +304,8 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         uint32_t input_token = config.prompt_tokens.front();
         uint64_t peak_resident = 0;
         uint64_t peak_active = 0;
+        bool decode_started = false;
+        std::chrono::steady_clock::time_point decode_start;
         auto add_trace = [&](size_t trace_begin) {
             const auto trace = residency->trace();
             const auto identities = trace_identities(plans);
@@ -315,6 +333,12 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
 
         const uint64_t total_steps = total_positions;
         for (uint64_t position = 0; position < total_steps; ++position) {
+            if (!decode_started && position >= config.prompt_tokens.size()) {
+                decode_started = true;
+                result.prefill_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now() - start).count());
+                decode_start = std::chrono::steady_clock::now();
+            }
             if (config.should_cancel && config.should_cancel()) {
                 result.cancelled = true;
                 break;
@@ -338,6 +362,7 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
             const std::vector<float> logits = run_output_head(output_norm, output, sequence.output,
                 lease, backing, "server_logits", 950000 + static_cast<uint32_t>(position) * 100,
                 config.mode);
+            peak_resident = std::max(peak_resident, residency->resident_bytes());
             input_token = greedy(logits);
             if (config.stop_token && input_token == *config.stop_token) {
                 result.completed = true;
@@ -360,15 +385,52 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         result.prompt_tokens = config.prompt_tokens.size();
         result.peak_resident_bytes = peak_resident;
         result.peak_active_bytes = peak_active;
+        result.resident_bytes_after = residency->resident_bytes();
+        result.active_lease_count_after = residency->active_lease_count();
+        result.active_lease_bytes_after = residency->active_lease_bytes();
+        result.active_inflight_bytes_after = backing->active_inflight_bytes();
+        result.evictions = std::count_if(residency->trace().begin() + static_cast<std::ptrdiff_t>(trace_before),
+            residency->trace().end(), [](const ResidencyTraceEvent & event) {
+                return event.kind == ResidencyEventKind::Evict;
+            });
+        result.reacquisitions = residency->reacquisition_count() - reacquisitions_before;
+        if (decode_started) {
+            result.decode_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now() - decode_start).count());
+        } else result.prefill_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now() - start).count());
         const uint64_t source_bytes_after = source->metrics().bytes;
         if (source_bytes_after >= source_bytes_before)
             result.source_bytes = std::max(result.source_bytes, source_bytes_after - source_bytes_before);
+        clear_diagnostics();
     } catch (const std::exception & exception) {
         result.error = exception.what();
+        clear_diagnostics();
     }
     result.elapsed_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now() - start).count());
     return result;
+}
+
+VbufGenerationSnapshot VbufGenerationSession::snapshot() const {
+    VbufGenerationSnapshot snapshot;
+    snapshot.request_count = impl_->request_count;
+    snapshot.active_generations = impl_->active_generations;
+    if (!impl_->source || !impl_->residency || !impl_->materializer) return snapshot;
+    const auto source = impl_->source->metrics();
+    snapshot.resident_bytes = impl_->residency->resident_bytes();
+    snapshot.resident_count = impl_->residency->resident_count();
+    snapshot.active_lease_count = impl_->residency->active_lease_count();
+    snapshot.active_lease_bytes = impl_->residency->active_lease_bytes();
+    snapshot.active_inflight_bytes = impl_->materializer->active_inflight_bytes();
+    snapshot.source_requests = source.requests;
+    snapshot.source_bytes = source.bytes;
+    snapshot.source_unique_bytes = source.unique_bytes;
+    snapshot.source_connections = source.connections;
+    snapshot.materializations = impl_->residency->materialization_count();
+    snapshot.reacquisitions = impl_->residency->reacquisition_count();
+    snapshot.eviction_events = impl_->residency->eviction_count();
+    return snapshot;
 }
 
 VbufGenerationResult run_vbuf_generation(const VbufGenerationConfig & config) {

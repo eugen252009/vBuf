@@ -88,6 +88,7 @@ public:
     bool release(uint32_t tensor_ref, const std::string & tensor_name = {});
     bool evict(uint32_t tensor_ref, const std::string & tensor_name = {});
     void clear();
+    void clear_trace();
 
     uint64_t max_resident_bytes() const { return max_resident_bytes_; }
     uint64_t resident_bytes() const { return resident_bytes_; }
@@ -96,6 +97,7 @@ public:
     uint32_t active_lease_count() const;
     uint64_t materialization_count() const { return materialization_count_; }
     uint64_t reacquisition_count() const { return reacquisition_count_; }
+    uint64_t eviction_count() const { return eviction_count_; }
     const char * replacement_policy_name() const { return replacement_policy_->name(); }
     uint64_t policy_decisions() const { return policy_decisions_; }
     uint64_t policy_candidates_evaluated() const { return policy_candidates_evaluated_; }
@@ -126,6 +128,7 @@ private:
     uint64_t policy_candidates_evaluated_ = 0;
     uint64_t policy_cpu_time_ns_ = 0;
     uint64_t policy_max_decision_ns_ = 0;
+    uint64_t eviction_count_ = 0;
 };
 
 // Retains completed materialization buffers in TensorResidencyStore while
@@ -146,6 +149,7 @@ public:
     uint64_t active_inflight_bytes() const override;
     uint64_t active_ready_bytes() const override;
     std::vector<MaterializationTraceEvent> trace() const override;
+    void clear_trace();
 
     const std::shared_ptr<TensorResidencyStore> & residency() const { return residency_; }
 

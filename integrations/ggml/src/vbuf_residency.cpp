@@ -169,6 +169,7 @@ bool TensorResidencyStore::evict_one(const std::string &) {
     resident_bytes_ -= candidate->second.bytes;
     entries_.erase(candidate);
     names_.erase(ref);
+    ++eviction_count_;
     add_event(ref, name, ResidencyEventKind::Evict, before, 0);
     return true;
 }
@@ -225,6 +226,7 @@ bool TensorResidencyStore::evict(uint32_t tensor_ref, const std::string & tensor
     resident_bytes_ -= it->second.bytes;
     entries_.erase(it);
     names_.erase(tensor_ref);
+    ++eviction_count_;
     add_event(tensor_ref, name, ResidencyEventKind::Evict, before, 0);
     return true;
 }
@@ -233,6 +235,10 @@ void TensorResidencyStore::clear() {
     entries_.clear();
     names_.clear();
     resident_bytes_ = 0;
+}
+
+void TensorResidencyStore::clear_trace() {
+    trace_.clear();
 }
 
 uint64_t TensorResidencyStore::active_lease_bytes() const {
@@ -346,6 +352,11 @@ uint64_t ResidentTensorMaterializer::active_ready_bytes() const {
 
 std::vector<MaterializationTraceEvent> ResidentTensorMaterializer::trace() const {
     return backing_->trace();
+}
+
+void ResidentTensorMaterializer::clear_trace() {
+    const auto local = std::dynamic_pointer_cast<LocalVbufRangeMaterializer>(backing_);
+    if (local) local->clear_trace();
 }
 
 } // namespace vbuf_ggml

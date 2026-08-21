@@ -295,4 +295,9 @@ std::vector<MaterializationTraceEvent> LocalVbufRangeMaterializer::trace() const
     return impl_->events;
 }
 
+void LocalVbufRangeMaterializer::clear_trace() {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    impl_->events.clear();
+}
+
 } // namespace vbuf_ggml
