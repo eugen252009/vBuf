@@ -1,8 +1,8 @@
 # Step 31H Owned Materialized Tensor Geometry
 
-Date: 2026-08-20
+Date: 2026-08-21
 Starting commit: `096752e`
-Status: **QUALIFICATION INPUTS RESTORED; PHYSICAL CONFIRMATION BLOCKED BY ADB**
+Status: **PHYSICALLY QUALIFIED; CACHED GEOMETRY LIFETIME REPAIR CONFIRMED**
 
 ## Proven 31G Root Cause
 
@@ -74,9 +74,9 @@ PAYLOAD_POINTER_LEASE: PASS; unchanged
 COPY_MOVE_GEOMETRY: PASS
 HOST_ROOT_CAUSE_REPRODUCED_BEFORE_FIX: NOT EXECUTED; Step 31G physical trace is the pre-fix evidence
 HOST_ROOT_CAUSE_FIXED_AFTER_FIX: PASS; deterministic cache-lifetime regression
-PHYSICAL_ENVIRONMENT_AVAILABLE: YES; ADB_SERVICE_UNAVAILABLE
-PHYSICAL_512_RUN_EXECUTED: NO
-PHYSICAL_FIX_CONFIRMATION: BLOCKED_BY_ADB_CONNECTION
+PHYSICAL_ENVIRONMENT_AVAILABLE: YES
+PHYSICAL_512_RUN_EXECUTED: YES
+PHYSICAL_FIX_CONFIRMATION: PASS
 ```
 
 The exact qualification source was restored from the recorded Hugging Face
@@ -133,12 +133,68 @@ python3 scripts/range_server.py --file /tmp/opencode/deepseek-v2-lite-imat/DeepS
 
 An HTTP range probe returned `206 Partial Content`,
 `Content-Range: bytes 0-15/5639819878`, 16 bytes, and byte-exact payload
-content. Android deployment was then blocked when the previously connected
-wireless ADB endpoint `192.168.188.33:46013` began refusing connections. The
-semantic bootstrap was not copied to the device, `adb reverse` was not
-restored, and no physical 512 MiB run was started. No substitute model,
-prompt, or source was used; the former Android failure remains physically
-unconfirmed and no new downstream physical failure is claimed.
+content. The first wireless ADB endpoint later became unavailable, but the
+Pixel reconnected through a second explicit transport and the physical run
+below completed without substituting a model, prompt, or source.
+
+## Physical Step 31H Confirmation
+
+The Pixel 7 Pro later reconnected through the explicit ADB transport
+`192.168.188.33:35533`. The existing IQ2_XXS semantic bootstrap and complete
+same-offset payload mirror were preserved on the device; the mirror sidecar
+reported `336990` covered chunks and `172114` coverage bytes. The rebuilt APK
+used the unchanged direct runtime with a `536870912`-byte residency budget and
+the canonical endpoint route. Because the mirror was complete, the run made no
+remote requests and did not mix artifact population traffic into the result.
+The preserved device semantic bootstrap SHA-256 was
+`1ba8f53bcf402f8e3b550c1bfcfb6660390cbe45c270271d057f556866b2429e`; it was
+not overwritten by the separately regenerated host bootstrap.
+
+```text
+MODEL: DeepSeek-V2-Lite IQ2_XXS
+DEVICE: Pixel 7 Pro, arm64-v8a
+PROMPT: Explain the purpose of bounded generation
+PROMPT_TOKENS: 7
+RUNTIME_MODE: NORMAL_INFERENCE
+PREFILL_MODE: BATCHED
+PREFILL_BATCH_SIZE: 7
+RESIDENCY_BUDGET_BYTES: 536870912
+REMOTE_BYTES: 0
+UPSTREAM_REMOTE_REQUESTS: 0
+LOCAL_SOURCE_BYTES: 3667185888
+CONSUMER_REQUESTS: 3192
+CONSUMER_REQUESTED_BYTES: 3667185888
+PREFILL_MS: 69351
+DECODE_TOTAL_MS: 82397
+TOTAL_GENERATION_MS: 151763
+GENERATED_TOKENS: 4
+OUTPUT: ----
+PEAK_RESIDENT_BYTES: 536817664
+PEAK_ACTIVE_BYTES: 12607488
+RESIDENCY_HITS_MISSES_EVICTIONS: 7202/5959/2806
+RESIDENCY_MATERIALIZATIONS_REACQUISITIONS: 3192/1930
+RELOAD_BYTES: 1713369056
+```
+
+The production APK does not emit per-tensor descriptor trace records. The
+canonical manifest and source descriptor for the target are rank `2`, dims
+`2816,2048`, and payload `1486848` bytes. The physical run consumed this
+descriptor through block 7 `expert_down_matmul` and completed all four decode
+tokens; the former malformed geometry `[12970367413557264240,0]` did not
+reappear.
+
+```text
+TARGET_BLOCK: 7
+TARGET_OPERATION: expert_down_matmul
+TARGET_TENSOR: blk.1.ffn_down_shexp.weight
+OBSERVED_DESCRIPTOR: canonical target consumed; no per-tensor trace emitted
+OLD_MALFORMED_GEOMETRY_REPRODUCED: NO
+ORIGINAL_DESCRIPTOR_LIFETIME_FAILURE: FIXED
+PROCEEDED_BEYOND_OLD_FAILURE_BOUNDARY: YES
+NEW_DOWNSTREAM_FAILURE: NONE
+PHYSICAL_STEP31H_CONFIRMATION: PASS
+RESIDENCY_CURVE_RESUMED: NO
+```
 
 ## Scope Classification
 

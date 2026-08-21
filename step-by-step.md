@@ -2404,16 +2404,17 @@ and range server; no new 256 MiB result is claimed by Step 31G.
 
 #### Step 31H — Own cached materialized tensor geometry
 
-**Host-qualified ownership repair completed; exact inputs restored, physical confirmation is blocked by ADB.**
+**Host- and physically qualified ownership repair completed.**
 `MaterializedTensor` now owns its rank and inline geometry while preserving the
 existing leased payload pointer and residency behavior. The residency contract
 verifies geometry after source-scope destruction, cache-hit retrieval, copy,
 move, and vector relocation. Host materializer, residency, striped,
 tensor-wave, adapter, source-fallback, Rust, native Release CTest, neutrality,
 and Android ARM64/`assembleDebug` checks pass. The exact IQ2_XXS source and
-regenerated payload are restored with an exact payload identity match and the
-range server returns verified 206 responses. The Pixel ADB endpoint is refusing
-connections, so no physical 512 MiB result is claimed.
+regenerated payload are restored with an exact payload identity match. The
+Pixel 7 Pro completed the canonical 512 MiB workload with batched prefill and
+four decode tokens, reached valid target geometry at the former block-7
+boundary, and produced zero remote bytes. No residency curve was resumed.
 Evidence: `research/results/vbuf-android-demo-poc/step31h-owned-materialized-tensor-geometry.md`.
 
 Do not resume the residency curve in Step 31H.
