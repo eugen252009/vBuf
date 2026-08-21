@@ -866,8 +866,40 @@ This is an ordered design checklist, not an implementation script.
       quantization, and zero-copy view requirements.
 - [x] Reject canonical rank-3 TensorRef/model-format changes; recommend
       backend-neutral rank-2 execution plus bank provenance.
-- [ ] Implement a grouped backend lowering seam; requires separate
-      authorization and Android/backend qualification.
+- [x] Add the separately authorized backend-neutral indexed lowering seam while
+      preserving rank-2 fallback and bank/member provenance.
+- [ ] Add grouped execution to TensorWave; requires separate backend and
+      Android qualification.
+
+### Phase 14: Step 31P indexed expert-bank qualification
+
+- [x] Build the opt-in indexed Android path with the pinned GGML source.
+- [x] Complete indexed-prefill and rank-2-fallback A/B runs on Pixel 7 Pro.
+- [x] Keep serial decode on the rank-2 fallback after the full-bank residency
+      limitation was observed.
+- [x] Record materialized bank bytes, repack bytes, peak residency, and output
+      parity separately for indexed and fallback paths.
+- [ ] Complete Android logits-level reference parity; host evidence is recorded
+      separately in Step 31Q.
+
+### Phase 15: Step 31Q host TensorWave runtime qualification
+
+- [x] Rebuild the Rust workspace and native x86_64 runtime with the pinned GGML
+      source.
+- [x] Pass the expanded native CTest suite, Rust workspace tests, and portable
+      graph neutrality check.
+- [x] Qualify real external DeepSeek router payloads, FFI pointer crossing,
+      lease retention, and exact TopK IDs on the host.
+- [x] Qualify real selected gate/up/down TensorWave execution with cold external
+      materialization and warm residency parity.
+- [x] Complete a bounded full-stack external one-token path with runtime/reference
+      next-token parity and zero teardown leaks.
+- [x] Qualify raw host `ggml_mul_mat_id` parity over real IQ2_XXS/IQ4_NL banks
+      without weight repacking.
+- [x] Record the Orange Pi SSH refusal and mark physical riscv64 qualification
+      `NOT_QUALIFIED` rather than inferring it from x86_64 results.
+- [ ] Repeat the physical riscv64 qualification after the SSH target is
+      reachable; no RISC-V evidence is implied by this host phase.
 
 ## 9. Qualification Matrix
 

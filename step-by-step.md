@@ -2543,6 +2543,38 @@ This does not add `MUL_MAT_ID` to TensorWave, alter materialization or
 residency, or qualify Android/full-model execution. Evidence:
 `research/results/vbuf-android-demo-poc/step31o-indexed-expert-lowering.md`.
 
+#### Step 31P - Android indexed expert-bank qualification
+
+**Status: PHYSICAL ANDROID A/B COMPLETE; NUMERICAL REFERENCE PARITY SEPARATE.**
+Step 31P qualified the opt-in indexed prefill path and the rank-2 fallback on a
+Pixel 7 Pro with the canonical prompt. Both paths completed the bounded
+prefill/decode smoke workflow and produced `----`. Indexed prefill used the
+full expert banks only for batched prefill; serial decode remains on the
+rank-2 fallback because full-bank materialization is not viable there. Evidence:
+`research/results/vbuf-android-demo-poc/step31p-indexed-expert-bank-qualification.md`.
+
+Step 31P is physical Android smoke and A/B evidence, not logits-level numerical
+reference qualification. It does not change the generic vBuf format or make
+the Android adapter the owner of vBuf-ML source, materialization, or residency.
+
+#### Step 31Q - Host TensorWave runtime qualification
+
+**Status: HOST-QUALIFIED; RISC-V PHYSICAL QUALIFICATION NOT_QUALIFIED.**
+Because the requested Orange Pi SSH target refused TCP port 22, Step 31Q used
+the local x86_64 host as a faster qualification environment. Rust and native
+CTest passed, portable-graph neutrality reported zero forbidden leakage, and
+real DeepSeek external ranges passed router, lease, and payload-pointer checks.
+The current TensorWave path passed real selected IQ2_XXS/IQ4_NL expert parity,
+and a bounded two-block full-stack path generated one token with exact runtime /
+reference next-token parity. Raw host `ggml_mul_mat_id` also passed against the
+real quantized banks without repacking. Evidence:
+`research/results/vbuf-riscv64-runtime/step31q-x86-host-tensorwave-qualification.md`.
+
+These results are x86_64 host evidence only. They do not claim physical
+riscv64 execution, direct LAN source traffic, or Android logits parity. No
+production runtime, TensorRef, persistent format, or residency-policy change
+was made.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
