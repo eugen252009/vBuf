@@ -901,6 +901,28 @@ This is an ordered design checklist, not an implementation script.
 - [ ] Repeat the physical riscv64 qualification after the SSH target is
       reachable; no RISC-V evidence is implied by this host phase.
 
+### Phase 16: Step 31R functional llama-server-compatible vBuf serving
+
+- [x] Audit the locally available llama-server wire subset and record endpoint,
+      error, non-stream, and SSE behavior without importing its runtime model.
+- [x] Add a thin native compatibility server with explicit localhost-first
+      model, source, alias, block, residency, and generation configuration.
+- [x] Keep semantic discovery, tokenizer metadata, RangeSource, materialization,
+      residency, TensorWave, and GGML execution below the HTTP boundary.
+- [x] Implement health readiness, public model listing, bounded chat, bounded
+      completions, explicit unsupported-option errors, and unknown-model errors.
+- [x] Implement live SSE streaming with parser-level byte framing checks and
+      terminal `[DONE]` behavior.
+- [x] Serialize active generation and isolate per-request KV/session state.
+- [x] Propagate client disconnect at the streaming boundary and verify server
+      recovery.
+- [x] Qualify the installed OpenAI-compatible client against llama-server and
+      vBuf without client protocol-code changes.
+- [x] Qualify the bounded two-block server path and attempt the same contract
+      through all 26 layers.
+- [x] Record unsupported tools, embeddings, multimodal, reranking, and other
+      out-of-scope semantics explicitly.
+
 ## 9. Qualification Matrix
 
 | Stage | Required proof | Must remain unchanged |

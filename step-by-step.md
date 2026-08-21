@@ -2575,6 +2575,30 @@ riscv64 execution, direct LAN source traffic, or Android logits parity. No
 production runtime, TensorRef, persistent format, or residency-policy change
 was made.
 
+#### Step 31R - Functional llama-server-compatible vBuf serving
+
+**Status: HOST-QUALIFIED; BOUNDED AND FULL-LAYER HTTP GENERATION COMPLETE.**
+Step 31R adds a thin native HTTP compatibility layer over the current vBuf-ML
+tokenizer, semantic model/session, external RangeSource, bounded materializer
+and residency, TensorWave, and GGML execution path. It supports `/health`,
+`/v1/models`, `/v1/chat/completions`, and `/v1/completions`, including live SSE
+streaming. The installed Python OpenAI client passed against both the local
+llama-server oracle and the vBuf server without protocol-code changes.
+
+The bounded two-block path returned real generated text and reused source and
+residency state across serialized requests. A separate one-token `--blocks 26`
+request also completed through all 26 layers in `NormalInference`; it requested
+`6,327,692,864` source bytes, peaked at `268,412,928` resident bytes, and took
+`101.027 s`. These are qualification measurements, not production performance.
+Evidence:
+`research/results/vbuf-ml-integration/step31r-vbuf-compat-server-qualification.md`.
+
+The server rejects unsupported generation semantics, does not invoke or proxy
+llama-server, and does not place HTTP types in TensorRef, materialization,
+residency, TensorWave, or backend-neutral runtime contracts. Active generation
+is serialized; each request receives isolated KV state while safe weight
+residency/source state is reused.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

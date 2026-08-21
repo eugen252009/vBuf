@@ -2,6 +2,8 @@
 #include "multi_layer_poc16.cpp"
 #undef VBUF_POC16_LIBRARY_ONLY
 
+#include "vbuf_generation.h"
+
 #include <chrono>
 #include <fstream>
 #include <iomanip>
@@ -204,6 +206,177 @@ void write_summary(const std::string & path, const std::vector<PositionEvidence>
 }
 
 } // namespace
+
+namespace vbuf_ggml {
+
+struct VbufGenerationSession::Impl {
+    Metadata metadata;
+    std::vector<LayerPlan> plans;
+    mutable std::string source_endpoint;
+    mutable uint64_t residency_capacity = 0;
+    mutable std::shared_ptr<HttpRangeSource> source;
+    mutable std::shared_ptr<TensorResidencyStore> residency;
+    mutable std::shared_ptr<ResidentTensorMaterializer> materializer;
+};
+
+VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
+    uint32_t block_count) : impl_(std::make_unique<Impl>()) {
+    if (block_count == 0) throw std::runtime_error("block count must be positive");
+    load_metadata(semantic_model, &impl_->metadata);
+    for (uint32_t block = 0; block < block_count; ++block)
+        impl_->plans.push_back(make_plan(impl_->metadata, block, (block + 1) * 10000));
+}
+
+VbufGenerationSession::~VbufGenerationSession() = default;
+
+bool validate_vbuf_generation_model(const std::string & semantic_model,
+    uint32_t block_count, std::string * error) {
+    try {
+        VbufGenerationSession session(semantic_model, block_count);
+        return true;
+    } catch (const std::exception & exception) {
+        if (error != nullptr) *error = exception.what();
+        return false;
+    }
+}
+
+VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & config) const {
+    VbufGenerationResult result;
+    const auto start = std::chrono::steady_clock::now();
+    try {
+        if (config.prompt_tokens.empty())
+            throw std::runtime_error("prompt tokenization produced no tokens");
+        if (config.block_count == 0 || config.max_new_tokens == 0)
+            throw std::runtime_error("generation bounds must be positive");
+        if (config.block_count != impl_->plans.size())
+            throw std::runtime_error("generation block count differs from prepared session");
+        const uint64_t total_positions = static_cast<uint64_t>(config.prompt_tokens.size()) +
+            config.max_new_tokens;
+        if (total_positions > 4096)
+            throw std::runtime_error("generation request exceeds bounded position limit");
+
+        const Metadata & all = impl_->metadata;
+        const std::vector<LayerPlan> & plans = impl_->plans;
+
+        if (!impl_->source || impl_->source_endpoint != config.source_endpoint ||
+            impl_->residency_capacity != config.residency_capacity) {
+            impl_->source_endpoint = config.source_endpoint;
+            impl_->residency_capacity = config.residency_capacity;
+            impl_->source = std::make_shared<HttpRangeSource>(config.source_endpoint);
+            impl_->residency = std::make_shared<TensorResidencyStore>(config.residency_capacity,
+                ResidencyReplacementPolicyKind::CostAware);
+            impl_->materializer = std::make_shared<ResidentTensorMaterializer>(
+                std::make_shared<LocalVbufRangeMaterializer>(impl_->source), impl_->residency);
+        }
+        auto lease = model_lease(all.handle);
+        const auto & source = impl_->source;
+        const auto & residency = impl_->residency;
+        const auto & backing = impl_->materializer;
+        const uint64_t source_bytes_before = source->metrics().bytes;
+        const Meta embedding = lookup(all, "token_embd.weight");
+        const Meta output_norm = lookup(all, "output_norm.weight");
+        const Meta output = lookup(all, "output.weight");
+        std::vector<RuntimeStateSlot> actual_k, actual_v, reference_k, reference_v;
+        for (size_t index = 0; index < plans.size(); ++index) {
+            actual_k.emplace_back(16 * 192, total_positions);
+            actual_v.emplace_back(16 * 128, total_positions);
+            reference_k.emplace_back(16 * 192, total_positions);
+            reference_v.emplace_back(16 * 128, total_positions);
+        }
+
+        std::set<uint32_t> loaded_residency_ids;
+        uint32_t input_token = config.prompt_tokens.front();
+        uint64_t peak_resident = 0;
+        uint64_t peak_active = 0;
+        auto add_trace = [&](size_t trace_begin) {
+            const auto trace = residency->trace();
+            const auto identities = trace_identities(plans);
+            for (size_t index = trace_begin; index < trace.size(); ++index) {
+                const ResidencyTraceEvent & event = trace[index];
+                if (event.kind == ResidencyEventKind::Insert) {
+                    const uint64_t bytes = event.resident_bytes_after >= event.resident_bytes_before
+                        ? event.resident_bytes_after - event.resident_bytes_before : 0;
+                    if (loaded_residency_ids.count(event.tensor_ref) != 0)
+                        result.reload_bytes += bytes;
+                    loaded_residency_ids.insert(event.tensor_ref);
+                }
+                if ((event.kind == ResidencyEventKind::Materialize ||
+                        event.kind == ResidencyEventKind::InsertRejected) &&
+                    !event.source_id.empty()) {
+                    const auto identity = identities.find(event.tensor_ref);
+                    if (identity != identities.end()) {
+                        result.source_bytes += identity->second.bytes;
+                        if (event.kind == ResidencyEventKind::Materialize)
+                            result.materialized_bytes += identity->second.bytes;
+                    }
+                }
+            }
+        };
+
+        const uint64_t total_steps = total_positions;
+        for (uint64_t position = 0; position < total_steps; ++position) {
+            if (config.should_cancel && config.should_cancel()) {
+                result.cancelled = true;
+                break;
+            }
+            const size_t trace_begin = residency->trace().size();
+            const Activation input = run_embedding(embedding, input_token, lease, backing,
+                "server_embedding", config.mode);
+            const SequenceRun sequence = run_sequence(plans, input, static_cast<uint32_t>(position),
+                &actual_k, &actual_v, &reference_k, &reference_v, lease, backing, residency,
+                source, "server_generation", false, nullptr, 2, config.mode);
+            if (!sequence.ok) throw std::runtime_error("autoregressive transformer failure");
+            add_trace(trace_begin);
+            peak_resident = std::max(peak_resident, residency->resident_bytes());
+            peak_active = std::max(peak_active, sequence.peak_active_persistent);
+
+            const bool prompt_position = position + 1 < config.prompt_tokens.size();
+            if (prompt_position) {
+                input_token = config.prompt_tokens[position + 1];
+                continue;
+            }
+            const std::vector<float> logits = run_output_head(output_norm, output, sequence.output,
+                lease, backing, "server_logits", 950000 + static_cast<uint32_t>(position) * 100,
+                config.mode);
+            input_token = greedy(logits);
+            if (config.stop_token && input_token == *config.stop_token) {
+                result.completed = true;
+                break;
+            }
+            result.tokens.push_back(input_token);
+            if (result.tokens.size() > config.max_new_tokens)
+                result.tokens.erase(result.tokens.begin());
+            if (config.on_token && !config.on_token(input_token, static_cast<uint32_t>(position))) {
+                result.cancelled = true;
+                break;
+            }
+            if (result.tokens.size() == config.max_new_tokens) {
+                result.completed = true;
+                break;
+            }
+        }
+        if (!result.cancelled && !result.completed)
+            result.error = "generation ended before the requested token bound";
+        result.prompt_tokens = config.prompt_tokens.size();
+        result.peak_resident_bytes = peak_resident;
+        result.peak_active_bytes = peak_active;
+        const uint64_t source_bytes_after = source->metrics().bytes;
+        if (source_bytes_after >= source_bytes_before)
+            result.source_bytes = std::max(result.source_bytes, source_bytes_after - source_bytes_before);
+    } catch (const std::exception & exception) {
+        result.error = exception.what();
+    }
+    result.elapsed_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now() - start).count());
+    return result;
+}
+
+VbufGenerationResult run_vbuf_generation(const VbufGenerationConfig & config) {
+    VbufGenerationSession session(config.semantic_model, config.block_count);
+    return session.run(config);
+}
+
+} // namespace vbuf_ggml
 
 #ifndef VBUF_POC22_LIBRARY_ONLY
 int main(int argc, char ** argv) {

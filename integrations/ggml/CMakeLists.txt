@@ -26,6 +26,8 @@ option(VBUF_BUILD_PROBES "Build disposable substrate qualification probes" ON)
 option(VBUF_BUILD_REAL_GATE2B "Build the opt-in real DeepSeek Gate 2B qualification" OFF)
 option(VBUF_BUILD_MOE_GROUPING_MICROQUALIFICATION
     "Build the opt-in host routed-expert grouping microqualification" OFF)
+option(VBUF_BUILD_COMPAT_SERVER
+    "Build the llama-server/OpenAI-compatible vBuf runtime server" ON)
 
 include(FetchContent)
 
@@ -336,6 +338,12 @@ if(VBUF_ML_LIBRARY)
     add_executable(vbuf_autoregressive_poc22 tools/autoregressive_poc22.cpp)
     target_compile_features(vbuf_autoregressive_poc22 PRIVATE cxx_std_17)
     target_link_libraries(vbuf_autoregressive_poc22 PRIVATE vbuf_region_executor)
+
+    if(VBUF_BUILD_COMPAT_SERVER)
+        add_executable(vbuf_compat_server tools/vbuf_compat_server.cpp)
+        target_compile_features(vbuf_compat_server PRIVATE cxx_std_17)
+        target_link_libraries(vbuf_compat_server PRIVATE vbuf_region_executor)
+    endif()
 
     if(VBUF_BUILD_REAL_GATE2B AND VBUF_RUNTIME_LIBRARY)
         add_executable(vbuf_gate2b_real_deepseek

@@ -91,6 +91,22 @@ Qualification controls must not be mistaken for production inference cost.
 Qualification remains serial. Normal inference does not execute reference work.
 Autoregressive decode remains the unchanged single-position path.
 
+## OpenAI-Compatible Serving
+
+The native `integrations/ggml` target `vbuf_compat_server` exposes a thin
+llama-server/OpenAI-compatible subset: `/health`, `/v1/models`,
+`/v1/chat/completions`, and `/v1/completions`. The HTTP layer translates
+protocol DTOs into the existing vBuf-ML tokenizer, TensorRef, RangeSource,
+materialization, TensorWave, and GGML execution path. llama-server is not
+required as a runtime or proxy.
+
+Step 31R qualified both a bounded two-block request path and a one-token
+full-26-layer host request. Normal serving defaults to `NormalInference`, keeps
+request KV state isolated, serializes active generation, and preserves external
+RangeSource plus bounded residency behavior. Unsupported generation semantics
+are rejected rather than silently ignored. Evidence is in
+[`step31r-vbuf-compat-server-qualification.md`](research/results/vbuf-ml-integration/step31r-vbuf-compat-server-qualification.md).
+
 ## Android Qualification And Performance
 
 The current physical target is a Pixel 7 Pro running Android 17, arm64-v8a,
