@@ -181,6 +181,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     constexpr uint32_t width = 2048;
     constexpr float epsilon = 1e-6f;
     LayerRun result;
+    if (timing != nullptr) ++timing->routed_moe_layer_count;
     const size_t trace_before = materializer->trace().size();
     const size_t residency_before = residency->trace().size();
     const Meta norm_meta = lookup(metadata, "blk.1.ffn_norm.weight");

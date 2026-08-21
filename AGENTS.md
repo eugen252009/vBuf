@@ -247,8 +247,12 @@ Before changing runtime behavior, locate the latest canonical implementation
 and its tests. Do not resurrect an older adapter merely because it is easier to
 discover or already builds. Keep production changes separate from diagnostic
 instrumentation and research controls. Preserve unrelated worktree changes,
-do not add compatibility shims without a concrete need, and do not commit or
-push unless explicitly requested.
+and do not add compatibility shims without a concrete need. Completed and
+qualified roadmap steps are
+committed by default after successful verification and final diff review;
+explicit user approval is not required for the commit itself unless the user
+has instructed otherwise. Pushing remains opt-in and must not occur without
+explicit authorization.
 
 ## Architecture Guards
 

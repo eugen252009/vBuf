@@ -1,6 +1,6 @@
 # Progressive Local Source Design Checklist
 
-Status: **STEP 31J POST-RESIDENCY ATTRIBUTION COMPLETE; RETENTION/OFFLINE COMPLETION PENDING**
+Status: **STEP 31K ROUTED-EXPERT ATTRIBUTION COMPLETE; RETENTION/OFFLINE COMPLETION PENDING**
 
 Step 31B decision: **SPARSE CANONICAL MIRROR + 4 KiB AUTHORITATIVE BITMAP**
 for the qualified single external payload source. Step 31C and the Step 31D
@@ -804,6 +804,21 @@ This is an ordered design checklist, not an implementation script.
 - [ ] Implement or optimize the next measured bottleneck; this is a separately
       authorized experiment after Step 31J.
 
+### Phase 10: Step 31K routed-expert gate/up attribution
+
+- [x] Distinguish one selected-expert logical invocation from its two gate/up
+      backend submissions and one down backend submission.
+- [x] Record bounded routed gate/up and down operation signatures including
+      dimensions, ranks, representations, payload bytes, and logical MACs.
+- [x] Record fixed-capacity per-submission compute samples and report aggregate
+      average, rounded minimum, and rounded maximum without a dynamic trace.
+- [x] Measure the canonical 2 GiB Android workload with zero remote bytes, zero
+      evictions, zero reacquisitions, and output parity.
+- [x] Keep graph/setup/readiness/result phases separate from backend compute and
+      report the observation cost of the expanded instrumentation.
+- [ ] Implement or optimize a gate/up alternative; this requires a separately
+      authorized experiment and is not part of Step 31K.
+
 ## 9. Qualification Matrix
 
 | Stage | Required proof | Must remain unchanged |
@@ -979,6 +994,7 @@ DOCUMENT_CREATED_OR_UPDATED:
   research/results/vbuf-android-demo-poc/step31d-bounded-acquisition.md
   research/results/vbuf-android-demo-poc/step31i-residency-curve-after-geometry-fix.md
   research/results/vbuf-android-demo-poc/step31j-post-residency-decode-attribution.md
+  research/results/vbuf-android-demo-poc/step31k-routed-expert-gate-up-attribution.md
 STEP_31B_REPRESENTATION: SPARSE_CANONICAL_MIRROR_WITH_4_KIB_BITMAP
 STEP_31C_IMPLEMENTATION: HOST_QUALIFIED
 STEP_31D_IMPLEMENTATION: HOST_QUALIFIED_1_MIB_DEMAND_WINDOWS
@@ -986,9 +1002,9 @@ STEP_31E_IMPLEMENTATION: MINIMAL_BUDGET_AND_REACQUISITION_COUNTER_SEAM
 PHYSICAL_ANDROID_QUALIFICATION: STEP_31D_COLD_WARM_STEP31E_ATTEMPT_AND_STEP31I_POST_FIX_CURVE
 PHYSICAL_ACQUISITION_LIMITATION: RESOLVED_BY_1_MIB_DEMAND_WINDOWS
 NEXT_SOURCE_EXPERIMENT: RETENTION_AND_OFFLINE_COMPLETION
-NEXT_DECODE_EXPERIMENT: ROUTED_EXPERT_GATE_UP_QUALIFICATION
+NEXT_DECODE_EXPERIMENT: SEPARATELY_AUTHORIZED_GATE_UP_IMPLEMENTATION_ALTERNATIVE
 RUNTIME_BEHAVIOR_CHANGED: NO
-COMMIT_PERFORMED: PENDING_STEP31J_COMMIT
+COMMIT_PERFORMED: PENDING_STEP31K_COMMIT
 ```
 
 ## Review Questions

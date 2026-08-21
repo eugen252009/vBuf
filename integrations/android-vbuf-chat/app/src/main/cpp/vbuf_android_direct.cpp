@@ -73,6 +73,47 @@ uint64_t android_now_ns() {
         std::chrono::steady_clock::now().time_since_epoch()).count());
 }
 
+const char * attribution_representation_name(uint8_t representation) {
+    switch (representation) {
+    case 0: return "F32";
+    case 4: return "Q2_K";
+    case 5: return "IQ1_S";
+    case 7: return "IQ4_NL";
+    case 10: return "IQ2_XXS";
+    case 13: return "Q5_K";
+    default: return "UNKNOWN";
+    }
+}
+
+std::string attribution_dimensions(const std::array<uint64_t, 4> & dimensions, uint8_t rank) {
+    std::string result;
+    for (uint8_t index = 0; index < rank && index < dimensions.size(); ++index) {
+        if (index != 0) result += "x";
+        result += std::to_string(dimensions[index]);
+    }
+    return result;
+}
+
+std::string attribution_signature_line(const char * role,
+    size_t index, const AttributionOperationSignature & signature) {
+    const uint64_t m = signature.input_rank >= 2 ? signature.input_dims[1] : 0;
+    const uint64_t n = signature.weight_rank >= 2 ? signature.weight_dims[1] : 0;
+    const uint64_t k = signature.input_rank >= 1 ? signature.input_dims[0] : 0;
+    return std::string("Attribution ") + role + " signature " + std::to_string(index) +
+        ": count=" + std::to_string(signature.count) +
+        " input_dims=" + attribution_dimensions(signature.input_dims, signature.input_rank) +
+        " weight_dims=" + attribution_dimensions(signature.weight_dims, signature.weight_rank) +
+        " output_dims=" + attribution_dimensions(signature.output_dims, signature.output_rank) +
+        " M=" + std::to_string(m) + " N=" + std::to_string(n) + " K=" + std::to_string(k) +
+        " weight_type=" + attribution_representation_name(signature.weight_representation) +
+        " input_type=" + attribution_representation_name(signature.input_representation) +
+        " output_type=" + attribution_representation_name(signature.output_representation) +
+        " weight_representation=" + std::to_string(signature.weight_representation) +
+        " weight_payload_bytes=" + std::to_string(signature.weight_payload_bytes) +
+        " logical_macs=" + std::to_string(signature.logical_macs) +
+        " logical_weight_bytes=" + std::to_string(signature.count * signature.weight_payload_bytes) + "\n";
+}
+
 uint64_t merge_key(uint32_t left, uint32_t right) {
     return (static_cast<uint64_t>(left) << 32) | right;
 }
@@ -599,6 +640,85 @@ public:
         const uint64_t unaccounted = nonnegative_difference(decode_wall_ns, top_level_accounted);
         const double accounted_percent = decode_wall_ns == 0 ? 0.0 :
             100.0 * static_cast<double>(decode_wall_ns - unaccounted) / decode_wall_ns;
+        size_t unique_routed_experts = 0;
+        for (uint64_t count : attribution.routed_expert_id_counts)
+            if (count != 0) ++unique_routed_experts;
+        const auto sample_min_ns = [](const auto & samples, uint32_t count) {
+            uint64_t value = 0;
+            for (uint32_t index = 0; index < count; ++index)
+                value = value == 0 ? samples[index] : std::min(value, samples[index]);
+            return value;
+        };
+        const auto sample_max_ns = [](const auto & samples, uint32_t count) {
+            uint64_t value = 0;
+            for (uint32_t index = 0; index < count; ++index)
+                value = std::max(value, samples[index]);
+            return value;
+        };
+        const uint64_t gate_up_compute_min_ns = sample_min_ns(
+            attribution.gate_up_compute_samples, attribution.gate_up_compute_sample_count);
+        const uint64_t gate_up_compute_max_ns = sample_max_ns(
+            attribution.gate_up_compute_samples, attribution.gate_up_compute_sample_count);
+        const uint64_t down_compute_min_ns = sample_min_ns(
+            attribution.down_compute_samples, attribution.down_compute_sample_count);
+        const uint64_t down_compute_max_ns = sample_max_ns(
+            attribution.down_compute_samples, attribution.down_compute_sample_count);
+        const uint64_t gate_up_phase_total_ns = attribution.gate_up_ready_ns +
+            attribution.gate_up_descriptor_setup_ns + attribution.gate_up_graph_build_ns +
+            attribution.gate_up_backend_allocation_ns + attribution.routed_expert_gate_up_compute_ns +
+            attribution.gate_up_result_handling_ns;
+        const uint64_t down_phase_total_ns = attribution.down_ready_ns +
+            attribution.down_descriptor_setup_ns + attribution.down_graph_build_ns +
+            attribution.down_backend_allocation_ns + attribution.routed_expert_down_compute_ns +
+            attribution.down_result_handling_ns;
+        std::string signature_metrics;
+        for (size_t index = 0; index < attribution.gate_up_signatures.size(); ++index) {
+            if (attribution.gate_up_signatures[index].count != 0)
+                signature_metrics += attribution_signature_line("gate/up", index,
+                    attribution.gate_up_signatures[index]);
+        }
+        for (size_t index = 0; index < attribution.down_signatures.size(); ++index) {
+            if (attribution.down_signatures[index].count != 0)
+                signature_metrics += attribution_signature_line("down", index,
+                    attribution.down_signatures[index]);
+        }
+        const std::string operation_metrics =
+            "Routed MoE layers: " + std::to_string(attribution.routed_moe_layer_count) + "\n" +
+            "Routed expert invocations: " + std::to_string(attribution.routed_expert_invocation_count) + "\n" +
+            "Routed expert unique IDs: " + std::to_string(unique_routed_experts) + "\n" +
+            "Gate/up logical invocations: " + std::to_string(attribution.gate_up_logical_invocations) + "\n" +
+            "Gate/up backend submissions: " + std::to_string(attribution.gate_up_backend_submissions) + "\n" +
+            "Gate matmul calls: " + std::to_string(attribution.gate_matmul_calls) + "\n" +
+            "Up matmul calls: " + std::to_string(attribution.up_matmul_calls) + "\n" +
+            "Gate matmul compute: " + std::to_string(attribution.gate_matmul_compute_ns / 1000000) + " ms\n" +
+            "Up matmul compute: " + std::to_string(attribution.up_matmul_compute_ns / 1000000) + " ms\n" +
+            "Down logical invocations: " + std::to_string(attribution.down_logical_invocations) + "\n" +
+            "Down backend submissions: " + std::to_string(attribution.down_backend_submissions) + "\n" +
+            "Gate/up phase total: " + std::to_string(gate_up_phase_total_ns / 1000000) + " ms\n" +
+            "Gate/up ready: " + std::to_string(attribution.gate_up_ready_ns / 1000000) + " ms\n" +
+            "Gate/up descriptor setup: " + std::to_string(attribution.gate_up_descriptor_setup_ns / 1000000) + " ms\n" +
+            "Gate/up graph build: " + std::to_string(attribution.gate_up_graph_build_ns / 1000000) + " ms\n" +
+            "Gate/up backend allocation: " + std::to_string(attribution.gate_up_backend_allocation_ns / 1000000) + " ms\n" +
+            "Gate/up compute: " + std::to_string(attribution.routed_expert_gate_up_compute_ns / 1000000) + " ms\n" +
+            "Gate/up compute samples: " + std::to_string(attribution.gate_up_compute_sample_count) + "\n" +
+            "Gate/up compute avg: " + std::to_string(attribution.gate_up_compute_sample_count == 0 ? 0 :
+                attribution.routed_expert_gate_up_compute_ns / attribution.gate_up_compute_sample_count / 1000000) + " ms\n" +
+            "Gate/up compute min: " + std::to_string(gate_up_compute_min_ns / 1000000) + " ms\n" +
+            "Gate/up compute max: " + std::to_string(gate_up_compute_max_ns / 1000000) + " ms\n" +
+            "Gate/up result handling: " + std::to_string(attribution.gate_up_result_handling_ns / 1000000) + " ms\n" +
+            "Down phase total: " + std::to_string(down_phase_total_ns / 1000000) + " ms\n" +
+            "Down ready: " + std::to_string(attribution.down_ready_ns / 1000000) + " ms\n" +
+            "Down descriptor setup: " + std::to_string(attribution.down_descriptor_setup_ns / 1000000) + " ms\n" +
+            "Down graph build: " + std::to_string(attribution.down_graph_build_ns / 1000000) + " ms\n" +
+            "Down backend allocation: " + std::to_string(attribution.down_backend_allocation_ns / 1000000) + " ms\n" +
+            "Down compute: " + std::to_string(attribution.routed_expert_down_compute_ns / 1000000) + " ms\n" +
+            "Down compute samples: " + std::to_string(attribution.down_compute_sample_count) + "\n" +
+            "Down compute avg: " + std::to_string(attribution.down_compute_sample_count == 0 ? 0 :
+                attribution.routed_expert_down_compute_ns / attribution.down_compute_sample_count / 1000000) + " ms\n" +
+            "Down compute min: " + std::to_string(down_compute_min_ns / 1000000) + " ms\n" +
+            "Down compute max: " + std::to_string(down_compute_max_ns / 1000000) + " ms\n" +
+            "Down result handling: " + std::to_string(attribution.down_result_handling_ns / 1000000) + " ms\n" +
+            "Descriptor setup total: " + std::to_string(attribution.descriptor_setup_ns / 1000000) + " ms\n";
         return "Model: DeepSeek-V2-Lite IQ2_XXS\n"
             "Residency budget bytes: " + std::to_string(RESIDENCY_BUDGET) + "\n"
             "Runtime mode: " + std::string(mode_ == RuntimeMode::Qualification
@@ -664,6 +784,7 @@ public:
             "Attribution graph allocation: " + std::to_string(attribution.graph_allocation_ns / 1000000) + " ms\n"
             "Attribution backend compute: " + std::to_string(attribution.backend_compute_ns / 1000000) + " ms\n"
             "Attribution result handling: " + std::to_string(attribution.result_handling_ns / 1000000) + " ms\n"
+            + operation_metrics + signature_metrics +
             "Tokens/sec: " + std::to_string(tokens_per_second) + "\n"
             "HTTP requests: " + std::to_string(transport.requests) + "\n"
             "Returned bytes: " + std::to_string(transport.bytes) + "\n"
@@ -754,7 +875,13 @@ private:
             " attribution_graph_allocation=" +
             std::to_string(attribution.graph_allocation_ns / 1000000) +
             " attribution_result=" +
-            std::to_string(attribution.result_handling_ns / 1000000) + " ms";
+            std::to_string(attribution.result_handling_ns / 1000000) +
+            " ms gate_up_invocations=" + std::to_string(attribution.gate_up_logical_invocations) +
+            " gate_up_submissions=" + std::to_string(attribution.gate_up_backend_submissions) +
+            " gate_up_compute=" + std::to_string(attribution.routed_expert_gate_up_compute_ns / 1000000) +
+            " ms down_invocations=" + std::to_string(attribution.down_logical_invocations) +
+            " down_submissions=" + std::to_string(attribution.down_backend_submissions) +
+            " down_compute=" + std::to_string(attribution.routed_expert_down_compute_ns / 1000000) + " ms";
     }
 
     void reset_state() {

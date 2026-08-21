@@ -105,6 +105,13 @@ struct ExpertGraph {
     uint32_t down = UINT32_MAX;
 };
 
+std::array<uint64_t, 4> copied_dimensions(const VbufTensorView & view) {
+    std::array<uint64_t, 4> result{};
+    for (uint8_t index = 0; index < view.rank && index < result.size(); ++index)
+        result[index] = view.dimensions[index];
+    return result;
+}
+
 struct RunResult {
     AdapterError error = AdapterError::None;
     std::string detail;
@@ -287,6 +294,28 @@ RunResult execute_expert(ExpertGraph & graph, const VbufTensorView & input,
             static_cast<uint64_t>(address - base), lease };
     };
     const TensorWaveGraphView view = graph.executor->graph_view();
+    if (timing != nullptr && attribution_stage == AttributionStage::RoutedExpert) {
+        const std::array<uint64_t, 4> input_dims = copied_dimensions(input);
+        for (const TensorWaveOp & operation : view.operations) {
+            if (operation.op_id != "expert_gate_matmul" && operation.op_id != "expert_up_matmul" &&
+                operation.op_id != "expert_down_matmul") continue;
+            if (operation.inputs.size() < 2 ||
+                operation.inputs[0].kind != TensorWaveRef::Kind::Persistent ||
+                operation.inputs[1].kind != TensorWaveRef::Kind::Value) continue;
+            const VbufTensorView & weight = view.persistent[operation.inputs[0].index].view;
+            std::array<uint64_t, 4> operation_input_dims = input_dims;
+            if (operation.op_id == "expert_down_matmul" && weight.rank >= 1)
+                operation_input_dims[0] = weight.dimensions[0];
+            std::array<uint64_t, 4> output_dims{};
+            if (weight.rank >= 2 && input.rank >= 2) {
+                output_dims[0] = weight.dimensions[1];
+                output_dims[1] = input.dimensions[1];
+            }
+            timing->record_operation_signature(operation.op_id, input.rank, operation_input_dims,
+                input.representation, weight.rank, copied_dimensions(weight), weight.representation,
+                weight.payload_len, 2, output_dims, 0);
+        }
+    }
     const PrefetchPlanner planner;
     const auto observer = [&](const TensorWavePlannerState & state) {
         if (materializer == nullptr) return;

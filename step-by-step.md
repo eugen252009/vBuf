@@ -2456,6 +2456,22 @@ measurable at `4,718 ms`. Evidence:
 Step 31J changes only bounded observation and reporting. Do not optimize the
 measured gate/up component in this step.
 
+#### Step 31K — Routed-expert gate/up attribution
+
+**Status: PHYSICALLY MEASURED; ATTRIBUTION COMPLETE; NO OPTIMIZATION IMPLEMENTED.**
+Step 31K refined the Step 31J routed-expert result with logical invocation versus
+backend-submission counters, bounded shape/representation signatures, and fixed
+capacity compute samples. The canonical 2 GiB run again produced `----` with zero
+remote bytes, zero evictions, and zero reacquisitions. It measured 624 selected
+experts, 1,248 gate/up matmul submissions, and 624 down submissions. Gate/up
+compute was `10,163 ms` versus `4,888 ms` for down; the per-submission averages
+were `8.14 ms` and `7.83 ms`, respectively. Evidence:
+`research/results/vbuf-android-demo-poc/step31k-routed-expert-gate-up-attribution.md`.
+
+Step 31K changes only bounded observation and reporting. Do not implement or
+optimize a grouped gate/up path, change kernels, tune threads, change
+quantization, reuse graphs, prefetch experts, or change residency in this step.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

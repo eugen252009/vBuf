@@ -135,6 +135,7 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
     result.residency_events_before = residency->trace().size();
     for (size_t rank = 0; rank < selection.ids.size(); ++rank) {
         const uint32_t expert = selection.ids[rank];
+        if (timing != nullptr) timing->record_routed_expert_invocation(expert);
         const ExpertTensor gate = make_expert(lookup(metadata, "blk.1.ffn_gate_exps.weight"), expert);
         const ExpertTensor up = make_expert(lookup(metadata, "blk.1.ffn_up_exps.weight"), expert);
         const ExpertTensor down = make_expert(lookup(metadata, "blk.1.ffn_down_exps.weight"), expert);

@@ -290,7 +290,6 @@ AdapterError TensorDependencyExecutor::execute(
         report->peak_active_weight_bytes = std::max(report->peak_active_weight_bytes,
             active_weight_bytes);
 
-        if (execution_observer) execution_observer(operation.op_id.c_str(), "graph_build_start");
         ggml_init_params params{};
         params.mem_size = 8 * 1024 * 1024;
         params.mem_buffer = nullptr;
@@ -305,6 +304,7 @@ AdapterError TensorDependencyExecutor::execute(
         std::vector<std::unique_ptr<BorrowedGgmlTensor>> borrowed;
         std::unordered_map<uint32_t, ggml_tensor *> tensors;
         ggml_backend_t backend = nullptr;
+        if (execution_observer) execution_observer(operation.op_id.c_str(), "descriptor_setup_start");
         for (const TensorWaveRef & input_ref : operation.inputs) {
             const VbufTensorView * view = nullptr;
             VbufTensorView materialized_view{};
@@ -430,6 +430,7 @@ AdapterError TensorDependencyExecutor::execute(
             tensors.emplace(static_cast<uint32_t>(&input_ref - operation.inputs.data()), tensor->tensor());
             borrowed.push_back(std::move(tensor));
         }
+        if (execution_observer) execution_observer(operation.op_id.c_str(), "descriptor_setup_end");
         if (std::getenv("VBUF_AUDIT_FFN_NORM") != nullptr && operation.op_id == "ffn_rms_norm") {
             std::vector<float> input_values(ggml_nelements(tensors.at(0)));
             ggml_backend_tensor_get(tensors.at(0), input_values.data(), 0, input_values.size() * sizeof(float));
@@ -437,6 +438,7 @@ AdapterError TensorDependencyExecutor::execute(
                 input_values[0], input_values[1], input_values[2], input_values[3], input_values[4], input_values[5], input_values[6], input_values[7]);
         }
 
+        if (execution_observer) execution_observer(operation.op_id.c_str(), "graph_build_start");
         ggml_tensor * result = nullptr;
         if (operation.kind == TensorWaveOpKind::RmsNorm) {
             result = ggml_mul(context, ggml_rms_norm(context, tensors.at(0), operation.parameter),
