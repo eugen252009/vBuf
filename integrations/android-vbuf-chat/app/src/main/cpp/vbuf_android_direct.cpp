@@ -694,6 +694,12 @@ public:
             "Up matmul compute: " + std::to_string(attribution.up_matmul_compute_ns / 1000000) + " ms\n" +
             "Down logical invocations: " + std::to_string(attribution.down_logical_invocations) + "\n" +
             "Down backend submissions: " + std::to_string(attribution.down_backend_submissions) + "\n" +
+            "Indexed expert layers: " + std::to_string(timing_.indexed_expert_layer_count) + "\n" +
+            "Indexed expert bank submissions: " + std::to_string(timing_.indexed_expert_bank_submissions) + "\n" +
+            "Indexed expert logical slots: " + std::to_string(timing_.indexed_expert_logical_slots) + "\n" +
+            "Indexed expert compute: " + std::to_string(timing_.indexed_expert_compute_ns / 1000000) + " ms\n" +
+            "Indexed expert materialized bytes: " + std::to_string(timing_.indexed_expert_materialized_bytes) + "\n" +
+            "Indexed expert repack bytes: " + std::to_string(timing_.indexed_expert_repack_bytes) + "\n" +
             "Gate/up phase total: " + std::to_string(gate_up_phase_total_ns / 1000000) + " ms\n" +
             "Gate/up ready: " + std::to_string(attribution.gate_up_ready_ns / 1000000) + " ms\n" +
             "Gate/up descriptor setup: " + std::to_string(attribution.gate_up_descriptor_setup_ns / 1000000) + " ms\n" +
@@ -881,7 +887,9 @@ private:
             " gate_up_compute=" + std::to_string(attribution.routed_expert_gate_up_compute_ns / 1000000) +
             " ms down_invocations=" + std::to_string(attribution.down_logical_invocations) +
             " down_submissions=" + std::to_string(attribution.down_backend_submissions) +
-            " down_compute=" + std::to_string(attribution.routed_expert_down_compute_ns / 1000000) + " ms";
+            " down_compute=" + std::to_string(attribution.routed_expert_down_compute_ns / 1000000) +
+            " ms indexed_layers=" + std::to_string(attribution.indexed_expert_layer_count) +
+            " indexed_slots=" + std::to_string(attribution.indexed_expert_logical_slots);
     }
 
     void reset_state() {

@@ -6,11 +6,17 @@
 #undef VBUF_POC13_LIBRARY_ONLY
 
 #include "vbuf_runtime_mode.h"
+#include "vbuf_indexed_expert.h"
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <map>
 #include <set>
+
+#include "ggml-backend.h"
+#include "ggml-cpu.h"
+#include "ggml.h"
 
 namespace {
 
@@ -168,6 +174,194 @@ RunResult execute_router_batch(RouterGraph & graph, const Activation & input,
     TensorMaterializer * materializer) {
     return execute(graph, input.view(), lease, materializer);
 }
+
+#ifdef VBUF_ANDROID_INDEXED_EXPERT
+
+struct IndexedBankExecution {
+    std::vector<float> output;
+    uint64_t elapsed_ns = 0;
+};
+
+void indexed_bank_payload_view(const PersistentTensorRef & bank,
+    const MaterializedPayload & payload, VbufTensorView * view) {
+    if (view == nullptr) throw std::runtime_error("indexed bank view output is null");
+    *view = bank.view;
+    view->payload = payload.data();
+}
+
+IndexedBankExecution execute_indexed_expert_banks(
+    const PersistentTensorRef & gate_bank, const PersistentTensorRef & up_bank,
+    const PersistentTensorRef & down_bank, const Activation & normalized,
+    const std::vector<TopKSelection> & selections,
+    const std::vector<std::vector<float>> & weights,
+    const std::shared_ptr<ResidentTensorMaterializer> & materializer,
+    const std::shared_ptr<TensorResidencyStore> & residency,
+    uint32_t materializer_base, RuntimeTiming * timing) {
+    constexpr uint32_t top_k = 6;
+    if (normalized.dimensions.size() < 2 || normalized.dimensions[1] != selections.size() ||
+        selections.size() != weights.size() || selections.empty())
+        throw std::runtime_error("indexed MoE batch geometry mismatch");
+    const uint32_t width = static_cast<uint32_t>(normalized.dimensions[0]);
+    const size_t rows = selections.size();
+    for (size_t row = 0; row < rows; ++row) {
+        if (selections[row].ids.size() != top_k || weights[row].size() != top_k)
+            throw std::runtime_error("indexed MoE TopK width mismatch");
+    }
+
+    const MaterializedPayload gate_payload = materialized_payload(materializer.get(),
+        materializer_base, gate_bank, residency->max_resident_bytes());
+    const MaterializedPayload up_payload = materialized_payload(materializer.get(),
+        materializer_base + 1, up_bank, residency->max_resident_bytes());
+    const MaterializedPayload down_payload = materialized_payload(materializer.get(),
+        materializer_base + 2, down_bank, residency->max_resident_bytes());
+    if (timing != nullptr) timing->indexed_expert_materialized_bytes +=
+        gate_bank.view.payload_len + up_bank.view.payload_len + down_bank.view.payload_len;
+    VbufTensorView gate_view{}, up_view{}, down_view{};
+    indexed_bank_payload_view(gate_bank, gate_payload, &gate_view);
+    indexed_bank_payload_view(up_bank, up_payload, &up_view);
+    indexed_bank_payload_view(down_bank, down_payload, &down_view);
+
+    std::vector<IndexedExpertLowering> gate_plans(rows), up_plans(rows), down_plans(rows);
+    for (size_t row = 0; row < rows; ++row) {
+        std::string error;
+        if (!lower_indexed_expert_bank(gate_bank, selections[row], weights[row],
+                IndexedExpertExecutionCapability::IndexedBank, &gate_plans[row], &error) ||
+            !lower_indexed_expert_bank(up_bank, selections[row], weights[row],
+                IndexedExpertExecutionCapability::IndexedBank, &up_plans[row], &error) ||
+            !lower_indexed_expert_bank(down_bank, selections[row], weights[row],
+                IndexedExpertExecutionCapability::IndexedBank, &down_plans[row], &error))
+            throw std::runtime_error("indexed MoE lowering failed: " + error);
+    }
+
+    const size_t slots = rows * top_k;
+    const std::vector<float> & input_values = normalized.values;
+    std::vector<int32_t> ids(slots);
+    for (size_t row = 0; row < rows; ++row) {
+        for (size_t rank = 0; rank < top_k; ++rank) {
+            ids[row * top_k + rank] = static_cast<int32_t>(selections[row].ids[rank]);
+        }
+    }
+
+    ggml_init_params params{ 64 * 1024 * 1024, nullptr, true };
+    ggml_context * context = ggml_init(params);
+    if (context == nullptr) throw std::runtime_error("indexed MoE ggml context allocation failed");
+    ggml_backend_t backend = nullptr;
+    ggml_backend_buffer_t gate_buffer = nullptr;
+    ggml_backend_buffer_t up_buffer = nullptr;
+    ggml_backend_buffer_t down_buffer = nullptr;
+    ggml_backend_buffer_t compute = nullptr;
+    try {
+        const auto descriptor = [](const VbufTensorView & view) {
+            AdapterError error = AdapterError::None;
+            std::string detail;
+            auto result = BorrowedGgmlTensor::create(view, &error, &detail);
+            if (!result) throw std::runtime_error("indexed bank descriptor failed: " + detail);
+            return result->tensor()->type;
+        };
+        const ggml_type gate_type = descriptor(gate_view);
+        const ggml_type up_type = descriptor(up_view);
+        const ggml_type down_type = descriptor(down_view);
+        ggml_tensor * gate = ggml_new_tensor_3d(context, gate_type,
+            gate_view.dimensions[0], gate_view.dimensions[1], gate_view.dimensions[2]);
+        ggml_tensor * up = ggml_new_tensor_3d(context, up_type,
+            up_view.dimensions[0], up_view.dimensions[1], up_view.dimensions[2]);
+        ggml_tensor * down = ggml_new_tensor_3d(context, down_type,
+            down_view.dimensions[0], down_view.dimensions[1], down_view.dimensions[2]);
+        ggml_tensor * input = ggml_new_tensor_3d(context, GGML_TYPE_F32, width, 1, rows);
+        ggml_tensor * indexed_ids = ggml_new_tensor_2d(context, GGML_TYPE_I32, top_k, rows);
+        if (gate == nullptr || up == nullptr || down == nullptr || input == nullptr ||
+            indexed_ids == nullptr)
+            throw std::runtime_error("indexed MoE tensor construction failed");
+
+        backend = ggml_backend_init_by_type(GGML_BACKEND_DEVICE_TYPE_CPU, nullptr);
+        if (backend == nullptr) throw std::runtime_error("indexed MoE CPU backend unavailable");
+        gate_buffer = ggml_backend_cpu_buffer_from_ptr(
+            const_cast<uint8_t *>(gate_payload.data()), gate_view.payload_len);
+        up_buffer = ggml_backend_cpu_buffer_from_ptr(
+            const_cast<uint8_t *>(up_payload.data()), up_view.payload_len);
+        down_buffer = ggml_backend_cpu_buffer_from_ptr(
+            const_cast<uint8_t *>(down_payload.data()), down_view.payload_len);
+        if (gate_buffer == nullptr || up_buffer == nullptr || down_buffer == nullptr ||
+            ggml_backend_tensor_alloc(gate_buffer, gate, const_cast<uint8_t *>(gate_payload.data())) != GGML_STATUS_SUCCESS ||
+            ggml_backend_tensor_alloc(up_buffer, up, const_cast<uint8_t *>(up_payload.data())) != GGML_STATUS_SUCCESS ||
+            ggml_backend_tensor_alloc(down_buffer, down, const_cast<uint8_t *>(down_payload.data())) != GGML_STATUS_SUCCESS)
+            throw std::runtime_error("indexed MoE bank binding failed");
+        ggml_tensor * gate_out = ggml_mul_mat_id(context, gate, input, indexed_ids);
+        ggml_tensor * up_out = ggml_mul_mat_id(context, up, input, indexed_ids);
+        ggml_tensor * activated = gate_out == nullptr || up_out == nullptr
+            ? nullptr : ggml_swiglu_split(context, gate_out, up_out);
+        ggml_tensor * down_out = activated == nullptr
+            ? nullptr : ggml_mul_mat_id(context, down, activated, indexed_ids);
+        if (down_out == nullptr) throw std::runtime_error("indexed MoE graph construction failed");
+        ggml_cgraph * graph = ggml_new_graph(context);
+        if (graph == nullptr) throw std::runtime_error("indexed MoE graph allocation failed");
+        ggml_build_forward_expand(graph, down_out);
+        compute = ggml_backend_alloc_ctx_tensors(context, backend);
+        if (compute != nullptr) {
+            ggml_backend_tensor_set(input, input_values.data(), 0,
+                input_values.size() * sizeof(float));
+            ggml_backend_tensor_set(indexed_ids, ids.data(), 0,
+                ids.size() * sizeof(int32_t));
+        }
+        const uint64_t compute_start = clock_ns();
+        if (compute == nullptr || ggml_backend_graph_compute(backend, graph) != GGML_STATUS_SUCCESS)
+            throw std::runtime_error("indexed MoE graph execution failed");
+        ggml_backend_synchronize(backend);
+        const uint64_t compute_elapsed = clock_ns() - compute_start;
+        std::vector<float> slot_outputs(static_cast<size_t>(ggml_nelements(down_out)));
+        ggml_backend_tensor_get(down_out, slot_outputs.data(), 0,
+            slot_outputs.size() * sizeof(float));
+        if (slot_outputs.size() != slots * width)
+            throw std::runtime_error("indexed MoE output geometry mismatch");
+
+        IndexedBankExecution result;
+        result.output.assign(rows * width, 0.0f);
+        for (size_t row = 0; row < rows; ++row) {
+            for (size_t rank = 0; rank < top_k; ++rank) {
+                const float weight = weights[row][rank];
+                const size_t source = (row * top_k + rank) * width;
+                const size_t destination = row * width;
+                for (size_t index = 0; index < width; ++index)
+                    result.output[destination + index] += slot_outputs[source + index] * weight;
+            }
+        }
+        result.elapsed_ns = compute_elapsed;
+        if (timing != nullptr) {
+            ++timing->indexed_expert_layer_count;
+            timing->indexed_expert_bank_submissions += 3;
+            timing->indexed_expert_logical_slots += slots;
+            timing->indexed_expert_compute_ns += compute_elapsed;
+        }
+        if (compute != nullptr) ggml_backend_buffer_free(compute);
+        if (gate_buffer != nullptr) ggml_backend_buffer_free(gate_buffer);
+        if (up_buffer != nullptr) ggml_backend_buffer_free(up_buffer);
+        if (down_buffer != nullptr) ggml_backend_buffer_free(down_buffer);
+        if (backend != nullptr) ggml_backend_free(backend);
+        ggml_free(context);
+        return result;
+    } catch (...) {
+        if (compute != nullptr) ggml_backend_buffer_free(compute);
+        if (gate_buffer != nullptr) ggml_backend_buffer_free(gate_buffer);
+        if (up_buffer != nullptr) ggml_backend_buffer_free(up_buffer);
+        if (down_buffer != nullptr) ggml_backend_buffer_free(down_buffer);
+        if (backend != nullptr) ggml_backend_free(backend);
+        ggml_free(context);
+        throw;
+    }
+}
+
+std::vector<float> execute_indexed_expert_banks_for_layer(
+    const PersistentTensorRef & gate_bank, const PersistentTensorRef & up_bank,
+    const PersistentTensorRef & down_bank, const Activation & normalized,
+    const TopKSelection & selection, const std::vector<float> & weights,
+    const std::shared_ptr<ResidentTensorMaterializer> & materializer,
+    const std::shared_ptr<TensorResidencyStore> & residency,
+    uint32_t materializer_base, RuntimeTiming * timing) {
+    return execute_indexed_expert_banks(gate_bank, up_bank, down_bank, normalized,
+        { selection }, { weights }, materializer, residency, materializer_base, timing).output;
+}
+
+#endif
 
 uint32_t trace_block(uint32_t ref) {
     if (ref >= 100000) return ref / 100000;
@@ -615,8 +809,10 @@ std::vector<Activation> run_dense_layer_batch(const LayerPlan & plan,
 std::vector<Activation> run_moe_layer_batch(const LayerPlan & plan,
     const std::vector<Activation> & inputs, const std::shared_ptr<const void> & lease,
     const std::shared_ptr<ResidentTensorMaterializer> & materializer,
-    const std::shared_ptr<TensorResidencyStore> & residency) {
+    const std::shared_ptr<TensorResidencyStore> & residency,
+    RuntimeTiming * timing = nullptr) {
     if (inputs.empty()) return {};
+    if (timing != nullptr) ++timing->routed_moe_layer_count;
     constexpr uint32_t width = 2048;
     constexpr uint32_t experts = 64;
     constexpr uint32_t top_k = 6;
@@ -654,11 +850,18 @@ std::vector<Activation> run_moe_layer_batch(const LayerPlan & plan,
         for (uint32_t expert : selections[row].ids) rows_by_expert[expert].push_back(row);
     }
 
-    std::vector<std::vector<float>> routed_by_expert(experts,
-        std::vector<float>(inputs.size() * width, 0.0f));
     const Meta gate_meta = lookup(plan.metadata, "blk.1.ffn_gate_exps.weight");
     const Meta up_meta = lookup(plan.metadata, "blk.1.ffn_up_exps.weight");
     const Meta down_meta = lookup(plan.metadata, "blk.1.ffn_down_exps.weight");
+    std::vector<float> routed(inputs.size() * width, 0.0f);
+#ifdef VBUF_ANDROID_INDEXED_EXPERT
+    const IndexedBankExecution indexed = execute_indexed_expert_banks(
+        full_ref(gate_meta), full_ref(up_meta), full_ref(down_meta), normalized,
+        selections, weights, materializer, residency, plan.namespace_base + 800, timing);
+    routed = indexed.output;
+#else
+    std::vector<std::vector<float>> routed_by_expert(experts,
+        std::vector<float>(inputs.size() * width, 0.0f));
     for (uint32_t expert = 0; expert < experts; ++expert) {
         if (rows_by_expert[expert].empty()) continue;
         const ExpertTensor gate = make_expert(gate_meta, expert);
@@ -684,7 +887,6 @@ std::vector<Activation> run_moe_layer_batch(const LayerPlan & plan,
         }
     }
 
-    std::vector<float> routed(inputs.size() * width, 0.0f);
     for (size_t row = 0; row < inputs.size(); ++row) {
         std::vector<std::vector<float>> values;
         values.reserve(selections[row].ids.size());
@@ -697,6 +899,7 @@ std::vector<Activation> run_moe_layer_batch(const LayerPlan & plan,
             throw std::runtime_error("batched routed merge failed: " + merge_error);
         std::copy(merged.begin(), merged.end(), routed.begin() + row * width);
     }
+#endif
 
     const ExpertTensor shared_gate = shared_tensor(lookup(plan.metadata, "blk.1.ffn_gate_shexp.weight"));
     const ExpertTensor shared_up = shared_tensor(lookup(plan.metadata, "blk.1.ffn_up_shexp.weight"));
@@ -755,7 +958,8 @@ std::vector<Activation> run_sequence_batched(const std::vector<LayerPlan> & plan
             current = run_dense_layer_batch(plans[layer], attention_outputs, lease, materializer, residency);
         } else {
             const uint64_t router_moe_start = clock_ns();
-            current = run_moe_layer_batch(plans[layer], attention_outputs, lease, materializer, residency);
+            current = run_moe_layer_batch(plans[layer], attention_outputs, lease, materializer,
+                residency, timing);
             if (timing != nullptr) timing->actual_router_moe_ns += clock_ns() - router_moe_start;
         }
         if (timing != nullptr) timing->actual_ffn_ns += clock_ns() - ffn_start;

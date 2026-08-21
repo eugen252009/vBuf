@@ -21,12 +21,21 @@ android {
         val remoteUrl = (project.findProperty("vbufRemoteUrl") as String?) ?: ""
         val residencyBudgetBytes = (project.findProperty("vbufResidencyBudgetBytes") as String?)
             ?: "268435456"
+        val indexedExpert = (project.findProperty("vbufIndexedExpert") as String?) ?: "false"
+        val qualification = (project.findProperty("vbufQualification") as String?) ?: "false"
         require(residencyBudgetBytes.matches(Regex("[1-9][0-9]*"))) {
             "vbufResidencyBudgetBytes must be a positive decimal byte count"
+        }
+        require(indexedExpert == "true" || indexedExpert == "false") {
+            "vbufIndexedExpert must be true or false"
+        }
+        require(qualification == "true" || qualification == "false") {
+            "vbufQualification must be true or false"
         }
         buildTypes {
             getByName("debug") {
                 buildConfigField("String", "VBUF_REMOTE_URL", "\"${remoteUrl.replace("\\\"", "\\\\\"")}\"")
+                buildConfigField("boolean", "VBUF_QUALIFICATION", qualification)
             }
         }
 
@@ -46,6 +55,8 @@ android {
                 arguments += "-DGGML_OPENMP=OFF"
                 arguments += "-DANDROID_STL=c++_shared"
                 arguments += "-DVBUF_RESIDENCY_BUDGET_BYTES=$residencyBudgetBytes"
+                arguments += "-DVBUF_ANDROID_INDEXED_EXPERT=$indexedExpert"
+                arguments += "-DVBUF_ANDROID_QUALIFICATION=$qualification"
             }
         }
     }

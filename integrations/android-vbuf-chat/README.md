@@ -83,6 +83,12 @@ qualification build may vary only that numeric budget with, for example,
 `-PvbufResidencyBudgetBytes=536870912`; the residency algorithm and policy stay
 unchanged.
 
+The indexed expert-bank adapter is opt-in with `-PvbufIndexedExpert=true`.
+It is used for batched prompt prefill; autoregressive decode keeps the selected
+rank-2 expert fallback because full-bank materialization is not economical for
+one-row work. `-PvbufQualification=true` remains the serial reference-control
+switch.
+
 Use `adb reverse tcp:18124 tcp:18124` for the canonical local range server.
 
 ## Scope

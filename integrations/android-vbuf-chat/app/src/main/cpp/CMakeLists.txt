@@ -7,6 +7,8 @@ set(VBUF_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../../..")
 set(GGML_SRC "/tmp/llama.cpp-step21/ggml" CACHE PATH "Pinned ggml checkout")
 set(VBUF_RUST_LIB "${CMAKE_CURRENT_LIST_DIR}/../jniLibs/arm64-v8a/libvbuf_ml.so" CACHE FILEPATH "Android vbuf-ml cdylib")
 set(VBUF_RESIDENCY_BUDGET_BYTES "268435456" CACHE STRING "vBuf-ML active residency budget")
+option(VBUF_ANDROID_INDEXED_EXPERT "Enable the opt-in indexed expert-bank adapter" OFF)
+option(VBUF_ANDROID_QUALIFICATION "Enable serial Android qualification mode" OFF)
 
 if(NOT VBUF_RESIDENCY_BUDGET_BYTES MATCHES "^[1-9][0-9]*$")
     message(FATAL_ERROR "VBUF_RESIDENCY_BUDGET_BYTES must be a positive decimal byte count")
@@ -50,7 +52,8 @@ add_library(vbuf_region_executor STATIC
     "${VBUF_ROOT}/integrations/ggml/src/vbuf_striped_materializer.cpp"
     "${VBUF_ROOT}/integrations/ggml/src/vbuf_topk.cpp"
     "${VBUF_ROOT}/integrations/ggml/src/vbuf_weighted_merge.cpp"
-    "${VBUF_ROOT}/integrations/ggml/src/vbuf_runtime_state.cpp")
+    "${VBUF_ROOT}/integrations/ggml/src/vbuf_runtime_state.cpp"
+    "${VBUF_ROOT}/integrations/ggml/src/vbuf_indexed_expert.cpp")
 target_compile_features(vbuf_region_executor PUBLIC cxx_std_17)
 target_include_directories(vbuf_region_executor PUBLIC
     "${VBUF_ROOT}/integrations/ggml/include"
@@ -73,4 +76,6 @@ target_link_libraries(vbuf_android_chat
     android
     c++_shared)
 target_compile_definitions(vbuf_android_chat PRIVATE
-    VBUF_RESIDENCY_BUDGET_BYTES=${VBUF_RESIDENCY_BUDGET_BYTES})
+    VBUF_RESIDENCY_BUDGET_BYTES=${VBUF_RESIDENCY_BUDGET_BYTES}
+    $<$<BOOL:${VBUF_ANDROID_INDEXED_EXPERT}>:VBUF_ANDROID_INDEXED_EXPERT>
+    $<$<BOOL:${VBUF_ANDROID_QUALIFICATION}>:VBUF_ANDROID_QUALIFICATION>)

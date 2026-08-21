@@ -79,8 +79,9 @@ private:
 };
 
 MaterializedPayload materialized_payload(TensorMaterializer * materializer,
-    uint32_t ref, const PersistentTensorRef & tensor) {
-    if (materializer == nullptr || !materializer->request(ref, tensor, tensor.view.payload_len) ||
+    uint32_t ref, const PersistentTensorRef & tensor, uint64_t byte_budget = 0) {
+    if (byte_budget == 0) byte_budget = tensor.view.payload_len;
+    if (materializer == nullptr || !materializer->request(ref, tensor, byte_budget) ||
         materializer->wait(ref) != MaterializationState::Ready) {
         throw std::runtime_error("reference payload materialization failed");
     }

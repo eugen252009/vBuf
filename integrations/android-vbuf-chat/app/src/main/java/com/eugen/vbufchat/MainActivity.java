@@ -84,7 +84,8 @@ public final class MainActivity extends Activity {
         status.setText("Opening model · semantic discovery");
         File model = modelFile();
         worker.execute(() -> {
-            String result = NativeInference.open(model.getAbsolutePath(), BuildConfig.VBUF_REMOTE_URL, false);
+            String result = NativeInference.open(model.getAbsolutePath(), BuildConfig.VBUF_REMOTE_URL,
+                    BuildConfig.VBUF_QUALIFICATION);
             runOnUiThread(() -> {
                 final boolean ready = result.startsWith("OPEN_OK");
                 if (ready) appStartToReadyMs = SystemClock.elapsedRealtime() - appStartMs;

@@ -121,6 +121,12 @@ struct RuntimeTiming {
     uint64_t down_graph_build_ns = 0;
     uint64_t down_backend_allocation_ns = 0;
     uint64_t down_result_handling_ns = 0;
+    uint64_t indexed_expert_layer_count = 0;
+    uint64_t indexed_expert_bank_submissions = 0;
+    uint64_t indexed_expert_logical_slots = 0;
+    uint64_t indexed_expert_compute_ns = 0;
+    uint64_t indexed_expert_materialized_bytes = 0;
+    uint64_t indexed_expert_repack_bytes = 0;
     std::array<AttributionOperationSignature, 4> gate_up_signatures{};
     std::array<AttributionOperationSignature, 4> down_signatures{};
     std::array<uint64_t, MAX_GATE_UP_COMPUTE_SAMPLES> gate_up_compute_samples{};
@@ -322,6 +328,12 @@ struct RuntimeTiming {
         VBUF_TIMING_FIELD(down_graph_build_ns);
         VBUF_TIMING_FIELD(down_backend_allocation_ns);
         VBUF_TIMING_FIELD(down_result_handling_ns);
+        VBUF_TIMING_FIELD(indexed_expert_layer_count);
+        VBUF_TIMING_FIELD(indexed_expert_bank_submissions);
+        VBUF_TIMING_FIELD(indexed_expert_logical_slots);
+        VBUF_TIMING_FIELD(indexed_expert_compute_ns);
+        VBUF_TIMING_FIELD(indexed_expert_materialized_bytes);
+        VBUF_TIMING_FIELD(indexed_expert_repack_bytes);
 #undef VBUF_TIMING_FIELD
         for (size_t index = 0; index < routed_expert_id_counts.size(); ++index)
             update(&routed_expert_id_counts[index], other.routed_expert_id_counts[index]);
