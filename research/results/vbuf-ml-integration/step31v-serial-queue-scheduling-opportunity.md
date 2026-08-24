@@ -186,8 +186,8 @@ wait was `3966.711 ms` and the pair makespan was `8856.567 ms`. `LONG A +
 SHORT B` proves head-of-line blocking as scheduling latency, not compute
 inefficiency: B's useful runtime did not begin until A completed.
 
-Measured serial throughput for these bounded pairs was approximately `0.335
-requests/s` for short+short, `0.149 requests/s` for long+short, and `0.102
+Measured serial throughput for these bounded pairs was approximately `0.338
+requests/s` for short+short, `0.155 requests/s` for long+short, and `0.098
 requests/s` for long+long. These values include this host's current runtime and
 source behavior and are not generalized serving capacity.
 
