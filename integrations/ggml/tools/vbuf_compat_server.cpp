@@ -12,6 +12,7 @@
 #include <cctype>
 #include <chrono>
 #include <csignal>
+#include <condition_variable>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -20,13 +21,17 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <netinet/in.h>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <set>
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <thread>
 #include <unistd.h>
 #include <strings.h>
 #include <unordered_map>
@@ -84,6 +89,82 @@ struct ServerConfig {
     uint32_t source_failure_requests = 0;
     bool qualification_faults = false;
     vbuf_ggml::RuntimeMode mode = vbuf_ggml::RuntimeMode::NormalInference;
+};
+
+class InferenceGate {
+public:
+    void classify(uint64_t order, bool generation) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (generation) waiting_generations_.insert(order);
+        mark_classified_locked(order);
+    }
+
+    void acquire(uint64_t order) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        condition_.wait(lock, [&] {
+            return !active_ && classified_through_ > order &&
+                !waiting_generations_.empty() && *waiting_generations_.begin() == order;
+        });
+        waiting_generations_.erase(order);
+        active_ = true;
+    }
+
+    void cancel(uint64_t order) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        waiting_generations_.erase(order);
+        condition_.notify_all();
+    }
+
+    void release() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        active_ = false;
+        condition_.notify_all();
+    }
+
+private:
+    void mark_classified_locked(uint64_t order) {
+        classified_.insert(order);
+        while (classified_.erase(classified_through_) != 0) ++classified_through_;
+        condition_.notify_all();
+    }
+
+    std::mutex mutex_;
+    std::condition_variable condition_;
+    std::set<uint64_t> classified_;
+    std::set<uint64_t> waiting_generations_;
+    uint64_t classified_through_ = 0;
+    bool active_ = false;
+};
+
+class InferenceAdmissionScope {
+public:
+    InferenceAdmissionScope(InferenceGate * gate, uint64_t order) : gate_(gate), order_(order) {}
+    ~InferenceAdmissionScope() {
+        if (!classified_) gate_->classify(order_, false);
+        else if (acquired_) gate_->release();
+        else gate_->cancel(order_);
+    }
+
+    void classify_control() {
+        gate_->classify(order_, false);
+        classified_ = true;
+    }
+
+    void classify_generation() {
+        gate_->classify(order_, true);
+        classified_ = true;
+    }
+
+    void acquire() {
+        gate_->acquire(order_);
+        acquired_ = true;
+    }
+
+private:
+    InferenceGate * gate_;
+    uint64_t order_;
+    bool classified_ = false;
+    bool acquired_ = false;
 };
 
 struct JsonError : std::runtime_error {
@@ -575,13 +656,23 @@ struct ServerRuntime {
     ServerConfig config;
     VbufTokenizer tokenizer;
     std::unique_ptr<vbuf_ggml::VbufGenerationSession> session;
-    uint64_t active_requests = 0;
-    uint64_t active_streams = 0;
-    uint64_t active_cancellations = 0;
+    InferenceGate inference_gate;
+    std::atomic<uint64_t> active_requests{0};
+    std::atomic<uint64_t> active_streams{0};
+    std::atomic<uint64_t> active_cancellations{0};
+};
+
+constexpr size_t MAX_CONNECTION_WORKERS = 8;
+
+struct ConnectionWorker {
+    std::thread thread;
+    std::atomic<int> fd{-1};
+    std::atomic<bool> done{false};
 };
 
 volatile sig_atomic_t shutdown_requested = 0;
 int listening_socket = -1;
+std::mutex diagnostics_mutex;
 
 static uint64_t steady_now_ns() {
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -595,12 +686,12 @@ static void request_shutdown(int) {
 
 class CounterScope {
 public:
-    explicit CounterScope(uint64_t * counter) : counter_(counter) { ++*counter_; }
-    ~CounterScope() { --*counter_; }
+    explicit CounterScope(std::atomic<uint64_t> * counter) : counter_(counter) { counter_->fetch_add(1); }
+    ~CounterScope() { counter_->fetch_sub(1); }
     CounterScope(const CounterScope &) = delete;
 
 private:
-    uint64_t * counter_;
+    std::atomic<uint64_t> * counter_;
 };
 
 class RequestScope {
@@ -761,7 +852,7 @@ static std::string make_completion_response(const std::string & id, const Server
     return output.str();
 }
 
-static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns) {
+static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns, uint64_t connection_order) {
     const uint64_t request_start_ns = steady_now_ns();
     uint64_t http_parse_ns = 0;
     uint64_t prompt_build_ns = 0;
@@ -770,29 +861,40 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
     uint64_t runtime_start_ns = 0;
     uint64_t runtime_end_ns = 0;
     uint64_t first_token_ns = 0;
+    uint64_t inference_wait_ns = 0;
+    InferenceAdmissionScope admission(&runtime->inference_gate, connection_order);
     try {
         HttpRequest request;
         const uint64_t parse_start_ns = steady_now_ns();
         if (!read_request(fd, &request)) return;
         http_parse_ns = steady_now_ns() - parse_start_ns;
         RequestScope request_scope(runtime);
-        if (request.method == "OPTIONS") { (void)send_response(fd, 200, "OK", "application/json", "{}"); return; }
+        if (request.method == "OPTIONS") {
+            admission.classify_control();
+            (void)send_response(fd, 200, "OK", "application/json", "{}");
+            return;
+        }
         if (request.method == "GET" && request.path == "/health") {
+            admission.classify_control();
             (void)send_response(fd, 200, "OK", "application/json", "{\"status\":\"ok\",\"runtime\":\"ready\"}");
+            std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
             std::cerr << "vbuf_control_request path=/health accepted_ns=" << accepted_ns
                 << " dispatch_start_ns=" << request_start_ns << " request_end_ns=" << steady_now_ns() << "\n";
             return;
         }
         if (request.method == "GET" && request.path == "/v1/models") {
+            admission.classify_control();
             const std::string body = "{\"object\":\"list\",\"data\":[{\"id\":\"" +
                 json_escape(runtime->config.model_alias) + "\",\"object\":\"model\",\"owned_by\":\"vbuf\"}]}";
             (void)send_response(fd, 200, "OK", "application/json", body);
+            std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
             std::cerr << "vbuf_control_request path=/v1/models accepted_ns=" << accepted_ns
                 << " dispatch_start_ns=" << request_start_ns << " request_end_ns=" << steady_now_ns() << "\n";
             return;
         }
         if (request.method != "POST" ||
             (request.path != "/v1/chat/completions" && request.path != "/v1/completions")) {
+            admission.classify_control();
             (void)send_response(fd, 404, "Not Found", "application/json", error_body("unknown endpoint"));
             return;
         }
@@ -823,6 +925,8 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         }
         if (prompt_tokens.empty()) fail("prompt tokenization produced no tokens");
         if (prompt_tokens.size() + max_tokens > 4096) fail("prompt exceeds the bounded context limit");
+
+        admission.classify_generation();
 
         std::string output;
         bool disconnected = false;
@@ -866,6 +970,9 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             return true;
         };
         vbuf_ggml::VbufGenerationResult result;
+        const uint64_t inference_wait_start_ns = steady_now_ns();
+        admission.acquire();
+        inference_wait_ns = steady_now_ns() - inference_wait_start_ns;
         if (stream) {
             const char * finish = nullptr;
             {
@@ -891,6 +998,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             }
             request_scope.release();
             const auto snapshot = runtime->session->snapshot();
+            std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
             std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
                 << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
                 << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec
@@ -900,8 +1008,8 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                 << " active_leases_after=" << snapshot.active_lease_count << " active_lease_bytes_after=" << snapshot.active_lease_bytes
                 << " active_inflight_bytes_after=" << snapshot.active_inflight_bytes
                 << " active_generations_after=" << snapshot.active_generations
-                << " active_requests_after=" << runtime->active_requests << " queued_generations=0"
-                << " active_streams_after=" << runtime->active_streams << " active_cancellations_after=" << runtime->active_cancellations
+                << " active_requests_after=" << runtime->active_requests.load() << " queued_generations=0"
+                << " active_streams_after=" << runtime->active_streams.load() << " active_cancellations_after=" << runtime->active_cancellations.load()
                 << " evictions=" << result.evictions << " reacquisitions=" << result.reacquisitions
                 << " source_successful_requests=" << result.source_successful_requests
                 << " source_successful_requests_before_failure=" << result.source_successful_requests_before_failure
@@ -914,7 +1022,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                 << " response_serialization_ns=" << response_serialization_ns
                 << " accepted_ns=" << accepted_ns << " dispatch_start_ns=" << request_start_ns
                 << " runtime_start_ns=" << runtime_start_ns << " first_token_ns=" << first_token_ns
-                << " runtime_end_ns=" << runtime_end_ns
+                << " runtime_end_ns=" << runtime_end_ns << " inference_wait_ns=" << inference_wait_ns
                 << " elapsed_ns=" << result.elapsed_ns << " finish_reason="
                 << (result.cancelled ? "cancelled" : result.error.empty() ? finish : "error")
                 << " cancelled=" << (result.cancelled ? "yes" : "no") << " error="
@@ -942,6 +1050,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         const bool sent = send_response(fd, status, status == 200 ? "OK" : "Internal Server Error",
             "application/json", body);
         const auto snapshot = runtime->session->snapshot();
+        std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
         std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
             << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
             << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec
@@ -951,8 +1060,8 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             << " active_leases_after=" << snapshot.active_lease_count << " active_lease_bytes_after=" << snapshot.active_lease_bytes
             << " active_inflight_bytes_after=" << snapshot.active_inflight_bytes
             << " active_generations_after=" << snapshot.active_generations
-            << " active_requests_after=" << runtime->active_requests << " queued_generations=0"
-            << " active_streams_after=" << runtime->active_streams << " active_cancellations_after=" << runtime->active_cancellations
+            << " active_requests_after=" << runtime->active_requests.load() << " queued_generations=0"
+            << " active_streams_after=" << runtime->active_streams.load() << " active_cancellations_after=" << runtime->active_cancellations.load()
             << " evictions=" << result.evictions << " reacquisitions=" << result.reacquisitions
             << " source_successful_requests=" << result.source_successful_requests
             << " source_successful_requests_before_failure=" << result.source_successful_requests_before_failure
@@ -965,7 +1074,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             << " response_serialization_ns=" << response_serialization_ns
             << " accepted_ns=" << accepted_ns << " dispatch_start_ns=" << request_start_ns
             << " runtime_start_ns=" << runtime_start_ns << " first_token_ns=" << first_token_ns
-            << " runtime_end_ns=" << runtime_end_ns
+            << " runtime_end_ns=" << runtime_end_ns << " inference_wait_ns=" << inference_wait_ns
             << " elapsed_ns=" << result.elapsed_ns << " finish_reason="
             << (result.cancelled ? "cancelled" : result.error.empty() ? finish : "error")
             << " cancelled=" << (result.cancelled ? "yes" : "no") << " error="
@@ -1036,17 +1145,76 @@ int main(int argc, char ** argv) {
         std::cerr << "vbuf-compat-server listening on " << config.host << ':' << config.port
             << " model=" << config.model_alias << " blocks=" << config.blocks
             << " runtime_mode=" << (config.mode == vbuf_ggml::RuntimeMode::NormalInference ? "normal" : "qualification") << "\n";
+        std::vector<std::unique_ptr<ConnectionWorker>> workers;
+        auto reap_workers = [&] {
+            for (auto iterator = workers.begin(); iterator != workers.end();) {
+                if (!(*iterator)->done.load()) {
+                    ++iterator;
+                    continue;
+                }
+                if ((*iterator)->thread.joinable()) (*iterator)->thread.join();
+                iterator = workers.erase(iterator);
+            }
+        };
+        uint64_t connection_order = 0;
         while (!shutdown_requested) {
             const int client = ::accept(server, nullptr, nullptr);
             if (client < 0) {
                 if (shutdown_requested) break;
                 continue;
             }
+            reap_workers();
             const uint64_t accepted_ns = steady_now_ns();
-            std::cerr << "vbuf_connection accepted_ns=" << accepted_ns << "\n";
-            handle_request(client, &runtime, accepted_ns);
-            ::close(client);
+            const uint64_t order = connection_order++;
+            {
+                std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
+                std::cerr << "vbuf_connection accepted_ns=" << accepted_ns << "\n";
+            }
+            if (workers.size() >= MAX_CONNECTION_WORKERS) {
+                runtime.inference_gate.classify(order, false);
+                (void)send_response(client, 503, "Service Unavailable", "application/json",
+                    error_body("connection worker limit reached", "server_busy"));
+                ::close(client);
+                std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
+                std::cerr << "vbuf_connection rejected=worker_limit\n";
+                continue;
+            }
+            auto worker = std::make_unique<ConnectionWorker>();
+            worker->fd.store(client);
+            ConnectionWorker * worker_state = worker.get();
+            try {
+                worker->thread = std::thread([worker_state, client, &runtime, accepted_ns, order] {
+                    try {
+                        handle_request(client, &runtime, accepted_ns, order);
+                    } catch (const std::exception & error) {
+                        std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
+                        std::cerr << "vbuf_connection worker_error=" << error.what() << "\n";
+                    } catch (...) {
+                        std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
+                        std::cerr << "vbuf_connection worker_error=unknown\n";
+                    }
+                    (void)::shutdown(client, SHUT_RDWR);
+                    ::close(client);
+                    worker_state->fd.store(-1);
+                    worker_state->done.store(true);
+                });
+            } catch (const std::system_error & error) {
+                runtime.inference_gate.classify(order, false);
+                (void)send_response(client, 503, "Service Unavailable", "application/json",
+                    error_body("connection worker unavailable", "server_busy"));
+                ::close(client);
+                std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
+                std::cerr << "vbuf_connection worker_error=" << error.what() << "\n";
+                continue;
+            }
+            workers.push_back(std::move(worker));
         }
+        for (const auto & worker : workers) {
+            const int client = worker->fd.load();
+            if (client >= 0) (void)::shutdown(client, SHUT_RDWR);
+        }
+        for (auto & worker : workers)
+            if (worker->thread.joinable()) worker->thread.join();
         listening_socket = -1;
         ::close(server);
         std::cerr << "vbuf-compat-server stopped cleanly\n";

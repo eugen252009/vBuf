@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.18)
 project(vbuf_ggml_substrate LANGUAGES C CXX)
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
+find_package(Threads REQUIRED)
 
 if(POLICY CMP0169)
     # Populate is intentional here: the upstream repository root is fetched,
@@ -342,11 +343,11 @@ if(VBUF_ML_LIBRARY)
     if(VBUF_BUILD_COMPAT_SERVER)
         add_executable(vbuf_compat_server tools/vbuf_compat_server.cpp)
         target_compile_features(vbuf_compat_server PRIVATE cxx_std_17)
-        target_link_libraries(vbuf_compat_server PRIVATE vbuf_region_executor)
+        target_link_libraries(vbuf_compat_server PRIVATE vbuf_region_executor Threads::Threads)
 
         add_executable(vbuf_direct_control tools/vbuf_direct_control.cpp)
         target_compile_features(vbuf_direct_control PRIVATE cxx_std_17)
-        target_link_libraries(vbuf_direct_control PRIVATE vbuf_region_executor)
+        target_link_libraries(vbuf_direct_control PRIVATE vbuf_region_executor Threads::Threads)
     endif()
 
     if(VBUF_BUILD_REAL_GATE2B AND VBUF_RUNTIME_LIBRARY)

@@ -114,9 +114,12 @@ failure recovery, serialized simultaneous clients, and Python OpenAI client
 traffic. Request leases, generation state, streams, and inflight materialization
 returned to zero after each logged request. Model payload residency intentionally
 persisted within the configured cap; diagnostic histories are trimmed between
-requests. Health remains dispatch-blocked during active serialized generation by
-policy. Evidence is in
-[`step31s-persistent-server-lifecycle-qualification.md`](research/results/vbuf-ml-integration/step31s-persistent-server-lifecycle-qualification.md).
+requests. Step 31W now separates the read-only control plane from the serialized
+inference plane: `/health` and `/v1/models` remain responsive while one
+generation is active, without enabling concurrent inference. The lifecycle
+evidence remains in [`step31s-persistent-server-lifecycle-qualification.md`](research/results/vbuf-ml-integration/step31s-persistent-server-lifecycle-qualification.md);
+the dispatch qualification is in
+[`step31w-control-plane-separation.md`](research/results/vbuf-ml-integration/step31w-control-plane-separation.md).
 
 ## Android Qualification And Performance
 

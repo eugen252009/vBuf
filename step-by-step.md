@@ -2675,6 +2675,31 @@ interleaving, slots, batching, thread tuning, or residency change is authorized
 by Step 31V. Evidence:
 `research/results/vbuf-ml-integration/step31v-serial-queue-scheduling-opportunity.md`.
 
+#### Step 31W - CONTROL_PLANE / INFERENCE_PLANE separation
+
+**Status: X86_64 IMPLEMENTED; CONTROL ENDPOINTS QUALIFIED RESPONSIVE DURING
+SERIAL INFERENCE; ACTIVE_GENERATION_LIMIT REMAINS 1.**
+The listener now dispatches accepted connections to a bounded, tracked set of
+eight connection workers. `/health` and `/v1/models` read only immutable
+startup configuration and bypass the inference admission gate. Generation
+requests use a fair accepted-order gate and retain exactly one active
+`VbufGenerationSession::run`; no application generation queue, slots, batching,
+decode interleaving, backend thread tuning, or inference concurrency was added.
+Worker sockets are closed during shutdown and workers are joined. Saturated
+connection capacity returns bounded `503 server_busy` rather than creating
+unbounded detached threads.
+
+On the available ggml checkout, health and models responded during an active
+eight-token generation in `0.712 ms` and `0.739 ms`. Bounded stress with 20
+health and 20 models requests passed with health min/p50/max
+`0.571/1.579/5.557 ms` and models `0.655/1.375/1.614 ms`. Generation output
+parity with and without control traffic, SSE coexistence, cancellation,
+source-failure recovery, FIFO serial generation, fault followers, and clean
+shutdown all passed. The matched direct/server control remained small at
+`0.845 ms / 0.714%` overhead. The Step 31V queued-request cancellation gap
+remains intentionally unchanged. Evidence:
+`research/results/vbuf-ml-integration/step31w-control-plane-separation.md`.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

@@ -365,7 +365,7 @@ def main():
         print("BOUNDED_RESIDENCY=PASS")
         print("STEADY_TAIL_SOURCE_REUSE=PASS")
         print("CONCURRENCY_POLICY=SERIAL_QUEUE")
-        print("HEALTH_DURING_GENERATION=PASS_BLOCKED_BY_SERIAL_DISPATCH")
+        print("HEALTH_DURING_GENERATION=PASS_RESPONSIVE_DURING_SERIAL_INFERENCE")
         print("CLEAN_SHUTDOWN=PASS")
         print("SERVER_LOG=" + log_file.name)
     finally:
