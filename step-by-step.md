@@ -2700,6 +2700,32 @@ shutdown all passed. The matched direct/server control remained small at
 remains intentionally unchanged. Evidence:
 `research/results/vbuf-ml-integration/step31w-control-plane-separation.md`.
 
+#### Step 31X - CANCELLATION_AWARE_SERIAL_ADMISSION
+
+**Status: X86_64 IMPLEMENTED; ACCEPTED WAITERS ARE CANCELLATION-AWARE; SERIAL
+INFERENCE AND FIFO FAIRNESS PRESERVED.** The bounded connection workers now
+assign explicit generation lifecycle states and use a fair admission gate that
+polls waiting client sockets at a 50 ms cadence. A client or server shutdown
+observed while a request is waiting removes that request before runtime entry;
+the request records `CANCELLED`, zero runtime entries, and zero inference
+lease acquires. Control endpoints continue to bypass the inference gate, and
+SSE headers are emitted only after admission.
+
+The complete x86_64 matrix passed for queued non-stream and stream disconnects,
+middle/first/last/all waiter cancellation, faulted generations with cancelled
+followers, control traffic with waiters, shutdown with waiters, and
+admission/cancellation races. Persistent lifecycle, Step 31V serial-queue,
+and Step 31W control-plane regressions also passed after the change. Gate
+release is deferred until terminal diagnostics so post-request counters cannot
+be contaminated by the next generation entering runtime.
+
+This step covers accepted worker waiters only. A client disconnecting while its
+request remains solely in the kernel listen backlog can still be accepted later
+and is not claimed fixed here. No inference concurrency, application
+generation queue, batching, slots, decode interleaving, backend tuning,
+residency change, or format change is authorized. Evidence:
+`research/results/vbuf-ml-integration/step31x-cancellable-admission.md`.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

@@ -25,6 +25,7 @@
 #include <mutex>
 #include <netinet/in.h>
 #include <optional>
+#include <poll.h>
 #include <sstream>
 #include <stdexcept>
 #include <set>
@@ -91,6 +92,99 @@ struct ServerConfig {
     vbuf_ggml::RuntimeMode mode = vbuf_ggml::RuntimeMode::NormalInference;
 };
 
+enum class AdmissionState : uint8_t {
+    Waiting,
+    Admitted,
+    Active,
+    Completed,
+    Failed,
+    Cancelled,
+};
+
+static const char * admission_state_name(AdmissionState state) {
+    switch (state) {
+    case AdmissionState::Waiting: return "WAITING";
+    case AdmissionState::Admitted: return "ADMITTED";
+    case AdmissionState::Active: return "ACTIVE";
+    case AdmissionState::Completed: return "COMPLETED";
+    case AdmissionState::Failed: return "FAILED";
+    case AdmissionState::Cancelled: return "CANCELLED";
+    }
+    return "UNKNOWN";
+}
+
+enum class CancellationReason : uint8_t {
+    None,
+    ClientDisconnected,
+    ServerShutdown,
+};
+
+static const char * cancellation_reason_name(CancellationReason reason) {
+    switch (reason) {
+    case CancellationReason::None: return "none";
+    case CancellationReason::ClientDisconnected: return "client_disconnected";
+    case CancellationReason::ServerShutdown: return "server_shutdown";
+    }
+    return "unknown";
+}
+
+class RequestCancellation {
+public:
+    bool cancel(CancellationReason reason) {
+        bool expected = false;
+        if (!cancelled_.compare_exchange_strong(expected, true)) return false;
+        reason_.store(reason);
+        return true;
+    }
+
+    bool requested() const { return cancelled_.load(); }
+    CancellationReason reason() const { return reason_.load(); }
+
+private:
+    std::atomic<bool> cancelled_{false};
+    std::atomic<CancellationReason> reason_{CancellationReason::None};
+};
+
+struct RequestLifecycle {
+    std::string id;
+    uint64_t connection_order = 0;
+    AdmissionState state = AdmissionState::Waiting;
+    uint64_t runtime_entry_count = 0;
+    uint64_t inference_lease_acquires = 0;
+    uint64_t inference_lease_releases = 0;
+
+    bool transition(AdmissionState from, AdmissionState to) {
+        if (state != from) return false;
+        state = to;
+        return true;
+    }
+};
+
+struct InferenceGateSnapshot {
+    size_t queued_generations = 0;
+    uint64_t active_generations = 0;
+    uint64_t total_admitted = 0;
+    uint64_t total_cancelled_before_admission = 0;
+};
+
+static bool peer_disconnected(int fd) {
+    pollfd descriptor{};
+    descriptor.fd = fd;
+    descriptor.events = POLLIN | POLLERR | POLLHUP;
+#ifdef POLLRDHUP
+    descriptor.events |= POLLRDHUP;
+#endif
+    if (::poll(&descriptor, 1, 0) <= 0) return false;
+    short disconnect_events = POLLIN | POLLERR | POLLHUP;
+#ifdef POLLRDHUP
+    disconnect_events |= POLLRDHUP;
+#endif
+    if ((descriptor.revents & disconnect_events) == 0) return false;
+    char byte = 0;
+    const ssize_t result = ::recv(fd, &byte, sizeof(byte), MSG_PEEK | MSG_DONTWAIT);
+    return result == 0 || (result < 0 && errno != EAGAIN && errno != EWOULDBLOCK);
+}
+
 class InferenceGate {
 public:
     void classify(uint64_t order, bool generation) {
@@ -99,41 +193,78 @@ public:
         mark_classified_locked(order);
     }
 
-    void acquire(uint64_t order) {
+    bool acquire(uint64_t order, int fd, RequestCancellation * cancellation,
+        const std::function<bool()> & external_cancel, RequestLifecycle * lifecycle) {
         std::unique_lock<std::mutex> lock(mutex_);
-        condition_.wait(lock, [&] {
-            return !active_ && classified_through_ > order &&
-                !waiting_generations_.empty() && *waiting_generations_.begin() == order;
-        });
-        waiting_generations_.erase(order);
-        active_ = true;
+        for (;;) {
+            if (cancellation->requested()) {
+                cancel_locked(order, lifecycle, false);
+                return false;
+            }
+            if (external_cancel()) {
+                cancellation->cancel(CancellationReason::ServerShutdown);
+                cancel_locked(order, lifecycle, false);
+                return false;
+            }
+            if (!active_ && classified_through_ > order &&
+                !waiting_generations_.empty() && *waiting_generations_.begin() == order) {
+                waiting_generations_.erase(order);
+                active_ = true;
+                ++total_admitted_;
+                lifecycle->state = AdmissionState::Admitted;
+                ++lifecycle->inference_lease_acquires;
+                return true;
+            }
+            condition_.wait_for(lock, std::chrono::milliseconds(50));
+            lock.unlock();
+            if (peer_disconnected(fd)) cancellation->cancel(CancellationReason::ClientDisconnected);
+            lock.lock();
+        }
     }
 
     void cancel(uint64_t order) {
         std::lock_guard<std::mutex> lock(mutex_);
-        waiting_generations_.erase(order);
+        cancel_locked(order, nullptr);
         condition_.notify_all();
     }
 
-    void release() {
+    void release(RequestLifecycle * lifecycle) {
         std::lock_guard<std::mutex> lock(mutex_);
         active_ = false;
+        ++lifecycle->inference_lease_releases;
         condition_.notify_all();
+    }
+
+    InferenceGateSnapshot snapshot() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return {
+            waiting_generations_.size(), active_ ? 1U : 0U,
+            total_admitted_, total_cancelled_before_admission_,
+        };
     }
 
 private:
+    void cancel_locked(uint64_t order, RequestLifecycle * lifecycle, bool notify = true) {
+        if (waiting_generations_.erase(order) == 0) return;
+        ++total_cancelled_before_admission_;
+        if (lifecycle != nullptr) lifecycle->state = AdmissionState::Cancelled;
+        if (notify) condition_.notify_all();
+    }
+
     void mark_classified_locked(uint64_t order) {
         classified_.insert(order);
         while (classified_.erase(classified_through_) != 0) ++classified_through_;
         condition_.notify_all();
     }
 
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     std::condition_variable condition_;
     std::set<uint64_t> classified_;
     std::set<uint64_t> waiting_generations_;
     uint64_t classified_through_ = 0;
     bool active_ = false;
+    uint64_t total_admitted_ = 0;
+    uint64_t total_cancelled_before_admission_ = 0;
 };
 
 class InferenceAdmissionScope {
@@ -141,7 +272,7 @@ public:
     InferenceAdmissionScope(InferenceGate * gate, uint64_t order) : gate_(gate), order_(order) {}
     ~InferenceAdmissionScope() {
         if (!classified_) gate_->classify(order_, false);
-        else if (acquired_) gate_->release();
+        else if (acquired_) gate_->release(lifecycle_);
         else gate_->cancel(order_);
     }
 
@@ -150,21 +281,32 @@ public:
         classified_ = true;
     }
 
-    void classify_generation() {
+    void classify_generation(RequestLifecycle * lifecycle) {
         gate_->classify(order_, true);
+        lifecycle_ = lifecycle;
+        lifecycle_->state = AdmissionState::Waiting;
         classified_ = true;
     }
 
-    void acquire() {
-        gate_->acquire(order_);
-        acquired_ = true;
+    bool acquire(int fd, RequestCancellation * cancellation, const std::function<bool()> & external_cancel) {
+        acquired_ = gate_->acquire(order_, fd, cancellation, external_cancel, lifecycle_);
+        return acquired_;
     }
+
+    void release() {
+        if (!acquired_) return;
+        gate_->release(lifecycle_);
+        acquired_ = false;
+    }
+
+    RequestLifecycle * lifecycle() const { return lifecycle_; }
 
 private:
     InferenceGate * gate_;
     uint64_t order_;
     bool classified_ = false;
     bool acquired_ = false;
+    RequestLifecycle * lifecycle_ = nullptr;
 };
 
 struct JsonError : std::runtime_error {
@@ -660,6 +802,7 @@ struct ServerRuntime {
     std::atomic<uint64_t> active_requests{0};
     std::atomic<uint64_t> active_streams{0};
     std::atomic<uint64_t> active_cancellations{0};
+    std::atomic<uint64_t> total_runtime_entries{0};
 };
 
 constexpr size_t MAX_CONNECTION_WORKERS = 8;
@@ -778,6 +921,28 @@ static bool send_chunk(int fd, const std::string & data) {
     return send_all(fd, size.str() + "\r\n" + data + "\r\n");
 }
 
+static void log_admission(const RequestLifecycle & lifecycle, const RequestCancellation & cancellation,
+    uint64_t accepted_ns, uint64_t dispatch_start_ns, uint64_t wait_ns, ServerRuntime * runtime,
+    const char * event = "terminal") {
+    const InferenceGateSnapshot gate = runtime->inference_gate.snapshot();
+    std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
+    std::cerr << "vbuf_admission event=" << event << " id=" << lifecycle.id
+        << " connection_order=" << lifecycle.connection_order
+        << " admission_state=" << admission_state_name(lifecycle.state)
+        << " cancellation_reason=" << cancellation_reason_name(cancellation.reason())
+        << " runtime_entry_count=" << lifecycle.runtime_entry_count
+        << " inference_lease_acquires=" << lifecycle.inference_lease_acquires
+        << " inference_lease_releases=" << lifecycle.inference_lease_releases
+        << " admission_wait_ns=" << wait_ns
+        << " queued_generations=" << gate.queued_generations
+        << " active_generations=" << gate.active_generations
+        << " total_admitted=" << gate.total_admitted
+        << " total_cancelled_before_admission=" << gate.total_cancelled_before_admission
+        << " total_runtime_entries=" << runtime->total_runtime_entries.load()
+        << " accepted_ns=" << accepted_ns
+        << " dispatch_start_ns=" << dispatch_start_ns << "\n";
+}
+
 class StdoutSilencer {
 public:
     StdoutSilencer() : saved_(::dup(STDOUT_FILENO)) {
@@ -862,6 +1027,8 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
     uint64_t runtime_end_ns = 0;
     uint64_t first_token_ns = 0;
     uint64_t inference_wait_ns = 0;
+    std::optional<RequestLifecycle> lifecycle;
+    RequestCancellation cancellation;
     InferenceAdmissionScope admission(&runtime->inference_gate, connection_order);
     try {
         HttpRequest request;
@@ -908,6 +1075,9 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             fail("max_tokens exceeds the configured bounded generation limit");
         const bool stream = top_level_bool(request.body, "stream", false);
         const std::string id = request_id();
+        lifecycle.emplace();
+        lifecycle->id = id;
+        lifecycle->connection_order = connection_order;
         std::vector<uint32_t> prompt_tokens;
         if (request.path == "/v1/chat/completions") {
             const uint64_t prompt_start_ns = steady_now_ns();
@@ -926,13 +1096,20 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         if (prompt_tokens.empty()) fail("prompt tokenization produced no tokens");
         if (prompt_tokens.size() + max_tokens > 4096) fail("prompt exceeds the bounded context limit");
 
-        admission.classify_generation();
+        admission.classify_generation(&*lifecycle);
+        log_admission(*lifecycle, cancellation, accepted_ns, request_start_ns, 0, runtime, "waiting");
+
+        const uint64_t inference_wait_start_ns = steady_now_ns();
+        if (!admission.acquire(fd, &cancellation, [] { return shutdown_requested != 0; })) {
+            inference_wait_ns = steady_now_ns() - inference_wait_start_ns;
+            request_scope.release();
+            log_admission(*lifecycle, cancellation, accepted_ns, request_start_ns, inference_wait_ns, runtime);
+            return;
+        }
+        inference_wait_ns = steady_now_ns() - inference_wait_start_ns;
 
         std::string output;
-        bool disconnected = false;
         bool first_stream_chunk = true;
-        const bool headers_sent = !stream || send_sse_headers(fd);
-        if (!headers_sent) return;
         vbuf_ggml::VbufGenerationConfig generation;
         generation.semantic_model = runtime->config.semantic_model;
         generation.source_endpoint = runtime->config.source_url;
@@ -948,7 +1125,10 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         generation.mode = runtime->config.mode;
         generation.prompt_tokens = prompt_tokens;
         generation.stop_token = runtime->tokenizer.eos();
-        generation.should_cancel = [&] { return disconnected || shutdown_requested != 0; };
+        generation.should_cancel = [&] {
+            if (shutdown_requested != 0) cancellation.cancel(CancellationReason::ServerShutdown);
+            return cancellation.requested();
+        };
         generation.on_token = [&](uint32_t token, uint32_t) {
             if (first_token_ns == 0) first_token_ns = steady_now_ns();
             const std::string piece = runtime->tokenizer.decode_token(token);
@@ -964,15 +1144,23 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                 << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\""
                 << json_escape(piece) << "\"},\"finish_reason\":null}]}\n\n";
             if (!send_chunk(fd, chunk.str())) {
-                disconnected = true;
+                cancellation.cancel(CancellationReason::ClientDisconnected);
                 return false;
             }
             return true;
         };
+        const bool headers_sent = !stream || send_sse_headers(fd);
+        if (!headers_sent) {
+            cancellation.cancel(CancellationReason::ClientDisconnected);
+            lifecycle->transition(AdmissionState::Admitted, AdmissionState::Cancelled);
+            request_scope.release();
+            log_admission(*lifecycle, cancellation, accepted_ns, request_start_ns, inference_wait_ns, runtime);
+            return;
+        }
         vbuf_ggml::VbufGenerationResult result;
-        const uint64_t inference_wait_start_ns = steady_now_ns();
-        admission.acquire();
-        inference_wait_ns = steady_now_ns() - inference_wait_start_ns;
+        lifecycle->transition(AdmissionState::Admitted, AdmissionState::Active);
+        ++lifecycle->runtime_entry_count;
+        runtime->total_runtime_entries.fetch_add(1);
         if (stream) {
             const char * finish = nullptr;
             {
@@ -996,8 +1184,12 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                     (void)send_all(fd, "0\r\n\r\n");
                 }
             }
+            lifecycle->transition(AdmissionState::Active,
+                result.cancelled ? AdmissionState::Cancelled :
+                result.error.empty() ? AdmissionState::Completed : AdmissionState::Failed);
             request_scope.release();
             const auto snapshot = runtime->session->snapshot();
+            log_admission(*lifecycle, cancellation, accepted_ns, request_start_ns, inference_wait_ns, runtime);
             std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
             std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
                 << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
@@ -1037,6 +1229,9 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             result = runtime->session->run(generation);
             runtime_end_ns = steady_now_ns();
         }
+        lifecycle->transition(AdmissionState::Active,
+            result.cancelled ? AdmissionState::Cancelled :
+            result.error.empty() ? AdmissionState::Completed : AdmissionState::Failed);
         const char * finish = result.tokens.size() >= max_tokens ? "length" : "stop";
         const int status = result.error.empty() || result.cancelled ? 200 : 500;
         const uint64_t response_start_ns = steady_now_ns();
@@ -1050,6 +1245,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         const bool sent = send_response(fd, status, status == 200 ? "OK" : "Internal Server Error",
             "application/json", body);
         const auto snapshot = runtime->session->snapshot();
+        log_admission(*lifecycle, cancellation, accepted_ns, request_start_ns, inference_wait_ns, runtime);
         std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
         std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
             << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
