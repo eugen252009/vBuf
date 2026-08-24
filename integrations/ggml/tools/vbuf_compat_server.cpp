@@ -761,12 +761,15 @@ static std::string make_completion_response(const std::string & id, const Server
     return output.str();
 }
 
-static void handle_request(int fd, ServerRuntime * runtime) {
+static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns) {
     const uint64_t request_start_ns = steady_now_ns();
     uint64_t http_parse_ns = 0;
     uint64_t prompt_build_ns = 0;
     uint64_t tokenize_ns = 0;
     uint64_t response_serialization_ns = 0;
+    uint64_t runtime_start_ns = 0;
+    uint64_t runtime_end_ns = 0;
+    uint64_t first_token_ns = 0;
     try {
         HttpRequest request;
         const uint64_t parse_start_ns = steady_now_ns();
@@ -776,12 +779,16 @@ static void handle_request(int fd, ServerRuntime * runtime) {
         if (request.method == "OPTIONS") { (void)send_response(fd, 200, "OK", "application/json", "{}"); return; }
         if (request.method == "GET" && request.path == "/health") {
             (void)send_response(fd, 200, "OK", "application/json", "{\"status\":\"ok\",\"runtime\":\"ready\"}");
+            std::cerr << "vbuf_control_request path=/health accepted_ns=" << accepted_ns
+                << " dispatch_start_ns=" << request_start_ns << " request_end_ns=" << steady_now_ns() << "\n";
             return;
         }
         if (request.method == "GET" && request.path == "/v1/models") {
             const std::string body = "{\"object\":\"list\",\"data\":[{\"id\":\"" +
                 json_escape(runtime->config.model_alias) + "\",\"object\":\"model\",\"owned_by\":\"vbuf\"}]}";
             (void)send_response(fd, 200, "OK", "application/json", body);
+            std::cerr << "vbuf_control_request path=/v1/models accepted_ns=" << accepted_ns
+                << " dispatch_start_ns=" << request_start_ns << " request_end_ns=" << steady_now_ns() << "\n";
             return;
         }
         if (request.method != "POST" ||
@@ -839,6 +846,7 @@ static void handle_request(int fd, ServerRuntime * runtime) {
         generation.stop_token = runtime->tokenizer.eos();
         generation.should_cancel = [&] { return disconnected || shutdown_requested != 0; };
         generation.on_token = [&](uint32_t token, uint32_t) {
+            if (first_token_ns == 0) first_token_ns = steady_now_ns();
             const std::string piece = runtime->tokenizer.decode_token(token);
             output += piece;
             if (!stream) return true;
@@ -865,7 +873,9 @@ static void handle_request(int fd, ServerRuntime * runtime) {
                 {
                     CounterScope cancellation_scope(&runtime->active_cancellations);
                     StdoutSilencer silence;
+                    runtime_start_ns = steady_now_ns();
                     result = runtime->session->run(generation);
+                    runtime_end_ns = steady_now_ns();
                 }
                 finish = result.tokens.size() >= max_tokens ? "length" : "stop";
                 if (!result.cancelled && result.error.empty()) {
@@ -890,6 +900,7 @@ static void handle_request(int fd, ServerRuntime * runtime) {
                 << " active_leases_after=" << snapshot.active_lease_count << " active_lease_bytes_after=" << snapshot.active_lease_bytes
                 << " active_inflight_bytes_after=" << snapshot.active_inflight_bytes
                 << " active_generations_after=" << snapshot.active_generations
+                << " active_requests_after=" << runtime->active_requests << " queued_generations=0"
                 << " active_streams_after=" << runtime->active_streams << " active_cancellations_after=" << runtime->active_cancellations
                 << " evictions=" << result.evictions << " reacquisitions=" << result.reacquisitions
                 << " source_successful_requests=" << result.source_successful_requests
@@ -901,6 +912,9 @@ static void handle_request(int fd, ServerRuntime * runtime) {
                 << " http_parse_ns=" << http_parse_ns << " prompt_build_ns=" << prompt_build_ns
                 << " tokenize_ns=" << tokenize_ns << " materialization_ns=UNINSTRUMENTED"
                 << " response_serialization_ns=" << response_serialization_ns
+                << " accepted_ns=" << accepted_ns << " dispatch_start_ns=" << request_start_ns
+                << " runtime_start_ns=" << runtime_start_ns << " first_token_ns=" << first_token_ns
+                << " runtime_end_ns=" << runtime_end_ns
                 << " elapsed_ns=" << result.elapsed_ns << " finish_reason="
                 << (result.cancelled ? "cancelled" : result.error.empty() ? finish : "error")
                 << " cancelled=" << (result.cancelled ? "yes" : "no") << " error="
@@ -911,7 +925,9 @@ static void handle_request(int fd, ServerRuntime * runtime) {
         {
             CounterScope cancellation_scope(&runtime->active_cancellations);
             StdoutSilencer silence;
+            runtime_start_ns = steady_now_ns();
             result = runtime->session->run(generation);
+            runtime_end_ns = steady_now_ns();
         }
         const char * finish = result.tokens.size() >= max_tokens ? "length" : "stop";
         const int status = result.error.empty() || result.cancelled ? 200 : 500;
@@ -935,6 +951,7 @@ static void handle_request(int fd, ServerRuntime * runtime) {
             << " active_leases_after=" << snapshot.active_lease_count << " active_lease_bytes_after=" << snapshot.active_lease_bytes
             << " active_inflight_bytes_after=" << snapshot.active_inflight_bytes
             << " active_generations_after=" << snapshot.active_generations
+            << " active_requests_after=" << runtime->active_requests << " queued_generations=0"
             << " active_streams_after=" << runtime->active_streams << " active_cancellations_after=" << runtime->active_cancellations
             << " evictions=" << result.evictions << " reacquisitions=" << result.reacquisitions
             << " source_successful_requests=" << result.source_successful_requests
@@ -946,6 +963,9 @@ static void handle_request(int fd, ServerRuntime * runtime) {
             << " http_parse_ns=" << http_parse_ns << " prompt_build_ns=" << prompt_build_ns
             << " tokenize_ns=" << tokenize_ns << " materialization_ns=UNINSTRUMENTED"
             << " response_serialization_ns=" << response_serialization_ns
+            << " accepted_ns=" << accepted_ns << " dispatch_start_ns=" << request_start_ns
+            << " runtime_start_ns=" << runtime_start_ns << " first_token_ns=" << first_token_ns
+            << " runtime_end_ns=" << runtime_end_ns
             << " elapsed_ns=" << result.elapsed_ns << " finish_reason="
             << (result.cancelled ? "cancelled" : result.error.empty() ? finish : "error")
             << " cancelled=" << (result.cancelled ? "yes" : "no") << " error="
@@ -1022,7 +1042,9 @@ int main(int argc, char ** argv) {
                 if (shutdown_requested) break;
                 continue;
             }
-            handle_request(client, &runtime);
+            const uint64_t accepted_ns = steady_now_ns();
+            std::cerr << "vbuf_connection accepted_ns=" << accepted_ns << "\n";
+            handle_request(client, &runtime, accepted_ns);
             ::close(client);
         }
         listening_socket = -1;

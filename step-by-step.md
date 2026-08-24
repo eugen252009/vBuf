@@ -2642,6 +2642,39 @@ recovery. Residency remained below the configured 64 MiB cap. Qualification
 faults are disabled by default and require the explicit server flag.
 Evidence: `research/results/vbuf-ml-integration/step31u-direct-server-overhead-and-fault-containment.md`.
 
+#### Step 31V - SERIAL_QUEUE scheduling opportunity audit
+
+**Status: HOST-CONTRACT-AUDITED; X86_64 QUEUE BEHAVIOR MEASURED; CONTROL-PLANE
+SEPARATION JUSTIFIED; INFERENCE CONCURRENCY NOT IMPLEMENTED.**
+The current server accepts one connection and runs the complete
+`handle_request()` path before accepting the next connection. Parsing, prompt
+construction, tokenization, source/materialization work, prefill, decode,
+backend graph work, response/SSE writes, cleanup, `/health`, and `/v1/models`
+are therefore serialized by the main loop. The kernel listen backlog is `8`,
+but there is no vBuf-ML application queue contract.
+
+Warm two-request measurements on the available ggml checkout showed B queue
+wait of `2929.339 ms` for short+short, `9227.428 ms` for long+short, and
+`9749.852 ms` for long+long. Health and models requests issued during long
+inference returned only after the active generation completed. FIFO behavior
+was measured for four queued followers. Active streaming cancellation with a
+queued follower and faulted A with a queued follower both recovered correctly.
+A disconnected non-stream request already in the kernel backlog still entered
+runtime after A, which is a queued-cancellation gap.
+
+Independent K/V and activation state makes prefill and decode independence a
+semantic possibility, but the shared session counters, residency maps, and
+materializer request maps are not concurrent-safe. Same-context GGML execution
+is not safe; separate-context execution is unproven. The available CPU build
+uses four GGML backend threads per graph, with OpenMP disabled; two request
+graphs would add thread and transient-memory pressure.
+
+The single selected next experiment is **control-plane separation** for the
+immutable `/health` and `/v1/models` paths. No inference parallelism,
+interleaving, slots, batching, thread tuning, or residency change is authorized
+by Step 31V. Evidence:
+`research/results/vbuf-ml-integration/step31v-serial-queue-scheduling-opportunity.md`.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
