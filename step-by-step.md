@@ -2620,6 +2620,28 @@ single-request serial dispatch policy. The full 26-layer persistent
 `268,412,928` bytes peak vBuf residency. Evidence:
 `research/results/vbuf-ml-integration/step31s-persistent-server-lifecycle-qualification.md`.
 
+#### Step 31U - Matched direct/server overhead and fault containment
+
+**Status: HOST QUALIFIED; SMALL MATCHED SERVER OVERHEAD; EARLY/MID/LATE
+SOURCE-FAILURE CONTAINMENT QUALIFIED.**
+Step 31U compared the direct `VbufGenerationSession::run()` control with the
+persistent native compatibility server using the same semantic model, HTTP
+Range source, prompt token hash, two blocks, `NormalInference`, residency
+state, and one-token output. Three independent repetitions used two warm-up
+and seven measured requests per path. Across 21 measured requests, direct p50
+was `67.620 ms`, server p50 was `67.784 ms`, and the server overhead was
+`0.164 ms` / `0.242%`, classified as **SMALL**. Both paths returned identical
+output bytes and zero additional source/materialized bytes after warm-up.
+
+One persistent server process then qualified controlled source failures after
+successful source reads `1`, `30`, and `60`. The resulting progress was,
+respectively, `(completed_layers, completed_positions) = (1,0)`, `(1,4)`, and
+`(2,9)`. Each request returned HTTP `500`, left zero active leases and inflight
+bytes, and was followed in the same process by a normal HTTP `200` one-token
+recovery. Residency remained below the configured 64 MiB cap. Qualification
+faults are disabled by default and require the explicit server flag.
+Evidence: `research/results/vbuf-ml-integration/step31u-direct-server-overhead-and-fault-containment.md`.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

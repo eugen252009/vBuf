@@ -212,15 +212,41 @@ namespace vbuf_ggml {
 
 class ControlledFailureRangeSource final : public RangeSource {
 public:
-    ControlledFailureRangeSource(std::shared_ptr<RangeSource> delegate, uint32_t failures)
-        : delegate_(std::move(delegate)), remaining_(failures) {}
+    explicit ControlledFailureRangeSource(std::shared_ptr<RangeSource> delegate)
+        : delegate_(std::move(delegate)) {}
+
+    void configure_persistent_failures(uint32_t failures) {
+        remaining_failures_.store(failures, std::memory_order_relaxed);
+    }
+
+    void configure_request_fault(std::optional<uint64_t> after_successful_requests) {
+        fail_after_successful_requests_ = after_successful_requests;
+        request_remaining_failures_.store(after_successful_requests ? 1 : 0,
+            std::memory_order_relaxed);
+        successful_requests_.store(0, std::memory_order_relaxed);
+        failure_injected_.store(false, std::memory_order_relaxed);
+    }
 
     bool read_range(uint64_t offset, uint64_t length, uint8_t * destination,
         RangeReadResult * result) override {
-        uint32_t remaining = remaining_.load(std::memory_order_relaxed);
-        while (remaining != 0 && !remaining_.compare_exchange_weak(remaining, remaining - 1,
-                std::memory_order_relaxed, std::memory_order_relaxed)) {}
-        if (remaining != 0) {
+        const uint64_t successful = successful_requests_.load(std::memory_order_relaxed);
+        bool inject = false;
+        if (fail_after_successful_requests_) {
+            const bool threshold_reached = successful >= *fail_after_successful_requests_;
+            uint32_t remaining = request_remaining_failures_.load(std::memory_order_relaxed);
+            while (remaining != 0 && threshold_reached &&
+                !request_remaining_failures_.compare_exchange_weak(remaining, remaining - 1,
+                    std::memory_order_relaxed, std::memory_order_relaxed)) {}
+            inject = remaining != 0 && threshold_reached;
+        } else {
+            uint32_t remaining = remaining_failures_.load(std::memory_order_relaxed);
+            while (remaining != 0 &&
+                !remaining_failures_.compare_exchange_weak(remaining, remaining - 1,
+                    std::memory_order_relaxed, std::memory_order_relaxed)) {}
+            inject = remaining != 0;
+        }
+        if (inject) {
+            failure_injected_.store(true, std::memory_order_relaxed);
             if (result != nullptr) {
                 *result = {};
                 result->requested_offset = offset;
@@ -230,12 +256,26 @@ public:
             }
             return false;
         }
-        return delegate_->read_range(offset, length, destination, result);
+        const bool success = delegate_->read_range(offset, length, destination, result);
+        if (success) successful_requests_.fetch_add(1, std::memory_order_relaxed);
+        return success;
+    }
+
+    uint64_t successful_requests() const {
+        return successful_requests_.load(std::memory_order_relaxed);
+    }
+
+    bool failure_injected() const {
+        return failure_injected_.load(std::memory_order_relaxed);
     }
 
 private:
     std::shared_ptr<RangeSource> delegate_;
-    std::atomic<uint32_t> remaining_;
+    std::atomic<uint32_t> remaining_failures_{0};
+    std::atomic<uint32_t> request_remaining_failures_{0};
+    std::optional<uint64_t> fail_after_successful_requests_;
+    std::atomic<uint64_t> successful_requests_{0};
+    std::atomic<bool> failure_injected_{false};
 };
 
 struct VbufGenerationSession::Impl {
@@ -244,12 +284,14 @@ struct VbufGenerationSession::Impl {
     mutable std::string source_endpoint;
     mutable uint64_t residency_capacity = 0;
     mutable std::shared_ptr<HttpRangeSource> http_source;
+    mutable std::shared_ptr<ControlledFailureRangeSource> controlled_source;
     mutable std::shared_ptr<RangeSource> source;
     mutable std::shared_ptr<TensorResidencyStore> residency;
     mutable std::shared_ptr<ResidentTensorMaterializer> materializer;
     mutable uint64_t request_count = 0;
     mutable uint64_t active_generations = 0;
     mutable uint32_t source_failure_requests = 0;
+    mutable std::optional<uint64_t> source_failure_after_successful_requests;
 };
 
 VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
@@ -287,6 +329,8 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         if (impl_->materializer) impl_->materializer->clear_trace();
         if (impl_->http_source) impl_->http_source->clear_diagnostics();
     };
+    uint32_t completed_layers = 0;
+    uint64_t completed_positions = 0;
     try {
         if (config.prompt_tokens.empty())
             throw std::runtime_error("prompt tokenization produced no tokens");
@@ -303,21 +347,25 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         const std::vector<LayerPlan> & plans = impl_->plans;
 
         if (!impl_->source || impl_->source_endpoint != config.source_endpoint ||
-            impl_->residency_capacity != config.residency_capacity ||
-            impl_->source_failure_requests != config.source_failure_requests) {
+            impl_->residency_capacity != config.residency_capacity) {
             impl_->source_endpoint = config.source_endpoint;
             impl_->residency_capacity = config.residency_capacity;
-            impl_->source_failure_requests = config.source_failure_requests;
             impl_->http_source = std::make_shared<HttpRangeSource>(config.source_endpoint);
-            impl_->source = impl_->http_source;
-            if (config.source_failure_requests != 0)
-                impl_->source = std::make_shared<ControlledFailureRangeSource>(
-                    impl_->http_source, config.source_failure_requests);
+            impl_->controlled_source = std::make_shared<ControlledFailureRangeSource>(impl_->http_source);
+            impl_->source = impl_->controlled_source;
             impl_->residency = std::make_shared<TensorResidencyStore>(config.residency_capacity,
                 ResidencyReplacementPolicyKind::CostAware);
             impl_->materializer = std::make_shared<ResidentTensorMaterializer>(
                 std::make_shared<LocalVbufRangeMaterializer>(impl_->source), impl_->residency);
+            impl_->source_failure_requests = config.source_failure_requests;
+            impl_->controlled_source->configure_persistent_failures(config.source_failure_requests);
+        } else if (impl_->source_failure_requests != config.source_failure_requests) {
+            impl_->source_failure_requests = config.source_failure_requests;
+            impl_->controlled_source->configure_persistent_failures(config.source_failure_requests);
         }
+        impl_->source_failure_after_successful_requests = config.source_failure_after_successful_requests;
+        impl_->controlled_source->configure_request_fault(
+            config.source_failure_after_successful_requests);
         auto lease = model_lease(all.handle);
         const auto & source = impl_->source;
         const auto & residency = impl_->residency;
@@ -385,7 +433,8 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
                 "server_embedding", config.mode);
             const SequenceRun sequence = run_sequence(plans, input, static_cast<uint32_t>(position),
                 &actual_k, &actual_v, &reference_k, &reference_v, lease, backing, residency,
-                source, "server_generation", false, nullptr, 2, config.mode);
+                source, "server_generation", false, nullptr, 2, config.mode, nullptr,
+                &completed_layers);
             if (!sequence.ok) throw std::runtime_error("autoregressive transformer failure");
             add_trace(trace_begin);
             peak_resident = std::max(peak_resident, residency->resident_bytes());
@@ -394,6 +443,7 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
             const bool prompt_position = position + 1 < config.prompt_tokens.size();
             if (prompt_position) {
                 input_token = config.prompt_tokens[position + 1];
+                ++completed_positions;
                 continue;
             }
             const std::vector<float> logits = run_output_head(output_norm, output, sequence.output,
@@ -414,12 +464,16 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
             }
             if (result.tokens.size() == config.max_new_tokens) {
                 result.completed = true;
+                ++completed_positions;
                 break;
             }
+            ++completed_positions;
         }
         if (!result.cancelled && !result.completed)
             result.error = "generation ended before the requested token bound";
         result.prompt_tokens = config.prompt_tokens.size();
+        result.completed_layers = completed_layers;
+        result.completed_positions = completed_positions;
         result.peak_resident_bytes = peak_resident;
         result.peak_active_bytes = peak_active;
         result.resident_bytes_after = residency->resident_bytes();
@@ -437,11 +491,27 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         } else result.prefill_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now() - start).count());
         const uint64_t source_bytes_after = impl_->http_source->metrics().bytes;
+        result.source_successful_requests = impl_->controlled_source->successful_requests();
+        result.source_successful_requests_before_failure = result.source_successful_requests;
+        result.source_failure_injected = impl_->controlled_source->failure_injected();
         if (source_bytes_after >= source_bytes_before)
             result.source_bytes = std::max(result.source_bytes, source_bytes_after - source_bytes_before);
         clear_diagnostics();
     } catch (const std::exception & exception) {
         result.error = exception.what();
+        result.completed_layers = completed_layers;
+        result.completed_positions = completed_positions;
+        result.source_successful_requests = impl_->controlled_source
+            ? impl_->controlled_source->successful_requests() : 0;
+        result.source_successful_requests_before_failure = result.source_successful_requests;
+        result.source_failure_injected = impl_->controlled_source &&
+            impl_->controlled_source->failure_injected();
+        if (impl_->residency) {
+            result.resident_bytes_after = impl_->residency->resident_bytes();
+            result.active_lease_count_after = impl_->residency->active_lease_count();
+            result.active_lease_bytes_after = impl_->residency->active_lease_bytes();
+        }
+        if (impl_->materializer) result.active_inflight_bytes_after = impl_->materializer->active_inflight_bytes();
         clear_diagnostics();
     }
     result.elapsed_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(

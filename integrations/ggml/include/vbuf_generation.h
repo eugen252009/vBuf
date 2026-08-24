@@ -19,6 +19,7 @@ struct VbufGenerationConfig {
     uint32_t max_new_tokens = 4;
     // Qualification-only source fault injection. Zero leaves the source unchanged.
     uint32_t source_failure_requests = 0;
+    std::optional<uint64_t> source_failure_after_successful_requests;
     RuntimeMode mode = RuntimeMode::NormalInference;
     std::vector<uint32_t> prompt_tokens;
     std::optional<uint32_t> stop_token;
@@ -46,6 +47,11 @@ struct VbufGenerationResult {
     uint64_t reacquisitions = 0;
     uint64_t prefill_ns = 0;
     uint64_t decode_ns = 0;
+    uint64_t source_successful_requests = 0;
+    uint64_t source_successful_requests_before_failure = 0;
+    uint32_t completed_layers = 0;
+    uint64_t completed_positions = 0;
+    bool source_failure_injected = false;
     uint64_t elapsed_ns = 0;
 };
 

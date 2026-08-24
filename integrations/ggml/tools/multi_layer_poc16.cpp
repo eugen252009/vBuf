@@ -975,7 +975,8 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
     const std::shared_ptr<TensorResidencyStore> & residency,
     const std::shared_ptr<RangeSource> & source, const char * label, bool reference_only = false,
     const MultiSelectiveFailureSource * failure_source = nullptr, uint32_t failure_block = 2,
-    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr) {
+    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr,
+    uint32_t * completed_layers = nullptr) {
     SequenceRun result;
     Activation actual = input;
     Activation reference = input;
@@ -1096,6 +1097,7 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
             return result;
         }
         ++result.completed_blocks;
+        if (completed_layers != nullptr) *completed_layers = result.completed_blocks;
         actual = Activation{ actual_ffn.final_output, { 2048, 1 } };
         reference = runs_reference_control(mode)
             ? Activation{ reference_ffn.reference_output, { 2048, 1 } } : actual;

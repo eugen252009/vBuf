@@ -82,6 +82,7 @@ struct ServerConfig {
     uint64_t capacity = 268435456;
     uint32_t max_new_tokens = 4;
     uint32_t source_failure_requests = 0;
+    bool qualification_faults = false;
     vbuf_ggml::RuntimeMode mode = vbuf_ggml::RuntimeMode::NormalInference;
 };
 
@@ -726,6 +727,15 @@ static std::string request_id() {
     return "chatcmpl-vbuf-" + std::to_string(next.fetch_add(1));
 }
 
+static uint64_t token_hash(const std::vector<uint32_t> & tokens) {
+    uint64_t hash = 1469598103934665603ULL;
+    for (uint32_t token : tokens) {
+        hash ^= token;
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
 static void reject_unsupported(const std::string & body) {
     for (const char * key : {"temperature", "top_p", "stop", "seed", "tools", "tool_choice", "response_format", "stream_options"})
         if (has_top_level_key(body, key)) fail(std::string("unsupported generation option: ") + key);
@@ -819,6 +829,11 @@ static void handle_request(int fd, ServerRuntime * runtime) {
         generation.residency_capacity = runtime->config.capacity;
         generation.max_new_tokens = max_tokens;
         generation.source_failure_requests = runtime->config.source_failure_requests;
+        if (runtime->config.qualification_faults &&
+            has_top_level_key(request.body, "vbuf_source_failure_after_requests")) {
+            generation.source_failure_after_successful_requests = top_level_uint(
+                request.body, "vbuf_source_failure_after_requests", 0);
+        }
         generation.mode = runtime->config.mode;
         generation.prompt_tokens = prompt_tokens;
         generation.stop_token = runtime->tokenizer.eos();
@@ -868,6 +883,7 @@ static void handle_request(int fd, ServerRuntime * runtime) {
             const auto snapshot = runtime->session->snapshot();
             std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
                 << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
+                << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec
                 << " generated_tokens=" << result.tokens.size() << " source_bytes=" << result.source_bytes
                 << " materialized_bytes=" << result.materialized_bytes << " resident_bytes_before=" << result.resident_bytes_before
                 << " resident_bytes_after=" << result.resident_bytes_after << " peak_residency_bytes=" << result.peak_resident_bytes
@@ -876,6 +892,11 @@ static void handle_request(int fd, ServerRuntime * runtime) {
                 << " active_generations_after=" << snapshot.active_generations
                 << " active_streams_after=" << runtime->active_streams << " active_cancellations_after=" << runtime->active_cancellations
                 << " evictions=" << result.evictions << " reacquisitions=" << result.reacquisitions
+                << " source_successful_requests=" << result.source_successful_requests
+                << " source_successful_requests_before_failure=" << result.source_successful_requests_before_failure
+                << " completed_layers=" << result.completed_layers
+                << " completed_positions=" << result.completed_positions
+                << " source_failure_injected=" << (result.source_failure_injected ? "yes" : "no")
                 << " prefill_ns=" << result.prefill_ns << " decode_ns=" << result.decode_ns
                 << " http_parse_ns=" << http_parse_ns << " prompt_build_ns=" << prompt_build_ns
                 << " tokenize_ns=" << tokenize_ns << " materialization_ns=UNINSTRUMENTED"
@@ -907,6 +928,7 @@ static void handle_request(int fd, ServerRuntime * runtime) {
         const auto snapshot = runtime->session->snapshot();
         std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
             << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
+            << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec
             << " generated_tokens=" << result.tokens.size() << " source_bytes=" << result.source_bytes
             << " materialized_bytes=" << result.materialized_bytes << " resident_bytes_before=" << result.resident_bytes_before
             << " resident_bytes_after=" << result.resident_bytes_after << " peak_residency_bytes=" << result.peak_resident_bytes
@@ -915,6 +937,11 @@ static void handle_request(int fd, ServerRuntime * runtime) {
             << " active_generations_after=" << snapshot.active_generations
             << " active_streams_after=" << runtime->active_streams << " active_cancellations_after=" << runtime->active_cancellations
             << " evictions=" << result.evictions << " reacquisitions=" << result.reacquisitions
+            << " source_successful_requests=" << result.source_successful_requests
+            << " source_successful_requests_before_failure=" << result.source_successful_requests_before_failure
+            << " completed_layers=" << result.completed_layers
+            << " completed_positions=" << result.completed_positions
+            << " source_failure_injected=" << (result.source_failure_injected ? "yes" : "no")
             << " prefill_ns=" << result.prefill_ns << " decode_ns=" << result.decode_ns
             << " http_parse_ns=" << http_parse_ns << " prompt_build_ns=" << prompt_build_ns
             << " tokenize_ns=" << tokenize_ns << " materialization_ns=UNINSTRUMENTED"
@@ -949,6 +976,7 @@ static ServerConfig parse_args(int argc, char ** argv) {
         else if (arg == "--max-new-tokens") config.max_new_tokens = static_cast<uint32_t>(std::stoul(value()));
         else if (arg == "--source-failure-requests")
             config.source_failure_requests = static_cast<uint32_t>(std::stoul(value()));
+        else if (arg == "--enable-qualification-faults") config.qualification_faults = true;
         else if (arg == "--runtime-mode") {
             const std::string mode = value();
             if (mode == "qualification") config.mode = vbuf_ggml::RuntimeMode::Qualification;
@@ -956,13 +984,14 @@ static ServerConfig parse_args(int argc, char ** argv) {
         } else fail("unknown argument: " + arg);
     }
     if (config.semantic_model.empty() || config.source_url.empty())
-        fail("usage: --semantic-model PATH --source-url URL [--model-alias ID --host HOST --port PORT --blocks N --capacity BYTES --max-new-tokens N --source-failure-requests N]");
+        fail("usage: --semantic-model PATH --source-url URL [--model-alias ID --host HOST --port PORT --blocks N --capacity BYTES --max-new-tokens N --source-failure-requests N --enable-qualification-faults]");
     if (config.max_new_tokens == 0 || config.blocks == 0) fail("generation bounds must be positive");
     return config;
 }
 
 } // namespace
 
+#ifndef VBUF_COMPAT_SERVER_LIBRARY_ONLY
 int main(int argc, char ** argv) {
     std::signal(SIGPIPE, SIG_IGN);
     std::signal(SIGINT, request_shutdown);
@@ -1005,3 +1034,4 @@ int main(int argc, char ** argv) {
         return 1;
     }
 }
+#endif

@@ -343,6 +343,10 @@ if(VBUF_ML_LIBRARY)
         add_executable(vbuf_compat_server tools/vbuf_compat_server.cpp)
         target_compile_features(vbuf_compat_server PRIVATE cxx_std_17)
         target_link_libraries(vbuf_compat_server PRIVATE vbuf_region_executor)
+
+        add_executable(vbuf_direct_control tools/vbuf_direct_control.cpp)
+        target_compile_features(vbuf_direct_control PRIVATE cxx_std_17)
+        target_link_libraries(vbuf_direct_control PRIVATE vbuf_region_executor)
     endif()
 
     if(VBUF_BUILD_REAL_GATE2B AND VBUF_RUNTIME_LIBRARY)
