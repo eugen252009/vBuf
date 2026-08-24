@@ -72,6 +72,7 @@ struct LocalVbufRangeMaterializer::Impl {
     };
 
     mutable std::mutex mutex;
+    mutable std::mutex worker_mutex;
     std::map<uint32_t, std::unique_ptr<Request>> requests;
     std::vector<MaterializationTraceEvent> events;
     uint64_t inflight_bytes = 0;
@@ -105,6 +106,7 @@ LocalVbufRangeMaterializer::LocalVbufRangeMaterializer(std::shared_ptr<RangeSour
 }
 
 LocalVbufRangeMaterializer::~LocalVbufRangeMaterializer() {
+    std::unique_lock<std::mutex> worker_lock(impl_->worker_mutex);
     std::vector<std::thread *> workers;
     {
         std::lock_guard<std::mutex> lock(impl_->mutex);
@@ -129,6 +131,7 @@ LocalVbufRangeMaterializer::~LocalVbufRangeMaterializer() {
 bool LocalVbufRangeMaterializer::request(
     uint32_t tensor_ref, const PersistentTensorRef & tensor, uint64_t byte_budget) {
     const uint64_t request_start_ns = now_ns();
+    std::unique_lock<std::mutex> worker_lock(impl_->worker_mutex);
     std::thread stale_worker;
     std::unique_lock<std::mutex> lock(impl_->mutex);
     const auto existing = impl_->requests.find(tensor_ref);
@@ -235,6 +238,7 @@ MaterializationState LocalVbufRangeMaterializer::state(uint32_t tensor_ref) cons
 }
 
 MaterializationState LocalVbufRangeMaterializer::wait(uint32_t tensor_ref) {
+    std::unique_lock<std::mutex> worker_lock(impl_->worker_mutex);
     Impl::Request * request = nullptr;
     {
         std::lock_guard<std::mutex> lock(impl_->mutex);
@@ -267,6 +271,7 @@ std::optional<MaterializedTensor> LocalVbufRangeMaterializer::obtain_ready_tenso
 }
 
 void LocalVbufRangeMaterializer::release(uint32_t tensor_ref) {
+    std::unique_lock<std::mutex> worker_lock(impl_->worker_mutex);
     std::lock_guard<std::mutex> lock(impl_->mutex);
     const auto found = impl_->requests.find(tensor_ref);
     if (found == impl_->requests.end()) return;

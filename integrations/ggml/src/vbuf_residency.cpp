@@ -112,6 +112,7 @@ void TensorResidencyStore::add_event(uint32_t tensor_ref, const std::string & te
 
 const ResidentTensor * TensorResidencyStore::lookup(uint32_t tensor_ref,
     const std::string & tensor_name) {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = entries_.find(tensor_ref);
     if (it == entries_.end()) return nullptr;
     it->second.last_use = ++clock_;
@@ -122,15 +123,36 @@ const ResidentTensor * TensorResidencyStore::lookup(uint32_t tensor_ref,
 }
 
 const ResidentTensor * TensorResidencyStore::peek(uint32_t tensor_ref) const {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = entries_.find(tensor_ref);
     return it == entries_.end() ? nullptr : &it->second;
 }
 
+bool TensorResidencyStore::contains(uint32_t tensor_ref) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return entries_.find(tensor_ref) != entries_.end();
+}
+
+std::optional<MaterializedTensor> TensorResidencyStore::acquire_materialized(
+    uint32_t tensor_ref, const std::string & tensor_name) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = entries_.find(tensor_ref);
+    if (it == entries_.end()) return std::nullopt;
+    const uint64_t before = resident_bytes_;
+    ++it->second.active_leases;
+    it->second.last_use = ++clock_;
+    add_event(tensor_ref, tensor_name.empty() ? names_[tensor_ref] : tensor_name,
+        ResidencyEventKind::LeaseAcquire, before, it->second.active_leases);
+    return it->second.materialized;
+}
+
 void TensorResidencyStore::note_miss(uint32_t tensor_ref, const std::string & tensor_name) {
+    std::lock_guard<std::mutex> lock(mutex_);
     add_event(tensor_ref, tensor_name, ResidencyEventKind::Miss, resident_bytes_, 0);
 }
 
 void TensorResidencyStore::note_request(uint32_t tensor_ref, const std::string & tensor_name) {
+    std::lock_guard<std::mutex> lock(mutex_);
     ++request_ordinal_;
     ++observed_request_count_[tensor_ref];
     last_request_ordinal_[tensor_ref] = request_ordinal_;
@@ -139,6 +161,7 @@ void TensorResidencyStore::note_request(uint32_t tensor_ref, const std::string &
 
 void TensorResidencyStore::note_materialize(uint32_t tensor_ref, const std::string & tensor_name,
     const std::string & source_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
     ++materialization_count_;
     if (!materialized_tensors_.insert(tensor_ref).second) ++reacquisition_count_;
     add_event(tensor_ref, tensor_name, ResidencyEventKind::Materialize,
@@ -176,6 +199,7 @@ bool TensorResidencyStore::evict_one(const std::string &) {
 
 bool TensorResidencyStore::insert(uint32_t tensor_ref, const std::string & tensor_name,
     const MaterializedTensor & materialized, const std::string & source_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (entries_.count(tensor_ref) != 0) return false;
     const uint64_t bytes = materialized.bytes;
     if (bytes > max_resident_bytes_) {
@@ -198,6 +222,7 @@ bool TensorResidencyStore::insert(uint32_t tensor_ref, const std::string & tenso
 }
 
 bool TensorResidencyStore::acquire(uint32_t tensor_ref, const std::string & tensor_name) {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = entries_.find(tensor_ref);
     if (it == entries_.end()) return false;
     const uint64_t before = resident_bytes_;
@@ -209,6 +234,7 @@ bool TensorResidencyStore::acquire(uint32_t tensor_ref, const std::string & tens
 }
 
 bool TensorResidencyStore::release(uint32_t tensor_ref, const std::string & tensor_name) {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = entries_.find(tensor_ref);
     if (it == entries_.end() || it->second.active_leases == 0) return false;
     const uint64_t before = resident_bytes_;
@@ -219,6 +245,7 @@ bool TensorResidencyStore::release(uint32_t tensor_ref, const std::string & tens
 }
 
 bool TensorResidencyStore::evict(uint32_t tensor_ref, const std::string & tensor_name) {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = entries_.find(tensor_ref);
     if (it == entries_.end() || it->second.active_leases != 0) return false;
     const uint64_t before = resident_bytes_;
@@ -232,25 +259,85 @@ bool TensorResidencyStore::evict(uint32_t tensor_ref, const std::string & tensor
 }
 
 void TensorResidencyStore::clear() {
-    entries_.clear();
-    names_.clear();
-    resident_bytes_ = 0;
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto it = entries_.begin(); it != entries_.end();) {
+        if (it->second.active_leases != 0) {
+            ++it;
+            continue;
+        }
+        resident_bytes_ -= it->second.bytes;
+        names_.erase(it->first);
+        it = entries_.erase(it);
+    }
 }
 
 void TensorResidencyStore::clear_trace() {
+    std::lock_guard<std::mutex> lock(mutex_);
     trace_.clear();
 }
 
+uint64_t TensorResidencyStore::resident_bytes() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return resident_bytes_;
+}
+
+size_t TensorResidencyStore::resident_count() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return entries_.size();
+}
+
 uint64_t TensorResidencyStore::active_lease_bytes() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     uint64_t bytes = 0;
     for (const auto & entry : entries_) if (entry.second.active_leases != 0) bytes += entry.second.bytes;
     return bytes;
 }
 
 uint32_t TensorResidencyStore::active_lease_count() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     uint32_t count = 0;
-    for (const auto & entry : entries_) if (entry.second.active_leases != 0) ++count;
+    for (const auto & entry : entries_) count += entry.second.active_leases;
     return count;
+}
+
+uint64_t TensorResidencyStore::materialization_count() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return materialization_count_;
+}
+
+uint64_t TensorResidencyStore::reacquisition_count() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return reacquisition_count_;
+}
+
+uint64_t TensorResidencyStore::eviction_count() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return eviction_count_;
+}
+
+uint64_t TensorResidencyStore::policy_decisions() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return policy_decisions_;
+}
+
+uint64_t TensorResidencyStore::policy_candidates_evaluated() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return policy_candidates_evaluated_;
+}
+
+uint64_t TensorResidencyStore::policy_cpu_time_ns() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return policy_cpu_time_ns_;
+}
+
+uint64_t TensorResidencyStore::policy_max_decision_ns() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return policy_max_decision_ns_;
+}
+
+std::vector<ResidencyTraceEvent> TensorResidencyStore::trace() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return trace_;
 }
 
 ResidentTensorMaterializer::ResidentTensorMaterializer(
@@ -260,25 +347,48 @@ ResidentTensorMaterializer::ResidentTensorMaterializer(
 
 bool ResidentTensorMaterializer::request(uint32_t tensor_ref,
     const PersistentTensorRef & tensor, uint64_t byte_budget) {
+    std::lock_guard<std::mutex> lock(mutex_);
     known_tensors_[tensor_ref] = tensor;
     const auto existing = requests_.find(tensor_ref);
     if (existing != requests_.end()) {
-        if (residency_->peek(tensor_ref) != nullptr ||
-            backing_->state(tensor_ref) == MaterializationState::InFlight ||
+        if (existing->second.retained) return true;
+        if (const auto resident = residency_->acquire_materialized(
+                tensor_ref, tensor.name); resident.has_value()) {
+            existing->second.retained = true;
+            existing->second.lease_acquired = true;
+            existing->second.retained_tensor = resident;
+            return true;
+        }
+        if (backing_->state(tensor_ref) == MaterializationState::InFlight ||
             backing_->state(tensor_ref) == MaterializationState::Ready) {
             return true;
         }
     }
-    requests_[tensor_ref] = { tensor, false, false };
+    requests_[tensor_ref] = { tensor, false, false, false, std::nullopt };
     residency_->note_request(tensor_ref, tensor.name);
-    if (residency_->lookup(tensor_ref, tensor.name) != nullptr) return true;
+    if (const auto resident = residency_->acquire_materialized(
+            tensor_ref, tensor.name); resident.has_value()) {
+        auto & request = requests_.at(tensor_ref);
+        request.retained = true;
+        request.lease_acquired = true;
+        request.retained_tensor = resident;
+        return true;
+    }
     residency_->note_miss(tensor_ref, tensor.name);
-    return backing_->request(tensor_ref, tensor, byte_budget);
+    auto & request = requests_.at(tensor_ref);
+    request.backing_requested = true;
+    if (backing_->request(tensor_ref, tensor, byte_budget)) return true;
+    const auto backing_state = backing_->state(tensor_ref);
+    return backing_state == MaterializationState::InFlight || backing_state == MaterializationState::Ready;
 }
 
 MaterializationState ResidentTensorMaterializer::state(uint32_t tensor_ref) const {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = requests_.find(tensor_ref);
-    if (residency_->peek(tensor_ref) != nullptr) {
+    if (it != requests_.end() && it->second.retained) {
+        return MaterializationState::Ready;
+    }
+    if (residency_->contains(tensor_ref)) {
         return MaterializationState::Ready;
     }
     if (backing_->state(tensor_ref) == MaterializationState::NotRequested &&
@@ -287,28 +397,34 @@ MaterializationState ResidentTensorMaterializer::state(uint32_t tensor_ref) cons
 }
 
 MaterializationState ResidentTensorMaterializer::wait(uint32_t tensor_ref) {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = requests_.find(tensor_ref);
-    if (residency_->peek(tensor_ref) != nullptr) {
+    if (it != requests_.end() && it->second.retained) {
+        return MaterializationState::Ready;
+    }
+    if (residency_->contains(tensor_ref)) {
         return MaterializationState::Ready;
     }
     return backing_->wait(tensor_ref);
 }
 
 std::optional<MaterializedTensor> ResidentTensorMaterializer::obtain_ready_tensor(uint32_t tensor_ref) {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto request = requests_.find(tensor_ref);
     if (request == requests_.end()) {
         auto known = known_tensors_.find(tensor_ref);
         if (known == known_tensors_.end()) return std::nullopt;
-        request = requests_.emplace(tensor_ref, RequestInfo{ known->second, false, false }).first;
+        request = requests_.emplace(tensor_ref,
+            RequestInfo{ known->second, false, false, false, std::nullopt }).first;
     }
-    const ResidentTensor * resident = residency_->lookup(tensor_ref, request->second.tensor.name);
-    if (resident != nullptr) {
-        if (!request->second.lease_acquired) {
-            residency_->acquire(tensor_ref, request->second.tensor.name);
-            request->second.lease_acquired = true;
-        }
+    if (request->second.retained && request->second.retained_tensor.has_value()) {
+        return request->second.retained_tensor;
+    }
+    if (const auto resident = residency_->acquire_materialized(
+            tensor_ref, request->second.tensor.name); resident.has_value()) {
+        request->second.lease_acquired = true;
         request->second.retained = true;
-        return resident->materialized;
+        return resident;
     }
     const auto ready = backing_->obtain_ready_tensor(tensor_ref);
     if (!ready.has_value()) return std::nullopt;
@@ -324,37 +440,65 @@ std::optional<MaterializedTensor> ResidentTensorMaterializer::obtain_ready_tenso
     residency_->note_materialize(tensor_ref, request->second.tensor.name, source_id);
     if (residency_->insert(tensor_ref, request->second.tensor.name, *ready, source_id)) {
         request->second.retained = true;
-        const ResidentTensor * inserted = residency_->lookup(tensor_ref, request->second.tensor.name);
-        residency_->acquire(tensor_ref, request->second.tensor.name);
         request->second.lease_acquired = true;
-        return inserted->materialized;
+        const auto inserted = residency_->acquire_materialized(
+            tensor_ref, request->second.tensor.name);
+        if (inserted.has_value()) {
+            request->second.retained_tensor = inserted;
+            return inserted;
+        }
+        request->second.retained = false;
+        request->second.lease_acquired = false;
+        return ready;
+    }
+    if (const auto existing = residency_->acquire_materialized(
+            tensor_ref, request->second.tensor.name); existing.has_value()) {
+        request->second.retained = true;
+        request->second.lease_acquired = true;
+        request->second.retained_tensor = existing;
+        return existing;
     }
     request->second.retained = false;
-    request->second.lease_acquired = true;
+    request->second.lease_acquired = false;
     return ready;
 }
 
 void ResidentTensorMaterializer::release(uint32_t tensor_ref) {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = requests_.find(tensor_ref);
     if (it == requests_.end()) return;
     if (it->second.retained) residency_->release(tensor_ref, it->second.tensor.name);
-    backing_->release(tensor_ref);
+    if (it->second.backing_requested) backing_->release(tensor_ref);
     requests_.erase(it);
 }
 
+void ResidentTensorMaterializer::release_all() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto & entry : requests_) {
+        const RequestInfo & request = entry.second;
+        if (request.retained) residency_->release(entry.first, request.tensor.name);
+        if (request.backing_requested) backing_->release(entry.first);
+    }
+    requests_.clear();
+}
+
 uint64_t ResidentTensorMaterializer::active_inflight_bytes() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return backing_->active_inflight_bytes();
 }
 
 uint64_t ResidentTensorMaterializer::active_ready_bytes() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return residency_->resident_bytes();
 }
 
 std::vector<MaterializationTraceEvent> ResidentTensorMaterializer::trace() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return backing_->trace();
 }
 
 void ResidentTensorMaterializer::clear_trace() {
+    std::lock_guard<std::mutex> lock(mutex_);
     const auto local = std::dynamic_pointer_cast<LocalVbufRangeMaterializer>(backing_);
     if (local) local->clear_trace();
 }

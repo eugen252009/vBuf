@@ -2754,6 +2754,36 @@ inference. No server admission, slots, batching, interleaving, backend tuning,
 residency policy, KV semantics, or format behavior changed. Evidence:
 `research/results/vbuf-ml-integration/step31y-backend-concurrency-feasibility.md`.
 
+#### Step 31Z - SHARED_IMMUTABLE_RESIDENCY_CONCURRENCY_QUALIFICATION
+
+**Status: X86_64 SHARED IMMUTABLE RESIDENT-WEIGHT READERS QUALIFIED FOR THE
+TESTED RESIDENCY SEAM AT A 512-MIB CAP; PRODUCTION MAX_ACTIVE_GENERATIONS
+REMAINS 1.** The research-only probe created two independent generation
+sessions with private source, materializer backing, request maps, KV state, and
+backend contexts. The sessions shared only a mutex-protected
+`TensorResidencyStore`. Serial, private-concurrent, shared-serial, and
+shared-concurrent modes completed three measured A/B pairs with deterministic
+token parity and zero post-run active leases, inflight bytes, or active
+generations.
+
+The shared-concurrent mean pair makespan was `4.507 s` versus `8.737 s` serial,
+for a measured `1.938x` aggregate speedup. Individual shared latency was
+`0.976x` the serial baseline. Peak RSS was `936496 KiB` shared-concurrent
+versus `1505264 KiB` private-concurrent in the fresh-process measurement, with
+10 peak threads in both concurrent modes. The combined KV estimate remained
+`3031040` bytes and was not shared or changed.
+
+The qualification contract covers cold same-key and different-key readers,
+lease release ordering, eviction pressure while leased, rewarm after eviction,
+payload identity, and tensor-wave cleanup on exceptional exits. Shared source
+or shared materializer ownership, concurrent calls on one session, and
+production parallel inference remain unqualified. A 256-MiB repeated
+concurrent exploratory run intermittently hit the existing per-session
+materializer request-budget rejection path and is recorded as a limitation,
+not as a pass. The next experiment is a separately qualified 256-MiB cap after
+an explicit request-queue/backing-budget contract is defined. Evidence:
+`research/results/vbuf-ml-integration/step31z-shared-residency-concurrency.md`.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -78,6 +79,9 @@ public:
 
     const ResidentTensor * lookup(uint32_t tensor_ref, const std::string & tensor_name = {});
     const ResidentTensor * peek(uint32_t tensor_ref) const;
+    bool contains(uint32_t tensor_ref) const;
+    std::optional<MaterializedTensor> acquire_materialized(
+        uint32_t tensor_ref, const std::string & tensor_name = {});
     void note_miss(uint32_t tensor_ref, const std::string & tensor_name);
     void note_request(uint32_t tensor_ref, const std::string & tensor_name);
     void note_materialize(uint32_t tensor_ref, const std::string & tensor_name,
@@ -91,19 +95,19 @@ public:
     void clear_trace();
 
     uint64_t max_resident_bytes() const { return max_resident_bytes_; }
-    uint64_t resident_bytes() const { return resident_bytes_; }
-    size_t resident_count() const { return entries_.size(); }
+    uint64_t resident_bytes() const;
+    size_t resident_count() const;
     uint64_t active_lease_bytes() const;
     uint32_t active_lease_count() const;
-    uint64_t materialization_count() const { return materialization_count_; }
-    uint64_t reacquisition_count() const { return reacquisition_count_; }
-    uint64_t eviction_count() const { return eviction_count_; }
+    uint64_t materialization_count() const;
+    uint64_t reacquisition_count() const;
+    uint64_t eviction_count() const;
     const char * replacement_policy_name() const { return replacement_policy_->name(); }
-    uint64_t policy_decisions() const { return policy_decisions_; }
-    uint64_t policy_candidates_evaluated() const { return policy_candidates_evaluated_; }
-    uint64_t policy_cpu_time_ns() const { return policy_cpu_time_ns_; }
-    uint64_t policy_max_decision_ns() const { return policy_max_decision_ns_; }
-    const std::vector<ResidencyTraceEvent> & trace() const { return trace_; }
+    uint64_t policy_decisions() const;
+    uint64_t policy_candidates_evaluated() const;
+    uint64_t policy_cpu_time_ns() const;
+    uint64_t policy_max_decision_ns() const;
+    std::vector<ResidencyTraceEvent> trace() const;
 
 private:
     bool evict_one(const std::string & reason);
@@ -111,6 +115,7 @@ private:
         ResidencyEventKind kind, uint64_t before, uint32_t leases,
         const std::string & source_id = {});
 
+    mutable std::mutex mutex_;
     uint64_t max_resident_bytes_ = 0;
     uint64_t resident_bytes_ = 0;
     uint64_t clock_ = 0;
@@ -146,6 +151,7 @@ public:
     std::optional<MaterializedTensor> obtain_ready_tensor(
         uint32_t tensor_ref) override;
     void release(uint32_t tensor_ref) override;
+    void release_all();
     uint64_t active_inflight_bytes() const override;
     uint64_t active_ready_bytes() const override;
     std::vector<MaterializationTraceEvent> trace() const override;
@@ -158,10 +164,13 @@ private:
         PersistentTensorRef tensor{};
         bool lease_acquired = false;
         bool retained = false;
+        bool backing_requested = false;
+        std::optional<MaterializedTensor> retained_tensor;
     };
 
     std::shared_ptr<TensorMaterializer> backing_;
     std::shared_ptr<TensorResidencyStore> residency_;
+    mutable std::mutex mutex_;
     std::unordered_map<uint32_t, PersistentTensorRef> known_tensors_;
     std::unordered_map<uint32_t, RequestInfo> requests_;
 };

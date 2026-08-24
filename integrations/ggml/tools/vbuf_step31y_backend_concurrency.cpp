@@ -99,10 +99,12 @@ static Config parse_concurrency_args(int argc, char ** argv) {
         else throw std::runtime_error("unknown option: " + arg);
     }
     if (config.semantic_model.empty() || config.source_url.empty() ||
-        (config.mode != "serial" && config.mode != "concurrent") ||
+        (config.mode != "serial" && config.mode != "concurrent" &&
+            config.mode != "shared-serial" && config.mode != "shared-concurrent") ||
         config.blocks == 0 || config.max_new_tokens == 0 || config.repetitions == 0)
         throw std::runtime_error("usage: vbuf_step31y_backend_concurrency --semantic-model PATH "
-            "--source-url URL --mode serial|concurrent [--prompt-a TEXT --prompt-b TEXT "
+            "--source-url URL --mode serial|concurrent|shared-serial|shared-concurrent "
+            "[--prompt-a TEXT --prompt-b TEXT "
             "--blocks N --capacity BYTES --max-new-tokens N --warmup N --repetitions N]");
     return config;
 }
@@ -226,7 +228,8 @@ static PairRecord run_pair(const Config & config, vbuf_ggml::VbufGenerationSessi
     const std::vector<uint32_t> & prompt_b) {
     PairRecord pair;
     pair.start_ns = steady_now_ns();
-    if (config.mode == "serial") {
+    const bool concurrent = config.mode == "concurrent" || config.mode == "shared-concurrent";
+    if (!concurrent) {
         pair.a = run_one(config, session_a, prompt_a, nullptr);
         pair.b = run_one(config, session_b, prompt_b, nullptr);
     } else {
@@ -283,6 +286,8 @@ static bool valid_record(const RunRecord & record) {
 int main(int argc, char ** argv) {
     try {
         const Config config = parse_concurrency_args(argc, argv);
+        const bool shared_substrate = config.mode == "shared-serial" ||
+            config.mode == "shared-concurrent";
         VbufTokenizer tokenizer(config.semantic_model);
         const std::vector<Message> messages_a = {{"user", config.prompt_a}};
         const std::vector<Message> messages_b = {{"user", config.prompt_b}};
@@ -290,8 +295,19 @@ int main(int argc, char ** argv) {
         const std::vector<uint32_t> prompt_b = tokenizer.encode_chat(messages_b);
         if (prompt_a.empty() || prompt_b.empty()) throw std::runtime_error("empty prompt tokenization");
 
-        auto session_a = std::make_unique<vbuf_ggml::VbufGenerationSession>(config.semantic_model, config.blocks);
-        auto session_b = std::make_unique<vbuf_ggml::VbufGenerationSession>(config.semantic_model, config.blocks);
+        std::shared_ptr<vbuf_ggml::TensorResidencyStore> shared_residency;
+        if (shared_substrate) {
+            shared_residency = std::make_shared<vbuf_ggml::TensorResidencyStore>(config.capacity,
+                vbuf_ggml::ResidencyReplacementPolicyKind::CostAware);
+        }
+        auto session_a = shared_residency
+            ? std::make_unique<vbuf_ggml::VbufGenerationSession>(
+                config.semantic_model, config.blocks, shared_residency)
+            : std::make_unique<vbuf_ggml::VbufGenerationSession>(config.semantic_model, config.blocks);
+        auto session_b = shared_residency
+            ? std::make_unique<vbuf_ggml::VbufGenerationSession>(
+                config.semantic_model, config.blocks, shared_residency)
+            : std::make_unique<vbuf_ggml::VbufGenerationSession>(config.semantic_model, config.blocks);
         ProcMonitor monitor;
         monitor.start();
         for (uint32_t index = 0; index < config.warmup; ++index) {
@@ -330,7 +346,8 @@ int main(int argc, char ** argv) {
         const uint64_t kv_estimate = 4ULL * (16ULL * 192ULL + 16ULL * 128ULL) * sizeof(float) *
             (positions_a + positions_b);
 
-        std::cout << "{\"step\":\"31Y\",\"mode\":\"" << config.mode
+        std::cout << "{\"step\":\"" << (shared_substrate ? "31Z" : "31Y")
+            << "\",\"mode\":\"" << config.mode
             << "\",\"ggml_commit\":\"" << AVAILABLE_GGML_COMMIT
             << "\",\"semantic_model\":\"" << config.semantic_model
             << "\",\"source_url\":\"" << config.source_url
@@ -340,8 +357,10 @@ int main(int argc, char ** argv) {
             << ",\"max_new_tokens\":" << config.max_new_tokens
             << ",\"warmup_per_session\":" << config.warmup
             << ",\"repetitions\":" << config.repetitions
-            << ",\"private_sessions_only\":true"
-            << ",\"shared_resident_weights\":\"not_qualified\""
+            << ",\"residency_capacity\":" << config.capacity
+            << ",\"private_sessions_only\":" << (shared_substrate ? "false" : "true")
+            << ",\"shared_resident_weights\":\""
+            << (shared_substrate ? "qualification_mode" : "not_qualified") << "\""
             << ",\"kv_estimate_bytes\":" << kv_estimate
             << ",\"baseline_rss_kib\":" << baseline.rss_kib
             << ",\"peak_rss_kib\":" << peak.rss_kib

@@ -176,6 +176,11 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_residency_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_residency_contract PRIVATE vbuf_region_executor)
 
+    add_executable(vbuf_shared_residency_concurrency_contract
+        tests/shared_residency_concurrency_contract.cpp)
+    target_compile_features(vbuf_shared_residency_concurrency_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_shared_residency_concurrency_contract PRIVATE vbuf_region_executor)
+
     add_executable(vbuf_residency_policy_poc17_contract
         tests/residency_policy_poc17_contract.cpp)
     target_compile_features(vbuf_residency_policy_poc17_contract PRIVATE cxx_std_17)
@@ -256,6 +261,8 @@ if(VBUF_BUILD_PROBES)
         COMMAND vbuf_source_selection_contract)
     add_test(NAME vbuf_residency_contract
         COMMAND vbuf_residency_contract)
+    add_test(NAME vbuf_shared_residency_concurrency_contract
+        COMMAND vbuf_shared_residency_concurrency_contract)
     add_test(NAME vbuf_residency_policy_poc17_contract
         COMMAND vbuf_residency_policy_poc17_contract)
     add_test(NAME vbuf_tiered_residency_poc18_contract

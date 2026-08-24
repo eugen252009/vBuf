@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vbuf_runtime_mode.h"
+#include "vbuf_residency.h"
 
 #include <cstdint>
 #include <functional>
@@ -78,6 +79,8 @@ bool validate_vbuf_generation_model(const std::string & semantic_model,
 class VbufGenerationSession {
 public:
     VbufGenerationSession(const std::string & semantic_model, uint32_t block_count);
+    VbufGenerationSession(const std::string & semantic_model, uint32_t block_count,
+        std::shared_ptr<TensorResidencyStore> shared_residency);
     ~VbufGenerationSession();
     VbufGenerationSession(const VbufGenerationSession &) = delete;
     VbufGenerationSession & operator=(const VbufGenerationSession &) = delete;

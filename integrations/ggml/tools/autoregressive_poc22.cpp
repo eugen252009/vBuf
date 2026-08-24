@@ -288,6 +288,7 @@ struct VbufGenerationSession::Impl {
     mutable std::shared_ptr<RangeSource> source;
     mutable std::shared_ptr<TensorResidencyStore> residency;
     mutable std::shared_ptr<ResidentTensorMaterializer> materializer;
+    std::shared_ptr<TensorResidencyStore> shared_residency;
     mutable uint64_t request_count = 0;
     mutable uint64_t active_generations = 0;
     mutable uint32_t source_failure_requests = 0;
@@ -300,6 +301,17 @@ VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
     load_metadata(semantic_model, &impl_->metadata);
     for (uint32_t block = 0; block < block_count; ++block)
         impl_->plans.push_back(make_plan(impl_->metadata, block, (block + 1) * 10000));
+}
+
+VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
+    uint32_t block_count, std::shared_ptr<TensorResidencyStore> shared_residency)
+    : impl_(std::make_unique<Impl>()) {
+    if (block_count == 0) throw std::runtime_error("block count must be positive");
+    if (!shared_residency) throw std::runtime_error("shared residency must not be null");
+    load_metadata(semantic_model, &impl_->metadata);
+    for (uint32_t block = 0; block < block_count; ++block)
+        impl_->plans.push_back(make_plan(impl_->metadata, block, (block + 1) * 10000));
+    impl_->shared_residency = std::move(shared_residency);
 }
 
 VbufGenerationSession::~VbufGenerationSession() = default;
@@ -353,8 +365,9 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
             impl_->http_source = std::make_shared<HttpRangeSource>(config.source_endpoint);
             impl_->controlled_source = std::make_shared<ControlledFailureRangeSource>(impl_->http_source);
             impl_->source = impl_->controlled_source;
-            impl_->residency = std::make_shared<TensorResidencyStore>(config.residency_capacity,
-                ResidencyReplacementPolicyKind::CostAware);
+            impl_->residency = impl_->shared_residency ? impl_->shared_residency :
+                std::make_shared<TensorResidencyStore>(config.residency_capacity,
+                    ResidencyReplacementPolicyKind::CostAware);
             impl_->materializer = std::make_shared<ResidentTensorMaterializer>(
                 std::make_shared<LocalVbufRangeMaterializer>(impl_->source), impl_->residency);
             impl_->source_failure_requests = config.source_failure_requests;
@@ -480,10 +493,16 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         result.active_lease_count_after = residency->active_lease_count();
         result.active_lease_bytes_after = residency->active_lease_bytes();
         result.active_inflight_bytes_after = backing->active_inflight_bytes();
-        result.evictions = std::count_if(residency->trace().begin() + static_cast<std::ptrdiff_t>(trace_before),
-            residency->trace().end(), [](const ResidencyTraceEvent & event) {
+        impl_->materializer->release_all();
+        result.active_lease_count_after = residency->active_lease_count();
+        result.active_lease_bytes_after = residency->active_lease_bytes();
+        result.active_inflight_bytes_after = backing->active_inflight_bytes();
+        const auto residency_trace = residency->trace();
+        result.evictions = trace_before < residency_trace.size() ? std::count_if(
+            residency_trace.begin() + static_cast<std::ptrdiff_t>(trace_before),
+            residency_trace.end(), [](const ResidencyTraceEvent & event) {
                 return event.kind == ResidencyEventKind::Evict;
-            });
+            }) : 0;
         result.reacquisitions = residency->reacquisition_count() - reacquisitions_before;
         if (decode_started) {
             result.decode_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -507,6 +526,7 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         result.source_failure_injected = impl_->controlled_source &&
             impl_->controlled_source->failure_injected();
         if (impl_->residency) {
+            if (impl_->materializer) impl_->materializer->release_all();
             result.resident_bytes_after = impl_->residency->resident_bytes();
             result.active_lease_count_after = impl_->residency->active_lease_count();
             result.active_lease_bytes_after = impl_->residency->active_lease_bytes();
@@ -770,8 +790,9 @@ int main(int argc, char ** argv) {
                     block + 1 == sequence.block_outputs.size() ? "" : " ");
             std::printf("\n");
             const uint64_t state_after = state_bytes(actual_k, actual_v);
-            const TraceDelta delta = trace_delta(plans, residency->trace(), trace_begin,
-                residency->trace().size(), &loaded_residency_ids);
+            const auto residency_trace = residency->trace();
+            const TraceDelta delta = trace_delta(plans, residency_trace, trace_begin,
+                residency_trace.size(), &loaded_residency_ids);
             const auto end = std::chrono::steady_clock::now();
             PositionEvidence item;
             item.position = position; item.input_token = input_token;

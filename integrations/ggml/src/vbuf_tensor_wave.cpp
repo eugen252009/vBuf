@@ -9,6 +9,7 @@
 #include <fstream>
 #include <limits>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace vbuf_ggml {
 
@@ -171,6 +172,15 @@ AdapterError TensorDependencyExecutor::execute(
     uint64_t active_weight_bytes = 0;
     uint64_t active_transient_bytes = input.payload_len;
     size_t completed_count = 0;
+    std::unordered_set<uint32_t> materializer_leases;
+    struct MaterializerLeaseCleanup {
+        TensorMaterializer * materializer;
+        std::unordered_set<uint32_t> * leases;
+        ~MaterializerLeaseCleanup() {
+            if (materializer == nullptr || leases == nullptr) return;
+            for (const uint32_t tensor_ref : *leases) materializer->release(tensor_ref);
+        }
+    } lease_cleanup{ materializer, &materializer_leases };
 
     const auto obtain_ready = [&](uint32_t tensor_ref, const PersistentTensorRef & persistent,
         MaterializedTensor * result, const char * operation_id) {
@@ -271,6 +281,7 @@ AdapterError TensorDependencyExecutor::execute(
                 }
                 materialized_inputs.push_back(ready);
                 materialized_refs.push_back(input_ref.index);
+                materializer_leases.insert(input_ref.index);
                 storage = ready.storage;
                 materialized = true;
             }
@@ -330,6 +341,7 @@ AdapterError TensorDependencyExecutor::execute(
                     }
                     materialized_inputs.push_back(ready);
                     materialized_refs.push_back(input_ref.index);
+                    materializer_leases.insert(input_ref.index);
                     const MaterializedTensor & materialized = materialized_inputs.back();
                     materialized_view = materialized.view();
                     view = &materialized_view;
@@ -539,9 +551,7 @@ AdapterError TensorDependencyExecutor::execute(
                     trace.persistent_released.push_back(persistent.name);
                     active_weight_bytes -= persistent.view.payload_len;
                     resident.erase(input_ref.index);
-                    if (materializer != nullptr &&
-                        std::find(materialized_refs.begin(), materialized_refs.end(),
-                            input_ref.index) != materialized_refs.end()) {
+                    if (materializer != nullptr && materializer_leases.erase(input_ref.index) != 0) {
                         materializer->release(input_ref.index);
                     }
                     report->persistent_lifetimes[input_ref.index].release_step =
