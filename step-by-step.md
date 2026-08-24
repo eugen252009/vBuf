@@ -2726,6 +2726,34 @@ generation queue, batching, slots, decode interleaving, backend tuning,
 residency change, or format change is authorized. Evidence:
 `research/results/vbuf-ml-integration/step31x-cancellable-admission.md`.
 
+#### Step 31Y - BACKEND_CONCURRENCY_FEASIBILITY_QUALIFICATION
+
+**Status: X86_64 ISOLATED-SESSION OVERLAP MEASURED; SHARED-SESSION AND
+SHARED-RESIDENT-WEIGHT CONCURRENCY NOT QUALIFIED; PRODUCTION MAX_ACTIVE_GENERATIONS
+REMAINS 1.** A research-only probe ran two independent
+`VbufGenerationSession` objects, each with separate source, materializer,
+residency, leases, KV state, and backend contexts. Three serial A/B pairs were
+compared with three synchronized concurrent A/B pairs using two blocks,
+`NormalInference`, prompts `Say hi` and `Count to one`, and eight generated
+tokens. All runs completed with deterministic per-prompt token parity and
+zero post-run active leases, inflight bytes, or active generations.
+
+On the available GGML checkout
+`a97123e497968f3440264c0464a7adc7c999c027`, mean pair makespan fell from
+`8.798 s` serial to `5.025 s` concurrent, a measured `1.751x` aggregate
+speedup. Mean individual runtime increased from `4.399 s` to `4.958 s`
+(`1.127x`). Peak RSS increased from `704288 KiB` to `943524 KiB`, peak PSS
+from `694345 KiB` to `933581 KiB`, and peak threads from `5` to `11`.
+
+This qualifies isolated private-session overlap only. It does not qualify
+concurrent calls on one session or concurrent readers sharing one resident
+weight store; both remain unsafe or unqualified by the current ownership
+contract. The result is useful evidence for a later isolated-runtime
+scheduling experiment but is not sufficient to enable production parallel
+inference. No server admission, slots, batching, interleaving, backend tuning,
+residency policy, KV semantics, or format behavior changed. Evidence:
+`research/results/vbuf-ml-integration/step31y-backend-concurrency-feasibility.md`.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
