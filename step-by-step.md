@@ -2836,6 +2836,33 @@ the vBuf-ML materialized F32 tensor to the existing backend MatMul path while
 recording bounded execution-buffer residency and lease behavior. Backend
 loader ownership must not be expanded.
 
+#### Step 32C - REAL FP8 MODEL ABOVE MEASURED HOST PLUS GPU MEMORY
+
+**Status: STORAGE AND BOUNDED FP8 MATERIALIZATION QUALIFIED; TOKENIZER, MOE
+SEMANTICS, AND BACKEND EXECUTION REMAIN OPEN.**
+
+Qualified `zai-org/GLM-4.5-Air-FP8` at immutable revision
+`f9a9c5acf5e543cd24d659a056c5dbcda78ffcfc`. Its 112,558,098,944-byte
+Safetensors payload exceeded measured host RAM plus GPU VRAM by 23,778,486,784
+bytes. The 47-shard, 36,323-tensor plan used 16-byte canonical alignment,
+2-GiB staging, and four bounded direct range workers. The final vBuf was
+112,563,538,898 bytes; all destination offsets were known before bulk
+acquisition, payload overfetch was zero, and no complete source shard or
+second model-sized copy was created.
+
+The real plan contained 17,994 F8_E4M3 tensors and matching scale provenance.
+Fresh low-level canonical reopen, metadata/directory/quantization validation,
+and early/middle/late FP8 materialization passed. The model is MoE and the
+report retains the explicit expert-bank architecture-profile gap rather than
+guessing a semantic mapping. Tokenizer files were fetched but not persisted,
+so the full runtime consumer path is not claimed. Evidence:
+`research/results/vbuf-ml-integration/step32c-real-fp8-oversubscription.md`.
+
+The importer semantic-tag defect found during fresh reopen was corrected and
+covered by a floating-metadata reopen fixture. The generated qualification
+artifact and logs were not committed. Production serving concurrency and
+backend loader ownership remain unchanged.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

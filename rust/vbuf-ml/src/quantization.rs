@@ -70,7 +70,7 @@ impl F8QuantizationDirectory {
             if weight.representation != TensorRepresentation::F8_E4M3
                 || weight.dimensions.len() != 2
                 || scale.representation != TensorRepresentation::CanonicalPrimitive
-                || scale.dimensions.len() != 2
+                || (scale.dimensions.len() != 2 && scale.dimensions.len() != 1)
             {
                 return Err(MlError::new(
                     MlErrorCode::InvalidQuantizationMetadata,
@@ -81,10 +81,20 @@ impl F8QuantizationDirectory {
                 weight.dimensions[0].div_ceil(entry.block_rows),
                 weight.dimensions[1].div_ceil(entry.block_columns),
             ];
-            if scale.dimensions.as_slice() != expected
-                || scale.payload.length()
-                    != expected[0].saturating_mul(expected[1]).saturating_mul(4)
-            {
+            let expected_bytes = expected[0]
+                .checked_mul(expected[1])
+                .and_then(|value| value.checked_mul(4))
+                .ok_or_else(|| {
+                    MlError::new(
+                        MlErrorCode::RepresentationArithmeticOverflow,
+                        "FP8 scale payload size overflows u64",
+                    )
+                })?;
+            let channel_scale_shape =
+                entry.block_rows == 1 && entry.block_columns == weight.dimensions[1];
+            let scale_shape_matches = scale.dimensions.as_slice() == expected
+                || (channel_scale_shape && scale.dimensions.as_slice() == [weight.dimensions[0]]);
+            if !scale_shape_matches || scale.payload.length() != expected_bytes {
                 return Err(MlError::new(
                     MlErrorCode::InvalidQuantizationMetadata,
                     "FP8 scale shape does not match quantization metadata",

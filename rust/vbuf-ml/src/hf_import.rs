@@ -160,6 +160,7 @@ struct ConversionState {
 pub struct ImportOptions {
     pub staging_bytes: u64,
     pub max_retries: u32,
+    pub parallel_requests: usize,
 }
 
 impl Default for ImportOptions {
@@ -167,6 +168,7 @@ impl Default for ImportOptions {
         Self {
             staging_bytes: DEFAULT_STAGING_BYTES,
             max_retries: 3,
+            parallel_requests: 1,
         }
     }
 }
@@ -487,12 +489,6 @@ pub fn build_plan(
         });
     }
     tensor_plans.sort_by(|a, b| a.name.as_bytes().cmp(b.name.as_bytes()));
-    let fp8_block_size = fp8_block_size(
-        &config,
-        tensor_plans
-            .iter()
-            .any(|tensor| tensor.representation == Some(TensorRepresentationId::F8E4M3)),
-    )?;
     let mut quantization = Vec::new();
     for tensor in &tensor_plans {
         if tensor.representation != Some(TensorRepresentationId::F8E4M3) {
@@ -504,16 +500,22 @@ pub fn build_plan(
                 tensor.name
             )));
         }
-        let scale_name = format!("{}_scale_inv", tensor.name);
+        let scale_name = [
+            format!("{}_scale_inv", tensor.name),
+            format!("{}_scale", tensor.name),
+        ]
+        .into_iter()
+        .find(|candidate| tensor_plans.iter().any(|tensor| tensor.name == *candidate))
+        .ok_or_else(|| {
+            ImportError::Invalid(format!(
+                "FP8 tensor {} has no semantic scale tensor",
+                tensor.name
+            ))
+        })?;
         let scale = tensor_plans
             .iter()
             .find(|candidate| candidate.name == scale_name)
-            .ok_or_else(|| {
-                ImportError::Invalid(format!(
-                    "FP8 tensor {} has no semantic scale tensor {}",
-                    tensor.name, scale_name
-                ))
-            })?;
+            .expect("scale name was selected from tensor plans");
         if scale.representation != Some(TensorRepresentationId::CanonicalPrimitive)
             || scale.shape.len() != 2
         {
@@ -522,13 +524,16 @@ pub fn build_plan(
                 scale.name
             )));
         }
-        let rows = tensor.shape.first().copied().unwrap_or(1);
-        let columns = tensor.shape.get(1).copied().unwrap_or(1);
+        let rows = tensor.shape[0];
+        let columns = tensor.shape[1];
+        let block_size = fp8_block_size(&config, [rows, columns])?;
         let expected_scale_shape = [
-            rows.div_ceil(fp8_block_size[0]),
-            columns.div_ceil(fp8_block_size[1]),
+            rows.div_ceil(block_size[0]),
+            columns.div_ceil(block_size[1]),
         ];
-        if scale.shape.as_slice() != expected_scale_shape {
+        let scale_shape_matches = scale.shape.as_slice() == expected_scale_shape
+            || (block_size == [1, columns] && scale.shape.as_slice() == [rows]);
+        if !scale_shape_matches {
             return Err(ImportError::Invalid(format!(
                 "FP8 scale tensor {} shape does not match configured block geometry",
                 scale.name
@@ -537,8 +542,8 @@ pub fn build_plan(
         quantization.push(F8QuantizationEntry {
             weight_name: tensor.name.clone(),
             scale_name,
-            block_rows: fp8_block_size[0],
-            block_columns: fp8_block_size[1],
+            block_rows: block_size[0],
+            block_columns: block_size[1],
         });
     }
     let quantization_directory =
@@ -819,9 +824,9 @@ pub fn build_plan(
         .and_then(Value::as_u64)
         && index != source_payload_bytes
     {
-        return Err(ImportError::Invalid(
-            "Safetensors index total_size differs from header payload total".into(),
-        ));
+        unsupported_semantics.push(
+            "Safetensors index total_size differs from header-derived payload total; headers are authoritative".into(),
+        );
     }
     let mut plan = PlanReport {
         source: metadata.source,
@@ -858,37 +863,54 @@ pub fn build_plan(
     Ok(plan)
 }
 
-fn fp8_block_size(config: &Value, required: bool) -> Result<[u64; 2], ImportError> {
+fn fp8_block_size(config: &Value, shape: [u64; 2]) -> Result<[u64; 2], ImportError> {
     let value = config.get("weight_block_size").or_else(|| {
         config
             .get("quantization_config")
             .and_then(|v| v.get("weight_block_size"))
     });
-    let Some(value) = value else {
-        if required {
+    if let Some(value) = value {
+        let values = value
+            .as_array()
+            .ok_or_else(|| ImportError::Invalid("weight_block_size must be an array".into()))?;
+        if values.len() != 2 {
             return Err(ImportError::Invalid(
-                "F8_E4M3 requires config.json weight_block_size [rows, columns]".into(),
+                "weight_block_size must contain exactly two dimensions".into(),
             ));
         }
-        return Ok([1, 1]);
-    };
-    let values = value
-        .as_array()
-        .ok_or_else(|| ImportError::Invalid("weight_block_size must be an array".into()))?;
-    if values.len() != 2 {
-        return Err(ImportError::Invalid(
-            "weight_block_size must contain exactly two dimensions".into(),
-        ));
+        let rows = values[0]
+            .as_u64()
+            .filter(|value| *value != 0)
+            .ok_or_else(|| {
+                ImportError::Invalid("weight_block_size rows must be non-zero".into())
+            })?;
+        let columns = values[1]
+            .as_u64()
+            .filter(|value| *value != 0)
+            .ok_or_else(|| {
+                ImportError::Invalid("weight_block_size columns must be non-zero".into())
+            })?;
+        return Ok([rows, columns]);
     }
-    let rows = values[0]
-        .as_u64()
-        .filter(|value| *value != 0)
-        .ok_or_else(|| ImportError::Invalid("weight_block_size rows must be non-zero".into()))?;
-    let columns = values[1]
-        .as_u64()
-        .filter(|value| *value != 0)
-        .ok_or_else(|| ImportError::Invalid("weight_block_size columns must be non-zero".into()))?;
-    Ok([rows, columns])
+    let channel_strategy = config
+        .get("quantization_config")
+        .and_then(|value| value.get("config_groups"))
+        .and_then(Value::as_object)
+        .is_some_and(|groups| {
+            groups.values().any(|group| {
+                group
+                    .get("weights")
+                    .and_then(|weights| weights.get("strategy"))
+                    .and_then(Value::as_str)
+                    == Some("channel")
+            })
+        });
+    if channel_strategy {
+        return Ok([1, shape[1]]);
+    }
+    Err(ImportError::Invalid(
+        "F8_E4M3 requires config-driven weight_block_size or channel strategy".into(),
+    ))
 }
 
 fn config_metadata(config: &Value) -> Result<Vec<(u16, String, u8, Vec<u8>)>, ImportError> {
@@ -1235,8 +1257,8 @@ pub fn execute_plan<T: RepositoryTransport>(
                     control.bytes.clone(),
                     match control.semantic {
                         0 => V06Semantic::Unsigned,
-                        1 => V06Semantic::Signed,
-                        2 => V06Semantic::Float,
+                        1 => V06Semantic::Float,
+                        2 => V06Semantic::Signed,
                         _ => V06Semantic::Opaque,
                     },
                     match control.physical {
@@ -1382,6 +1404,302 @@ pub fn execute_plan<T: RepositoryTransport>(
     Ok(stats)
 }
 
+#[derive(Clone)]
+struct ParallelWindow {
+    shard: String,
+    start: u64,
+    end: u64,
+    tensors: Vec<ParallelTensor>,
+}
+
+#[derive(Clone)]
+struct ParallelTensor {
+    name: String,
+    source_begin: u64,
+    source_length: u64,
+    destination_offset: u64,
+    destination_length: u64,
+}
+
+fn add_stats(total: &mut ImportStats, part: &ImportStats) {
+    total.planning_requests += part.planning_requests;
+    total.planning_bytes += part.planning_bytes;
+    total.payload_requests += part.payload_requests;
+    total.payload_requested_bytes += part.payload_requested_bytes;
+    total.payload_returned_bytes += part.payload_returned_bytes;
+    total.destination_written_bytes += part.destination_written_bytes;
+    total.source_overfetch_bytes += part.source_overfetch_bytes;
+    total.resume_skipped_bytes += part.resume_skipped_bytes;
+    total.resume_downloaded_bytes += part.resume_downloaded_bytes;
+}
+
+fn parallel_window<T: RepositoryTransport>(
+    transport: &mut T,
+    file: &File,
+    window: ParallelWindow,
+    max_retries: u32,
+) -> Result<(ImportStats, Vec<String>), ImportError> {
+    let response = retry_range(
+        transport,
+        &window.shard,
+        window.start,
+        window.end,
+        max_retries,
+    )?;
+    let expected = window.end - window.start;
+    if response.body.len() as u64 != expected {
+        return Err(ImportError::Range("short range response".into()));
+    }
+    let response_end = checked_add(window.start, expected, "response end")?;
+    if response.status != 206
+        || !response
+            .content_range
+            .is_some_and(|value| value.0 == window.start && value.1 == response_end)
+    {
+        return Err(ImportError::Range("range response framing mismatch".into()));
+    }
+    let tensor_bytes = window
+        .tensors
+        .iter()
+        .try_fold(0u64, |total, tensor| {
+            total.checked_add(tensor.source_length)
+        })
+        .ok_or_else(|| ImportError::Invalid("window payload accounting overflows u64".into()))?;
+    let mut stats = ImportStats {
+        payload_requests: 1,
+        payload_requested_bytes: expected,
+        payload_returned_bytes: expected,
+        source_overfetch_bytes: expected.saturating_sub(tensor_bytes),
+        ..ImportStats::default()
+    };
+    let mut completed = Vec::with_capacity(window.tensors.len());
+    for tensor in &window.tensors {
+        let local_start = usize::try_from(tensor.source_begin - window.start)
+            .map_err(|_| ImportError::Invalid("range local offset exceeds host".into()))?;
+        let local_end = local_start
+            .checked_add(
+                usize::try_from(tensor.source_length)
+                    .map_err(|_| ImportError::Invalid("tensor length exceeds host".into()))?,
+            )
+            .ok_or_else(|| ImportError::Invalid("range scatter overflow".into()))?;
+        let bytes = response
+            .body
+            .get(local_start..local_end)
+            .ok_or_else(|| ImportError::Range("scatter range is outside response".into()))?;
+        write_at(file, tensor.destination_offset, bytes)?;
+        stats.destination_written_bytes += tensor.destination_length;
+        stats.resume_downloaded_bytes += tensor.source_length;
+        completed.push(tensor.name.clone());
+    }
+    file.sync_data()
+        .map_err(|e| ImportError::Io(e.to_string()))?;
+    Ok((stats, completed))
+}
+
+pub fn execute_plan_parallel<T>(
+    transport: &T,
+    plan: &PlanReport,
+    output: &Path,
+    options: &ImportOptions,
+) -> Result<ImportStats, ImportError>
+where
+    T: RepositoryTransport + Clone + Send + 'static,
+{
+    if options.parallel_requests < 2 {
+        return Err(ImportError::Invalid(
+            "parallel request count must be at least two".into(),
+        ));
+    }
+    if !plan.can_execute || plan.largest_tensor > options.staging_bytes {
+        return Err(ImportError::Invalid(
+            "plan is not executable under staging limit".into(),
+        ));
+    }
+    if output.exists() {
+        return Err(ImportError::IdentityMismatch(
+            "final output already exists".into(),
+        ));
+    }
+    let partial = partial_path(output);
+    let state_file = state_path(output);
+    let mut state = if state_file.exists() {
+        let bytes = std::fs::read(&state_file).map_err(|e| ImportError::Io(e.to_string()))?;
+        serde_json::from_slice::<ConversionState>(&bytes)
+            .map_err(|e| ImportError::IdentityMismatch(e.to_string()))?
+    } else {
+        ConversionState {
+            version: 1,
+            plan_digest: plan.plan_digest.clone(),
+            source: plan.source.clone(),
+            destination_size: plan.final_vbuf_bytes,
+            completed: BTreeSet::new(),
+        }
+    };
+    if state.plan_digest != plan.plan_digest
+        || state.source != plan.source
+        || state.destination_size != plan.final_vbuf_bytes
+    {
+        return Err(ImportError::IdentityMismatch(
+            "plan, source revision, or destination layout differs".into(),
+        ));
+    }
+    if !partial.exists() {
+        let controls = plan
+            .controls
+            .iter()
+            .map(|control| {
+                (
+                    control.block_start,
+                    control.payload_offset,
+                    control.bytes.clone(),
+                    match control.semantic {
+                        0 => V06Semantic::Unsigned,
+                        1 => V06Semantic::Float,
+                        2 => V06Semantic::Signed,
+                        _ => V06Semantic::Opaque,
+                    },
+                    match control.physical {
+                        0 => V06Physical::Scalar,
+                        _ => V06Physical::Array,
+                    },
+                    control.bit_width,
+                    control.count,
+                    control.key_id,
+                )
+            })
+            .chain(plan.tensors.iter().map(|tensor| {
+                let (semantic, width, count) = match tensor.representation {
+                    Some(TensorRepresentationId::CanonicalPrimitive) => (
+                        V06Semantic::Float,
+                        32,
+                        logical_elements(&tensor.shape).unwrap_or(0),
+                    ),
+                    _ => (V06Semantic::Opaque, 8, tensor.source_length),
+                };
+                (
+                    tensor.destination_block_start,
+                    tensor.destination_offset,
+                    Vec::new(),
+                    semantic,
+                    V06Physical::Array,
+                    width,
+                    count,
+                    0x0200,
+                )
+            }))
+            .collect::<Vec<_>>();
+        initialize_partial(&partial, plan, &controls)?;
+    } else if !state_file.exists() {
+        return Err(ImportError::IdentityMismatch(
+            "partial artifact has no conversion state".into(),
+        ));
+    }
+    if !state_file.exists() {
+        persist_state(&state_file, &state)?;
+    }
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&partial)
+        .map_err(|e| ImportError::Io(e.to_string()))?;
+    let mut total = ImportStats::default();
+    for tensor in &plan.tensors {
+        if state.completed.contains(&tensor.name) {
+            total.resume_skipped_bytes += tensor.source_length;
+        }
+    }
+    let mut by_shard: BTreeMap<&str, Vec<&TensorPlan>> = BTreeMap::new();
+    for tensor in &plan.tensors {
+        if !state.completed.contains(&tensor.name) {
+            by_shard
+                .entry(&tensor.source_shard)
+                .or_default()
+                .push(tensor);
+        }
+    }
+    let mut windows = Vec::new();
+    for tensors in by_shard.values_mut() {
+        tensors.sort_by_key(|tensor| tensor.source_begin);
+        let mut index = 0;
+        while index < tensors.len() {
+            let first = index;
+            let mut end = tensors[index].source_end;
+            index += 1;
+            while index < tensors.len()
+                && tensors[index].source_end - tensors[first].source_begin <= options.staging_bytes
+                && tensors[index].source_begin.saturating_sub(end) <= COALESCE_GAP_BYTES
+            {
+                end = tensors[index].source_end;
+                index += 1;
+            }
+            windows.push(ParallelWindow {
+                shard: tensors[first].source_shard.clone(),
+                start: tensors[first].source_begin,
+                end,
+                tensors: tensors[first..index]
+                    .iter()
+                    .map(|tensor| ParallelTensor {
+                        name: tensor.name.clone(),
+                        source_begin: tensor.source_begin,
+                        source_length: tensor.source_length,
+                        destination_offset: tensor.destination_offset,
+                        destination_length: tensor.destination_length,
+                    })
+                    .collect(),
+            });
+        }
+    }
+    let mut index = 0;
+    while index < windows.len() {
+        let end = (index + options.parallel_requests).min(windows.len());
+        let batch = &windows[index..end];
+        let results = std::thread::scope(|scope| {
+            let handles = batch
+                .iter()
+                .cloned()
+                .map(|window| {
+                    let worker_transport = transport.clone();
+                    let worker_file = file
+                        .try_clone()
+                        .map_err(|e| ImportError::Io(e.to_string()))?;
+                    Ok(scope.spawn(move || {
+                        let mut worker_transport = worker_transport;
+                        parallel_window(
+                            &mut worker_transport,
+                            &worker_file,
+                            window,
+                            options.max_retries,
+                        )
+                    }))
+                })
+                .collect::<Result<Vec<_>, ImportError>>()?;
+            handles
+                .into_iter()
+                .map(|handle| {
+                    handle
+                        .join()
+                        .map_err(|_| ImportError::Io("parallel importer worker panicked".into()))?
+                })
+                .collect::<Result<Vec<_>, ImportError>>()
+        })?;
+        for (stats, completed) in results {
+            add_stats(&mut total, &stats);
+            state.completed.extend(completed);
+            persist_state(&state_file, &state)?;
+        }
+        index = end;
+    }
+    if state.completed.len() != plan.tensors.len() {
+        return Err(ImportError::Invalid(
+            "conversion state is incomplete".into(),
+        ));
+    }
+    validate_final(&partial, plan)?;
+    std::fs::rename(&partial, output).map_err(|e| ImportError::Io(e.to_string()))?;
+    let _ = std::fs::remove_file(&state_file);
+    Ok(total)
+}
+
 fn retry_range<T: RepositoryTransport>(
     transport: &mut T,
     shard: &str,
@@ -1462,6 +1780,7 @@ fn parse_content_range(value: &str) -> Option<(u64, u64, Option<u64>)> {
 
 /// Minimal Hugging Face transport. Tokens are read only from `HF_TOKEN` and
 /// are never included in plan/state files or diagnostics.
+#[derive(Clone)]
 pub struct HfTransport {
     agent: ureq::Agent,
     base_url: String,
@@ -1539,7 +1858,7 @@ impl HfTransport {
             let limit = range
                 .map(|(start, end)| end.saturating_sub(start))
                 .map(|length| length.saturating_add(1))
-                .unwrap_or(16 * 1024 * 1024);
+                .unwrap_or(MAX_HEADER_BYTES);
             let body = response
                 .into_body()
                 .into_with_config()

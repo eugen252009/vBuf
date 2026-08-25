@@ -6,11 +6,12 @@ use std::path::Path;
 use vbuf_core::v06::{V06Physical, V06Semantic};
 use vbuf_ml::hf_import::{
     HfTransport, ImportOptions, RangeResponse, RepositoryMetadata, ShardPlan, SourceIdentity,
-    build_plan, execute_plan, parse_safetensors_header, space_gate,
+    build_plan, execute_plan, execute_plan_parallel, parse_safetensors_header, space_gate,
 };
 use vbuf_ml::layout::{LayoutClass, LayoutPlan, PlacementLengthRequest};
-use vbuf_ml::{Bootstrap, F8QuantizationDirectory, TensorDirectory};
+use vbuf_ml::{Bootstrap, F8QuantizationDirectory, ModelMetadata, TensorDirectory};
 
+#[derive(Clone)]
 struct FixtureTransport {
     shards: BTreeMap<String, Vec<u8>>,
     fail_once: bool,
@@ -120,14 +121,42 @@ fn fixture_plans_with_u64_offsets_and_direct_scatter() {
         &ImportOptions {
             staging_bytes: 64,
             max_retries: 2,
+            parallel_requests: 1,
         },
     )
     .unwrap();
     assert_eq!(stats.destination_written_bytes, 8);
     let bytes = fs::read(&output).unwrap();
+    let validated = vbuf_core::v06::parse_v06(&bytes).unwrap();
+    let bootstrap = Bootstrap::discover(&validated).unwrap();
+    ModelMetadata::parse(&validated, &bootstrap).unwrap();
     let start = usize::try_from(plan.tensors[0].destination_offset).unwrap();
     assert_eq!(&bytes[start..start + 8], &[1, 2, 3, 4, 5, 6, 7, 8]);
     assert!(!Path::new(&format!("{}.partial", output.display())).exists());
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn parallel_executor_preserves_direct_scatter_and_state_contract() {
+    let (metadata, shards, transport) = fixture();
+    let plan = build_plan(metadata, None, shards, 64).unwrap();
+    let root = std::env::temp_dir().join(format!("vbuf-hf-parallel-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    let output = root.join("fixture.vbuf");
+    let stats = execute_plan_parallel(
+        &transport,
+        &plan,
+        &output,
+        &ImportOptions {
+            staging_bytes: 64,
+            max_retries: 0,
+            parallel_requests: 2,
+        },
+    )
+    .unwrap();
+    assert_eq!(stats.destination_written_bytes, 8);
+    assert!(output.exists());
     let _ = fs::remove_dir_all(root);
 }
 
@@ -147,6 +176,7 @@ fn retry_is_bounded_and_resume_identity_is_durable() {
         &ImportOptions {
             staging_bytes: 64,
             max_retries: 2,
+            parallel_requests: 1,
         },
     )
     .unwrap();
@@ -266,7 +296,8 @@ fn interrupted_conversion_keeps_incomplete_state_and_resumes() {
             &output,
             &ImportOptions {
                 staging_bytes: 64,
-                max_retries: 0
+                max_retries: 0,
+                parallel_requests: 1,
             }
         )
         .is_err()

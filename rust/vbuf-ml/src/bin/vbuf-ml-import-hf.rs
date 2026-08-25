@@ -2,8 +2,8 @@
 
 use std::path::PathBuf;
 use vbuf_ml::hf_import::{
-    DEFAULT_STAGING_BYTES, HfTransport, ImportOptions, PlanReport, execute_plan, plan_remote,
-    serialized_plan, space_gate,
+    DEFAULT_STAGING_BYTES, HfTransport, ImportOptions, PlanReport, execute_plan,
+    execute_plan_parallel, plan_remote, serialized_plan, space_gate,
 };
 
 fn value(args: &[String], name: &str) -> Result<String, String> {
@@ -97,6 +97,10 @@ fn main() -> Result<(), String> {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(DEFAULT_STAGING_BYTES);
+    let parallel_requests = value(&args, "--parallel-requests")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1usize);
     let mut transport = HfTransport::new(repository.clone(), revision.clone());
     let (plan, stats) =
         plan_remote(&mut transport, &revision, &repository, staging).map_err(|e| e.to_string())?;
@@ -124,16 +128,18 @@ fn main() -> Result<(), String> {
     let free = free.ok_or_else(|| "filesystem free-space query failed".to_string())?;
     space_gate(free, plan.final_vbuf_bytes, plan.estimated_staging_bytes)
         .map_err(|e| e.to_string())?;
-    let stats = execute_plan(
-        &mut transport,
-        &plan,
-        &output,
-        &ImportOptions {
-            staging_bytes: staging,
-            ..ImportOptions::default()
-        },
-    )
+    let options = ImportOptions {
+        staging_bytes: staging,
+        parallel_requests,
+        ..ImportOptions::default()
+    };
+    let stats = if parallel_requests > 1 {
+        execute_plan_parallel(&transport, &plan, &output, &options)
+    } else {
+        execute_plan(&mut transport, &plan, &output, &options)
+    }
     .map_err(|e| e.to_string())?;
+    println!("PAYLOAD_PARALLEL_REQUESTS={parallel_requests}");
     println!("PAYLOAD_HTTP_REQUESTS={}", stats.payload_requests);
     println!("PAYLOAD_REQUESTED_BYTES={}", stats.payload_requested_bytes);
     println!("PAYLOAD_RETURNED_BYTES={}", stats.payload_returned_bytes);
