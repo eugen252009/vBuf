@@ -2865,6 +2865,31 @@ covered by a floating-metadata reopen fixture. The generated qualification
 artifact and logs were not committed. Production serving concurrency and
 backend loader ownership remain unchanged.
 
+#### Step 32E - GENERIC ATTENTION EXECUTION STATE
+
+**Status: GENERIC MHA/GQA PREFILL CONTRACT AND REQUEST-LOCAL STATE QUALIFIED;
+REAL GLM ATTENTION, DECODE, AND CANONICAL GGML PARITY REMAIN OPEN.**
+
+Added a backend-neutral attention descriptor with explicit Q/K/V operands,
+MHA/GQA geometry, scale, causal/none mask, state-length position semantics, and
+opaque request state identity. Rust lowering rejects missing state, invalid
+head grouping, invalid geometry, unsupported mask/position semantics, and
+missing operands. ABI v2 preserves the descriptor without changing the v1
+wire contract; v1 attention remains fail-closed.
+
+The generic native adapter now executes bounded multi-token causal prefill for
+resolved rank-4 F32 Q/K/V tensors. It uses request-local state, checked shape
+and allocation arithmetic, stable softmax, causal visibility, GQA head mapping,
+reset/isolation behavior, and commit-after-validation state updates. The
+independent native contract test passes ten deterministic GQA repetitions and
+MHA/GQA reference comparisons. Evidence:
+`research/results/vbuf-ml-integration/step32e-generic-attention-execution-state.md`.
+
+No GLM payload or semantic sidecar was changed. This is local diagnostic-GGML
+adapter qualification, not canonical GGML parity. One-step decode, paged KV,
+device execution, real GLM attention projection integration, and full-block
+execution remain separate bounded work.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

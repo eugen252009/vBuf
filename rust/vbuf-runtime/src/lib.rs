@@ -14,15 +14,16 @@ use vbuf_ml::{BorrowedModel, MlError};
 
 pub mod graph;
 pub use graph::{
-    ExecutionGraph, InputRef, MatMulWeightOperand, Operation, OperationAttributes, OperationKind,
-    PersistentTensor, TensorId, TopKOrder, TopKTieBreak, ValueId,
+    ActivationKind, AttentionAttributes, AttentionMaskKind, AttentionPositionKind, ExecutionGraph,
+    InputRef, MatMulWeightOperand, Operation, OperationAttributes, OperationKind, PersistentTensor,
+    StateId, TensorId, TopKOrder, TopKTieBreak, ValueId,
 };
 pub mod ffi;
 pub mod lowering;
 pub use ffi::*;
 pub use lowering::{
     LoweringError, PortableInput, PortableOperation, PortableOperationKind, PortableProgram,
-    PortableRegion, SemanticTensorKey, StateId, StateRef, TensorBinding, lower_region,
+    PortableRegion, SemanticTensorKey, StateRef, TensorBinding, lower_region,
 };
 
 #[cfg(feature = "ggml")]

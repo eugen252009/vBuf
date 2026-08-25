@@ -8,15 +8,12 @@
 use std::collections::HashMap;
 
 use crate::graph::{
-    ExecutionGraph, InputRef, OperationAttributes as GraphOperationAttributes, OperationKind,
-    TensorId, ValueId,
+    AttentionMaskKind, AttentionPositionKind, ExecutionGraph, InputRef,
+    OperationAttributes as GraphOperationAttributes, OperationKind, StateId, TensorId, ValueId,
 };
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct SemanticTensorKey(pub String);
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct StateId(pub u32);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TensorBinding {
@@ -80,6 +77,7 @@ pub struct PortableProgram {
 pub enum LoweringError {
     DuplicateBinding(SemanticTensorKey),
     MissingBinding(SemanticTensorKey),
+    MissingState(StateId),
     UnsupportedOperation(PortableOperationKind),
     InvalidAttribute(&'static str),
 }
@@ -118,6 +116,55 @@ pub fn lower_region(
             && operation.attributes.epsilon.is_none()
         {
             return Err(LoweringError::InvalidAttribute("RmsNorm requires epsilon"));
+        }
+        if operation.kind == PortableOperationKind::Activation
+            && operation.attributes.activation.is_none()
+        {
+            return Err(LoweringError::InvalidAttribute(
+                "Activation requires an activation kind",
+            ));
+        }
+        if operation.kind == PortableOperationKind::Attention {
+            let Some(attention) = operation.attributes.attention else {
+                return Err(LoweringError::InvalidAttribute(
+                    "Attention requires geometry and state attributes",
+                ));
+            };
+            if operation.inputs.len() != 3 {
+                return Err(LoweringError::InvalidAttribute(
+                    "Attention requires Q, K, and V inputs",
+                ));
+            }
+            if attention.batch_size == 0
+                || attention.query_head_count == 0
+                || attention.kv_head_count == 0
+                || attention.head_dim == 0
+                || attention.query_length == 0
+                || attention.query_head_count % attention.kv_head_count != 0
+                || attention.current_kv_length < attention.query_length
+                || !attention.scale.is_finite()
+                || attention.scale <= 0.0
+            {
+                return Err(LoweringError::InvalidAttribute(
+                    "Attention geometry or scale is invalid",
+                ));
+            }
+            if !program
+                .state_refs
+                .iter()
+                .any(|state| state.id == attention.state)
+            {
+                return Err(LoweringError::MissingState(attention.state));
+            }
+            if !matches!(
+                attention.mask,
+                AttentionMaskKind::None | AttentionMaskKind::Causal
+            ) || !matches!(attention.position, AttentionPositionKind::StateLength)
+            {
+                return Err(LoweringError::InvalidAttribute(
+                    "Attention mask or position semantics are unsupported",
+                ));
+            }
         }
         if operation.kind == PortableOperationKind::TopK
             && (operation.attributes.top_k.is_none()
@@ -164,6 +211,8 @@ pub fn lower_region(
             operation.output,
             GraphOperationAttributes {
                 epsilon: operation.attributes.epsilon,
+                activation: operation.attributes.activation,
+                attention: operation.attributes.attention,
                 top_k: operation.attributes.top_k,
                 matmul_weight_operand: operation.attributes.matmul_weight_operand,
                 matmul_transpose_weight: operation.attributes.matmul_transpose_weight,
@@ -178,7 +227,9 @@ pub fn lower_region(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::{MatMulWeightOperand, TopKOrder, TopKTieBreak};
+    use crate::graph::{
+        ActivationKind, AttentionAttributes, MatMulWeightOperand, TopKOrder, TopKTieBreak,
+    };
 
     fn deepseek_router_region() -> (PortableProgram, PortableRegion) {
         let norm = SemanticTensorKey("layer.1.mlp.input_norm".into());
@@ -293,6 +344,168 @@ mod tests {
         assert_eq!(
             lower_region(&program, &region),
             Err(LoweringError::InvalidAttribute("TopK requires top_k"))
+        );
+    }
+
+    #[test]
+    fn activation_requires_and_preserves_generic_kind() {
+        let activation = SemanticTensorKey("activation.input".into());
+        let program = PortableProgram {
+            tensor_bindings: vec![TensorBinding {
+                semantic: activation.clone(),
+                tensor: TensorId(12),
+            }],
+            state_refs: vec![],
+        };
+        let mut region = PortableRegion {
+            id: "activation".into(),
+            input: ValueId(0),
+            output: ValueId(1),
+            operations: vec![PortableOperation {
+                id: "silu".into(),
+                kind: PortableOperationKind::Activation,
+                inputs: vec![PortableInput::Value(ValueId(0))],
+                output: ValueId(1),
+                attributes: OperationAttributes {
+                    activation: Some(ActivationKind::Silu),
+                    ..Default::default()
+                },
+            }],
+        };
+        let graph = lower_region(&program, &region).unwrap();
+        assert_eq!(graph.operations[0].kind, OperationKind::Activation);
+        assert_eq!(
+            graph.operations[0].attributes.activation,
+            Some(ActivationKind::Silu)
+        );
+        region.operations[0].attributes.activation = None;
+        assert_eq!(
+            lower_region(&program, &region),
+            Err(LoweringError::InvalidAttribute(
+                "Activation requires an activation kind"
+            ))
+        );
+    }
+
+    #[test]
+    fn lowers_mha_and_gqa_attention_with_explicit_state_contract() {
+        let state = StateId(7);
+        let program = PortableProgram {
+            tensor_bindings: vec![TensorBinding {
+                semantic: SemanticTensorKey("value".into()),
+                tensor: TensorId(12),
+            }],
+            state_refs: vec![StateRef {
+                id: state,
+                kind: "kv-cache".into(),
+                lifetime: "request".into(),
+                scope: "attention".into(),
+            }],
+            ..Default::default()
+        };
+        let attention = PortableOperation {
+            id: "attention".into(),
+            kind: PortableOperationKind::Attention,
+            inputs: vec![
+                PortableInput::Value(ValueId(1)),
+                PortableInput::Value(ValueId(2)),
+                PortableInput::Tensor(SemanticTensorKey("value".into())),
+            ],
+            output: ValueId(3),
+            attributes: OperationAttributes {
+                attention: Some(AttentionAttributes {
+                    batch_size: 1,
+                    query_head_count: 4,
+                    kv_head_count: 2,
+                    head_dim: 64,
+                    query_length: 8,
+                    current_kv_length: 8,
+                    scale: 1.0 / 8.0,
+                    mask: AttentionMaskKind::Causal,
+                    position: AttentionPositionKind::StateLength,
+                    state,
+                }),
+                ..Default::default()
+            },
+        };
+        let region = PortableRegion {
+            id: "attention".into(),
+            input: ValueId(1),
+            output: ValueId(3),
+            operations: vec![attention],
+        };
+        let graph = lower_region(&program, &region).unwrap();
+        assert_eq!(graph.operations[0].kind, OperationKind::Attention);
+        assert_eq!(graph.operations[0].inputs.len(), 3);
+        assert_eq!(
+            graph.operations[0].attributes.attention.unwrap().state,
+            state
+        );
+    }
+
+    #[test]
+    fn attention_rejects_missing_state_and_invalid_gqa_geometry() {
+        let mut operation = PortableOperation {
+            id: "attention".into(),
+            kind: PortableOperationKind::Attention,
+            inputs: vec![
+                PortableInput::Value(ValueId(1)),
+                PortableInput::Value(ValueId(2)),
+                PortableInput::Value(ValueId(3)),
+            ],
+            output: ValueId(4),
+            attributes: OperationAttributes {
+                attention: Some(AttentionAttributes {
+                    batch_size: 1,
+                    query_head_count: 2,
+                    kv_head_count: 2,
+                    head_dim: 8,
+                    query_length: 1,
+                    current_kv_length: 1,
+                    scale: 1.0,
+                    mask: AttentionMaskKind::Causal,
+                    position: AttentionPositionKind::StateLength,
+                    state: StateId(99),
+                }),
+                ..Default::default()
+            },
+        };
+        let region = PortableRegion {
+            id: "attention".into(),
+            input: ValueId(1),
+            output: ValueId(4),
+            operations: vec![operation.clone()],
+        };
+        assert_eq!(
+            lower_region(&PortableProgram::default(), &region),
+            Err(LoweringError::MissingState(StateId(99)))
+        );
+        operation
+            .attributes
+            .attention
+            .as_mut()
+            .unwrap()
+            .kv_head_count = 4;
+        let region = PortableRegion {
+            operations: vec![operation],
+            ..region
+        };
+        assert_eq!(
+            lower_region(
+                &PortableProgram {
+                    state_refs: vec![StateRef {
+                        id: StateId(99),
+                        kind: "kv-cache".into(),
+                        lifetime: "request".into(),
+                        scope: "attention".into(),
+                    }],
+                    ..Default::default()
+                },
+                &region,
+            ),
+            Err(LoweringError::InvalidAttribute(
+                "Attention geometry or scale is invalid"
+            ))
         );
     }
 }

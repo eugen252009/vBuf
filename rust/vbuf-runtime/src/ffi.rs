@@ -4,16 +4,18 @@
 //! lease stay outside this handle and are supplied by the vBuf-ML runtime.
 
 use crate::graph::{
-    ExecutionGraph, InputRef, MatMulWeightOperand, OperationKind, TopKOrder, TopKTieBreak,
+    ActivationKind, AttentionAttributes, AttentionMaskKind, AttentionPositionKind, ExecutionGraph,
+    InputRef, MatMulWeightOperand, OperationKind, StateId, TopKOrder, TopKTieBreak,
 };
 use crate::lowering::{
     OperationAttributes, PortableInput, PortableOperation, PortableOperationKind, PortableProgram,
-    PortableRegion, SemanticTensorKey, TensorBinding, lower_region,
+    PortableRegion, SemanticTensorKey, StateRef, TensorBinding, lower_region,
 };
 use std::ffi::c_void;
 use std::slice;
 
 pub const VBUF_PORTABLE_EXEC_ABI_V1: u32 = 1;
+pub const VBUF_PORTABLE_EXEC_ABI_V2: u32 = 2;
 
 pub const VBUF_FFI_OK: u32 = 0;
 pub const VBUF_FFI_INVALID_ARGUMENT: u32 = 1;
@@ -22,6 +24,7 @@ pub const VBUF_FFI_INVALID_GRAPH: u32 = 3;
 pub const VBUF_FFI_UNSUPPORTED: u32 = 4;
 pub const VBUF_FFI_MISSING_BINDING: u32 = 5;
 pub const VBUF_FFI_INVALID_ATTRIBUTES: u32 = 6;
+pub const VBUF_FFI_MISSING_STATE: u32 = 7;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -90,6 +93,40 @@ pub struct VbufPortableRegionDesc {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
+pub struct VbufAttentionDesc {
+    pub batch_size: u64,
+    pub query_head_count: u64,
+    pub kv_head_count: u64,
+    pub head_dim: u64,
+    pub query_length: u64,
+    pub current_kv_length: u64,
+    pub scale: f32,
+    /// 0 = none, 1 = causal.
+    pub mask_kind: u8,
+    /// 1 = state length.
+    pub position_kind: u8,
+    pub _reserved: [u8; 2],
+    pub state_id: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct VbufPortableOperationDescV2 {
+    pub base: VbufPortableOperationDesc,
+    pub attention: VbufAttentionDesc,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct VbufPortableRegionDescV2 {
+    pub input: u32,
+    pub output: u32,
+    pub operations: *const VbufPortableOperationDescV2,
+    pub operation_count: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
 pub struct VbufFfiError {
     pub code: u32,
     pub message: VbufFfiBytes,
@@ -130,6 +167,13 @@ pub struct VbufGraphOperationDesc {
     pub top_k: u32,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct VbufGraphOperationDescV2 {
+    pub base: VbufGraphOperationDesc,
+    pub attention: VbufAttentionDesc,
+}
+
 pub struct VbufRuntimeGraphHandle {
     graph: ExecutionGraph,
     inputs: Vec<Vec<VbufGraphInputDesc>>,
@@ -168,6 +212,9 @@ fn operation(value: &VbufPortableOperationDesc) -> Result<PortableOperation, u32
         2 => PortableOperationKind::MatMul,
         3 => PortableOperationKind::Activation,
         4 => PortableOperationKind::TopK,
+        5 => PortableOperationKind::IndexedMatMul,
+        6 => PortableOperationKind::Attention,
+        7 => PortableOperationKind::ResidualAdd,
         _ => return Err(VBUF_FFI_UNSUPPORTED),
     };
     if value.input_count != 0 && value.inputs.is_null() {
@@ -188,6 +235,11 @@ fn operation(value: &VbufPortableOperationDesc) -> Result<PortableOperation, u32
         2 => Some(MatMulWeightOperand::Rhs),
         _ => return Err(VBUF_FFI_INVALID_GRAPH),
     };
+    let activation = match value._reserved[0] {
+        0 => None,
+        1 => Some(ActivationKind::Silu),
+        _ => return Err(VBUF_FFI_INVALID_ATTRIBUTES),
+    };
     let top_k_order = match value.top_k_order {
         0 => None,
         1 => Some(TopKOrder::Descending),
@@ -205,6 +257,7 @@ fn operation(value: &VbufPortableOperationDesc) -> Result<PortableOperation, u32
         output: crate::ValueId(value.output),
         attributes: OperationAttributes {
             epsilon: (value.has_epsilon != 0).then_some(value.epsilon),
+            activation,
             top_k: (value.has_top_k != 0).then_some(value.top_k),
             matmul_weight_operand,
             matmul_transpose_weight: match value.matmul_transpose_weight {
@@ -220,20 +273,50 @@ fn operation(value: &VbufPortableOperationDesc) -> Result<PortableOperation, u32
     })
 }
 
-fn lower(
+fn attention(value: &VbufAttentionDesc) -> Result<AttentionAttributes, u32> {
+    let mask = match value.mask_kind {
+        0 => AttentionMaskKind::None,
+        1 => AttentionMaskKind::Causal,
+        _ => return Err(VBUF_FFI_INVALID_ATTRIBUTES),
+    };
+    let position = match value.position_kind {
+        1 => AttentionPositionKind::StateLength,
+        _ => return Err(VBUF_FFI_INVALID_ATTRIBUTES),
+    };
+    Ok(AttentionAttributes {
+        batch_size: value.batch_size,
+        query_head_count: value.query_head_count,
+        kv_head_count: value.kv_head_count,
+        head_dim: value.head_dim,
+        query_length: value.query_length,
+        current_kv_length: value.current_kv_length,
+        scale: value.scale,
+        mask,
+        position,
+        state: StateId(value.state_id),
+    })
+}
+
+fn operation_v2(value: &VbufPortableOperationDescV2) -> Result<PortableOperation, u32> {
+    let mut operation = operation(&value.base)?;
+    if value.base.kind == 6 {
+        operation.attributes.attention = Some(attention(&value.attention)?);
+    }
+    Ok(operation)
+}
+
+fn lower_operations(
     program: &VbufPortableProgramDesc,
-    region: &VbufPortableRegionDesc,
+    input: u32,
+    output: u32,
+    operations: Vec<PortableOperation>,
 ) -> Result<VbufRuntimeGraphHandle, u32> {
     if program.binding_count != 0 && program.bindings.is_null() {
-        return Err(VBUF_FFI_INVALID_ARGUMENT);
-    }
-    if region.operation_count != 0 && region.operations.is_null() {
         return Err(VBUF_FFI_INVALID_ARGUMENT);
     }
     let bindings = if program.binding_count == 0 {
         Vec::new()
     } else {
-        // SAFETY: validated pointer/count are owned by the caller for this call.
         unsafe { slice::from_raw_parts(program.bindings, program.binding_count as usize) }
             .iter()
             .map(|binding| {
@@ -244,29 +327,31 @@ fn lower(
             })
             .collect::<Result<Vec<_>, u32>>()?
     };
-    let operations = if region.operation_count == 0 {
-        Vec::new()
-    } else {
-        // SAFETY: validated pointer/count are owned by the caller for this call.
-        unsafe { slice::from_raw_parts(region.operations, region.operation_count as usize) }
-            .iter()
-            .map(operation)
-            .collect::<Result<Vec<_>, _>>()?
-    };
     let graph = lower_region(
         &PortableProgram {
             tensor_bindings: bindings,
-            state_refs: Vec::new(),
+            state_refs: operations
+                .iter()
+                .filter_map(|operation| {
+                    operation.attributes.attention.map(|attention| StateRef {
+                        id: attention.state,
+                        kind: "kv".into(),
+                        lifetime: "request".into(),
+                        scope: "attention".into(),
+                    })
+                })
+                .collect(),
         },
         &PortableRegion {
             id: "ffi.region".to_owned(),
-            input: crate::ValueId(region.input),
-            output: crate::ValueId(region.output),
+            input: crate::ValueId(input),
+            output: crate::ValueId(output),
             operations,
         },
     )
     .map_err(|error| match error {
         crate::lowering::LoweringError::MissingBinding(_) => VBUF_FFI_MISSING_BINDING,
+        crate::lowering::LoweringError::MissingState(_) => VBUF_FFI_MISSING_STATE,
         crate::lowering::LoweringError::InvalidAttribute(_) => VBUF_FFI_INVALID_ATTRIBUTES,
         crate::lowering::LoweringError::UnsupportedOperation(_) => VBUF_FFI_UNSUPPORTED,
         crate::lowering::LoweringError::DuplicateBinding(_) => VBUF_FFI_INVALID_GRAPH,
@@ -294,6 +379,42 @@ fn lower(
         })
         .collect();
     Ok(VbufRuntimeGraphHandle { graph, inputs })
+}
+
+fn lower(
+    program: &VbufPortableProgramDesc,
+    region: &VbufPortableRegionDesc,
+) -> Result<VbufRuntimeGraphHandle, u32> {
+    if region.operation_count != 0 && region.operations.is_null() {
+        return Err(VBUF_FFI_INVALID_ARGUMENT);
+    }
+    let operations = if region.operation_count == 0 {
+        Vec::new()
+    } else {
+        unsafe { slice::from_raw_parts(region.operations, region.operation_count as usize) }
+            .iter()
+            .map(operation)
+            .collect::<Result<Vec<_>, _>>()?
+    };
+    lower_operations(program, region.input, region.output, operations)
+}
+
+fn lower_v2(
+    program: &VbufPortableProgramDesc,
+    region: &VbufPortableRegionDescV2,
+) -> Result<VbufRuntimeGraphHandle, u32> {
+    if region.operation_count != 0 && region.operations.is_null() {
+        return Err(VBUF_FFI_INVALID_ARGUMENT);
+    }
+    let operations = if region.operation_count == 0 {
+        Vec::new()
+    } else {
+        unsafe { slice::from_raw_parts(region.operations, region.operation_count as usize) }
+            .iter()
+            .map(operation_v2)
+            .collect::<Result<Vec<_>, _>>()?
+    };
+    lower_operations(program, region.input, region.output, operations)
 }
 
 fn set_error(error: *mut VbufFfiError, code: u32, message: &'static [u8]) {
@@ -355,6 +476,50 @@ pub unsafe extern "C" fn vbuf_runtime_graph_lower_v1(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_runtime_graph_lower_v2(
+    program: *const VbufPortableProgramDesc,
+    region: *const VbufPortableRegionDescV2,
+    output: *mut *mut VbufRuntimeGraphHandle,
+    error: *mut VbufFfiError,
+) -> u32 {
+    if !output.is_null() {
+        unsafe {
+            *output = std::ptr::null_mut();
+        }
+    }
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if program.is_null() || region.is_null() || output.is_null() {
+            return Err(VBUF_FFI_INVALID_ARGUMENT);
+        }
+        let handle = lower_v2(unsafe { &*program }, unsafe { &*region })?;
+        unsafe {
+            *output = Box::into_raw(Box::new(handle));
+        }
+        Ok(())
+    }))
+    .unwrap_or(Err(VBUF_FFI_INVALID_GRAPH));
+    match result {
+        Ok(()) => {
+            set_error(error, VBUF_FFI_OK, b"ok");
+            VBUF_FFI_OK
+        }
+        Err(code) => {
+            let message = match code {
+                VBUF_FFI_INVALID_ARGUMENT => b"invalid argument".as_slice(),
+                VBUF_FFI_INVALID_UTF8 => b"invalid utf8".as_slice(),
+                VBUF_FFI_UNSUPPORTED => b"unsupported operation".as_slice(),
+                VBUF_FFI_MISSING_BINDING => b"missing tensor binding".as_slice(),
+                VBUF_FFI_MISSING_STATE => b"missing execution state".as_slice(),
+                VBUF_FFI_INVALID_ATTRIBUTES => b"invalid operation attributes".as_slice(),
+                _ => b"invalid graph".as_slice(),
+            };
+            set_error(error, code, message);
+            code
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vbuf_runtime_graph_close(handle: *mut VbufRuntimeGraphHandle) {
     if !handle.is_null() {
         unsafe {
@@ -365,7 +530,7 @@ pub unsafe extern "C" fn vbuf_runtime_graph_close(handle: *mut VbufRuntimeGraphH
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vbuf_runtime_graph_abi_version() -> u32 {
-    VBUF_PORTABLE_EXEC_ABI_V1
+    VBUF_PORTABLE_EXEC_ABI_V2
 }
 
 #[unsafe(no_mangle)]
@@ -458,7 +623,11 @@ pub unsafe extern "C" fn vbuf_runtime_graph_operation_desc(
     let kind = match operation.kind {
         OperationKind::RmsNorm => 1,
         OperationKind::MatMul => 2,
+        OperationKind::Activation => 3,
         OperationKind::TopKRouter => 4,
+        OperationKind::ExpertDispatch => 5,
+        OperationKind::Attention => 6,
+        OperationKind::ResidualAdd => 7,
         _ => 0,
     };
     if kind == 0 {
@@ -486,6 +655,7 @@ pub unsafe extern "C" fn vbuf_runtime_graph_operation_desc(
                 Some(true) => 2,
                 None => 0,
             },
+            _reserved: [attrs.activation.map_or(0, |_| 1), 0, 0],
             top_k_order: match attrs.top_k_order {
                 Some(TopKOrder::Descending) => 1,
                 None => 0,
@@ -496,8 +666,65 @@ pub unsafe extern "C" fn vbuf_runtime_graph_operation_desc(
             },
             epsilon: attrs.epsilon.unwrap_or(0.0),
             has_top_k: attrs.top_k.is_some() as u8,
-            _reserved: [0; 3],
             top_k: attrs.top_k.unwrap_or(0),
+        };
+    }
+    VBUF_FFI_OK
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_runtime_graph_operation_desc_v2(
+    handle: *const VbufRuntimeGraphHandle,
+    index: u32,
+    output: *mut VbufGraphOperationDescV2,
+) -> u32 {
+    if handle.is_null() || output.is_null() {
+        return VBUF_FFI_INVALID_ARGUMENT;
+    }
+    let base = unsafe { &mut (*output).base };
+    let status = unsafe {
+        vbuf_runtime_graph_operation_desc(handle, index, base as *mut VbufGraphOperationDesc)
+    };
+    if status != VBUF_FFI_OK {
+        return status;
+    }
+    let operation = unsafe { &(&(*handle).graph.operations)[index as usize] };
+    let Some(attention) = operation.attributes.attention else {
+        unsafe {
+            (*output).attention = VbufAttentionDesc {
+                batch_size: 0,
+                query_head_count: 0,
+                kv_head_count: 0,
+                head_dim: 0,
+                query_length: 0,
+                current_kv_length: 0,
+                scale: 0.0,
+                mask_kind: 0,
+                position_kind: 0,
+                _reserved: [0; 2],
+                state_id: 0,
+            };
+        }
+        return VBUF_FFI_OK;
+    };
+    unsafe {
+        (*output).attention = VbufAttentionDesc {
+            batch_size: attention.batch_size,
+            query_head_count: attention.query_head_count,
+            kv_head_count: attention.kv_head_count,
+            head_dim: attention.head_dim,
+            query_length: attention.query_length,
+            current_kv_length: attention.current_kv_length,
+            scale: attention.scale,
+            mask_kind: match attention.mask {
+                AttentionMaskKind::None => 0,
+                AttentionMaskKind::Causal => 1,
+            },
+            position_kind: match attention.position {
+                AttentionPositionKind::StateLength => 1,
+            },
+            _reserved: [0; 2],
+            state_id: attention.state.0,
         };
     }
     VBUF_FFI_OK
@@ -516,6 +743,35 @@ mod tests {
         assert_eq!(size_of::<VbufPortableOperationDesc>(), 64);
         assert_eq!(size_of::<VbufGraphOperationDesc>(), 64);
         assert_eq!(size_of::<VbufPortableInputDesc>(), 24);
+        assert_eq!(size_of::<VbufAttentionDesc>(), 64);
+        assert_eq!(size_of::<VbufGraphOperationDescV2>(), 128);
+    }
+
+    #[test]
+    fn attention_ffi_preserves_geometry_mask_position_and_state() {
+        let descriptor = VbufAttentionDesc {
+            batch_size: 2,
+            query_head_count: 16,
+            kv_head_count: 4,
+            head_dim: 128,
+            query_length: 32,
+            current_kv_length: 32,
+            scale: 0.08838835,
+            mask_kind: 1,
+            position_kind: 1,
+            _reserved: [0; 2],
+            state_id: 41,
+        };
+        let attributes = attention(&descriptor).unwrap();
+        assert_eq!(attributes.batch_size, 2);
+        assert_eq!(attributes.query_head_count, 16);
+        assert_eq!(attributes.kv_head_count, 4);
+        assert_eq!(attributes.head_dim, 128);
+        assert_eq!(attributes.query_length, 32);
+        assert_eq!(attributes.current_kv_length, 32);
+        assert_eq!(attributes.mask, AttentionMaskKind::Causal);
+        assert_eq!(attributes.position, AttentionPositionKind::StateLength);
+        assert_eq!(attributes.state, StateId(41));
     }
 
     #[test]

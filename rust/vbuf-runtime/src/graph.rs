@@ -10,6 +10,9 @@ pub struct TensorId(pub u32);
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub struct ValueId(pub u32);
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct StateId(pub u32);
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InputRef {
     Tensor(TensorId),
@@ -32,6 +35,37 @@ pub enum OperationKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ActivationKind {
+    Silu,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AttentionMaskKind {
+    None,
+    Causal,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AttentionPositionKind {
+    StateLength,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AttentionAttributes {
+    pub batch_size: u64,
+    pub query_head_count: u64,
+    pub kv_head_count: u64,
+    pub head_dim: u64,
+    pub query_length: u64,
+    /// Total visible K/V length after this operation commits its append.
+    pub current_kv_length: u64,
+    pub scale: f32,
+    pub mask: AttentionMaskKind,
+    pub position: AttentionPositionKind,
+    pub state: StateId,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MatMulWeightOperand {
     Lhs,
     Rhs,
@@ -50,6 +84,8 @@ pub enum TopKTieBreak {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct OperationAttributes {
     pub epsilon: Option<f32>,
+    pub activation: Option<ActivationKind>,
+    pub attention: Option<AttentionAttributes>,
     pub top_k: Option<u32>,
     pub matmul_weight_operand: Option<MatMulWeightOperand>,
     pub matmul_transpose_weight: Option<bool>,
