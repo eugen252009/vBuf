@@ -38,6 +38,24 @@ pub struct PlacementRequest<'a> {
     pub payload: &'a [u8],
 }
 
+/// A placement request used when payload bytes are not available yet.
+///
+/// This is the planning half of the same policy used by `PlacementRequest`.
+/// Keeping the geometry here prevents a remote importer from inventing a
+/// second vBuf layout algorithm merely because its source is streamed.
+#[derive(Clone, Copy, Debug)]
+pub struct PlacementLengthRequest {
+    pub class: LayoutClass,
+    pub order: u64,
+    pub key_id: u16,
+    pub semantic: V06Semantic,
+    pub physical: V06Physical,
+    pub bit_width: u16,
+    pub count: u64,
+    pub payload_alignment: u64,
+    pub payload_len: u64,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PlannedBlock {
     pub request_index: usize,
@@ -98,6 +116,30 @@ pub struct LayoutPlan {
 
 impl LayoutPlan {
     pub fn build(requests: &[PlacementRequest<'_>], base_shift: u8) -> Result<Self, LayoutError> {
+        let lengths = requests
+            .iter()
+            .map(|request| -> Result<PlacementLengthRequest, LayoutError> {
+                Ok(PlacementLengthRequest {
+                    class: request.class,
+                    order: request.order,
+                    key_id: request.key_id,
+                    semantic: request.semantic,
+                    physical: request.physical,
+                    bit_width: request.bit_width,
+                    count: request.count,
+                    payload_alignment: request.payload_alignment,
+                    payload_len: u64::try_from(request.payload.len())
+                        .map_err(|_| LayoutError::Writer("payload exceeds u64".into()))?,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Self::build_lengths(&lengths, base_shift)
+    }
+
+    pub fn build_lengths(
+        requests: &[PlacementLengthRequest],
+        base_shift: u8,
+    ) -> Result<Self, LayoutError> {
         if !(3..=8).contains(&base_shift) {
             return Err(LayoutError::InvalidBaseShift);
         }
@@ -136,17 +178,11 @@ impl LayoutPlan {
             let payload_start = (header_end + alignment - 1) & !(alignment - 1);
             let inner_padding = payload_start - header_end;
             let payload_end = payload_start
-                .checked_add(
-                    u64::try_from(request.payload.len())
-                        .map_err(|_| LayoutError::Writer("payload exceeds u64".into()))?,
-                )
+                .checked_add(request.payload_len)
                 .ok_or(LayoutError::Writer("layout payload overflow".into()))?;
             cursor = payload_end;
             payload_bytes = payload_bytes
-                .checked_add(
-                    u64::try_from(request.payload.len())
-                        .map_err(|_| LayoutError::Writer("payload accounting overflow".into()))?,
-                )
+                .checked_add(request.payload_len)
                 .ok_or(LayoutError::Writer("layout payload overflow".into()))?;
             header_bytes += header_bytes_for_block;
             entries.push(PlannedBlock {

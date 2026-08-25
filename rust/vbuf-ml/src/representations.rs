@@ -5,6 +5,7 @@
 //! external meanings are documented in `docs/vbuf-ml/step17-upstream-representation-qualification.md`.
 
 use crate::error::{MlError, MlErrorCode};
+use serde::{Deserialize, Serialize};
 use vbuf_core::v06::{V06Block, V06Physical, V06Semantic};
 
 pub const Q8_0_BLOCK_ELEMENTS: u64 = 32;
@@ -35,7 +36,7 @@ pub const Q5_K_BLOCK_BYTES: u64 = 176;
 pub const Q6_K_BLOCK_ELEMENTS: u64 = 256;
 pub const Q6_K_BLOCK_BYTES: u64 = 210;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 pub enum TensorRepresentation {

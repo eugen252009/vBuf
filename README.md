@@ -207,6 +207,14 @@ parallel.
 The real DeepSeek-V2-Lite target is a qualification example, not a
 DeepSeek-specific format. Backend/model neutrality remains a design requirement.
 
+The vBuf-ML importer also has an offline-qualified streaming Safetensors path:
+it plans canonical vBuf layout from metadata and bounded shard headers, then
+can write exact tensor bytes from bounded HTTP ranges directly into final
+aligned destinations without storing a complete local Safetensors shard or a
+second model-sized payload. Public Hugging Face smoke qualification and new
+architecture/dtype runtime support remain separate gates; see
+[`Step 32A`](research/results/vbuf-ml-integration/step32a-hf-safetensors-streaming-vbuf-conversion.md).
+
 ## Current Limitations
 
 - Causal attention and KV state transitions remain ordered per prompt position.

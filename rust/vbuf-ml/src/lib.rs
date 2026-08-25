@@ -12,6 +12,7 @@ pub mod consumer;
 pub mod consumer_ffi;
 pub mod deepseek_moe;
 pub mod error;
+pub mod hf_import;
 pub mod integrity;
 pub mod layout;
 pub mod metadata;
@@ -37,7 +38,7 @@ pub use integrity::{
     encode_payload as encode_integrity_payload,
 };
 pub use layout::{
-    LayoutClass, LayoutError, LayoutPlan, PlacementRequest, PlannedBlock,
+    LayoutClass, LayoutError, LayoutPlan, PlacementLengthRequest, PlacementRequest, PlannedBlock,
     canonical_payload_alignment, payload_shift, write_indefinite, write_known_size,
 };
 pub use metadata::{

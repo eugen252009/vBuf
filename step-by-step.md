@@ -2784,6 +2784,34 @@ not as a pass. The next experiment is a separately qualified 256-MiB cap after
 an explicit request-queue/backing-budget contract is defined. Evidence:
 `research/results/vbuf-ml-integration/step31z-shared-residency-concurrency.md`.
 
+#### Step 32A - STREAMING HUGGING FACE SAFETENSORS -> VBUF CONVERSION
+
+**Status: OFFLINE QUALIFIED; SMALL SINGLE-FILE HUGGING FACE PLAN-ONLY AND
+STREAMING CONVERSION QUALIFIED; SHARDED PUBLIC SMOKE REMAINS OPEN.**
+
+Added the vBuf-ML-owned metadata-only Safetensors planner, pinned repository
+identity, sharded index/header validation, shared `LayoutPlan` length planner,
+direct positioned destination writer, bounded source-window scatter, durable
+resume state, atomic finalization, and plan-only CLI:
+`vbuf-ml-import-hf --repo ... --revision ... --output ... --plan-only`.
+The final output is canonical vBuf, not a Safetensors runtime dependency. The
+offline fixture proves exact payload parity, canonical alignment and directory
+placement, retries, interruption/resume, source identity rejection, space
+gating, and logical u64 plans through 256 GiB without allocating payloads.
+
+The public smoke used
+`hf-internal-testing/tiny-random-LlamaForCausalLM` at pinned revision
+`9fb191250dd56d0ba7ec9785a025ed29c03d5998`, with 21 tensors and one coalesced
+payload request. Plan-only and full exact-byte streaming conversion passed;
+the final 4,131,200-byte artifact was reopened through canonical v0.6 and
+vBuf-ML directory validation. No large transfer was started. Evidence:
+`research/results/vbuf-ml-integration/step32a-hf-safetensors-streaming-vbuf-conversion.md`.
+
+Production serving and `MAX_ACTIVE_GENERATIONS = 1` are unchanged. The next
+step is to qualify the bounded redirect/range transport locally and against
+small single-file and sharded public Safetensors repositories, still
+plan-only before any huge-model transfer.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
