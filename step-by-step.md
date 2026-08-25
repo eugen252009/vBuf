@@ -2865,10 +2865,10 @@ covered by a floating-metadata reopen fixture. The generated qualification
 artifact and logs were not committed. Production serving concurrency and
 backend loader ownership remain unchanged.
 
-#### Step 32E - GENERIC ATTENTION EXECUTION STATE
+#### Step 32E - GENERIC ATTENTION EXECUTION STATE AND REAL GLM BLOCK
 
-**Status: GENERIC MHA/GQA PREFILL CONTRACT AND REQUEST-LOCAL STATE QUALIFIED;
-REAL GLM ATTENTION, DECODE, AND CANONICAL GGML PARITY REMAIN OPEN.**
+**Status: ONE REAL GLM LAYER-23 PORTABLE F32 BLOCK QUALIFIED; DECODE,
+FULL-MODEL LOGITS, DEVICE EXECUTION, AND CANONICAL GGML PARITY REMAIN OPEN.**
 
 Added a backend-neutral attention descriptor with explicit Q/K/V operands,
 MHA/GQA geometry, scale, causal/none mask, state-length position semantics, and
@@ -2885,10 +2885,22 @@ independent native contract test passes ten deterministic GQA repetitions and
 MHA/GQA reference comparisons. Evidence:
 `research/results/vbuf-ml-integration/step32e-generic-attention-execution-state.md`.
 
+Step 32E-B then built and executed one complete real
+`zai-org/GLM-4.5-Air-FP8` layer-23 block through the portable Rust graph and
+generic F32 executor. The bounded path resolved semantic TensorId bindings from
+the persistent sidecar, materialized the real FP8/BF16 tensors and explicit
+scale ranges, executed GLM partial RoPE, GQA attention, sigmoid/correction
+Top-8 routing, selected routed experts, the shared expert, and both residual
+joins. It touched 75 tensor identities and 283,511,296 source bytes, with
+1,130,455,552 bytes of cached F32 tensors. An independent NumPy reference
+matched selection IDs exactly and the final output within `8.01e-05` maximum
+absolute and `2.15e-06` maximum relative difference. Evidence:
+`research/results/vbuf-ml-integration/step32e-b-real-glm-block.md`.
+
 No GLM payload or semantic sidecar was changed. This is local diagnostic-GGML
 adapter qualification, not canonical GGML parity. One-step decode, paged KV,
-device execution, real GLM attention projection integration, and full-block
-execution remain separate bounded work.
+device execution, full-model logits, and generation remain separate bounded
+work.
 
 #### Step 31J — Deferred experiments
 

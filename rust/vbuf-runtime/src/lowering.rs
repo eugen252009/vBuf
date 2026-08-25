@@ -46,6 +46,12 @@ pub enum PortableOperationKind {
     StateRead,
     StateWrite,
     ResidualAdd,
+    BiasAdd,
+    Rotary,
+    ReshapeHeads,
+    ElementwiseMul,
+    ZeroLike,
+    WeightedAdd,
 }
 
 pub type OperationAttributes = GraphOperationAttributes;
@@ -124,6 +130,71 @@ pub fn lower_region(
                 "Activation requires an activation kind",
             ));
         }
+        if operation.kind == PortableOperationKind::Rotary {
+            let Some(rotary) = operation.attributes.rotary else {
+                return Err(LoweringError::InvalidAttribute(
+                    "Rotary requires geometry and theta",
+                ));
+            };
+            if operation.inputs.len() != 1
+                || rotary.head_count == 0
+                || rotary.head_dim == 0
+                || rotary.rotary_dim == 0
+                || rotary.rotary_dim > rotary.head_dim
+                || rotary.rotary_dim % 2 != 0
+                || !rotary.theta.is_finite()
+                || rotary.theta <= 0.0
+            {
+                return Err(LoweringError::InvalidAttribute(
+                    "Rotary geometry or theta is invalid",
+                ));
+            }
+        }
+        if operation.kind == PortableOperationKind::ReshapeHeads {
+            let Some(shape) = operation.attributes.head_reshape else {
+                return Err(LoweringError::InvalidAttribute(
+                    "Head reshape requires geometry",
+                ));
+            };
+            if operation.inputs.len() != 1 || shape.head_count == 0 || shape.head_dim == 0 {
+                return Err(LoweringError::InvalidAttribute(
+                    "Head reshape geometry is invalid",
+                ));
+            }
+        }
+        if operation.kind == PortableOperationKind::WeightedAdd
+            && (operation.inputs.len() != 2
+                || operation.attributes.weighted_add.is_none()
+                || !operation.attributes.weighted_add.unwrap().is_finite())
+        {
+            return Err(LoweringError::InvalidAttribute(
+                "WeightedAdd requires two inputs and a finite weight",
+            ));
+        }
+        if operation.kind == PortableOperationKind::IndexedMatMul
+            && (operation.inputs.len() != 4 || operation.attributes.expert_dispatch.is_none())
+        {
+            return Err(LoweringError::InvalidAttribute(
+                "IndexedMatMul requires activation, three weights, and expert identity",
+            ));
+        }
+        if matches!(
+            operation.kind,
+            PortableOperationKind::BiasAdd
+                | PortableOperationKind::ElementwiseMul
+                | PortableOperationKind::ZeroLike
+        ) {
+            let expected = if operation.kind == PortableOperationKind::ZeroLike {
+                1
+            } else {
+                2
+            };
+            if operation.inputs.len() != expected {
+                return Err(LoweringError::InvalidAttribute(
+                    "Elementwise operation has an invalid input count",
+                ));
+            }
+        }
         if operation.kind == PortableOperationKind::Attention {
             let Some(attention) = operation.attributes.attention else {
                 return Err(LoweringError::InvalidAttribute(
@@ -191,6 +262,12 @@ pub fn lower_region(
             PortableOperationKind::StateRead => OperationKind::StateRead,
             PortableOperationKind::StateWrite => OperationKind::StateWrite,
             PortableOperationKind::ResidualAdd => OperationKind::ResidualAdd,
+            PortableOperationKind::BiasAdd => OperationKind::BiasAdd,
+            PortableOperationKind::Rotary => OperationKind::Rotary,
+            PortableOperationKind::ReshapeHeads => OperationKind::ReshapeHeads,
+            PortableOperationKind::ElementwiseMul => OperationKind::ElementwiseMul,
+            PortableOperationKind::ZeroLike => OperationKind::ZeroLike,
+            PortableOperationKind::WeightedAdd => OperationKind::WeightedAdd,
         };
         let inputs = operation
             .inputs
@@ -213,6 +290,10 @@ pub fn lower_region(
                 epsilon: operation.attributes.epsilon,
                 activation: operation.attributes.activation,
                 attention: operation.attributes.attention,
+                rotary: operation.attributes.rotary,
+                head_reshape: operation.attributes.head_reshape,
+                weighted_add: operation.attributes.weighted_add,
+                expert_dispatch: operation.attributes.expert_dispatch,
                 top_k: operation.attributes.top_k,
                 matmul_weight_operand: operation.attributes.matmul_weight_operand,
                 matmul_transpose_weight: operation.attributes.matmul_transpose_weight,

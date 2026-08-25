@@ -12,11 +12,13 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use vbuf_ml::{BorrowedModel, MlError};
 
+pub mod generic;
 pub mod graph;
 pub use graph::{
     ActivationKind, AttentionAttributes, AttentionMaskKind, AttentionPositionKind, ExecutionGraph,
-    InputRef, MatMulWeightOperand, Operation, OperationAttributes, OperationKind, PersistentTensor,
-    StateId, TensorId, TopKOrder, TopKTieBreak, ValueId,
+    ExpertDispatchAttributes, HeadReshapeAttributes, InputRef, MatMulWeightOperand, Operation,
+    OperationAttributes, OperationKind, PersistentTensor, RotaryAttributes, StateId, TensorId,
+    TopKOrder, TopKTieBreak, ValueId,
 };
 pub mod ffi;
 pub mod lowering;

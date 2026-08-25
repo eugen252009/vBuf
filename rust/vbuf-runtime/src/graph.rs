@@ -30,6 +30,12 @@ pub enum OperationKind {
     TopKRouter,
     ExpertDispatch,
     ResidualAdd,
+    BiasAdd,
+    Rotary,
+    ReshapeHeads,
+    ElementwiseMul,
+    ZeroLike,
+    WeightedAdd,
     StateRead,
     StateWrite,
 }
@@ -37,6 +43,28 @@ pub enum OperationKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ActivationKind {
     Silu,
+    Sigmoid,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RotaryAttributes {
+    pub head_count: u64,
+    pub head_dim: u64,
+    pub rotary_dim: u64,
+    pub theta: f32,
+    pub position_start: u64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct HeadReshapeAttributes {
+    pub head_count: u64,
+    pub head_dim: u64,
+    pub flatten: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ExpertDispatchAttributes {
+    pub expert_id: u32,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -86,6 +114,10 @@ pub struct OperationAttributes {
     pub epsilon: Option<f32>,
     pub activation: Option<ActivationKind>,
     pub attention: Option<AttentionAttributes>,
+    pub rotary: Option<RotaryAttributes>,
+    pub head_reshape: Option<HeadReshapeAttributes>,
+    pub weighted_add: Option<f32>,
+    pub expert_dispatch: Option<ExpertDispatchAttributes>,
     pub top_k: Option<u32>,
     pub matmul_weight_operand: Option<MatMulWeightOperand>,
     pub matmul_transpose_weight: Option<bool>,

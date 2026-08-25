@@ -11,6 +11,9 @@ default = []
 ggml = []
 
 [dependencies]
+memmap2 = "0.9"
+vbuf-core = { path = ".." }
 vbuf-ml = { path = "../vbuf-ml" }
+sha2 = "0.10"
 
 [build-dependencies]
