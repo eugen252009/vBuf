@@ -2838,8 +2838,8 @@ loader ownership must not be expanded.
 
 #### Step 32C - REAL FP8 MODEL ABOVE MEASURED HOST PLUS GPU MEMORY
 
-**Status: STORAGE AND BOUNDED FP8 MATERIALIZATION QUALIFIED; TOKENIZER, MOE
-SEMANTICS, AND BACKEND EXECUTION REMAIN OPEN.**
+**Status: STORAGE, BOUNDED FP8 MATERIALIZATION, AND GLM SEMANTIC SIDECAR
+QUALIFIED; BACKEND EXECUTION REMAINS OPEN.**
 
 Qualified `zai-org/GLM-4.5-Air-FP8` at immutable revision
 `f9a9c5acf5e543cd24d659a056c5dbcda78ffcfc`. Its 112,558,098,944-byte
@@ -2852,11 +2852,13 @@ second model-sized copy was created.
 
 The real plan contained 17,994 F8_E4M3 tensors and matching scale provenance.
 Fresh low-level canonical reopen, metadata/directory/quantization validation,
-and early/middle/late FP8 materialization passed. The model is MoE and the
-report retains the explicit expert-bank architecture-profile gap rather than
-guessing a semantic mapping. Tokenizer files were fetched but not persisted,
-so the full runtime consumer path is not claimed. Evidence:
-`research/results/vbuf-ml-integration/step32c-real-fp8-oversubscription.md`.
+and early/middle/late FP8 materialization passed. Step 32D now persists a
+14,306,259-byte semantic sidecar without rewriting the payload. It reopens
+through the persistent source profile, stores 151,365 tokenizer IDs and
+318,088 merges, and records 17,894 source-independent GLM MoE member bindings
+with explicit FP8 scale identities. Evidence:
+`research/results/vbuf-ml-integration/step32c-real-fp8-oversubscription.md` and
+`research/results/vbuf-ml-integration/step32d-glm-semantic-sidecar.md`.
 
 The importer semantic-tag defect found during fresh reopen was corrected and
 covered by a floating-metadata reopen fixture. The generated qualification

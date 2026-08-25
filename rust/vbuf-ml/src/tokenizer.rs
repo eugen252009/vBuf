@@ -13,13 +13,14 @@ pub const MAX_MERGES: u64 = 10_000_000;
 pub const MAX_CHAT_TEMPLATE_BYTES: u64 = 1024 * 1024;
 const HEADER_BYTES: usize = 20;
 const ENTRY_BYTES: usize = 12;
-const ROLE_SLOTS: usize = 15;
+const ROLE_SLOTS: usize = 18;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum TokenizerKind {
     VocabularyOnly = 1,
     Gpt2BpeQwen2 = 2,
+    Gpt2BpeByteLevel = 3,
 }
 
 impl TokenizerKind {
@@ -27,6 +28,7 @@ impl TokenizerKind {
         match id {
             1 => Ok(Self::VocabularyOnly),
             2 => Ok(Self::Gpt2BpeQwen2),
+            3 => Ok(Self::Gpt2BpeByteLevel),
             _ => Err(MlError::new(
                 MlErrorCode::UnsupportedTokenizerKind,
                 "unsupported tokenizer kind",
@@ -52,6 +54,9 @@ pub enum TokenizerRole {
     PreTokenizerIdentity = 12,
     AddBos = 13,
     ChatTemplate = 14,
+    TokenFlags = 15,
+    SpecialTokenIds = 16,
+    IgnoreMerges = 17,
 }
 
 impl TokenizerRole {
@@ -71,20 +76,26 @@ impl TokenizerRole {
             12 => Some(Self::PreTokenizerIdentity),
             13 => Some(Self::AddBos),
             14 => Some(Self::ChatTemplate),
+            15 => Some(Self::TokenFlags),
+            16 => Some(Self::SpecialTokenIds),
+            17 => Some(Self::IgnoreMerges),
             _ => None,
         }
     }
     const fn is_required(self, kind: TokenizerKind) -> bool {
         matches!(self, Self::TokenTextBytes | Self::TokenOffsets)
-            || matches!(kind, TokenizerKind::Gpt2BpeQwen2)
-                && matches!(
-                    self,
-                    Self::MergeLeftIds
-                        | Self::MergeRightIds
-                        | Self::TokenizerModelIdentity
-                        | Self::PreTokenizerIdentity
-                        | Self::AddBos
-                )
+            || matches!(
+                kind,
+                TokenizerKind::Gpt2BpeQwen2 | TokenizerKind::Gpt2BpeByteLevel
+            ) && matches!(
+                self,
+                Self::MergeLeftIds
+                    | Self::MergeRightIds
+                    | Self::TokenizerModelIdentity
+                    | Self::PreTokenizerIdentity
+                    | Self::AddBos
+            )
+            || matches!(kind, TokenizerKind::Gpt2BpeByteLevel) && matches!(self, Self::IgnoreMerges)
     }
 }
 
@@ -138,6 +149,7 @@ impl TokenizerModel {
 pub enum PreTokenizer {
     Qwen2 = 1,
     DeepSeek = 2,
+    Gpt2ByteLevel = 3,
 }
 
 impl PreTokenizer {
@@ -145,6 +157,7 @@ impl PreTokenizer {
         match value {
             1 => Ok(Self::Qwen2),
             2 => Ok(Self::DeepSeek),
+            3 => Ok(Self::Gpt2ByteLevel),
             _ => Err(MlError::new(
                 MlErrorCode::InvalidTokenizerIdentity,
                 "unsupported pre-tokenizer identity",
@@ -166,7 +179,10 @@ pub struct TokenizerMetadata<'a> {
     model: Option<TokenizerModel>,
     pre_tokenizer: Option<PreTokenizer>,
     add_bos: Option<bool>,
+    ignore_merges: Option<bool>,
     chat_template: Option<CheckedRange<'a>>,
+    token_flags: Option<CheckedRange<'a>>,
+    special_ids: Option<CheckedRange<'a>>,
     specials: Vec<(SpecialToken, u64)>,
 }
 
@@ -283,12 +299,17 @@ impl<'a> TokenizerMetadata<'a> {
             validated,
             false,
         )?;
-        if matches!(kind, TokenizerKind::Gpt2BpeQwen2)
-            && let Some(types) = &types
+        if matches!(
+            kind,
+            TokenizerKind::Gpt2BpeQwen2 | TokenizerKind::Gpt2BpeByteLevel
+        ) && let Some(types) = &types
         {
             validate_token_types(types, token_count)?;
         }
-        let (merge_left_ids, merge_right_ids) = if matches!(kind, TokenizerKind::Gpt2BpeQwen2) {
+        let (merge_left_ids, merge_right_ids) = if matches!(
+            kind,
+            TokenizerKind::Gpt2BpeQwen2 | TokenizerKind::Gpt2BpeByteLevel
+        ) {
             let left = required_u32_array(
                 &mut resolved,
                 TokenizerRole::MergeLeftIds,
@@ -312,7 +333,10 @@ impl<'a> TokenizerMetadata<'a> {
         } else {
             (None, None)
         };
-        let model = if matches!(kind, TokenizerKind::Gpt2BpeQwen2) {
+        let model = if matches!(
+            kind,
+            TokenizerKind::Gpt2BpeQwen2 | TokenizerKind::Gpt2BpeByteLevel
+        ) {
             Some(TokenizerModel::from_value(required_unsigned_scalar(
                 &mut resolved,
                 TokenizerRole::TokenizerModelIdentity,
@@ -321,7 +345,10 @@ impl<'a> TokenizerMetadata<'a> {
         } else {
             None
         };
-        let pre_tokenizer = if matches!(kind, TokenizerKind::Gpt2BpeQwen2) {
+        let pre_tokenizer = if matches!(
+            kind,
+            TokenizerKind::Gpt2BpeQwen2 | TokenizerKind::Gpt2BpeByteLevel
+        ) {
             Some(PreTokenizer::from_value(required_unsigned_scalar(
                 &mut resolved,
                 TokenizerRole::PreTokenizerIdentity,
@@ -330,13 +357,43 @@ impl<'a> TokenizerMetadata<'a> {
         } else {
             None
         };
-        let add_bos = if matches!(kind, TokenizerKind::Gpt2BpeQwen2) {
+        let add_bos = if matches!(
+            kind,
+            TokenizerKind::Gpt2BpeQwen2 | TokenizerKind::Gpt2BpeByteLevel
+        ) {
             Some(required_unsigned_scalar(&mut resolved, TokenizerRole::AddBos, validated)? != 0)
         } else {
             None
         };
+        let ignore_merges = if matches!(kind, TokenizerKind::Gpt2BpeByteLevel) {
+            Some(
+                required_unsigned_scalar(&mut resolved, TokenizerRole::IgnoreMerges, validated)?
+                    != 0,
+            )
+        } else {
+            resolved[TokenizerRole::IgnoreMerges as usize]
+                .take()
+                .map(|(index, range)| {
+                    decode_unsigned_scalar(&validated.blocks()[index], range.bytes())
+                })
+                .transpose()?
+                .map(|value| value != 0)
+        };
         let chat_template =
             optional_utf8_payload(&mut resolved, TokenizerRole::ChatTemplate, validated)?;
+        let token_flags = optional_array(
+            &mut resolved,
+            TokenizerRole::TokenFlags,
+            token_count,
+            validated,
+            false,
+        )?;
+        let special_ids = optional_u32_array(
+            &mut resolved,
+            TokenizerRole::SpecialTokenIds,
+            validated,
+            token_count,
+        )?;
         let mut specials = Vec::new();
         for (role, special) in [
             (TokenizerRole::BosId, SpecialToken::Bos),
@@ -367,7 +424,10 @@ impl<'a> TokenizerMetadata<'a> {
             model,
             pre_tokenizer,
             add_bos,
+            ignore_merges,
             chat_template,
+            token_flags,
+            special_ids,
             specials,
         })
     }
@@ -410,6 +470,26 @@ impl<'a> TokenizerMetadata<'a> {
     }
     pub fn add_bos(&self) -> Option<bool> {
         self.add_bos
+    }
+    pub fn ignore_merges(&self) -> Option<bool> {
+        self.ignore_merges
+    }
+    pub fn token_flags(&self, index: u64) -> Option<u8> {
+        let range = self.token_flags.as_ref()?;
+        if index >= self.token_count {
+            return None;
+        }
+        range.bytes().get(usize::try_from(index).ok()?).copied()
+    }
+    pub fn special_ids(&self) -> Option<Vec<u64>> {
+        let range = self.special_ids.as_ref()?;
+        Some(
+            range
+                .bytes()
+                .chunks_exact(4)
+                .map(|bytes| u64::from(u32::from_le_bytes(bytes.try_into().unwrap())))
+                .collect(),
+        )
     }
     pub fn merge_count(&self) -> u64 {
         self.merge_left_ids
@@ -738,6 +818,39 @@ fn optional_array<'a>(
             MlErrorCode::TokenizerArrayLengthMismatch,
             "tokenizer parallel array is incompatible",
         ));
+    }
+    Ok(Some(range))
+}
+
+fn optional_u32_array<'a>(
+    resolved: &mut [Option<(usize, CheckedRange<'a>)>; ROLE_SLOTS],
+    role: TokenizerRole,
+    validated: &ValidatedV06<'a>,
+    token_count: u64,
+) -> Result<Option<CheckedRange<'a>>, MlError> {
+    let Some((index, range)) = resolved[role as usize].take() else {
+        return Ok(None);
+    };
+    let block = &validated.blocks()[index];
+    if block.semantic != V06Semantic::Unsigned
+        || block.physical != V06Physical::Array
+        || block.bit_width != 32
+        || block.count > token_count
+        || range.bytes().len()
+            != usize::try_from(block.count.checked_mul(4).unwrap_or(u64::MAX)).unwrap_or(usize::MAX)
+    {
+        return Err(MlError::new(
+            MlErrorCode::TokenizerArrayLengthMismatch,
+            "tokenizer special-ID array is incompatible",
+        ));
+    }
+    for bytes in range.bytes().chunks_exact(4) {
+        if u64::from(u32::from_le_bytes(bytes.try_into().unwrap())) >= token_count {
+            return Err(MlError::new(
+                MlErrorCode::InvalidSpecialTokenId,
+                "tokenizer special-ID array contains an out-of-range ID",
+            ));
+        }
     }
     Ok(Some(range))
 }

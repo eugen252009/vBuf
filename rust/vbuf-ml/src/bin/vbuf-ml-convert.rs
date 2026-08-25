@@ -197,6 +197,10 @@ fn parse_plan(bytes: &[u8]) -> Result<Plan, String> {
                 layer_count,
                 shared_experts,
                 shared_expert_count,
+                normalize_topk_prob: false,
+                routing_group_count: 0,
+                routing_topk_group_count: 0,
+                routed_scaling_factor_bits: 1.0f32.to_bits(),
             },
         })
     };
@@ -623,6 +627,8 @@ fn main() -> Result<(), String> {
                     expert_index: expert,
                     role: 0,
                     child_name: name,
+                    tensor_ordinal: None,
+                    scale_ordinal: None,
                 });
             }
         }

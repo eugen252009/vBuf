@@ -219,6 +219,12 @@ impl<'a> TensorDirectory<'a> {
             .ok()
             .map(|index| &self.tensors[index])
     }
+
+    pub fn get_by_identity(&self, key_id: u16, occurrence: u16) -> Option<&TensorDescriptor<'a>> {
+        self.tensors
+            .iter()
+            .find(|tensor| tensor.key_id == key_id && tensor.occurrence == occurrence)
+    }
 }
 
 pub fn encode_payload(entries: &[TensorEntry]) -> Result<Vec<u8>, MlError> {

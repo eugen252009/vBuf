@@ -76,7 +76,9 @@ pub use representations::{
     expected_payload_bytes, logical_elements, representation_contract, representation_from_id,
     representation_name, validate_external_tensor_representation, validate_tensor_representation,
 };
-pub use runtime_tokenizer::{MergeRankIndex, RuntimeTokenizerIndexes, TokenIndex};
+pub use runtime_tokenizer::{
+    Gpt2ByteLevelTokenizer, MergeRankIndex, RuntimeTokenizerIndexes, TokenIndex,
+};
 pub use source::{
     CheckedSourceRange, PersistentSourceMetadata, SourceDescriptor, SourceHash, SourceId,
     SourceLocator, SourceRangeError, SourceRegistry, SourceRegistryError, TensorRef,
