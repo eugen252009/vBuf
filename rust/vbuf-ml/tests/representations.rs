@@ -1,10 +1,10 @@
 use vbuf_core::v06::{V06Block, V06Physical, V06Semantic};
 use vbuf_ml::{
-    BF16_BYTES_PER_ELEMENT, IQ1_S_BLOCK_BYTES, IQ1_S_BLOCK_ELEMENTS, IQ2_S_BLOCK_BYTES,
-    IQ2_S_BLOCK_ELEMENTS, IQ2_XS_BLOCK_BYTES, IQ2_XS_BLOCK_ELEMENTS, IQ2_XXS_BLOCK_BYTES,
-    IQ2_XXS_BLOCK_ELEMENTS, IQ4_NL_BLOCK_BYTES, IQ4_NL_BLOCK_ELEMENTS, IQ4_XS_BLOCK_BYTES,
-    IQ4_XS_BLOCK_ELEMENTS, MlErrorCode, Q2_K_BLOCK_BYTES, Q2_K_BLOCK_ELEMENTS, Q3_K_BLOCK_BYTES,
-    Q3_K_BLOCK_ELEMENTS, Q4_0_BLOCK_BYTES, Q4_0_BLOCK_ELEMENTS, Q4_K_BLOCK_BYTES,
+    BF16_BYTES_PER_ELEMENT, F8_E4M3_BYTES_PER_ELEMENT, IQ1_S_BLOCK_BYTES, IQ1_S_BLOCK_ELEMENTS,
+    IQ2_S_BLOCK_BYTES, IQ2_S_BLOCK_ELEMENTS, IQ2_XS_BLOCK_BYTES, IQ2_XS_BLOCK_ELEMENTS,
+    IQ2_XXS_BLOCK_BYTES, IQ2_XXS_BLOCK_ELEMENTS, IQ4_NL_BLOCK_BYTES, IQ4_NL_BLOCK_ELEMENTS,
+    IQ4_XS_BLOCK_BYTES, IQ4_XS_BLOCK_ELEMENTS, MlErrorCode, Q2_K_BLOCK_BYTES, Q2_K_BLOCK_ELEMENTS,
+    Q3_K_BLOCK_BYTES, Q3_K_BLOCK_ELEMENTS, Q4_0_BLOCK_BYTES, Q4_0_BLOCK_ELEMENTS, Q4_K_BLOCK_BYTES,
     Q4_K_BLOCK_ELEMENTS, Q8_0_BLOCK_BYTES, Q8_0_BLOCK_ELEMENTS, TensorRepresentation,
     bf16_bits_to_f32, expected_payload_bytes, validate_tensor_representation,
 };
@@ -54,6 +54,23 @@ fn bf16_has_exact_two_byte_storage_and_known_bits() {
     validate_tensor_representation(TensorRepresentation::Bf16, &[2, 3], &block).unwrap();
     assert_eq!(
         validate_tensor_representation(TensorRepresentation::Bf16, &[2, 3], &packed_block(11))
+            .unwrap_err()
+            .code,
+        MlErrorCode::TensorRepresentationMismatch
+    );
+}
+
+#[test]
+fn f8_e4m3_is_one_byte_opaque_storage() {
+    assert_eq!(F8_E4M3_BYTES_PER_ELEMENT, 1);
+    assert_eq!(
+        expected_payload_bytes(TensorRepresentation::F8_E4M3, &[2, 3]).unwrap(),
+        6
+    );
+    validate_tensor_representation(TensorRepresentation::F8_E4M3, &[2, 3], &packed_block(6))
+        .unwrap();
+    assert_eq!(
+        validate_tensor_representation(TensorRepresentation::F8_E4M3, &[2, 3], &packed_block(5))
             .unwrap_err()
             .code,
         MlErrorCode::TensorRepresentationMismatch

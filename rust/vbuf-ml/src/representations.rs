@@ -11,6 +11,7 @@ use vbuf_core::v06::{V06Block, V06Physical, V06Semantic};
 pub const Q8_0_BLOCK_ELEMENTS: u64 = 32;
 pub const Q8_0_BLOCK_BYTES: u64 = 34;
 pub const BF16_BYTES_PER_ELEMENT: u64 = 2;
+pub const F8_E4M3_BYTES_PER_ELEMENT: u64 = 1;
 pub const Q4_0_BLOCK_ELEMENTS: u64 = 32;
 pub const Q4_0_BLOCK_BYTES: u64 = 18;
 pub const Q2_K_BLOCK_ELEMENTS: u64 = 256;
@@ -55,6 +56,7 @@ pub enum TensorRepresentation {
     GgmlIQ2_S = 12,
     GgmlQ5_K = 13,
     GgmlQ6_K = 14,
+    F8_E4M3 = 15,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -197,6 +199,14 @@ pub const fn representation_contract(id: TensorRepresentation) -> Representation
             required_payload_alignment: 1,
             ggml_type_id: Some(14),
         },
+        TensorRepresentation::F8_E4M3 => RepresentationContract {
+            id,
+            canonical_storage: CanonicalStorage::OpaqueBytes,
+            logical_elements_per_block: Some(1),
+            physical_bytes_per_block: Some(F8_E4M3_BYTES_PER_ELEMENT),
+            required_payload_alignment: 1,
+            ggml_type_id: None,
+        },
     }
 }
 
@@ -217,6 +227,7 @@ pub fn representation_name(id: TensorRepresentation) -> &'static str {
         TensorRepresentation::GgmlIQ2_S => "GGML_IQ2_S",
         TensorRepresentation::GgmlQ5_K => "GGML_Q5_K",
         TensorRepresentation::GgmlQ6_K => "GGML_Q6_K",
+        TensorRepresentation::F8_E4M3 => "F8_E4M3",
     }
 }
 
@@ -237,6 +248,7 @@ pub fn representation_from_id(id: u8) -> Result<TensorRepresentation, MlError> {
         12 => Ok(TensorRepresentation::GgmlIQ2_S),
         13 => Ok(TensorRepresentation::GgmlQ5_K),
         14 => Ok(TensorRepresentation::GgmlQ6_K),
+        15 => Ok(TensorRepresentation::F8_E4M3),
         _ => Err(MlError::new(
             MlErrorCode::UnsupportedTensorRepresentation,
             "unsupported tensor representation",
@@ -274,6 +286,7 @@ pub fn expected_payload_bytes(
                 )
             })
         }
+        TensorRepresentation::F8_E4M3 => Ok(elements),
         TensorRepresentation::GgmlQ8_0
         | TensorRepresentation::GgmlQ4_0
         | TensorRepresentation::GgmlQ2_K
@@ -390,6 +403,7 @@ pub fn validate_tensor_representation(
             }
         }
         TensorRepresentation::Bf16
+        | TensorRepresentation::F8_E4M3
         | TensorRepresentation::GgmlQ8_0
         | TensorRepresentation::GgmlQ4_0
         | TensorRepresentation::GgmlQ2_K
@@ -462,6 +476,7 @@ pub fn validate_external_tensor_representation(
             }
         }
         TensorRepresentation::Bf16
+        | TensorRepresentation::F8_E4M3
         | TensorRepresentation::GgmlQ8_0
         | TensorRepresentation::GgmlQ4_0
         | TensorRepresentation::GgmlQ2_K

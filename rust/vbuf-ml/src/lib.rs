@@ -18,6 +18,7 @@ pub mod layout;
 pub mod metadata;
 pub mod moe;
 pub mod nested;
+pub mod quantization;
 pub mod qwen_moe;
 pub mod range_loading;
 pub mod region_roles;
@@ -51,6 +52,10 @@ pub use moe::{
 pub use nested::{
     NestedChild, NestedDirectory, NestedEntry, encode_payload as encode_nested_payload,
 };
+pub use quantization::{
+    F8QuantizationDirectory, F8QuantizationEntry, dequantize_f8_e4m3, e4m3fn_to_f32,
+    encode_payload as encode_quantization_payload,
+};
 pub use qwen_moe::QwenMoELoader;
 pub use range_loading::{
     Coalescing, LoadedPlan, LoadedRead, MmapSource, PhysicalRange, PlannedTarget,
@@ -60,16 +65,16 @@ pub use range_loading::{
 };
 pub use region_roles::RegionRole;
 pub use representations::{
-    BF16_BYTES_PER_ELEMENT, CanonicalStorage, IQ1_S_BLOCK_BYTES, IQ1_S_BLOCK_ELEMENTS,
-    IQ2_S_BLOCK_BYTES, IQ2_S_BLOCK_ELEMENTS, IQ2_XS_BLOCK_BYTES, IQ2_XS_BLOCK_ELEMENTS,
-    IQ2_XXS_BLOCK_BYTES, IQ2_XXS_BLOCK_ELEMENTS, IQ4_NL_BLOCK_BYTES, IQ4_NL_BLOCK_ELEMENTS,
-    IQ4_XS_BLOCK_BYTES, IQ4_XS_BLOCK_ELEMENTS, Q2_K_BLOCK_BYTES, Q2_K_BLOCK_ELEMENTS,
-    Q3_K_BLOCK_BYTES, Q3_K_BLOCK_ELEMENTS, Q4_0_BLOCK_BYTES, Q4_0_BLOCK_ELEMENTS, Q4_K_BLOCK_BYTES,
-    Q4_K_BLOCK_ELEMENTS, Q5_K_BLOCK_BYTES, Q5_K_BLOCK_ELEMENTS, Q6_K_BLOCK_BYTES,
-    Q6_K_BLOCK_ELEMENTS, Q8_0_BLOCK_BYTES, Q8_0_BLOCK_ELEMENTS, RepresentationContract,
-    TensorRepresentation, bf16_bits_to_f32, expected_payload_bytes, logical_elements,
-    representation_contract, representation_from_id, representation_name,
-    validate_external_tensor_representation, validate_tensor_representation,
+    BF16_BYTES_PER_ELEMENT, CanonicalStorage, F8_E4M3_BYTES_PER_ELEMENT, IQ1_S_BLOCK_BYTES,
+    IQ1_S_BLOCK_ELEMENTS, IQ2_S_BLOCK_BYTES, IQ2_S_BLOCK_ELEMENTS, IQ2_XS_BLOCK_BYTES,
+    IQ2_XS_BLOCK_ELEMENTS, IQ2_XXS_BLOCK_BYTES, IQ2_XXS_BLOCK_ELEMENTS, IQ4_NL_BLOCK_BYTES,
+    IQ4_NL_BLOCK_ELEMENTS, IQ4_XS_BLOCK_BYTES, IQ4_XS_BLOCK_ELEMENTS, Q2_K_BLOCK_BYTES,
+    Q2_K_BLOCK_ELEMENTS, Q3_K_BLOCK_BYTES, Q3_K_BLOCK_ELEMENTS, Q4_0_BLOCK_BYTES,
+    Q4_0_BLOCK_ELEMENTS, Q4_K_BLOCK_BYTES, Q4_K_BLOCK_ELEMENTS, Q5_K_BLOCK_BYTES,
+    Q5_K_BLOCK_ELEMENTS, Q6_K_BLOCK_BYTES, Q6_K_BLOCK_ELEMENTS, Q8_0_BLOCK_BYTES,
+    Q8_0_BLOCK_ELEMENTS, RepresentationContract, TensorRepresentation, bf16_bits_to_f32,
+    expected_payload_bytes, logical_elements, representation_contract, representation_from_id,
+    representation_name, validate_external_tensor_representation, validate_tensor_representation,
 };
 pub use runtime_tokenizer::{MergeRankIndex, RuntimeTokenizerIndexes, TokenIndex};
 pub use source::{

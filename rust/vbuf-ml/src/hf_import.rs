@@ -9,6 +9,7 @@ use crate::bootstrap::{
 };
 use crate::layout::{LayoutClass, LayoutPlan, PlacementLengthRequest};
 use crate::metadata::{MetadataEntry, ModelMetadataKey, encode_payload as encode_metadata};
+use crate::quantization::{F8QuantizationEntry, encode_payload as encode_quantization};
 use crate::region_roles::RegionRole;
 use crate::representations::{TensorRepresentation, logical_elements};
 use crate::tensor_directory::{TensorDirectory, TensorEntry, encode_payload as encode_directory};
@@ -64,6 +65,7 @@ pub struct TensorPlan {
 pub enum TensorRepresentationId {
     CanonicalPrimitive,
     Bf16,
+    F8E4M3,
 }
 
 impl TensorRepresentationId {
@@ -71,6 +73,7 @@ impl TensorRepresentationId {
         match self {
             Self::CanonicalPrimitive => TensorRepresentation::CanonicalPrimitive,
             Self::Bf16 => TensorRepresentation::Bf16,
+            Self::F8E4M3 => TensorRepresentation::F8_E4M3,
         }
     }
 }
@@ -98,6 +101,7 @@ pub struct PlanReport {
     pub plan_digest: String,
     pub controls: Vec<ControlPlan>,
     pub metadata_files: Vec<String>,
+    pub quantization: Vec<F8QuantizationEntry>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -229,8 +233,9 @@ fn parse_dtype(
     let (representation, bytes_per_element) = match value {
         "F32" => (Some(TensorRepresentationId::CanonicalPrimitive), 4),
         "BF16" => (Some(TensorRepresentationId::Bf16), 2),
+        "F8_E4M3" => (Some(TensorRepresentationId::F8E4M3), 1),
         "F16" | "F64" | "I8" | "I16" | "I32" | "I64" | "U8" | "U16" | "U32" | "BOOL"
-        | "F8_E4M3" | "F8_E5M2" => (None, 0),
+        | "F8_E5M2" => (None, 0),
         _ => (None, 0),
     };
     let expected = checked_mul(
@@ -482,6 +487,62 @@ pub fn build_plan(
         });
     }
     tensor_plans.sort_by(|a, b| a.name.as_bytes().cmp(b.name.as_bytes()));
+    let fp8_block_size = fp8_block_size(
+        &config,
+        tensor_plans
+            .iter()
+            .any(|tensor| tensor.representation == Some(TensorRepresentationId::F8E4M3)),
+    )?;
+    let mut quantization = Vec::new();
+    for tensor in &tensor_plans {
+        if tensor.representation != Some(TensorRepresentationId::F8E4M3) {
+            continue;
+        }
+        if tensor.shape.len() != 2 {
+            return Err(ImportError::Invalid(format!(
+                "FP8 tensor {} must be a 2-D matrix",
+                tensor.name
+            )));
+        }
+        let scale_name = format!("{}_scale_inv", tensor.name);
+        let scale = tensor_plans
+            .iter()
+            .find(|candidate| candidate.name == scale_name)
+            .ok_or_else(|| {
+                ImportError::Invalid(format!(
+                    "FP8 tensor {} has no semantic scale tensor {}",
+                    tensor.name, scale_name
+                ))
+            })?;
+        if scale.representation != Some(TensorRepresentationId::CanonicalPrimitive)
+            || scale.shape.len() != 2
+        {
+            return Err(ImportError::Invalid(format!(
+                "FP8 scale tensor {} must be an F32 matrix",
+                scale.name
+            )));
+        }
+        let rows = tensor.shape.first().copied().unwrap_or(1);
+        let columns = tensor.shape.get(1).copied().unwrap_or(1);
+        let expected_scale_shape = [
+            rows.div_ceil(fp8_block_size[0]),
+            columns.div_ceil(fp8_block_size[1]),
+        ];
+        if scale.shape.as_slice() != expected_scale_shape {
+            return Err(ImportError::Invalid(format!(
+                "FP8 scale tensor {} shape does not match configured block geometry",
+                scale.name
+            )));
+        }
+        quantization.push(F8QuantizationEntry {
+            weight_name: tensor.name.clone(),
+            scale_name,
+            block_rows: fp8_block_size[0],
+            block_columns: fp8_block_size[1],
+        });
+    }
+    let quantization_directory =
+        encode_quantization(&quantization).map_err(|e| ImportError::Invalid(e.to_string()))?;
     let architecture = config
         .get("architectures")
         .and_then(Value::as_array)
@@ -536,6 +597,7 @@ pub fn build_plan(
     let bootstrap = encode_bootstrap(&[
         BootstrapEntry::new(RegionRole::TensorDirectory as u16, true, 0x0201, 0),
         BootstrapEntry::new(RegionRole::ModelMetadata as u16, true, 0x0202, 0),
+        BootstrapEntry::new(RegionRole::QuantizationMetadata as u16, false, 0x0203, 0),
     ])
     .map_err(|e| ImportError::Invalid(e.to_string()))?;
     let mut requests = Vec::new();
@@ -623,6 +685,17 @@ pub fn build_plan(
         payload_alignment: alignment,
         payload_len: directory.len() as u64,
     });
+    requests.push(PlacementLengthRequest {
+        class: LayoutClass::Auxiliary,
+        order: 3,
+        key_id: 0x0203,
+        semantic: V06Semantic::Opaque,
+        physical: V06Physical::Array,
+        bit_width: 8,
+        count: quantization_directory.len() as u64,
+        payload_alignment: alignment,
+        payload_len: quantization_directory.len() as u64,
+    });
     for (index, tensor) in tensor_plans.iter().enumerate() {
         let (semantic, width, count) = match tensor.representation {
             Some(TensorRepresentationId::CanonicalPrimitive) => (
@@ -631,6 +704,7 @@ pub fn build_plan(
                 logical_elements(&tensor.shape).map_err(|e| ImportError::Invalid(e.to_string()))?,
             ),
             Some(TensorRepresentationId::Bf16) => (V06Semantic::Opaque, 8, tensor.source_length),
+            Some(TensorRepresentationId::F8E4M3) => (V06Semantic::Opaque, 8, tensor.source_length),
             None => (V06Semantic::Opaque, 8, tensor.source_length),
         };
         requests.push(PlacementLengthRequest {
@@ -667,6 +741,7 @@ pub fn build_plan(
     let bootstrap_bytes = bootstrap.len() as u64;
     let metadata_bytes = metadata_directory.len() as u64;
     let directory_bytes = directory.len() as u64;
+    let quantization_bytes = quantization_directory.len() as u64;
     ordered_control_payloads.push((
         0usize,
         bootstrap.clone(),
@@ -702,6 +777,16 @@ pub fn build_plan(
     ordered_control_payloads.push((
         request_cursor,
         directory.clone(),
+        requests[request_cursor].semantic,
+        requests[request_cursor].physical,
+        requests[request_cursor].bit_width,
+        requests[request_cursor].count,
+        requests[request_cursor].key_id,
+    ));
+    request_cursor += 1;
+    ordered_control_payloads.push((
+        request_cursor,
+        quantization_directory.clone(),
         requests[request_cursor].semantic,
         requests[request_cursor].physical,
         requests[request_cursor].bit_width,
@@ -745,7 +830,7 @@ pub fn build_plan(
         source_payload_bytes,
         final_vbuf_payload_bytes: source_payload_bytes,
         final_vbuf_bytes: layout.final_size(),
-        metadata_bytes: metadata_bytes + directory_bytes,
+        metadata_bytes: metadata_bytes + directory_bytes + quantization_bytes,
         bootstrap_bytes,
         alignment_padding_bytes: layout.padding_bytes(),
         largest_tensor: 0,
@@ -760,6 +845,7 @@ pub fn build_plan(
         plan_digest: String::new(),
         controls,
         metadata_files: Vec::new(),
+        quantization,
     };
     plan.largest_tensor = plan
         .tensors
@@ -770,6 +856,39 @@ pub fn build_plan(
     plan.can_execute = plan.unsupported_dtypes.is_empty() && plan.largest_tensor <= staging_bytes;
     plan.plan_digest = digest_plan(&plan)?;
     Ok(plan)
+}
+
+fn fp8_block_size(config: &Value, required: bool) -> Result<[u64; 2], ImportError> {
+    let value = config.get("weight_block_size").or_else(|| {
+        config
+            .get("quantization_config")
+            .and_then(|v| v.get("weight_block_size"))
+    });
+    let Some(value) = value else {
+        if required {
+            return Err(ImportError::Invalid(
+                "F8_E4M3 requires config.json weight_block_size [rows, columns]".into(),
+            ));
+        }
+        return Ok([1, 1]);
+    };
+    let values = value
+        .as_array()
+        .ok_or_else(|| ImportError::Invalid("weight_block_size must be an array".into()))?;
+    if values.len() != 2 {
+        return Err(ImportError::Invalid(
+            "weight_block_size must contain exactly two dimensions".into(),
+        ));
+    }
+    let rows = values[0]
+        .as_u64()
+        .filter(|value| *value != 0)
+        .ok_or_else(|| ImportError::Invalid("weight_block_size rows must be non-zero".into()))?;
+    let columns = values[1]
+        .as_u64()
+        .filter(|value| *value != 0)
+        .ok_or_else(|| ImportError::Invalid("weight_block_size columns must be non-zero".into()))?;
+    Ok([rows, columns])
 }
 
 fn config_metadata(config: &Value) -> Result<Vec<(u16, String, u8, Vec<u8>)>, ImportError> {
@@ -1308,6 +1427,19 @@ fn validate_final(path: &Path, plan: &PlanReport) -> Result<(), ImportError> {
     if directory.tensors().len() != plan.tensors.len() {
         return Err(ImportError::Invalid(
             "final tensor directory count differs from plan".into(),
+        ));
+    }
+    let quantization = crate::F8QuantizationDirectory::parse(&validated, &bootstrap)
+        .map_err(|e| ImportError::Invalid(e.to_string()))?
+        .ok_or_else(|| {
+            ImportError::Invalid("final artifact has no quantization metadata".into())
+        })?;
+    quantization
+        .validate_against(&directory)
+        .map_err(|e| ImportError::Invalid(e.to_string()))?;
+    if quantization.entries() != plan.quantization.as_slice() {
+        return Err(ImportError::Invalid(
+            "final quantization metadata differs from plan".into(),
         ));
     }
     Ok(())

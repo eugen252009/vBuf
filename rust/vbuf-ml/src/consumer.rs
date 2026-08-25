@@ -60,6 +60,7 @@ pub struct BorrowedModelView<'a> {
     pub metadata: ModelMetadata<'a>,
     pub directory: TensorDirectory<'a>,
     pub tokenizer: TokenizerMetadata<'a>,
+    pub quantization: Option<crate::F8QuantizationDirectory>,
     pub nested: Option<NestedDirectory<'a>>,
     pub moe: Option<MoeDirectory>,
 }
@@ -122,6 +123,10 @@ impl<'a> BorrowedModelView<'a> {
             persistent_bindings,
         )?;
         let tokenizer = TokenizerMetadata::parse(&validated, &bootstrap)?;
+        let quantization = crate::F8QuantizationDirectory::parse(&validated, &bootstrap)?;
+        if let Some(quantization) = quantization.as_ref() {
+            quantization.validate_against(&directory)?;
+        }
         let nested = if bootstrap
             .region(crate::RegionRole::NestedDirectory)
             .is_some()
@@ -149,6 +154,7 @@ impl<'a> BorrowedModelView<'a> {
             tokenizer,
             nested,
             moe,
+            quantization,
         })
     }
 }
@@ -341,6 +347,7 @@ impl BorrowedModel {
                 TensorRepresentation::GgmlIQ2_S => ConsumerTensorType::IQ2_S,
                 TensorRepresentation::GgmlQ5_K => ConsumerTensorType::Q5_K,
                 TensorRepresentation::GgmlQ6_K => ConsumerTensorType::Q6_K,
+                TensorRepresentation::F8_E4M3 => ConsumerTensorType::F8_E4M3,
             }))
     }
     pub fn tensor_payload(&self, index: usize) -> Result<Option<&[u8]>, MlError> {
@@ -350,6 +357,54 @@ impl BorrowedModel {
             .tensors()
             .get(index)
             .and_then(|t| t.range.as_ref().map(|range| range.bytes())))
+    }
+
+    /// Materializes one validated FP8 tensor into the existing F32 execution
+    /// representation. Only the selected weight and its scale tensor are read.
+    pub fn materialize_f8_tensor(&self, name: &str) -> Result<Option<Vec<f32>>, MlError> {
+        let Some(weight) = self.view.directory.get(name) else {
+            return Ok(None);
+        };
+        if weight.representation != TensorRepresentation::F8_E4M3 {
+            return Ok(None);
+        }
+        let quantization = self.view.quantization.as_ref().ok_or_else(|| {
+            MlError::new(
+                MlErrorCode::QuantizationMetadataMissing,
+                "FP8 tensor has no quantization provenance",
+            )
+        })?;
+        let entry = quantization.get(name).ok_or_else(|| {
+            MlError::new(
+                MlErrorCode::InvalidQuantizationMetadata,
+                "FP8 tensor has no scale association",
+            )
+        })?;
+        let scale = self.view.directory.get(&entry.scale_name).ok_or_else(|| {
+            MlError::new(
+                MlErrorCode::InvalidQuantizationMetadata,
+                "FP8 scale tensor is absent",
+            )
+        })?;
+        let weight_bytes = weight.range.as_ref().ok_or_else(|| {
+            MlError::new(
+                MlErrorCode::TensorReferenceMissing,
+                "FP8 weight payload is not locally materialized",
+            )
+        })?;
+        let scale_bytes = scale.range.as_ref().ok_or_else(|| {
+            MlError::new(
+                MlErrorCode::TensorReferenceMissing,
+                "FP8 scale payload is not locally materialized",
+            )
+        })?;
+        let shape = [weight.dimensions[0], weight.dimensions[1]];
+        Ok(Some(crate::dequantize_f8_e4m3(
+            weight_bytes.bytes(),
+            shape,
+            scale_bytes.bytes(),
+            [entry.block_rows, entry.block_columns],
+        )?))
     }
     pub fn model_metadata(&self) -> Result<ConsumerModelMetadata, MlError> {
         let m = &self.view.metadata;
@@ -457,6 +512,7 @@ pub enum ConsumerTensorType {
     IQ2_S = 12,
     Q5_K = 13,
     Q6_K = 14,
+    F8_E4M3 = 15,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -584,6 +640,7 @@ impl ConsumerModel {
                     TensorRepresentation::GgmlIQ2_S => ConsumerTensorType::IQ2_S,
                     TensorRepresentation::GgmlQ5_K => ConsumerTensorType::Q5_K,
                     TensorRepresentation::GgmlQ6_K => ConsumerTensorType::Q6_K,
+                    TensorRepresentation::F8_E4M3 => ConsumerTensorType::F8_E4M3,
                 },
                 offset: tensor.payload.offset(),
                 length: tensor.payload.length(),

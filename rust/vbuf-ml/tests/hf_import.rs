@@ -9,6 +9,7 @@ use vbuf_ml::hf_import::{
     build_plan, execute_plan, parse_safetensors_header, space_gate,
 };
 use vbuf_ml::layout::{LayoutClass, LayoutPlan, PlacementLengthRequest};
+use vbuf_ml::{Bootstrap, F8QuantizationDirectory, TensorDirectory};
 
 struct FixtureTransport {
     shards: BTreeMap<String, Vec<u8>>,
@@ -163,6 +164,90 @@ fn retry_is_bounded_and_resume_identity_is_durable() {
 fn malformed_header_and_space_gate_fail_closed() {
     assert!(parse_safetensors_header("x", 8, &[0; 8], b"{}").is_err());
     assert!(space_gate(1, 1024, 64).is_err());
+}
+
+#[test]
+fn fp8_plan_streams_bytes_and_reopens_scale_provenance() {
+    let header = serde_json::json!({
+        "weight": {"dtype":"F8_E4M3", "shape":[2,2], "data_offsets":[0,4]},
+        "weight_scale_inv": {"dtype":"F32", "shape":[2,1], "data_offsets":[4,12]}
+    })
+    .to_string()
+    .into_bytes();
+    let mut source = (header.len() as u64).to_le_bytes().to_vec();
+    source.extend_from_slice(&header);
+    source.extend_from_slice(&[0x38, 0x40, 0xb8, 0x00]);
+    source.extend_from_slice(&1.0f32.to_le_bytes());
+    source.extend_from_slice(&2.0f32.to_le_bytes());
+    let first = source[..8].to_vec();
+    let header_bytes = source[8..8 + header.len()].to_vec();
+    let metadata = RepositoryMetadata {
+        source: SourceIdentity {
+            repository: "fixture/fp8".into(),
+            requested_revision: "main".into(),
+            resolved_revision: "0123456789012345678901234567890123456789".into(),
+        },
+        config: serde_json::json!({
+            "architectures":["TinyForCausalLM"], "weight_block_size":[1,2]
+        })
+        .to_string()
+        .into_bytes(),
+        index: None,
+        metadata_bytes: 0,
+    };
+    let shard = ShardPlan {
+        id: "model.safetensors".into(),
+        file_name: "model.safetensors".into(),
+        size: source.len() as u64,
+        header_length: header.len() as u64,
+    };
+    let mut transport = FixtureTransport {
+        shards: BTreeMap::from([("model.safetensors".into(), source)]),
+        fail_once: false,
+        calls: 0,
+        always_fail: false,
+    };
+    let plan = build_plan(metadata, None, vec![(shard, first, header_bytes)], 64).unwrap();
+    assert!(plan.can_execute);
+    assert_eq!(plan.quantization.len(), 1);
+    assert_eq!(plan.quantization[0].scale_name, "weight_scale_inv");
+
+    let root = std::env::temp_dir().join(format!("vbuf-hf-fp8-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    let output = root.join("fp8.vbuf");
+    execute_plan(&mut transport, &plan, &output, &ImportOptions::default()).unwrap();
+    let bytes = fs::read(&output).unwrap();
+    let validated = vbuf_core::v06::parse_v06(&bytes).unwrap();
+    let bootstrap = Bootstrap::discover(&validated).unwrap();
+    let directory = TensorDirectory::parse(&validated, &bootstrap).unwrap();
+    assert_eq!(
+        directory.get("weight").unwrap().representation,
+        vbuf_ml::TensorRepresentation::F8_E4M3
+    );
+    let quantization = F8QuantizationDirectory::parse(&validated, &bootstrap)
+        .unwrap()
+        .unwrap();
+    assert_eq!(quantization.entries(), plan.quantization.as_slice());
+    let payload = directory
+        .get("weight")
+        .unwrap()
+        .range
+        .as_ref()
+        .unwrap()
+        .bytes();
+    let scales = directory
+        .get("weight_scale_inv")
+        .unwrap()
+        .range
+        .as_ref()
+        .unwrap()
+        .bytes();
+    assert_eq!(
+        vbuf_ml::dequantize_f8_e4m3(payload, [2, 2], scales, [1, 2]).unwrap(),
+        vec![1.0, 2.0, -2.0, 0.0]
+    );
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]

@@ -170,6 +170,7 @@ fn parse_plan(bytes: &[u8]) -> Result<Plan, String> {
             12 => TensorRepresentation::GgmlIQ2_S,
             13 => TensorRepresentation::GgmlQ5_K,
             14 => TensorRepresentation::GgmlQ6_K,
+            15 => TensorRepresentation::F8_E4M3,
             _ => return Err("unknown tensor representation in plan".into()),
         };
         tensors.push(Tensor {
@@ -709,7 +710,8 @@ fn main() -> Result<(), String> {
             | TensorRepresentation::GgmlIQ2_XS
             | TensorRepresentation::GgmlIQ2_S
             | TensorRepresentation::GgmlQ5_K
-            | TensorRepresentation::GgmlQ6_K => (V06Semantic::Opaque, 8, tensor.bytes),
+            | TensorRepresentation::GgmlQ6_K
+            | TensorRepresentation::F8_E4M3 => (V06Semantic::Opaque, 8, tensor.bytes),
         };
         requests.push((
             LayoutClass::TensorPayload,

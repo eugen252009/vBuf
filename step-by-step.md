@@ -2812,6 +2812,30 @@ step is to qualify the bounded redirect/range transport locally and against
 small single-file and sharded public Safetensors repositories, still
 plan-only before any huge-model transfer.
 
+#### Step 32B - PERSISTENT F8_E4M3 BLOCK-SCALED STORAGE
+
+**Status: OFFLINE QUALIFIED FOR PERSISTENT STORAGE, PROVENANCE, DECODING, AND
+F32 MATERIALIZATION; REAL FP8 MODEL AND GGML/BACKEND INTEGRATION REMAIN OPEN.**
+
+Added `TensorRepresentation::F8_E4M3` as one opaque byte per logical element,
+strict Safetensors `F8_E4M3` planning, config-driven `weight_block_size`, and
+the optional vBuf-ML `QuantizationMetadata` region. FP8 scale provenance is
+resolved as an explicit weight/scale relationship and persisted in the
+artifact; it is not inferred by a backend or by generic vBuf.
+
+The portable E4M3FN decoder is exhaustive over all 256 encodings and bounded
+block-scaled materialization emits the existing F32 execution representation.
+The synthetic importer fixture proves exact FP8 byte parity, final-offset
+scatter, scale metadata reopen, shape/length validation, and materialized
+values. No native FP8 kernel, full-model conversion cache, v0.6 format change,
+large model transfer, or production concurrency change was made. Evidence:
+`research/results/vbuf-ml-integration/step32b-f8-e4m3-block-scaled.md`.
+
+The next qualification must select a small real FP8 repository and connect
+the vBuf-ML materialized F32 tensor to the existing backend MatMul path while
+recording bounded execution-buffer residency and lease behavior. Backend
+loader ownership must not be expanded.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

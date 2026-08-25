@@ -415,6 +415,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_tensor_info(
             ConsumerTensorType::IQ2_S => 12,
             ConsumerTensorType::Q5_K => 13,
             ConsumerTensorType::Q6_K => 14,
+            ConsumerTensorType::F8_E4M3 => 15,
         };
         (*info).rank = shape.len() as u8;
         (*info).dimensions = [0; 16];
@@ -471,6 +472,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_tensor_descriptor(
             crate::TensorRepresentation::GgmlIQ2_S => 12,
             crate::TensorRepresentation::GgmlQ5_K => 13,
             crate::TensorRepresentation::GgmlQ6_K => 14,
+            crate::TensorRepresentation::F8_E4M3 => 15,
         };
         (*info).rank = tensor.dimensions.len() as u8;
         (*info).dimensions = [0; 16];
@@ -884,6 +886,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_tensor_views(
                         crate::TensorRepresentation::GgmlIQ2_S => 12,
                         crate::TensorRepresentation::GgmlQ5_K => 13,
                         crate::TensorRepresentation::GgmlQ6_K => 14,
+                        crate::TensorRepresentation::F8_E4M3 => 15,
                     },
                     rank: tensor.dimensions.len() as u8,
                     dimensions: tensor.dimensions.as_ptr(),
