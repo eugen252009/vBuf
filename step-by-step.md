@@ -2902,6 +2902,33 @@ adapter qualification, not canonical GGML parity. One-step decode, paged KV,
 device execution, full-model logits, and generation remain separate bounded
 work.
 
+#### Step 32F - PROGRESSIVE REAL MULTI-LAYER EXECUTION
+
+**Status: EIGHT CONSECUTIVE REAL GLM LAYERS QUALIFIED WITH BOUNDED INTERNAL
+WORKING SET; FULL STACK, LOGITS, DECODE, AND DEVICE EXECUTION REMAIN OPEN.**
+
+The generic runner now derives per-layer semantic TensorId catalogs from the
+persistent MoE roles and executes a bounded consecutive window. Layers 23..30
+were qualified in the mandatory order 2, 4, then 8 layers. Only the initial
+deterministic hidden state was synthetic; each later layer consumed the exact
+preceding production output. Every layer recomputed its own router decision,
+materialized only selected routed experts plus required shared/attention data,
+and used a distinct opaque request-state identity. Independent reference
+routing IDs matched exactly at all 32 layer/token decisions.
+
+The eight-layer run touched `2,406,723,584` unique payload bytes, or
+`2.1381%` of the 112,563,538,898-byte artifact. Peak converted F32 weight
+cache was `1,338,073,600` bytes, peak internal working set was
+`1,341,858,304` bytes, and the peak was unchanged from the four-layer gate.
+F32 cache and transient leases were released at every layer boundary and all
+execution/layer states were cleared after teardown. Evidence:
+`research/results/vbuf-ml-integration/step32f-progressive-real-multilayer-execution.md`.
+
+This remains portable generic F32 qualification, not canonical GGML parity.
+The next gap is the generic full-stack layer catalog and output-head contract;
+logits, token generation, decode, and device execution are intentionally not
+implemented here.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
