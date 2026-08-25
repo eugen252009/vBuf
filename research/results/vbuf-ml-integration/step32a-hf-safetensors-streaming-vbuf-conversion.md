@@ -129,6 +129,92 @@ The manageable public sharded smoke was not run because no suitable small
 sharded public repository was selected during this step. Sharded public
 qualification remains open.
 
+## Final Findings
+
+The qualified small-model result is:
+
+```text
+BRANCH: vbuf-ml
+STARTING_HEAD: 824095d
+IMPLEMENTATION_COMMIT: bbc39c0
+TARGET: Linux x86_64
+
+PLAN_EXECUTION_SEPARATED: YES
+PLAN_ONLY_MODE: YES
+ALL_DESTINATION_OFFSETS_KNOWN_BEFORE_PAYLOAD_DOWNLOAD: YES
+CANONICAL_VBUF_ALIGNMENT: 16 bytes
+DESTINATION_OVERLAP_COUNT: 0
+
+FULL_LOCAL_SAFETENSORS_COPY_CREATED: NO
+SECOND_FULL_MODEL_COPY_CREATED: NO
+SOURCE_BULK_BYTES_WRITTEN_TO_DISK: 0
+DIRECT_RANGE_TO_FINAL_OFFSET: YES
+DESTINATION_SCATTER_WRITES: YES
+
+STAGING_LIMIT_BYTES: 67108864
+INFLIGHT_NETWORK_LIMIT_BYTES: 67108864
+PAYLOAD_HTTP_REQUEST_COUNT: 1
+PAYLOAD_REQUESTED_BYTES: 4129088
+PAYLOAD_RETURNED_BYTES: 4129088
+DESTINATION_WRITTEN_BYTES: 4129088
+SOURCE_OVERFETCH_BYTES: 0
+
+RAW_SOURCE_PAYLOAD_BYTES: 4129088
+FINAL_VBUF_PAYLOAD_BYTES: 4129088
+FINAL_VBUF_BYTES: 4131200
+ALIGNMENT_PADDING_BYTES: 334
+ALIGNMENT_OVERHEAD_PERCENT: 0.008089%
+
+INTERRUPT_RESUME_TEST: PASS
+SOURCE_REVISION_MISMATCH_RESUME_REJECTED: YES
+HTTP_RANGE_PASS: YES
+HTTP_REDIRECT_PASS: YES
+SHORT_READ_REJECTED: YES
+TRANSIENT_RETRY_PASS: YES
+ATOMIC_FINALIZATION: YES
+SPACE_GATE_PASS: YES
+PAYLOAD_PARITY_PASS: YES
+DESCRIPTOR_PARITY_PASS: YES
+```
+
+The source bulk path therefore has one model-sized allocation, the final vBuf
+partial artifact, plus bounded staging and metadata-scale state. The final
+filename is not published before all tensor ranges and canonical descriptors
+validate. The production serving limit remains unchanged at
+`MAX_ACTIVE_GENERATIONS = 1`.
+
+The following qualification boundaries are intentionally not claimed:
+
+```text
+OLD_CONVERTER_PARITY: NOT_RUN
+REAL_HF_SHARDED_MODEL_TEST: NOT_RUN
+MODEL_RUNTIME_READY: NO
+BACKEND_EXECUTION_READY: NO CLAIM
+RSS_ACCOUNTING: NOT MEASURED
+```
+
+The storage importer is ready for a separately authorized pinned
+100--200+ GiB plan-only inspection. The next single step should be a
+manageable public sharded Safetensors smoke, still without starting a large
+payload conversion.
+
+## Verification Record
+
+```text
+cargo test --manifest-path rust/Cargo.toml --workspace: PASS
+native CTest: PASS, 22/22
+portable graph neutrality: PASS, FORBIDDEN_LEAKAGE_COUNT=0
+Safetensors parser/index/u64/layout/alignment tests: PASS
+Range/redirect/retry/resume/finalization/space tests: PASS
+payload byte parity and destination scatter tests: PASS
+synthetic 4/64/128/256 GiB plans: PASS
+git diff --check: PASS
+ccc index: PASS
+```
+
+No downloaded weights, generated vBuf model payloads, credentials, conversion
+caches, or large logs were committed.
+
 ## Accounting Boundary
 
 Offline tests establish the accounting fields and invariants, but no large
