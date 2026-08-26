@@ -34,6 +34,68 @@ impl GenericTensor {
     }
 }
 
+/// Gather validated rows from an embedding matrix without requiring the matrix
+/// itself to be materialized. The row provider owns persistence and residency;
+/// this generic seam only validates token geometry and assembles the result.
+pub fn embedding_lookup<T>(
+    token_ids: &GenericTensor,
+    vocabulary_size: u64,
+    hidden_size: u64,
+    mut row_provider: T,
+) -> Result<GenericTensor, String>
+where
+    T: FnMut(u64) -> Result<Vec<f32>, String>,
+{
+    if token_ids.dimensions.len() != 2
+        || vocabulary_size == 0
+        || hidden_size == 0
+        || token_ids.values.len()
+            != usize::try_from(
+                token_ids.dimensions[0]
+                    .checked_mul(token_ids.dimensions[1])
+                    .ok_or("embedding token geometry overflows")?,
+            )
+            .map_err(|_| "embedding token geometry exceeds host limits")?
+    {
+        return Err("embedding token geometry is invalid".into());
+    }
+    let hidden_size = usize::try_from(hidden_size).map_err(|_| "embedding width is too large")?;
+    let mut rows = HashMap::<u64, Vec<f32>>::new();
+    let mut output = Vec::with_capacity(
+        token_ids
+            .values
+            .len()
+            .checked_mul(hidden_size)
+            .ok_or("embedding output geometry overflows")?,
+    );
+    for token in &token_ids.values {
+        if !token.is_finite() || *token < 0.0 || token.fract() != 0.0 {
+            return Err("embedding token ID is not a non-negative integer".into());
+        }
+        let token_id = *token as u64;
+        if token_id >= vocabulary_size {
+            return Err("embedding token ID is outside vocabulary".into());
+        }
+        if !rows.contains_key(&token_id) {
+            let row = row_provider(token_id)?;
+            if row.len() != hidden_size {
+                return Err("embedding row width does not match hidden size".into());
+            }
+            rows.insert(token_id, row);
+        }
+        let row = rows.get(&token_id).expect("validated embedding row");
+        output.extend_from_slice(row);
+    }
+    Ok(GenericTensor {
+        dimensions: vec![
+            token_ids.dimensions[0],
+            token_ids.dimensions[1],
+            hidden_size as u64,
+        ],
+        values: output,
+    })
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct GenericExecutionState {
     pub binding_id: u32,
@@ -692,4 +754,39 @@ where
     }
     result.values = values;
     Ok(result)
+}
+
+#[cfg(test)]
+mod embedding_tests {
+    use super::{GenericTensor, embedding_lookup};
+    use std::cell::Cell;
+
+    fn ids(values: Vec<f32>, dimensions: Vec<u64>) -> GenericTensor {
+        GenericTensor { dimensions, values }
+    }
+
+    #[test]
+    fn embedding_lookup_deduplicates_rows_and_preserves_token_order() {
+        let calls = Cell::new(0);
+        let result = embedding_lookup(&ids(vec![1.0, 2.0, 1.0], vec![1, 3]), 4, 2, |id| {
+            calls.set(calls.get() + 1);
+            Ok(vec![id as f32, id as f32 + 0.5])
+        })
+        .unwrap();
+        assert_eq!(calls.get(), 2);
+        assert_eq!(result.dimensions, [1, 3, 2]);
+        assert_eq!(result.values, [1.0, 1.5, 2.0, 2.5, 1.0, 1.5]);
+    }
+
+    #[test]
+    fn embedding_lookup_rejects_invalid_ids_and_geometry() {
+        for value in [-1.0, 4.0, 1.5, f32::NAN, f32::INFINITY] {
+            assert!(
+                embedding_lookup(&ids(vec![value], vec![1, 1]), 4, 2, |_| Ok(vec![0.0; 2]))
+                    .is_err()
+            );
+        }
+        assert!(embedding_lookup(&ids(vec![0.0], vec![1]), 4, 2, |_| Ok(vec![0.0; 2])).is_err());
+        assert!(embedding_lookup(&ids(vec![0.0], vec![1, 1]), 4, 2, |_| Ok(vec![0.0])).is_err());
+    }
 }

@@ -217,7 +217,7 @@ def main():
     tensors, experts, outputs = reader_module.read_manifest(manifest)
     actual = reader_module.read_records(checkpoints)
     reader = reader_module.Reader(payload, tensors, outputs)
-    value = input_tensor()
+    value = actual["input_embedding"] if len(sys.argv) > 5 and sys.argv[5] == "real" else input_tensor()
     natural = {}
     mismatches = []
     for layer_id in range(depth):

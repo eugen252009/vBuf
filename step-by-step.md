@@ -2963,6 +2963,35 @@ routing semantics remain unchanged.
 
 This remains portable generic F32 qualification, not canonical GGML parity.
 
+#### Step 32H - REAL TEXT TO FULL-STACK LOGITS
+
+**Status: REAL PERSISTED-TOKENIZER INPUT, EMBEDDING LOOKUP, FULL BASE STACK,
+FINAL NORM, AND LOGITS QUALIFIED WITH A DOCUMENTED ORDERED-ROUTE NEAR-TIE
+NOTE. DECODE, GENERATION, DEVICE EXECUTION, AND STRICT FULL-CHAIN ROUTE PARITY
+REMAIN OPEN.**
+
+The generic runner now accepts qualification text, encodes it with the
+persisted GPT-2 byte-level tokenizer, gathers only the requested embedding
+rows, and executes the complete base stack. For the fixed text `Test`, the
+persisted tokenizer produced IDs `[51, 68, 82, 83]`; the embedding gather read
+four BF16 rows (`32768` source bytes) and did not materialize the full table as
+F32. The full run executed layers `0..45`, final RMSNorm, and the persisted
+output head in bounded `8192`-row chunks, producing logits with shape
+`[1,4,151552]`.
+
+The independent bounded reference matched the embedding exactly and matched
+the final-position argmax and top-10. It found two ordered Top-8 differences
+out of `1440` full-stack routing slots, both at layer `24`, token `3`: experts
+`54` and `104` exchanged ranks while the selected set remained identical. A
+real-input near-tie diagnostic reproduced the swaps with a `6594`-ULP Top-K
+cutoff margin and a common-input routed-output delta of `4.76837158e-07`.
+This is retained as propagated numerical reduction/order sensitivity; strict
+full-chain ordered route-ID equality is not claimed and production routing
+semantics were not changed. Evidence:
+`research/results/vbuf-ml-integration/step32h-real-text-full-stack.md`.
+
+This remains portable generic F32 qualification, not canonical GGML parity.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

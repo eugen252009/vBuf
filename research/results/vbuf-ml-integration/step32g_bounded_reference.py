@@ -1,6 +1,7 @@
 """Independent bounded GLM-4.5-Air reference for Step 32G checkpoints."""
 
 import gc
+import hashlib
 import struct
 import sys
 from collections import defaultdict
@@ -109,6 +110,22 @@ class Reader:
     def output(self, label):
         _, rep, dims, offset, length = self.outputs[label]
         return self.decode(rep, dims, offset, length)
+
+    def bf16_rows(self, label, token_ids):
+        _, rep, dims, offset, length = self.outputs[label]
+        if rep != "Bf16" or len(dims) != 2 or dims[1] != 4096:
+            raise ValueError("embedding tensor is not the qualified BF16 matrix")
+        row_bytes = dims[1] * 2
+        if length != dims[0] * row_bytes:
+            raise ValueError("embedding tensor payload length is invalid")
+        rows = []
+        for token_id in token_ids:
+            if token_id < 0 or token_id >= dims[0]:
+                raise ValueError("embedding token ID is outside vocabulary")
+            raw = self.payload[offset + token_id * row_bytes : offset + (token_id + 1) * row_bytes]
+            bits = np.frombuffer(raw, dtype="<u2").astype("<u4") << 16
+            rows.append(bits.view("<f4"))
+        return np.asarray(rows, dtype=np.float32).reshape(1, len(token_ids), dims[1])
 
 
 def rms(value, weight):
@@ -240,13 +257,35 @@ def layer(reader, tensors, experts, layer_id, value):
 def main():
     manifest_path, payload_path, checkpoint_path = sys.argv[1:4]
     depth = int(sys.argv[4]) if len(sys.argv) > 4 else 46
+    real_input = len(sys.argv) > 5 and sys.argv[5] == "real"
+    qualification_text = sys.argv[6] if len(sys.argv) > 6 else "Test"
     tensors, experts, outputs = read_manifest(manifest_path)
     actual = read_records(checkpoint_path)
     reader = Reader(payload_path, tensors, outputs)
-    value = np.empty((1, 4, 4096), dtype=np.float32)
-    for index in range(value.size):
-        x = np.float32(index + 1)
-        value.reshape(-1)[index] = np.sin(x * np.float32(0.00017)) * np.float32(0.05) + np.cos(x * np.float32(0.000031)) * np.float32(0.01)
+    if real_input:
+        token_ids = actual["input_token_ids"].astype(np.int64).reshape(-1)
+        expected_token_ids = np.asarray([51, 68, 82, 83], dtype=np.int64)
+        token_ids_pass = np.array_equal(token_ids, expected_token_ids)
+        if not token_ids_pass:
+            raise AssertionError(f"token ID reference mismatch: {token_ids.tolist()}")
+        value = reader.bf16_rows("embedding", token_ids)
+        embedding_delta = np.abs(value - actual["input_embedding"])
+        print(f"real_text={qualification_text!r}")
+        print(f"raw_text_utf8_bytes={len(qualification_text.encode('utf-8'))}")
+        print(f"raw_text_sha256={hashlib.sha256(qualification_text.encode('utf-8')).hexdigest()}")
+        print(f"token_ids={token_ids.tolist()}")
+        print(f"token_ids_hash={hashlib.sha256(token_ids.astype('<f4').tobytes()).hexdigest()}")
+        print("special_tokens_added=[]")
+        print("persisted_tokenizer_reference=captured-independent-fixture")
+        print(f"token_ids_reference_pass={token_ids_pass}")
+        print(f"embedding_max_abs={np.max(embedding_delta):.8e}")
+        print(f"embedding_max_rel={np.max(embedding_delta / np.maximum(np.abs(actual['input_embedding']), 1e-20)):.8e}")
+        print(f"embedding_reference_pass={np.max(embedding_delta) == 0.0}")
+    else:
+        value = np.empty((1, 4, 4096), dtype=np.float32)
+        for index in range(value.size):
+            x = np.float32(index + 1)
+            value.reshape(-1)[index] = np.sin(x * np.float32(0.00017)) * np.float32(0.05) + np.cos(x * np.float32(0.000031)) * np.float32(0.01)
     max_abs = max_rel = 0.0
     routing_mismatches = 0
     for layer_id in range(depth):

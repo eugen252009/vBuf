@@ -13,10 +13,12 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use vbuf_core::v06::parse_v06;
 use vbuf_ml::{
-    Bootstrap, BorrowedModelView, SourceId, TensorRepresentation, bf16_bits_to_f32,
-    dequantize_f8_e4m3, parse_source_profile,
+    Bootstrap, BorrowedModelView, Gpt2ByteLevelTokenizer, SourceId, TensorRepresentation,
+    bf16_bits_to_f32, dequantize_f8_e4m3, parse_source_profile,
 };
-use vbuf_runtime::generic::{GenericExecutionState, GenericTensor, execute_generic_graph};
+use vbuf_runtime::generic::{
+    GenericExecutionState, GenericTensor, embedding_lookup, execute_generic_graph,
+};
 use vbuf_runtime::graph::{
     ActivationKind, AttentionAttributes, AttentionMaskKind, AttentionPositionKind,
     ExpertDispatchAttributes, HeadReshapeAttributes, MatMulWeightOperand, RotaryAttributes,
@@ -42,6 +44,7 @@ const BASE_TRANSFORMER_LAYER_COUNT: u32 = 46;
 const VOCAB: u64 = 151_552;
 const OUTPUT_HEAD_CHUNK_ROWS: usize = 8_192;
 const LM_HEAD_ID: u32 = 0;
+const EMBEDDING_ID: u32 = 1;
 const FINAL_NORM_ID: u32 = 36322;
 
 #[derive(Clone, Debug)]
@@ -860,7 +863,7 @@ fn build_dense_graph(catalog: &LayerCatalog) -> (PortableProgram, PortableRegion
     )
 }
 
-fn resolve_output_ids(view: &BorrowedModelView<'_>) -> Result<(u32, u32), String> {
+fn resolve_output_ids(view: &BorrowedModelView<'_>) -> Result<(u32, u32, u32), String> {
     let head = view
         .directory
         .get_by_identity(KEY_ID, LM_HEAD_ID as u16)
@@ -870,7 +873,7 @@ fn resolve_output_ids(view: &BorrowedModelView<'_>) -> Result<(u32, u32), String
     }
     let embedding = view
         .directory
-        .get_by_identity(KEY_ID, (LM_HEAD_ID + 1) as u16)
+        .get_by_identity(KEY_ID, EMBEDDING_ID as u16)
         .ok_or("persisted embedding identity is absent")?;
     if embedding.representation != TensorRepresentation::Bf16
         || embedding.dimensions != [151_552, HIDDEN]
@@ -885,7 +888,7 @@ fn resolve_output_ids(view: &BorrowedModelView<'_>) -> Result<(u32, u32), String
     if norm.representation != TensorRepresentation::Bf16 || norm.dimensions != [HIDDEN] {
         return Err("persisted final norm geometry is not the qualified BF16 norm".into());
     }
-    Ok((FINAL_NORM_ID, LM_HEAD_ID))
+    Ok((FINAL_NORM_ID, LM_HEAD_ID, EMBEDDING_ID))
 }
 
 fn build_output_norm_graph(norm_id: u32) -> (PortableProgram, PortableRegion) {
@@ -940,6 +943,7 @@ struct Materializer<'view, 'source> {
     scale_by: HashMap<u32, u32>,
     cache: HashMap<u32, GenericTensor>,
     touched: HashSet<u32>,
+    touched_ranges: HashMap<u32, Vec<(u64, u64)>>,
     source_bytes: u64,
 }
 
@@ -956,15 +960,40 @@ impl<'view, 'source> Materializer<'view, 'source> {
     }
 
     fn unique_source_bytes(&self) -> u64 {
-        self.touched
-            .iter()
-            .filter_map(|id| {
-                self.view
-                    .directory
-                    .get_by_identity(KEY_ID, *id as u16)
-                    .map(|tensor| tensor.payload.length())
+        self.touched_ranges
+            .values()
+            .map(|ranges| {
+                let mut ranges = ranges.clone();
+                ranges.sort_unstable_by_key(|(start, _)| *start);
+                let mut total = 0u64;
+                let mut current: Option<(u64, u64)> = None;
+                for (start, length) in ranges {
+                    let end = start.saturating_add(length);
+                    let Some((current_start, current_end)) = current else {
+                        current = Some((start, end));
+                        continue;
+                    };
+                    if start <= current_end {
+                        current = Some((current_start, current_end.max(end)));
+                    } else {
+                        total = total.saturating_add(current_end.saturating_sub(current_start));
+                        current = Some((start, end));
+                    }
+                }
+                if let Some((start, end)) = current {
+                    total.saturating_add(end.saturating_sub(start))
+                } else {
+                    total
+                }
             })
             .sum()
+    }
+
+    fn record_range(&mut self, id: u32, start: u64, length: u64) {
+        self.touched_ranges
+            .entry(id)
+            .or_default()
+            .push((start, length));
     }
 
     fn bytes(&self, id: u32) -> Result<(&'source [u8], Vec<u64>, TensorRepresentation), String> {
@@ -1019,6 +1048,8 @@ impl<'view, 'source> Materializer<'view, 'source> {
                 self.source_bytes = self.source_bytes.saturating_add(weight_bytes + scale_len);
                 self.touched.insert(id.0);
                 self.touched.insert(scale_id);
+                self.record_range(id.0, 0, weight_bytes);
+                self.record_range(scale_id, 0, scale_len);
                 dequantize_f8_e4m3(
                     bytes,
                     [dimensions[0], dimensions[1]],
@@ -1030,6 +1061,7 @@ impl<'view, 'source> Materializer<'view, 'source> {
             TensorRepresentation::Bf16 => {
                 self.source_bytes = self.source_bytes.saturating_add(bytes.len() as u64);
                 self.touched.insert(id.0);
+                self.record_range(id.0, 0, bytes.len() as u64);
                 if bytes.len() % 2 != 0 {
                     return Err("BF16 payload has odd length".into());
                 }
@@ -1041,6 +1073,7 @@ impl<'view, 'source> Materializer<'view, 'source> {
             TensorRepresentation::CanonicalPrimitive => {
                 self.source_bytes = self.source_bytes.saturating_add(bytes.len() as u64);
                 self.touched.insert(id.0);
+                self.record_range(id.0, 0, bytes.len() as u64);
                 if bytes.len() % 4 != 0 {
                     return Err("F32 payload has invalid length".into());
                 }
@@ -1069,27 +1102,30 @@ impl<'view, 'source> Materializer<'view, 'source> {
             .get_by_identity(KEY_ID, id.0 as u16)
             .ok_or_else(|| format!("tensor identity {KEY_ID}:{} is absent", id.0))?;
         if descriptor.representation != TensorRepresentation::Bf16
-            || descriptor.dimensions != [VOCAB, HIDDEN]
+            || descriptor.dimensions.len() != 2
         {
-            return Err("output head chunk geometry is invalid".into());
+            return Err("BF16 row tensor geometry is invalid".into());
         }
         if descriptor.payload.source_id() != SourceId::new(1) {
             return Err("output head chunk does not resolve to the authoritative source".into());
         }
-        let expected_length = VOCAB
-            .checked_mul(HIDDEN)
+        let total_rows = descriptor.dimensions[0];
+        let hidden = descriptor.dimensions[1];
+        let expected_length = total_rows
+            .checked_mul(hidden)
             .and_then(|elements| elements.checked_mul(2))
-            .ok_or("output head payload length overflows")?;
+            .ok_or("BF16 row tensor payload length overflows")?;
         if descriptor.payload.length() != expected_length {
-            return Err("output head payload length is invalid".into());
+            return Err("BF16 row tensor payload length is invalid".into());
         }
         let end_row = row_start
             .checked_add(row_count)
             .ok_or("output head row range overflows")?;
-        if end_row > VOCAB as usize {
-            return Err("output head row range is outside tensor".into());
+        if end_row > usize::try_from(total_rows).map_err(|_| "BF16 row count is too large")? {
+            return Err("BF16 row range is outside tensor".into());
         }
-        let row_bytes = (HIDDEN as usize)
+        let row_bytes = usize::try_from(hidden)
+            .map_err(|_| "BF16 row width is too large")?
             .checked_mul(2)
             .ok_or("output head row size overflows")?;
         let byte_start = row_start
@@ -1114,12 +1150,13 @@ impl<'view, 'source> Materializer<'view, 'source> {
         }
         self.source_bytes = self.source_bytes.saturating_add(bytes.len() as u64);
         self.touched.insert(id.0);
+        self.record_range(id.0, byte_start as u64, bytes.len() as u64);
         let values = bytes
             .chunks_exact(2)
             .map(|pair| bf16_bits_to_f32(u16::from_le_bytes([pair[0], pair[1]])))
             .collect();
         Ok(GenericTensor {
-            dimensions: vec![row_count as u64, HIDDEN],
+            dimensions: vec![row_count as u64, hidden],
             values,
         })
     }
@@ -1143,6 +1180,10 @@ fn tensor_hash(tensor: &GenericTensor) -> String {
         digest.update(value.to_le_bytes());
     }
     format!("{:x}", digest.finalize())
+}
+
+fn bytes_hash(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
 }
 
 fn rss_kib() -> u64 {
@@ -1191,7 +1232,7 @@ fn write_manifest(
     path: &Path,
     view: &BorrowedModelView<'_>,
     catalogs: &[LayerCatalog],
-    output_ids: (u32, u32),
+    output_ids: (u32, u32, u32),
 ) -> Result<(), String> {
     let mut file = BufWriter::new(File::create(path).map_err(|e| e.to_string())?);
     writeln!(
@@ -1261,7 +1302,9 @@ fn write_manifest(
             )
             .map_err(|e| e.to_string())?;
         }
-        for ((expert, role), (id, scale)) in &catalog.expert_entries {
+        let mut expert_entries: Vec<_> = catalog.expert_entries.iter().collect();
+        expert_entries.sort_unstable_by_key(|((expert, role), _)| (*expert, *role));
+        for ((expert, role), (id, scale)) in expert_entries {
             writeln!(
                 file,
                 "expert\t{}\t{expert}\t{role}\t{id}\t{scale}",
@@ -1270,7 +1313,11 @@ fn write_manifest(
             .map_err(|e| e.to_string())?;
         }
     }
-    for (label, id) in [("final_norm", output_ids.0), ("lm_head", output_ids.1)] {
+    for (label, id) in [
+        ("final_norm", output_ids.0),
+        ("lm_head", output_ids.1),
+        ("embedding", output_ids.2),
+    ] {
         let tensor = view
             .directory
             .get_by_identity(KEY_ID, id as u16)
@@ -1320,6 +1367,10 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
         .map(|value| value.parse::<u32>().map_err(|_| "input variant is invalid"))
         .transpose()?
         .unwrap_or(0);
+    let qualification_text = arguments.next();
+    if arguments.next().is_some() {
+        return Err("unexpected progressive argument".into());
+    }
     if depth == 0 || depth > BASE_TRANSFORMER_LAYER_COUNT {
         return Err(format!(
             "progressive depth must be between 1 and {BASE_TRANSFORMER_LAYER_COUNT}"
@@ -1386,6 +1437,7 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
         scale_by,
         cache: HashMap::new(),
         touched: HashSet::new(),
+        touched_ranges: HashMap::new(),
         source_bytes: 0,
     };
     let mut checkpoint = BufWriter::new(
@@ -1396,7 +1448,61 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
             .open(checkpoint_path)
             .map_err(|e| e.to_string())?,
     );
-    let input = input_tensor(input_variant);
+    let (input, qualification) = if let Some(text) = qualification_text {
+        let tokenizer_start = Instant::now();
+        let tokenizer =
+            Gpt2ByteLevelTokenizer::build(&view.tokenizer).map_err(|error| error.to_string())?;
+        let raw_token_ids = tokenizer.encode(&text).map_err(|error| error.to_string())?;
+        let decoded = tokenizer
+            .decode(&raw_token_ids)
+            .map_err(|error| error.to_string())?;
+        if decoded != text {
+            return Err("persisted tokenizer round trip changed qualification text".into());
+        }
+        if raw_token_ids.len() != SEQUENCE as usize {
+            return Err(format!(
+                "qualification text must produce exactly {SEQUENCE} tokens"
+            ));
+        }
+        let token_ids = GenericTensor {
+            dimensions: vec![1, raw_token_ids.len() as u64],
+            values: raw_token_ids.iter().map(|id| *id as f32).collect(),
+        };
+        write_record(&mut checkpoint, "input_token_ids", &token_ids)?;
+        let tokenizer_ms = tokenizer_start.elapsed().as_secs_f64() * 1000.0;
+        let embedding_start = Instant::now();
+        let mut embedding_row_requests = 0u64;
+        let embedding = embedding_lookup(&token_ids, VOCAB, HIDDEN, |token_id| {
+            embedding_row_requests += 1;
+            let row = usize::try_from(token_id)
+                .map_err(|_| "embedding token ID exceeds host limits".to_owned())?;
+            materializer
+                .get_bf16_rows(TensorId(EMBEDDING_ID), row, 1)
+                .map(|tensor| tensor.values)
+        })
+        .map_err(|error| format!("embedding lookup: {error}"))?;
+        write_record(&mut checkpoint, "input_embedding", &embedding)?;
+        let embedding_ms = embedding_start.elapsed().as_secs_f64() * 1000.0;
+        let embedding_source_bytes = materializer.source_bytes;
+        println!(
+            "REAL_TEXT_INPUT=YES RAW_TEXT_UTF8_BYTES={} RAW_TEXT_SHA256={} PERSISTED_TOKENIZER=YES TOKEN_IDS={:?} TOKEN_IDS_HASH={} SPECIAL_TOKENS_ADDED=[] TOKENIZER_TIME_MS={:.3} EMBEDDING_ROW_REQUESTS={} UNIQUE_EMBEDDING_ROWS={} EMBEDDING_SOURCE_BYTES_READ={} EMBEDDING_SCALE_BYTES_READ=0 EMBEDDING_OVERFETCH_BYTES=0 EMBEDDING_LOOKUP_TIME_MS={:.3} FULL_EMBEDDING_TABLE_F32_MATERIALIZED=NO",
+            text.len(),
+            bytes_hash(text.as_bytes()),
+            raw_token_ids,
+            tensor_hash(&token_ids),
+            tokenizer_ms,
+            embedding_row_requests,
+            embedding_row_requests,
+            embedding_source_bytes,
+            embedding_ms,
+        );
+        (
+            embedding,
+            Some((text, raw_token_ids, tokenizer_ms, embedding_ms)),
+        )
+    } else {
+        (input_tensor(input_variant), None)
+    };
     let input_hash = tensor_hash(&input);
     let mut current = input;
     let mut peak_f32_cache_bytes = 0usize;
@@ -1405,6 +1511,7 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
     let mut peak_source_range_bytes = 0u64;
     let mut states = HashMap::new();
     let run_start = Instant::now();
+    let transformer_start = Instant::now();
     let run_before_rss = rss_kib();
     for catalog in &catalogs {
         let layer_start = Instant::now();
@@ -1602,7 +1709,7 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
         current = output;
         materializer.clear_cache();
     }
-    let (norm_id, head_id) = output_ids;
+    let (norm_id, head_id, _embedding_id) = output_ids;
     let output_start = Instant::now();
     let (norm_program, norm_region) = build_output_norm_graph(norm_id);
     let norm_graph = lower_region(&norm_program, &norm_region)
@@ -1680,19 +1787,33 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
         output_working_set_bytes,
         output_start.elapsed().as_secs_f64() * 1000.0,
     );
+    if let Some((text, token_ids, tokenizer_ms, embedding_ms)) = qualification.as_ref() {
+        println!(
+            "TEXT_TO_LOGITS=YES QUALIFICATION_TEXT={:?} QUALIFICATION_TEXT_UTF8_BYTES={} TOKEN_IDS={:?} POSITION_COUNT={} FIRST_POSITION=0 LAST_POSITION={} INPUT_SCALE_OR_TRANSFORM=NONE INPUT_PREPARATION_TIME_MS=0.000 TOKENIZATION_TIME_MS={:.3} EMBEDDING_LOOKUP_TIME_MS={:.3} TRANSFORMER_TIME_MS={:.3} FINAL_NORM_TIME_MS=UNSEPARATED_FROM_OUTPUT_HEAD OUTPUT_HEAD_TIME_MS=UNSEPARATED_FROM_FINAL_NORM TOKEN_GENERATION_EXECUTED=NO DECODE_EXECUTED=NO",
+            text,
+            text.len(),
+            token_ids,
+            token_ids.len(),
+            token_ids.len().saturating_sub(1),
+            tokenizer_ms,
+            embedding_ms,
+            transformer_start.elapsed().as_secs_f64() * 1000.0,
+        );
+    }
     materializer.clear_cache();
     checkpoint.flush().map_err(|e| e.to_string())?;
     let state_bytes: usize = states.values().map(GenericExecutionState::bytes).sum();
     states.values_mut().for_each(GenericExecutionState::reset);
     states.clear();
     println!(
-        "PROGRESSIVE_START={} DEPTH={} INPUT_HASH={} FINAL_TRANSFORMER_HASH={} FINAL_NORM_HASH={} LOGITS_HASH={} CUMULATIVE_SOURCE_BYTES={} UNIQUE_MODEL_BYTES={} UNIQUE_MODEL_TENSORS={} PEAK_SOURCE_RANGE_BYTES={} PEAK_F32_CACHE_BYTES={} FINAL_F32_CACHE_BYTES=0 PEAK_ACTIVATION_BYTES={} PEAK_WORKING_SET_BYTES={} PEAK_FP8_COPIED_BYTES=0 PEAK_KV_STATE_BYTES={} CROSS_LAYER_KV_READ_COUNT=0 RSS_BEFORE_KIB={} RSS_AFTER_RELEASE_KIB={} ACTIVE_TRANSIENT_LEASES_AFTER_LAYER_MAX=0 ACTIVE_TRANSIENT_LEASES_AFTER_RUN=0 ACTIVE_EXECUTION_STATES_AFTER_RUN=0 ACTIVE_LAYER_STATES_AFTER_RUN=0 TOTAL_TIME_MS={:.3}",
+        "PROGRESSIVE_START={} DEPTH={} INPUT_HASH={} FINAL_TRANSFORMER_HASH={} FINAL_NORM_HASH={} LOGITS_HASH={} CUMULATIVE_SOURCE_BYTES={} REQUESTED_SOURCE_BYTES={} SOURCE_OVERFETCH_BYTES=0 UNIQUE_MODEL_BYTES={} UNIQUE_MODEL_TENSORS={} PEAK_SOURCE_RANGE_BYTES={} PEAK_F32_CACHE_BYTES={} FINAL_F32_CACHE_BYTES=0 PEAK_ACTIVATION_BYTES={} PEAK_WORKING_SET_BYTES={} PEAK_FP8_COPIED_BYTES=0 PEAK_KV_STATE_BYTES={} CROSS_LAYER_KV_READ_COUNT=0 RSS_BEFORE_KIB={} RSS_AFTER_RELEASE_KIB={} ACTIVE_TRANSIENT_LEASES_AFTER_LAYER_MAX=0 ACTIVE_TRANSIENT_LEASES_AFTER_RUN=0 ACTIVE_EXECUTION_STATES_AFTER_RUN=0 ACTIVE_LAYER_STATES_AFTER_RUN=0 TOTAL_TIME_MS={:.3}",
         start_layer,
         depth,
         input_hash,
         tensor_hash(&current),
         tensor_hash(&final_norm),
         tensor_hash(&logits),
+        materializer.source_bytes,
         materializer.source_bytes,
         materializer.unique_source_bytes(),
         materializer.touched.len(),
