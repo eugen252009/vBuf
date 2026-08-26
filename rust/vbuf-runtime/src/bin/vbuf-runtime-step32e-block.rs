@@ -37,6 +37,12 @@ const HEAD_DIM: u64 = 128;
 const ROTARY_DIM: u64 = 64;
 const EXPERT_COUNT: u32 = 128;
 const TOP_K: u32 = 8;
+const FIRST_TRANSFORMER_LAYER: u32 = 0;
+const BASE_TRANSFORMER_LAYER_COUNT: u32 = 46;
+const VOCAB: u64 = 151_552;
+const OUTPUT_HEAD_CHUNK_ROWS: usize = 8_192;
+const LM_HEAD_ID: u32 = 0;
+const FINAL_NORM_ID: u32 = 36322;
 
 #[derive(Clone, Debug)]
 struct LayerCatalog {
@@ -63,6 +69,12 @@ struct LayerCatalog {
     v_bias: u32,
     v_weight: u32,
     v_scale: u32,
+    dense_down: Option<u32>,
+    dense_down_scale: Option<u32>,
+    dense_gate: Option<u32>,
+    dense_gate_scale: Option<u32>,
+    dense_up: Option<u32>,
+    dense_up_scale: Option<u32>,
     expert_entries: HashMap<(u32, u16), (u32, u32)>,
     catalog_tensor_ids: HashSet<u32>,
 }
@@ -71,6 +83,55 @@ impl LayerCatalog {
     fn discover(view: &BorrowedModelView<'_>, layer: u32) -> Result<Self, String> {
         let moe = view.moe.as_ref().ok_or("MoE directory is absent")?;
         let entries: Vec<_> = moe.entries_for_layer(layer).collect();
+        if entries.is_empty() {
+            if layer != FIRST_TRANSFORMER_LAYER {
+                return Err(format!("layer {layer} has no persisted MoE catalog"));
+            }
+            let ids: HashSet<u32> = (2..=20).collect();
+            let catalog = Self {
+                layer,
+                state: StateId(1000 + layer),
+                input_norm: 2,
+                router_correction: 0,
+                router_weight: 0,
+                shared_down: 0,
+                shared_down_scale: 0,
+                shared_gate: 0,
+                shared_gate_scale: 0,
+                shared_up: 0,
+                shared_up_scale: 0,
+                post_norm: 9,
+                k_bias: 10,
+                k_weight: 11,
+                k_scale: 12,
+                o_weight: 13,
+                o_scale: 14,
+                q_bias: 15,
+                q_weight: 16,
+                q_scale: 17,
+                v_bias: 18,
+                v_weight: 19,
+                v_scale: 20,
+                dense_down: Some(3),
+                dense_down_scale: Some(4),
+                dense_gate: Some(5),
+                dense_gate_scale: Some(6),
+                dense_up: Some(7),
+                dense_up_scale: Some(8),
+                expert_entries: HashMap::new(),
+                catalog_tensor_ids: ids,
+            };
+            for tensor_id in 2..=20 {
+                if view
+                    .directory
+                    .get_by_identity(KEY_ID, tensor_id as u16)
+                    .is_none()
+                {
+                    return Err(format!("dense layer {layer} tensor {tensor_id} is absent"));
+                }
+            }
+            return Ok(catalog);
+        }
         if entries.len() != 389 {
             return Err(format!(
                 "layer {layer} has {} MoE entries, expected 389",
@@ -152,6 +213,12 @@ impl LayerCatalog {
             v_bias: post_norm + 9,
             v_weight: post_norm + 10,
             v_scale: post_norm + 11,
+            dense_down: None,
+            dense_down_scale: None,
+            dense_gate: None,
+            dense_gate_scale: None,
+            dense_up: None,
+            dense_up_scale: None,
             expert_entries,
             catalog_tensor_ids,
         };
@@ -181,6 +248,10 @@ impl LayerCatalog {
             }
         }
         Ok(catalog)
+    }
+
+    fn is_moe(&self) -> bool {
+        !self.expert_entries.is_empty()
     }
 
     fn selected_tensor_ids(&self, selected: &[u32]) -> Result<HashSet<u32>, String> {
@@ -305,12 +376,14 @@ fn build_attention_graph(catalog: &LayerCatalog) -> (PortableProgram, PortableRe
         "block.post_attention_norm.weight",
         catalog.post_norm,
     );
-    binding(
-        &mut program,
-        "block.router.correction",
-        catalog.router_correction,
-    );
-    binding(&mut program, "block.router.weight", catalog.router_weight);
+    if catalog.is_moe() {
+        binding(
+            &mut program,
+            "block.router.correction",
+            catalog.router_correction,
+        );
+        binding(&mut program, "block.router.weight", catalog.router_weight);
+    }
     let rotary_q = RotaryAttributes {
         head_count: Q_HEADS,
         head_dim: HEAD_DIM,
@@ -495,48 +568,56 @@ fn build_attention_graph(catalog: &LayerCatalog) -> (PortableProgram, PortableRe
                 ..Default::default()
             },
         },
-        matmul(
-            "router_projection",
-            ValueId(17),
-            "block.router.weight",
-            catalog.router_weight,
-            ValueId(18),
-        ),
-        activation(
-            "router_sigmoid",
-            ValueId(18),
-            ValueId(19),
-            ActivationKind::Sigmoid,
-        ),
-        bias(
-            "router_correction",
-            ValueId(19),
-            "block.router.correction",
-            catalog.router_correction,
-            ValueId(20),
-        ),
-        PortableOperation {
-            id: "router_topk".into(),
-            kind: PortableOperationKind::TopK,
-            inputs: vec![
-                PortableInput::Value(ValueId(19)),
-                PortableInput::Value(ValueId(20)),
-            ],
-            output: ValueId(21),
-            attributes: PortableAttributes {
-                top_k: Some(TOP_K),
-                top_k_order: Some(TopKOrder::Descending),
-                top_k_tie_break: Some(TopKTieBreak::LowerIndex),
-                ..Default::default()
-            },
-        },
     ]);
+    if catalog.is_moe() {
+        operations.extend([
+            matmul(
+                "router_projection",
+                ValueId(17),
+                "block.router.weight",
+                catalog.router_weight,
+                ValueId(18),
+            ),
+            activation(
+                "router_sigmoid",
+                ValueId(18),
+                ValueId(19),
+                ActivationKind::Sigmoid,
+            ),
+            bias(
+                "router_correction",
+                ValueId(19),
+                "block.router.correction",
+                catalog.router_correction,
+                ValueId(20),
+            ),
+            PortableOperation {
+                id: "router_topk".into(),
+                kind: PortableOperationKind::TopK,
+                inputs: vec![
+                    PortableInput::Value(ValueId(19)),
+                    PortableInput::Value(ValueId(20)),
+                ],
+                output: ValueId(21),
+                attributes: PortableAttributes {
+                    top_k: Some(TOP_K),
+                    top_k_order: Some(TopKOrder::Descending),
+                    top_k_tie_break: Some(TopKTieBreak::LowerIndex),
+                    ..Default::default()
+                },
+            },
+        ]);
+    }
     (
         program,
         PortableRegion {
             id: format!("portable-layer-{}-attention-router", catalog.layer),
             input: ValueId(0),
-            output: ValueId(21),
+            output: if catalog.is_moe() {
+                ValueId(21)
+            } else {
+                ValueId(16)
+            },
             operations,
         },
     )
@@ -693,6 +774,166 @@ fn build_expert_graph(
     )
 }
 
+fn build_dense_graph(catalog: &LayerCatalog) -> (PortableProgram, PortableRegion) {
+    let dense_gate = catalog.dense_gate.expect("dense gate identity");
+    let dense_up = catalog.dense_up.expect("dense up identity");
+    let dense_down = catalog.dense_down.expect("dense down identity");
+    let mut program = PortableProgram::default();
+    binding(
+        &mut program,
+        "block.post_attention_norm.weight",
+        catalog.post_norm,
+    );
+    binding(&mut program, "block.dense.gate", dense_gate);
+    binding(&mut program, "block.dense.up", dense_up);
+    binding(&mut program, "block.dense.down", dense_down);
+    let operations = vec![
+        PortableOperation {
+            id: "post_attention_norm".into(),
+            kind: PortableOperationKind::RmsNorm,
+            inputs: vec![
+                PortableInput::Value(ValueId(16)),
+                tensor("block.post_attention_norm.weight", catalog.post_norm),
+            ],
+            output: ValueId(17),
+            attributes: PortableAttributes {
+                epsilon: Some(1e-5),
+                ..Default::default()
+            },
+        },
+        matmul(
+            "dense_gate",
+            ValueId(17),
+            "block.dense.gate",
+            dense_gate,
+            ValueId(300),
+        ),
+        activation(
+            "dense_silu",
+            ValueId(300),
+            ValueId(301),
+            ActivationKind::Silu,
+        ),
+        matmul(
+            "dense_up",
+            ValueId(17),
+            "block.dense.up",
+            dense_up,
+            ValueId(302),
+        ),
+        PortableOperation {
+            id: "dense_multiply".into(),
+            kind: PortableOperationKind::ElementwiseMul,
+            inputs: vec![
+                PortableInput::Value(ValueId(301)),
+                PortableInput::Value(ValueId(302)),
+            ],
+            output: ValueId(303),
+            attributes: Default::default(),
+        },
+        matmul(
+            "dense_down",
+            ValueId(303),
+            "block.dense.down",
+            dense_down,
+            ValueId(304),
+        ),
+        PortableOperation {
+            id: "dense_residual".into(),
+            kind: PortableOperationKind::ResidualAdd,
+            inputs: vec![
+                PortableInput::Value(ValueId(16)),
+                PortableInput::Value(ValueId(304)),
+            ],
+            output: ValueId(306),
+            attributes: Default::default(),
+        },
+    ];
+    (
+        program,
+        PortableRegion {
+            id: format!("portable-layer-{}-dense", catalog.layer),
+            input: ValueId(16),
+            output: ValueId(306),
+            operations,
+        },
+    )
+}
+
+fn resolve_output_ids(view: &BorrowedModelView<'_>) -> Result<(u32, u32), String> {
+    let head = view
+        .directory
+        .get_by_identity(KEY_ID, LM_HEAD_ID as u16)
+        .ok_or("persisted LM head identity is absent")?;
+    if head.representation != TensorRepresentation::Bf16 || head.dimensions != [151_552, HIDDEN] {
+        return Err("persisted LM head geometry is not the qualified BF16 head".into());
+    }
+    let embedding = view
+        .directory
+        .get_by_identity(KEY_ID, (LM_HEAD_ID + 1) as u16)
+        .ok_or("persisted embedding identity is absent")?;
+    if embedding.representation != TensorRepresentation::Bf16
+        || embedding.dimensions != [151_552, HIDDEN]
+        || embedding.payload.offset() == head.payload.offset()
+    {
+        return Err("persisted embedding and LM head are not distinct tensors".into());
+    }
+    let norm = view
+        .directory
+        .get_by_identity(KEY_ID, FINAL_NORM_ID as u16)
+        .ok_or("persisted final norm identity is absent")?;
+    if norm.representation != TensorRepresentation::Bf16 || norm.dimensions != [HIDDEN] {
+        return Err("persisted final norm geometry is not the qualified BF16 norm".into());
+    }
+    Ok((FINAL_NORM_ID, LM_HEAD_ID))
+}
+
+fn build_output_norm_graph(norm_id: u32) -> (PortableProgram, PortableRegion) {
+    let mut program = PortableProgram::default();
+    binding(&mut program, "model.final_norm.weight", norm_id);
+    (
+        program,
+        PortableRegion {
+            id: "portable-final-norm".into(),
+            input: ValueId(0),
+            output: ValueId(1),
+            operations: vec![PortableOperation {
+                id: "final_norm".into(),
+                kind: PortableOperationKind::RmsNorm,
+                inputs: vec![
+                    PortableInput::Value(ValueId(0)),
+                    tensor("model.final_norm.weight", norm_id),
+                ],
+                output: ValueId(1),
+                attributes: PortableAttributes {
+                    epsilon: Some(1e-5),
+                    ..Default::default()
+                },
+            }],
+        },
+    )
+}
+
+fn build_output_projection_graph(head_id: u32) -> (PortableProgram, PortableRegion) {
+    let mut program = PortableProgram::default();
+    binding(&mut program, "model.lm_head.weight", head_id);
+    (
+        program,
+        PortableRegion {
+            id: "portable-lm-head-chunk".into(),
+            input: ValueId(0),
+            output: ValueId(1),
+            operations: vec![matmul(
+                "lm_head_chunk",
+                ValueId(0),
+                "model.lm_head.weight",
+                head_id,
+                ValueId(1),
+            )],
+        },
+    )
+}
+
 struct Materializer<'view, 'source> {
     view: &'view BorrowedModelView<'source>,
     payload: &'source [u8],
@@ -815,6 +1056,73 @@ impl<'view, 'source> Materializer<'view, 'source> {
         self.cache.insert(id.0, tensor.clone());
         Ok(tensor)
     }
+
+    fn get_bf16_rows(
+        &mut self,
+        id: TensorId,
+        row_start: usize,
+        row_count: usize,
+    ) -> Result<GenericTensor, String> {
+        let descriptor = self
+            .view
+            .directory
+            .get_by_identity(KEY_ID, id.0 as u16)
+            .ok_or_else(|| format!("tensor identity {KEY_ID}:{} is absent", id.0))?;
+        if descriptor.representation != TensorRepresentation::Bf16
+            || descriptor.dimensions != [VOCAB, HIDDEN]
+        {
+            return Err("output head chunk geometry is invalid".into());
+        }
+        if descriptor.payload.source_id() != SourceId::new(1) {
+            return Err("output head chunk does not resolve to the authoritative source".into());
+        }
+        let expected_length = VOCAB
+            .checked_mul(HIDDEN)
+            .and_then(|elements| elements.checked_mul(2))
+            .ok_or("output head payload length overflows")?;
+        if descriptor.payload.length() != expected_length {
+            return Err("output head payload length is invalid".into());
+        }
+        let end_row = row_start
+            .checked_add(row_count)
+            .ok_or("output head row range overflows")?;
+        if end_row > VOCAB as usize {
+            return Err("output head row range is outside tensor".into());
+        }
+        let row_bytes = (HIDDEN as usize)
+            .checked_mul(2)
+            .ok_or("output head row size overflows")?;
+        let byte_start = row_start
+            .checked_mul(row_bytes)
+            .ok_or("output head byte range overflows")?;
+        let byte_length = row_count
+            .checked_mul(row_bytes)
+            .ok_or("output head chunk length overflows")?;
+        let payload_start = usize::try_from(descriptor.payload.offset())
+            .map_err(|_| "output head source offset is too large")?
+            .checked_add(byte_start)
+            .ok_or("output head source range overflows")?;
+        let payload_end = payload_start
+            .checked_add(byte_length)
+            .ok_or("output head source range overflows")?;
+        let bytes = self
+            .payload
+            .get(payload_start..payload_end)
+            .ok_or("output head chunk is outside payload")?;
+        if bytes.len() % 2 != 0 {
+            return Err("output head chunk has odd BF16 length".into());
+        }
+        self.source_bytes = self.source_bytes.saturating_add(bytes.len() as u64);
+        self.touched.insert(id.0);
+        let values = bytes
+            .chunks_exact(2)
+            .map(|pair| bf16_bits_to_f32(u16::from_le_bytes([pair[0], pair[1]])))
+            .collect();
+        Ok(GenericTensor {
+            dimensions: vec![row_count as u64, HIDDEN],
+            values,
+        })
+    }
 }
 
 fn input_tensor(variant: u32) -> GenericTensor {
@@ -883,6 +1191,7 @@ fn write_manifest(
     path: &Path,
     view: &BorrowedModelView<'_>,
     catalogs: &[LayerCatalog],
+    output_ids: (u32, u32),
 ) -> Result<(), String> {
     let mut file = BufWriter::new(File::create(path).map_err(|e| e.to_string())?);
     writeln!(
@@ -914,16 +1223,20 @@ fn write_manifest(
                 return Err(format!("manifest tensor {id} is absent"));
             };
             let scale_id = [
-                (catalog.q_weight, catalog.q_scale),
-                (catalog.k_weight, catalog.k_scale),
-                (catalog.v_weight, catalog.v_scale),
-                (catalog.o_weight, catalog.o_scale),
-                (catalog.shared_gate, catalog.shared_gate_scale),
-                (catalog.shared_up, catalog.shared_up_scale),
-                (catalog.shared_down, catalog.shared_down_scale),
+                (catalog.dense_gate, catalog.dense_gate_scale),
+                (catalog.dense_up, catalog.dense_up_scale),
+                (catalog.dense_down, catalog.dense_down_scale),
+                (Some(catalog.q_weight), Some(catalog.q_scale)),
+                (Some(catalog.k_weight), Some(catalog.k_scale)),
+                (Some(catalog.v_weight), Some(catalog.v_scale)),
+                (Some(catalog.o_weight), Some(catalog.o_scale)),
+                (Some(catalog.shared_gate), Some(catalog.shared_gate_scale)),
+                (Some(catalog.shared_up), Some(catalog.shared_up_scale)),
+                (Some(catalog.shared_down), Some(catalog.shared_down_scale)),
             ]
             .into_iter()
-            .find_map(|(weight, scale)| (weight == id).then_some(scale))
+            .find_map(|(weight, scale)| weight.and_then(|weight| (weight == id).then_some(scale)))
+            .flatten()
             .or_else(|| {
                 catalog
                     .expert_entries
@@ -957,6 +1270,28 @@ fn write_manifest(
             .map_err(|e| e.to_string())?;
         }
     }
+    for (label, id) in [("final_norm", output_ids.0), ("lm_head", output_ids.1)] {
+        let tensor = view
+            .directory
+            .get_by_identity(KEY_ID, id as u16)
+            .ok_or_else(|| format!("manifest tensor {id} is absent"))?;
+        writeln!(
+            file,
+            "output\t{}\t{id}\t{:?}\t{}\t{}\t{}\t{}\t{label}",
+            u32::MAX,
+            tensor.representation,
+            tensor
+                .dimensions
+                .iter()
+                .map(u64::to_string)
+                .collect::<Vec<_>>()
+                .join(","),
+            tensor.payload.offset(),
+            tensor.payload.length(),
+            0
+        )
+        .map_err(|e| e.to_string())?;
+    }
     file.flush().map_err(|e| e.to_string())
 }
 
@@ -985,8 +1320,10 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
         .map(|value| value.parse::<u32>().map_err(|_| "input variant is invalid"))
         .transpose()?
         .unwrap_or(0);
-    if depth == 0 || depth > 8 {
-        return Err("progressive depth must be between 1 and 8".into());
+    if depth == 0 || depth > BASE_TRANSFORMER_LAYER_COUNT {
+        return Err(format!(
+            "progressive depth must be between 1 and {BASE_TRANSFORMER_LAYER_COUNT}"
+        ));
     }
     let side_file = File::open(sidecar).map_err(|e| e.to_string())?;
     let payload_file = File::open(payload).map_err(|e| e.to_string())?;
@@ -1002,10 +1339,19 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
         .ok_or("persistent source profile is absent")?;
     let view = BorrowedModelView::parse_with_sources(&side_mapping, &profile.registry, &[])
         .map_err(|e| e.to_string())?;
-    let catalogs: Vec<_> = (start_layer..start_layer + depth)
+    let end_layer = start_layer
+        .checked_add(depth)
+        .ok_or("progressive layer range overflows")?;
+    if end_layer > BASE_TRANSFORMER_LAYER_COUNT {
+        return Err(format!(
+            "progressive layer range ends at {end_layer}, beyond base stack"
+        ));
+    }
+    let catalogs: Vec<_> = (start_layer..end_layer)
         .map(|layer| LayerCatalog::discover(&view, layer))
         .collect::<Result<_, _>>()?;
-    write_manifest(&manifest_path, &view, &catalogs)?;
+    let output_ids = resolve_output_ids(&view)?;
+    write_manifest(&manifest_path, &view, &catalogs, output_ids)?;
     let mut scale_by = HashMap::new();
     for catalog in &catalogs {
         for (weight, scale) in catalog.expert_entries.values() {
@@ -1023,6 +1369,15 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
             (catalog.shared_down, catalog.shared_down_scale),
         ] {
             scale_by.insert(weight, scale);
+        }
+        for (weight, scale) in [
+            (catalog.dense_gate, catalog.dense_gate_scale),
+            (catalog.dense_up, catalog.dense_up_scale),
+            (catalog.dense_down, catalog.dense_down_scale),
+        ] {
+            if let (Some(weight), Some(scale)) = (weight, scale) {
+                scale_by.insert(weight, scale);
+            }
         }
     }
     let mut materializer = Materializer {
@@ -1069,56 +1424,84 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
             state,
         )
         .map_err(|e| format!("layer {} attention/router execution: {e}", catalog.layer))?;
-        let selection = attention_result
-            .selection
-            .clone()
-            .ok_or_else(|| format!("layer {} router produced no selection", catalog.layer))?;
-        let mut selected: Vec<u32> = selection
-            .ids
-            .iter()
-            .copied()
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect();
-        selected.sort_unstable();
-        if selected.iter().any(|id| *id >= EXPERT_COUNT) {
-            return Err(format!(
-                "layer {} selected an invalid expert",
-                catalog.layer
-            ));
-        }
-        let (expert_program, expert_region) = build_expert_graph(catalog, &selected);
-        let expert_graph = lower_region(&expert_program, &expert_region)
-            .map_err(|e| format!("layer {} expert graph lowering: {e:?}", catalog.layer))?;
-        let post_attention = attention_result
-            .values
-            .get(&ValueId(16))
-            .ok_or("post-attention residual missing")?
-            .clone();
-        let expert_result = execute_generic_graph(
-            &expert_graph,
-            post_attention,
-            |id| materializer.get(id),
-            Some(&selection),
-            state,
-        )
-        .map_err(|e| format!("layer {} expert/final execution: {e}", catalog.layer))?;
+        let (selection, expert_result, selected) = if catalog.is_moe() {
+            let selection = attention_result
+                .selection
+                .clone()
+                .ok_or_else(|| format!("layer {} router produced no selection", catalog.layer))?;
+            let mut selected: Vec<u32> = selection
+                .ids
+                .iter()
+                .copied()
+                .collect::<HashSet<_>>()
+                .into_iter()
+                .collect();
+            selected.sort_unstable();
+            if selected.iter().any(|id| *id >= EXPERT_COUNT) {
+                return Err(format!(
+                    "layer {} selected an invalid expert",
+                    catalog.layer
+                ));
+            }
+            let (expert_program, expert_region) = build_expert_graph(catalog, &selected);
+            let expert_graph = lower_region(&expert_program, &expert_region)
+                .map_err(|e| format!("layer {} expert graph lowering: {e:?}", catalog.layer))?;
+            let post_attention = attention_result
+                .values
+                .get(&ValueId(16))
+                .ok_or("post-attention residual missing")?
+                .clone();
+            let expert_result = execute_generic_graph(
+                &expert_graph,
+                post_attention,
+                |id| materializer.get(id),
+                Some(&selection),
+                state,
+            )
+            .map_err(|e| format!("layer {} expert/final execution: {e}", catalog.layer))?;
+            (Some(selection), expert_result, selected)
+        } else {
+            let (dense_program, dense_region) = build_dense_graph(catalog);
+            let dense_graph = lower_region(&dense_program, &dense_region)
+                .map_err(|e| format!("layer {} dense graph lowering: {e:?}", catalog.layer))?;
+            let post_attention = attention_result
+                .values
+                .get(&ValueId(16))
+                .ok_or("post-attention residual missing")?
+                .clone();
+            let dense_result = execute_generic_graph(
+                &dense_graph,
+                post_attention,
+                |id| materializer.get(id),
+                None,
+                state,
+            )
+            .map_err(|e| format!("layer {} dense execution: {e}", catalog.layer))?;
+            (None, dense_result, Vec::new())
+        };
         let output = expert_result
             .values
             .get(&ValueId(306))
             .ok_or("final layer output missing")?
             .clone();
-        let selected_tensor_ids = catalog.selected_tensor_ids(&selected)?;
-        let allowed_moe_ids = selected_tensor_ids;
+        let allowed_moe_ids = if catalog.is_moe() {
+            catalog.selected_tensor_ids(&selected)?
+        } else {
+            HashSet::new()
+        };
         let new_touched: HashSet<_> = materializer
             .touched
             .difference(&touched_before)
             .copied()
             .collect();
-        let new_moe: HashSet<_> = new_touched
-            .intersection(&catalog.all_tensor_ids())
-            .copied()
-            .collect();
+        let new_moe: HashSet<_> = if catalog.is_moe() {
+            new_touched
+                .intersection(&catalog.all_tensor_ids())
+                .copied()
+                .collect()
+        } else {
+            HashSet::new()
+        };
         let unselected: Vec<_> = new_moe.difference(&allowed_moe_ids).copied().collect();
         let prefix = format!("layer{}.", catalog.layer);
         write_record(&mut checkpoint, &format!("{prefix}input"), &current)?;
@@ -1131,6 +1514,13 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
                 "router_corrected",
                 attention_result.values.get(&ValueId(20)),
             ),
+            (
+                "shared_expert_output",
+                expert_result.values.get(&ValueId(304)),
+            ),
+            ("shared_gate", expert_result.values.get(&ValueId(300))),
+            ("shared_up", expert_result.values.get(&ValueId(302))),
+            ("shared_multiply", expert_result.values.get(&ValueId(303))),
             ("moe_output", expert_result.values.get(&ValueId(305))),
         ] {
             if let Some(tensor) = tensor {
@@ -1138,24 +1528,31 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
             }
         }
         write_record(&mut checkpoint, &format!("{prefix}output"), &output)?;
-        let selection_ids = GenericTensor {
-            dimensions: vec![1, selection.token_count, selection.top_k as u64],
-            values: selection.ids.iter().map(|id| *id as f32).collect(),
-        };
-        let selection_weights = GenericTensor {
-            dimensions: selection_ids.dimensions.clone(),
-            values: selection.weights.clone(),
-        };
-        write_record(
-            &mut checkpoint,
-            &format!("{prefix}selection_ids"),
-            &selection_ids,
-        )?;
-        write_record(
-            &mut checkpoint,
-            &format!("{prefix}selection_weights"),
-            &selection_weights,
-        )?;
+        if let Some(selection) = &selection {
+            for (index, expert) in selected.iter().enumerate() {
+                if let Some(tensor) = expert_result.values.get(&ValueId(1000 + index as u32)) {
+                    write_record(&mut checkpoint, &format!("{prefix}expert_{expert}"), tensor)?;
+                }
+            }
+            let selection_ids = GenericTensor {
+                dimensions: vec![1, selection.token_count, selection.top_k as u64],
+                values: selection.ids.iter().map(|id| *id as f32).collect(),
+            };
+            let selection_weights = GenericTensor {
+                dimensions: selection_ids.dimensions.clone(),
+                values: selection.weights.clone(),
+            };
+            write_record(
+                &mut checkpoint,
+                &format!("{prefix}selection_ids"),
+                &selection_ids,
+            )?;
+            write_record(
+                &mut checkpoint,
+                &format!("{prefix}selection_weights"),
+                &selection_weights,
+            )?;
+        }
         let cache_bytes = materializer.cache_f32_bytes();
         peak_f32_cache_bytes = peak_f32_cache_bytes.max(cache_bytes);
         let state_bytes = state.bytes();
@@ -1182,7 +1579,10 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
             tensor_hash(&current),
             output_hash,
             selected,
-            selection.ids,
+            selection.as_ref().map_or_else(
+                || "[]".to_owned(),
+                |selection| format!("{:?}", selection.ids)
+            ),
             layer_source_bytes,
             materializer.unique_source_bytes(),
             materializer.touched.len(),
@@ -1199,16 +1599,97 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
         current = output;
         materializer.clear_cache();
     }
+    let (norm_id, head_id) = output_ids;
+    let output_start = Instant::now();
+    let (norm_program, norm_region) = build_output_norm_graph(norm_id);
+    let norm_graph = lower_region(&norm_program, &norm_region)
+        .map_err(|e| format!("final norm graph lowering: {e:?}"))?;
+    let mut output_state = GenericExecutionState::new(0xffff_fffe, SEQUENCE)?;
+    let norm_result = execute_generic_graph(
+        &norm_graph,
+        current.clone(),
+        |id| materializer.get(id),
+        None,
+        &mut output_state,
+    )
+    .map_err(|e| format!("final norm execution: {e}"))?;
+    let final_norm = norm_result
+        .values
+        .get(&ValueId(1))
+        .ok_or("final norm output missing")?
+        .clone();
+    let mut logits_values = vec![0.0; (SEQUENCE * VOCAB) as usize];
+    let mut peak_output_cache_bytes = materializer.cache_f32_bytes();
+    for row_start in (0..VOCAB as usize).step_by(OUTPUT_HEAD_CHUNK_ROWS) {
+        let row_count = OUTPUT_HEAD_CHUNK_ROWS.min(VOCAB as usize - row_start);
+        let head_chunk = materializer.get_bf16_rows(TensorId(head_id), row_start, row_count)?;
+        let (projection_program, projection_region) = build_output_projection_graph(head_id);
+        let projection_graph = lower_region(&projection_program, &projection_region)
+            .map_err(|e| format!("LM head chunk graph lowering: {e:?}"))?;
+        let chunk_result = execute_generic_graph(
+            &projection_graph,
+            final_norm.clone(),
+            |id| {
+                if id.0 == head_id {
+                    Ok(head_chunk.clone())
+                } else {
+                    materializer.get(id)
+                }
+            },
+            None,
+            &mut output_state,
+        )
+        .map_err(|e| format!("LM head chunk execution: {e}"))?;
+        let chunk = chunk_result
+            .values
+            .get(&ValueId(1))
+            .ok_or("LM head chunk output missing")?;
+        for token in 0..SEQUENCE as usize {
+            let source_start = token * row_count;
+            let destination_start = token * VOCAB as usize + row_start;
+            logits_values[destination_start..destination_start + row_count]
+                .copy_from_slice(&chunk.values[source_start..source_start + row_count]);
+        }
+        peak_output_cache_bytes = peak_output_cache_bytes
+            .max(materializer.cache_f32_bytes() + head_chunk.values.len() * 4);
+        materializer.cache.remove(&head_id);
+    }
+    let logits = GenericTensor {
+        dimensions: vec![1, SEQUENCE, VOCAB],
+        values: logits_values,
+    };
+    write_record(&mut checkpoint, "final_transformer_output", &current)?;
+    write_record(&mut checkpoint, "final_norm", &final_norm)?;
+    write_record(&mut checkpoint, "logits", &logits)?;
+    let output_cache_bytes = peak_output_cache_bytes;
+    let output_activation_bytes =
+        current.values.len() * 4 + final_norm.values.len() * 4 + logits.values.len() * 4;
+    let output_working_set_bytes = output_cache_bytes + output_activation_bytes;
+    peak_f32_cache_bytes = peak_f32_cache_bytes.max(output_cache_bytes);
+    peak_activation_bytes = peak_activation_bytes.max(output_activation_bytes);
+    peak_working_set_bytes = peak_working_set_bytes.max(output_working_set_bytes);
+    println!(
+        "FINAL_NORM_BYTES={} LOGITS_SHAPE={:?} LOGITS_BYTES={} OUTPUT_HEAD_PEAK_CHUNK_F32_BYTES={} OUTPUT_WORKING_SET_BYTES={} OUTPUT_HEAD_TIME_MS={:.3}",
+        final_norm.values.len() * 4,
+        logits.dimensions,
+        logits.values.len() * 4,
+        output_cache_bytes,
+        output_working_set_bytes,
+        output_start.elapsed().as_secs_f64() * 1000.0,
+    );
+    materializer.clear_cache();
     checkpoint.flush().map_err(|e| e.to_string())?;
     let state_bytes: usize = states.values().map(GenericExecutionState::bytes).sum();
     states.values_mut().for_each(GenericExecutionState::reset);
     states.clear();
     println!(
-        "PROGRESSIVE_START={} DEPTH={} INPUT_HASH={} FINAL_HASH={} CUMULATIVE_SOURCE_BYTES={} UNIQUE_MODEL_BYTES={} UNIQUE_MODEL_TENSORS={} PEAK_SOURCE_RANGE_BYTES={} PEAK_F32_CACHE_BYTES={} FINAL_F32_CACHE_BYTES=0 PEAK_ACTIVATION_BYTES={} PEAK_WORKING_SET_BYTES={} PEAK_FP8_COPIED_BYTES=0 PEAK_KV_STATE_BYTES={} CROSS_LAYER_KV_READ_COUNT=0 RSS_BEFORE_KIB={} RSS_AFTER_RELEASE_KIB={} ACTIVE_TRANSIENT_LEASES_AFTER_LAYER_MAX=0 ACTIVE_TRANSIENT_LEASES_AFTER_RUN=0 ACTIVE_EXECUTION_STATES_AFTER_RUN=0 ACTIVE_LAYER_STATES_AFTER_RUN=0 TOTAL_TIME_MS={:.3}",
+        "PROGRESSIVE_START={} DEPTH={} INPUT_HASH={} FINAL_TRANSFORMER_HASH={} FINAL_NORM_HASH={} LOGITS_HASH={} CUMULATIVE_SOURCE_BYTES={} UNIQUE_MODEL_BYTES={} UNIQUE_MODEL_TENSORS={} PEAK_SOURCE_RANGE_BYTES={} PEAK_F32_CACHE_BYTES={} FINAL_F32_CACHE_BYTES=0 PEAK_ACTIVATION_BYTES={} PEAK_WORKING_SET_BYTES={} PEAK_FP8_COPIED_BYTES=0 PEAK_KV_STATE_BYTES={} CROSS_LAYER_KV_READ_COUNT=0 RSS_BEFORE_KIB={} RSS_AFTER_RELEASE_KIB={} ACTIVE_TRANSIENT_LEASES_AFTER_LAYER_MAX=0 ACTIVE_TRANSIENT_LEASES_AFTER_RUN=0 ACTIVE_EXECUTION_STATES_AFTER_RUN=0 ACTIVE_LAYER_STATES_AFTER_RUN=0 TOTAL_TIME_MS={:.3}",
         start_layer,
         depth,
         input_hash,
         tensor_hash(&current),
+        tensor_hash(&final_norm),
+        tensor_hash(&logits),
         materializer.source_bytes,
         materializer.unique_source_bytes(),
         materializer.touched.len(),

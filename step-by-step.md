@@ -2929,6 +2929,34 @@ The next gap is the generic full-stack layer catalog and output-head contract;
 logits, token generation, decode, and device execution are intentionally not
 implemented here.
 
+#### Step 32G - FULL STACK EXECUTION AND LOGITS
+
+**Status: FULL PERSISTED BASE STACK EXECUTED WITH CHUNKED LOGITS PROJECTION;
+INDEPENDENT REFERENCE HAS A DOCUMENTED NEAR-TIE ROUTING NOTE. TOKENIZATION,
+DECODE, GENERATION, DEVICE EXECUTION, AND STRICT FULL-CHAIN ROUTE PARITY
+REMAIN OPEN.**
+
+The generic runner executed layers `0..45` of the persisted
+`GLM-4.5-Air-FP8` artifact with real activation handoff, selected-only MoE
+acquisition, final normalization, and the persisted output head. The output
+head is materialized in `8192`-row BF16 chunks and consumed through the generic
+MatMul graph, reducing output-head peak F32 conversion to `134234112` bytes.
+The full run produced logits with shape `[1,4,151552]`, touched no unselected
+routed expert tensors, performed zero cross-layer KV reads, and cleared all
+transient execution state. Evidence:
+`research/results/vbuf-ml-integration/step32g-full-stack-logits.md`.
+
+The independent persisted-range NumPy reference matched the final argmax and
+top-10. Its propagated replay differed at two Top-8 positions because the
+accumulated independent F32 reduction order reached routing near ties; the
+maximum transformer, final-norm, and logits absolute differences were
+`2.16674805e-03`, `5.34057617e-04`, and `3.17096710e-04`. A common-input
+layer-45 replay had exact route IDs and `1.14440918e-04` output error. Strict
+full-chain independent route equality is not claimed until the reduction-order
+or near-tie policy is made explicit.
+
+This remains portable generic F32 qualification, not canonical GGML parity.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
