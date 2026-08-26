@@ -224,6 +224,9 @@ def layer(reader, tensors, experts, layer_id, value):
     shared = linear(shared_multiply, shared_down)
     return residual + routed + shared, selections, {
         "post_attention_residual": residual,
+        "router_input": normalized,
+        "router_raw": raw,
+        "router_scores": scores,
         "router_corrected": corrected,
         "shared_expert_output": shared,
         "shared_gate": shared_gate,

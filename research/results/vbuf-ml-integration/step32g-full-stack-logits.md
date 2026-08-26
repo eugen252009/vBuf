@@ -18,12 +18,14 @@ released before the next chunk. This avoids converting the complete
 
 Production execution and acquisition invariants pass. The independent NumPy
 reference matches the final argmax and top-10 and remains within the observed
-full-stack numerical envelope, but its fully propagated replay differs at two
-Top-8 routing positions. A targeted layer-45 replay using the production
-layer-44 checkpoint as common input has exact route parity and `1.14440918e-04`
-maximum output error. The two propagated route differences are therefore
-retained as a numerical near-tie qualification note, not silently reported as
-strict full-chain exact routing parity.
+full-stack numerical envelope. Its fully propagated replay differs at two
+ordered Top-8 slots in one layer-43/token-2 decision: experts `73` and `11`
+swap ranks, while the selected expert set remains identical. A targeted
+layer-45 replay using the production layer-44 checkpoint as common input has
+exact route parity and `1.14440918e-04` maximum output error. The two slots are
+retained as an ordered numerical near-tie qualification note, not silently
+reported as strict full-chain exact ordered route parity. Detailed evidence is
+in `step32g-r-router-near-tie-stability.md`.
 
 ## Qualified Artifacts
 
@@ -114,7 +116,8 @@ full replay.
 
 Full replay observations:
 
-- Routing mismatches: `2` Top-8 positions
+- Routing mismatches: `2` ordered Top-8 positions, both in layer `43`, token `2`
+- Routing membership mismatches: `0`; only experts `73` and `11` swap ranks
 - Transformer maximum absolute error: `2.16674805e-03`
 - Final norm maximum absolute error: `5.34057617e-04`
 - Logits maximum absolute error: `3.17096710e-04`
@@ -130,9 +133,14 @@ IDs and `1.14440918e-04` maximum layer output error, confirming that the
 production route and dispatch path are not the source of the two propagated
 reference route changes.
 
-Strict full-chain route-ID equality is therefore not claimed until a reference
-implementation with a documented compatible reduction order or a documented
-near-tie policy is available.
+The targeted Step 32G-R replay shows that the two positions are an ordered
+numerical instability: the production pair gap is approximately one F32 ULP,
+while the K/K+1 membership cutoff remains separated by approximately `2717`
+ULPs. Common-input cross-feed and float64 controls implicate both propagated
+activation drift and reduction/computation order. Strict full-chain ordered
+route-ID equality is therefore not claimed until a reference implementation
+with a documented compatible reduction order or a documented near-tie policy
+is available; production routing semantics are unchanged.
 
 ## Verification
 
@@ -143,6 +151,7 @@ near-tie policy is available.
 - Cross-layer KV isolation: PASS, zero prior-state reads.
 - Transient lease and state cleanup: PASS.
 - Independent full-stack numerical comparison: PASS with near-tie note.
+- Step 32G-R ordered near-tie replay: PASS; two slots, zero membership changes.
 - Independent final argmax/top-10 comparison: PASS.
 - Strict full-chain independent route-ID equality: NOT CLAIMED; two propagated
   near-tie differences remain.

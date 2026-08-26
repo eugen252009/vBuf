@@ -14,8 +14,9 @@
 - [x] Release transient leases and execution state at teardown.
 - [x] Run an independent persisted-range numerical reference.
 - [x] Match final argmax and top-10 against the independent reference.
-- [ ] Claim strict full-chain independent route-ID equality; two propagated
-  near-tie route differences remain documented in the Step 32G report.
+- [ ] Claim strict full-chain independent ordered route-ID equality; the two
+  documented differences are rank swaps within one selected expert set and
+  remain a numerical near-tie qualification note.
 - [ ] Qualify tokenization, decode, generation, device execution, or GGML.
 
 Evidence: `research/results/vbuf-ml-integration/step32g-full-stack-logits.md`.

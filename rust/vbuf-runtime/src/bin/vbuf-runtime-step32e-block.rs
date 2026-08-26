@@ -1514,6 +1514,9 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
                 "router_corrected",
                 attention_result.values.get(&ValueId(20)),
             ),
+            ("router_input", attention_result.values.get(&ValueId(17))),
+            ("router_raw", attention_result.values.get(&ValueId(18))),
+            ("router_scores", attention_result.values.get(&ValueId(19))),
             (
                 "shared_expert_output",
                 expert_result.values.get(&ValueId(304)),

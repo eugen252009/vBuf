@@ -2947,13 +2947,19 @@ transient execution state. Evidence:
 `research/results/vbuf-ml-integration/step32g-full-stack-logits.md`.
 
 The independent persisted-range NumPy reference matched the final argmax and
-top-10. Its propagated replay differed at two Top-8 positions because the
-accumulated independent F32 reduction order reached routing near ties; the
-maximum transformer, final-norm, and logits absolute differences were
+top-10. Its propagated replay differed at two ordered Top-8 slots in one
+layer-43/token-2 decision: experts `73` and `11` swapped ranks, with zero
+selected-set membership changes. The production pair gap was approximately one
+F32 ULP, while the K/K+1 cutoff margin was approximately `2717` ULPs. Common
+input cross-feed, perturbation, and float64 controls classify the result as
+propagated F32 drift plus reduction/computation-order sensitivity, not a
+semantic expert-selection defect. Detailed evidence is
+`research/results/vbuf-ml-integration/step32g-r-router-near-tie-stability.md`.
+The maximum transformer, final-norm, and logits absolute differences were
 `2.16674805e-03`, `5.34057617e-04`, and `3.17096710e-04`. A common-input
 layer-45 replay had exact route IDs and `1.14440918e-04` output error. Strict
-full-chain independent route equality is not claimed until the reduction-order
-or near-tie policy is made explicit.
+full-chain independent ordered route equality is not claimed; production
+routing semantics remain unchanged.
 
 This remains portable generic F32 qualification, not canonical GGML parity.
 
