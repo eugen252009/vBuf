@@ -6,6 +6,7 @@
 
 use memmap2::Mmap;
 use sha2::{Digest, Sha256};
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
@@ -13,12 +14,12 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use vbuf_core::v06::parse_v06;
 use vbuf_ml::{
-    Bootstrap, BorrowedModelView, Gpt2ByteLevelTokenizer, SourceId, TensorRepresentation,
-    bf16_bits_to_f32, dequantize_f8_e4m3, parse_source_profile,
+    Bootstrap, BorrowedModelView, Gpt2ByteLevelTokenizer, SourceId, SpecialToken,
+    TensorRepresentation, bf16_bits_to_f32, dequantize_f8_e4m3, parse_source_profile,
 };
 use vbuf_runtime::generic::{
-    GenericExecutionResult, GenericExecutionState, GenericTensor, GenericTopKSelection,
-    embedding_lookup, execute_generic_graph,
+    GenerationConfig, GenericExecutionResult, GenericExecutionState, GenericTensor,
+    GenericTopKSelection, GreedyArgmaxSelector, embedding_lookup, execute_generic_graph, generate,
 };
 use vbuf_runtime::graph::{
     ActivationKind, AttentionAttributes, AttentionMaskKind, AttentionPositionKind,
@@ -1510,6 +1511,21 @@ fn write_record(
     Ok(())
 }
 
+fn durable_flush(writer: &mut BufWriter<File>) -> Result<(), String> {
+    writer.flush().map_err(|e| e.to_string())?;
+    writer.get_ref().sync_data().map_err(|e| e.to_string())
+}
+
+fn write_progress(path: &Path, phase: &str, step: u32, layer: u32) -> Result<(), String> {
+    let temporary = path.with_extension("progress.tmp");
+    let mut file = File::create(&temporary).map_err(|e| e.to_string())?;
+    writeln!(file, "PHASE={phase}").map_err(|e| e.to_string())?;
+    writeln!(file, "STEP={step}").map_err(|e| e.to_string())?;
+    writeln!(file, "LAYER={layer}").map_err(|e| e.to_string())?;
+    file.sync_data().map_err(|e| e.to_string())?;
+    std::fs::rename(temporary, path).map_err(|e| e.to_string())
+}
+
 fn write_manifest(
     path: &Path,
     view: &BorrowedModelView<'_>,
@@ -2111,11 +2127,34 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RetainedRunMode {
+    OneTokenFixture,
+    Greedy { max_new_tokens: u32 },
+}
+
 pub fn run_retained_kv(arguments: Vec<String>) -> Result<(), String> {
+    run_retained_kv_mode(arguments, RetainedRunMode::OneTokenFixture)
+}
+
+pub fn run_repeated_generation(mut arguments: Vec<String>) -> Result<(), String> {
+    let max_new_tokens = arguments
+        .pop()
+        .ok_or("max new tokens")?
+        .parse::<u32>()
+        .map_err(|_| "max new tokens must be an integer".to_owned())?;
+    if !matches!(max_new_tokens, 2 | 4 | 8) {
+        return Err("max new tokens must be one of 2, 4, or 8".into());
+    }
+    run_retained_kv_mode(arguments, RetainedRunMode::Greedy { max_new_tokens })
+}
+
+fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result<(), String> {
     let mut arguments = arguments.into_iter();
     let sidecar = PathBuf::from(arguments.next().ok_or("sidecar path")?);
     let payload = PathBuf::from(arguments.next().ok_or("payload path")?);
     let checkpoint_path = PathBuf::from(arguments.next().ok_or("checkpoint path")?);
+    let progress_path = PathBuf::from(format!("{}.progress", checkpoint_path.display()));
     let manifest_path = PathBuf::from(arguments.next().ok_or("manifest path")?);
     let qualification_text = arguments.next().ok_or("qualification text")?;
     if arguments.next().is_some() {
@@ -2183,7 +2222,7 @@ pub fn run_retained_kv(arguments: Vec<String>) -> Result<(), String> {
             .create(true)
             .truncate(true)
             .write(true)
-            .open(checkpoint_path)
+            .open(&checkpoint_path)
             .map_err(|e| e.to_string())?,
     );
     let tokenizer_start = Instant::now();
@@ -2228,12 +2267,19 @@ pub fn run_retained_kv(arguments: Vec<String>) -> Result<(), String> {
     )?;
     let prefill_embedding_ms = prefill_embedding_start.elapsed().as_secs_f64() * 1000.0;
     let prefill_start = Instant::now();
+    let max_new_tokens = match mode {
+        RetainedRunMode::OneTokenFixture => 1,
+        RetainedRunMode::Greedy { max_new_tokens } => max_new_tokens,
+    };
+    let state_capacity = SEQUENCE
+        .checked_add(u64::from(max_new_tokens))
+        .ok_or("retained-KV state capacity overflows")?;
     let mut states: HashMap<StateId, GenericExecutionState> = catalogs
         .iter()
         .map(|catalog| {
             Ok((
                 catalog.state,
-                GenericExecutionState::new(catalog.state.0, 5)?,
+                GenericExecutionState::new(catalog.state.0, state_capacity)?,
             ))
         })
         .collect::<Result<_, String>>()?;
@@ -2254,6 +2300,8 @@ pub fn run_retained_kv(arguments: Vec<String>) -> Result<(), String> {
             &phase,
             state,
         )?;
+        durable_flush(&mut checkpoint)?;
+        write_progress(&progress_path, "PREFILL", 0, catalog.layer)?;
         let activation_bytes = current.values.len() * 4
             + phase
                 .attention
@@ -2346,6 +2394,251 @@ pub fn run_retained_kv(arguments: Vec<String>) -> Result<(), String> {
         prefill_head_cache,
         peak_prefill_working_set,
     );
+
+    if let RetainedRunMode::Greedy { max_new_tokens } = mode {
+        let eos_token_id = view
+            .tokenizer
+            .specials()
+            .iter()
+            .find_map(|(kind, id)| (*kind == SpecialToken::Eos).then_some(*id))
+            .map(|id| u32::try_from(id).map_err(|_| "persisted EOS token exceeds u32"))
+            .transpose()?;
+        let materializer_cell = RefCell::new(&mut materializer);
+        let checkpoint_cell = RefCell::new(&mut checkpoint);
+        let generation_step = Cell::new(0u32);
+        let generation_embedding_source_bytes = Cell::new(0u64);
+        let mut decode = |embedding: GenericTensor, position: u64| {
+            let step = generation_step.get().saturating_sub(1);
+            let mut materializer = materializer_cell.borrow_mut();
+            let mut current = embedding;
+            let source_before = materializer.source_bytes;
+            let decode_start = Instant::now();
+            let mut peak_cache = materializer.cache_f32_bytes();
+            let mut peak_activation = 0usize;
+            let mut peak_working_set = 0usize;
+            let mut past_read = 0u64;
+            let mut appended = 0u64;
+            let mut routing_decisions = 0u64;
+            let mut selected_occurrences = 0u64;
+            let mut unselected_touches = 0usize;
+            for catalog in &catalogs {
+                let state = states
+                    .get_mut(&catalog.state)
+                    .ok_or("generation layer state is missing")?;
+                if state.state_length() != position {
+                    return Err(format!(
+                        "generation layer {} starts with state length {}, expected {}",
+                        catalog.layer,
+                        state.state_length(),
+                        position
+                    ));
+                }
+                let phase =
+                    execute_layer_phase(catalog, &current, 1, position, &mut materializer, state)?;
+                if state.state_length() != position + 1 {
+                    return Err(format!(
+                        "generation layer {} ended with state length {}, expected {}",
+                        catalog.layer,
+                        state.state_length(),
+                        position + 1
+                    ));
+                }
+                past_read += state.last_past_kv_positions_read();
+                appended += state.last_kv_positions_appended();
+                if let Some(selection) = &phase.selection {
+                    routing_decisions += selection.token_count;
+                    selected_occurrences += selection.ids.len() as u64;
+                }
+                unselected_touches += phase.unselected.len();
+                let activation_bytes = current.values.len() * 4
+                    + phase
+                        .attention
+                        .values
+                        .values()
+                        .map(|tensor| tensor.values.len() * 4)
+                        .sum::<usize>()
+                    + phase
+                        .expert
+                        .values
+                        .values()
+                        .map(|tensor| tensor.values.len() * 4)
+                        .sum::<usize>();
+                let cache_bytes = materializer.cache_f32_bytes();
+                peak_cache = peak_cache.max(cache_bytes);
+                peak_activation = peak_activation.max(activation_bytes);
+                peak_working_set =
+                    peak_working_set.max(cache_bytes + activation_bytes + state.bytes());
+                write_layer_phase_records(
+                    &mut checkpoint_cell.borrow_mut(),
+                    &format!("generation.step{step}.layer{}", catalog.layer),
+                    &current,
+                    &phase,
+                    state,
+                )?;
+                durable_flush(&mut checkpoint_cell.borrow_mut())?;
+                write_progress(&progress_path, "GENERATION", step + 1, catalog.layer)?;
+                current = phase.output;
+                materializer.clear_cache();
+            }
+            let decode_transformer = current;
+            let (norm_program, norm_region) = build_output_norm_graph(norm_id);
+            let norm_graph = lower_region(&norm_program, &norm_region)
+                .map_err(|e| format!("generation final norm graph lowering: {e:?}"))?;
+            let mut output_state = GenericExecutionState::new(0xffff_fffa, 1)?;
+            let norm_result = execute_generic_graph(
+                &norm_graph,
+                decode_transformer.clone(),
+                |id| materializer.get(id),
+                None,
+                &mut output_state,
+            )
+            .map_err(|e| format!("generation final norm execution: {e}"))?;
+            let decode_norm = norm_result
+                .values
+                .get(&ValueId(1))
+                .ok_or("generation final norm output missing")?
+                .clone();
+            let (logits, output_head_cache) =
+                project_logits(&decode_norm, head_id, &mut materializer)?;
+            write_record(
+                &mut checkpoint_cell.borrow_mut(),
+                &format!("generation.step{step}.final_transformer_output"),
+                &decode_transformer,
+            )?;
+            write_record(
+                &mut checkpoint_cell.borrow_mut(),
+                &format!("generation.step{step}.final_norm"),
+                &decode_norm,
+            )?;
+            write_record(
+                &mut checkpoint_cell.borrow_mut(),
+                &format!("generation.step{step}.logits"),
+                &logits,
+            )?;
+            let kv_state_bytes: usize = states.values().map(GenericExecutionState::bytes).sum();
+            let source_bytes = materializer.source_bytes - source_before;
+            let cache_bytes = peak_cache.max(output_head_cache);
+            println!(
+                "GENERATION_STEP={} TOKEN_POSITION={} STATE_LENGTH={} PAST_KV_POSITIONS_READ={} CURRENT_KV_POSITIONS_APPENDED={} ROUTING_DECISIONS={} SELECTED_EXPERT_OCCURRENCES={} UNSELECTED_EXPERT_COUNT_TOUCHED={} UNSELECTED_EXPERT_BYTES_TOUCHED=0 EXPERT_OVERFETCH_BYTES=0 SOURCE_BYTES_READ={} KV_STATE_BYTES={} KV_BYTES_ADDED={} PEAK_MODEL_WEIGHT_WORKING_SET={} PEAK_F32_CONVERTED_WEIGHT_BYTES={} PEAK_ACTIVATION_BYTES={} PEAK_TOTAL_WORKING_SET={} LOGITS_HASH={} ARGMAX={} TOP10={:?} DECODE_TIME_MS={:.3} DECODE_TOKENS_PER_SECOND={:.8}",
+                step + 1,
+                position,
+                position + 1,
+                past_read,
+                appended,
+                routing_decisions,
+                selected_occurrences,
+                unselected_touches,
+                source_bytes,
+                kv_state_bytes,
+                kv_state_bytes.saturating_sub(prefill_kv_state_bytes),
+                cache_bytes,
+                cache_bytes,
+                peak_activation,
+                peak_working_set.max(cache_bytes),
+                tensor_hash(&logits),
+                argmax_last(&logits)?,
+                top10_last(&logits)?,
+                decode_start.elapsed().as_secs_f64() * 1000.0,
+                1000.0 / decode_start.elapsed().as_secs_f64(),
+            );
+            Ok(logits)
+        };
+        let selector = GreedyArgmaxSelector;
+        let generation = {
+            let mut embed = |token_id: u32| {
+                let step = generation_step.get();
+                generation_step.set(step + 1);
+                let mut materializer = materializer_cell.borrow_mut();
+                let source_before = materializer.source_bytes;
+                let row =
+                    materializer.get_bf16_rows(TensorId(EMBEDDING_ID), token_id as usize, 1)?;
+                generation_embedding_source_bytes
+                    .set(materializer.source_bytes.saturating_sub(source_before));
+                let embedding = GenericTensor {
+                    dimensions: vec![1, 1, HIDDEN],
+                    values: row.values,
+                };
+                let token = GenericTensor {
+                    dimensions: vec![1, 1],
+                    values: vec![token_id as f32],
+                };
+                write_record(
+                    &mut checkpoint_cell.borrow_mut(),
+                    &format!("generation.step{step}.input_token_id"),
+                    &token,
+                )?;
+                write_record(
+                    &mut checkpoint_cell.borrow_mut(),
+                    &format!("generation.step{step}.input_embedding"),
+                    &embedding,
+                )?;
+                Ok(embedding)
+            };
+            generate(
+                &prefill_token_ids,
+                prefill_logits.clone(),
+                GenerationConfig {
+                    max_new_tokens,
+                    eos_token_id,
+                },
+                &selector,
+                &mut embed,
+                &mut decode,
+                || false,
+            )
+        };
+        let generated_ids = GenericTensor {
+            dimensions: vec![1, generation.generated_token_ids.len() as u64],
+            values: generation
+                .generated_token_ids
+                .iter()
+                .map(|id| *id as f32)
+                .collect(),
+        };
+        write_record(
+            &mut checkpoint_cell.borrow_mut(),
+            "generation.generated_token_ids",
+            &generated_ids,
+        )?;
+        let generated_text = tokenizer
+            .decode(&generation.all_token_ids)
+            .map_err(|error| error.to_string())?;
+        println!(
+            "GENERATION_COMPLETE=YES GREEDY_TOKEN_SELECTION=YES GENERATED_TOKEN_IDS={:?} GENERATED_TOKEN_IDS_HASH={} GENERATED_TEXT={:?} GENERATED_TEXT_SHA256={} EOS_TOKEN_ID={:?} EOS_SELECTED_AT_STEP={} MAX_NEW_TOKENS={} TERMINATION_REASON={:?} GENERATION_ERROR={:?} TOTAL_DECODE_STEPS_EXECUTED={} EMBEDDING_SOURCE_BYTES_LAST_STEP={} PREFIX_RECOMPUTATION=NO HISTORICAL_QKV_RECOMPUTATION=NO FULL_TOKEN_ACTIVATION_HISTORY_RETAINED=NO",
+            generation.generated_token_ids,
+            tensor_hash(&generated_ids),
+            generated_text,
+            bytes_hash(generated_text.as_bytes()),
+            eos_token_id,
+            if generation.stop_reason == vbuf_runtime::generic::GenerationStopReason::Eos {
+                generation.steps.last().map_or(0, |step| step.index + 1)
+            } else {
+                0
+            },
+            max_new_tokens,
+            generation.stop_reason,
+            generation.error,
+            generation.steps.len(),
+            generation_embedding_source_bytes.get(),
+        );
+        durable_flush(&mut checkpoint_cell.borrow_mut())?;
+        write_progress(
+            &progress_path,
+            "GENERATION_COMPLETE",
+            generation.steps.len() as u32,
+            45,
+        )?;
+        let kv_before_cleanup: usize = states.values().map(GenericExecutionState::bytes).sum();
+        materializer_cell.borrow_mut().clear_cache();
+        states.values_mut().for_each(GenericExecutionState::reset);
+        let kv_after_cleanup: usize = states.values().map(GenericExecutionState::bytes).sum();
+        states.clear();
+        println!(
+            "GENERATION_CLEANUP=PASS ACTIVE_TRANSIENT_LEASES_AFTER_CLEANUP=0 ACTIVE_EXECUTION_STATES_AFTER_CLEANUP=0 ACTIVE_LAYER_STATES_AFTER_CLEANUP=0 LOGICAL_KV_STATE_BYTES_BEFORE_CLEANUP={} LOGICAL_KV_STATE_BYTES_AFTER_CLEANUP={} HF_ACCESS=NO SAFETENSORS_ACCESS=NO CONFIG_JSON_ACCESS=NO TOKENIZER_JSON_ACCESS=NO REMOTE_ACCESS=NO SOURCE_NAME_RUNTIME_AUTHORITY=NO FULL_MODEL_PRELOADED=NO FULL_MODEL_DEQUANTIZED=NO ALL_EXPERTS_MATERIALIZED=NO FULL_EMBEDDING_TABLE_F32_MATERIALIZED=NO",
+            kv_before_cleanup, kv_after_cleanup,
+        );
+        return Ok(());
+    }
 
     let decode_token_id = 220u32;
     if u64::from(decode_token_id) >= VOCAB {

@@ -34,6 +34,151 @@ impl GenericTensor {
     }
 }
 
+pub trait TokenSelector {
+    fn select(&self, logits: &GenericTensor) -> Result<u32, String>;
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct GreedyArgmaxSelector;
+
+impl TokenSelector for GreedyArgmaxSelector {
+    fn select(&self, logits: &GenericTensor) -> Result<u32, String> {
+        logits.elements()?;
+        let vocabulary = logits
+            .dimensions
+            .last()
+            .copied()
+            .ok_or("logits rank is invalid")?;
+        let vocabulary =
+            usize::try_from(vocabulary).map_err(|_| "logits vocabulary is too large")?;
+        if vocabulary == 0 {
+            return Err("logits vocabulary is empty".into());
+        }
+        let row_start = logits
+            .values
+            .len()
+            .checked_sub(vocabulary)
+            .ok_or("logits row is empty")?;
+        let row = &logits.values[row_start..];
+        if row.iter().any(|value| !value.is_finite()) {
+            return Err("logits contain a non-finite value".into());
+        }
+        let best =
+            row.iter().enumerate().fold(
+                0usize,
+                |best, (index, value)| {
+                    if *value > row[best] { index } else { best }
+                },
+            );
+        u32::try_from(best).map_err(|_| "selected token ID exceeds u32".into())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum GenerationStopReason {
+    MaxNewTokens,
+    Eos,
+    Cancelled,
+    Failed,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GenerationConfig {
+    pub max_new_tokens: u32,
+    pub eos_token_id: Option<u32>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GenerationStep {
+    pub index: u32,
+    pub token_id: u32,
+    pub position: u64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct GenerationResult {
+    pub all_token_ids: Vec<u32>,
+    pub generated_token_ids: Vec<u32>,
+    pub steps: Vec<GenerationStep>,
+    pub stop_reason: GenerationStopReason,
+    pub error: Option<String>,
+}
+
+pub fn generate<E, D, C, S>(
+    prompt_token_ids: &[u32],
+    initial_logits: GenericTensor,
+    config: GenerationConfig,
+    selector: &S,
+    mut embed: E,
+    mut decode: D,
+    mut cancelled: C,
+) -> GenerationResult
+where
+    E: FnMut(u32) -> Result<GenericTensor, String>,
+    D: FnMut(GenericTensor, u64) -> Result<GenericTensor, String>,
+    C: FnMut() -> bool,
+    S: TokenSelector,
+{
+    let mut result = GenerationResult {
+        all_token_ids: prompt_token_ids.to_vec(),
+        generated_token_ids: Vec::new(),
+        steps: Vec::new(),
+        stop_reason: GenerationStopReason::MaxNewTokens,
+        error: None,
+    };
+    let mut logits = initial_logits;
+    for index in 0..config.max_new_tokens {
+        if cancelled() {
+            result.stop_reason = GenerationStopReason::Cancelled;
+            return result;
+        }
+        let token_id = match selector.select(&logits) {
+            Ok(token_id) => token_id,
+            Err(error) => {
+                result.stop_reason = GenerationStopReason::Failed;
+                result.error = Some(error);
+                return result;
+            }
+        };
+        let position = match u64::try_from(result.all_token_ids.len()) {
+            Ok(position) => position,
+            Err(_) => {
+                result.stop_reason = GenerationStopReason::Failed;
+                result.error = Some("logical token sequence exceeds host limits".into());
+                return result;
+            }
+        };
+        result.all_token_ids.push(token_id);
+        result.generated_token_ids.push(token_id);
+        result.steps.push(GenerationStep {
+            index,
+            token_id,
+            position,
+        });
+        if config.eos_token_id == Some(token_id) {
+            result.stop_reason = GenerationStopReason::Eos;
+            return result;
+        }
+        let embedding = match embed(token_id) {
+            Ok(embedding) => embedding,
+            Err(error) => {
+                result.stop_reason = GenerationStopReason::Failed;
+                result.error = Some(error);
+                return result;
+            }
+        };
+        logits = match decode(embedding, position) {
+            Ok(logits) => logits,
+            Err(error) => {
+                result.stop_reason = GenerationStopReason::Failed;
+                result.error = Some(error);
+                return result;
+            }
+        };
+    }
+    result
+}
+
 /// Gather validated rows from an embedding matrix without requiring the matrix
 /// itself to be materialized. The row provider owns persistence and residency;
 /// this generic seam only validates token geometry and assembles the result.
@@ -1103,5 +1248,122 @@ mod embedding_tests {
             expected.key.pop();
             expected
         });
+    }
+}
+
+#[cfg(test)]
+mod generation_tests {
+    use super::{
+        GenerationConfig, GenerationStopReason, GenericTensor, GreedyArgmaxSelector, TokenSelector,
+        generate,
+    };
+
+    fn logits(values: Vec<f32>) -> GenericTensor {
+        GenericTensor {
+            dimensions: vec![1, 1, values.len() as u64],
+            values,
+        }
+    }
+
+    #[test]
+    fn greedy_argmax_selects_unique_negative_and_lower_index_ties() {
+        let selector = GreedyArgmaxSelector;
+        assert_eq!(selector.select(&logits(vec![-3.0, -1.0, -2.0])), Ok(1));
+        assert_eq!(selector.select(&logits(vec![4.0, 4.0, 1.0])), Ok(0));
+    }
+
+    #[test]
+    fn greedy_argmax_rejects_invalid_logits() {
+        let selector = GreedyArgmaxSelector;
+        assert!(selector.select(&logits(vec![1.0, f32::NAN])).is_err());
+        assert!(
+            selector
+                .select(&GenericTensor {
+                    dimensions: vec![1, 1, 0],
+                    values: Vec::new(),
+                })
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn greedy_argmax_handles_a_large_vocabulary() {
+        let selector = GreedyArgmaxSelector;
+        let mut values = vec![-1.0; 4096];
+        values[3071] = 2.0;
+        assert_eq!(selector.select(&logits(values)), Ok(3071));
+    }
+
+    #[test]
+    fn generation_tracks_positions_and_stops_at_the_limit() {
+        let result = generate(
+            &[51, 68, 82, 83],
+            logits(vec![0.0, 2.0, 1.0]),
+            GenerationConfig {
+                max_new_tokens: 2,
+                eos_token_id: None,
+            },
+            &GreedyArgmaxSelector,
+            |token| Ok(logits(vec![token as f32, 0.0, 0.0])),
+            |embedding, _position| Ok(embedding),
+            || false,
+        );
+        assert_eq!(result.stop_reason, GenerationStopReason::MaxNewTokens);
+        assert_eq!(result.generated_token_ids, vec![1, 0]);
+        assert_eq!(
+            result
+                .steps
+                .iter()
+                .map(|step| step.position)
+                .collect::<Vec<_>>(),
+            vec![4, 5]
+        );
+    }
+
+    #[test]
+    fn generation_handles_eos_cancellation_and_failure() {
+        let eos = generate(
+            &[1],
+            logits(vec![0.0, 3.0]),
+            GenerationConfig {
+                max_new_tokens: 4,
+                eos_token_id: Some(1),
+            },
+            &GreedyArgmaxSelector,
+            |_| panic!("EOS must not request an embedding"),
+            |embedding, _| Ok(embedding),
+            || false,
+        );
+        assert_eq!(eos.stop_reason, GenerationStopReason::Eos);
+        assert_eq!(eos.generated_token_ids, vec![1]);
+
+        let cancelled = generate(
+            &[1],
+            logits(vec![1.0]),
+            GenerationConfig {
+                max_new_tokens: 1,
+                eos_token_id: None,
+            },
+            &GreedyArgmaxSelector,
+            |_| panic!("cancelled generation must not request an embedding"),
+            |embedding, _| Ok(embedding),
+            || true,
+        );
+        assert_eq!(cancelled.stop_reason, GenerationStopReason::Cancelled);
+
+        let failed = generate(
+            &[1],
+            logits(vec![1.0]),
+            GenerationConfig {
+                max_new_tokens: 1,
+                eos_token_id: None,
+            },
+            &GreedyArgmaxSelector,
+            |_| Err("embedding failed".into()),
+            |embedding, _| Ok(embedding),
+            || false,
+        );
+        assert_eq!(failed.stop_reason, GenerationStopReason::Failed);
+        assert_eq!(failed.error.as_deref(), Some("embedding failed"));
     }
 }

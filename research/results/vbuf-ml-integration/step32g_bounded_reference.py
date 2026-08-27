@@ -261,6 +261,117 @@ def layer(reader, tensors, experts, layer_id, value):
     }
 
 
+def generation_reference(actual, reader, tensors, experts, depth, max_steps):
+    prefill_token_ids = actual["prefill.input_token_ids"].astype(np.int64).reshape(-1)
+    if not np.array_equal(prefill_token_ids, [51, 68, 82, 83]):
+        raise AssertionError(f"token ID reference mismatch: {prefill_token_ids.tolist()}")
+    production_token_ids = actual["generation.generated_token_ids"].astype(np.int64).reshape(-1)
+    if production_token_ids.size != max_steps:
+        raise AssertionError(
+            f"production generated {production_token_ids.size} tokens, expected {max_steps}"
+        )
+    reference_token_ids = prefill_token_ids.tolist()
+    max_abs = max_rel = 0.0
+    max_logit_abs = max_logit_rel = 0.0
+    routing_mismatches = 0
+    order_mismatches = 0
+    argmax_mismatches = 0
+    top10_mismatches = 0
+    step_max_abs = []
+    step_max_logit_abs = []
+    prefill_value = reader.bf16_rows("embedding", np.asarray(reference_token_ids, dtype=np.int64))
+    for layer_id in range(depth):
+        prefill_value, _, _ = layer(reader, tensors, experts, layer_id, prefill_value)
+    prefill_logits = linear(rms(prefill_value, reader.output("final_norm")), reader.output("lm_head"))
+    next_reference_token = int(np.argmax(prefill_logits[0, -1]))
+    for step in range(max_steps):
+        token_ids = np.asarray(reference_token_ids, dtype=np.int64)
+        consumed_token = next_reference_token
+        token_ids = np.concatenate((token_ids, [consumed_token]))
+        value = reader.bf16_rows("embedding", token_ids)
+        step_max = 0.0
+        step_rel = 0.0
+        for layer_id in range(depth):
+            value, selections, stages = layer(reader, tensors, experts, layer_id, value)
+            prefix = f"generation.step{step}.layer{layer_id}"
+            output = actual[f"{prefix}.output"]
+            delta = np.abs(value[:, -1:] - output)
+            step_max = max(step_max, float(np.max(delta)))
+            step_rel = max(
+                step_rel,
+                float(np.max(delta / np.maximum(np.abs(output), 1e-20))),
+            )
+            if selections is not None:
+                expected = actual[f"{prefix}.selection_ids"].astype(np.int64)
+                reference_selection = selections[None, -1:]
+                routing_mismatches += int(np.count_nonzero(expected != reference_selection))
+                production_order = expected.reshape(-1).tolist()
+                reference_order = reference_selection.reshape(-1).tolist()
+                order_mismatches += int(production_order != reference_order)
+            for name, reference in stages.items():
+                expected_stage = actual.get(f"{prefix}.{name}")
+                if expected_stage is None:
+                    continue
+                if name not in {"kv_key", "kv_value"}:
+                    reference = reference[:, -1:]
+                stage_delta = np.abs(reference - expected_stage)
+                step_max = max(step_max, float(np.max(stage_delta)))
+            print(
+                f"generation_step={step + 1} layer={layer_id} "
+                f"max_abs={step_max:.8e} max_rel={step_rel:.8e}",
+                flush=True,
+            )
+        actual_logits = actual[f"generation.step{step}.logits"]
+        final_norm = rms(value, reader.output("final_norm"))
+        logits = linear(final_norm, reader.output("lm_head"))
+        expected_logits = actual_logits
+        logit_delta = np.abs(logits[:, -1:] - expected_logits)
+        logit_abs = float(np.max(logit_delta))
+        logit_rel = float(np.max(logit_delta / np.maximum(np.abs(expected_logits), 1e-20)))
+        max_logit_abs = max(max_logit_abs, logit_abs)
+        max_logit_rel = max(max_logit_rel, logit_rel)
+        max_abs = max(max_abs, step_max)
+        max_rel = max(max_rel, step_rel)
+        step_max_abs.append(step_max)
+        step_max_logit_abs.append(logit_abs)
+        production_token = int(production_token_ids[step])
+        reference_token = int(np.argmax(logits[0, -1]))
+        if production_token != consumed_token:
+            raise AssertionError(
+                f"production/reference consumed token mismatch at step {step + 1}: "
+                f"{production_token} != {consumed_token}"
+            )
+        production_next_token = int(np.argmax(expected_logits[0, -1]))
+        if production_next_token != reference_token:
+            argmax_mismatches += 1
+        production_top10 = np.argsort(-expected_logits[0, -1], kind="stable")[:10]
+        reference_top10 = np.argsort(-logits[0, -1], kind="stable")[:10]
+        if not np.array_equal(production_top10, reference_top10):
+            top10_mismatches += 1
+        print(
+            f"generation_step_summary={step + 1} production_token={production_token} "
+            f"reference_consumed_token={consumed_token} production_next_token={production_next_token} "
+            f"reference_next_token={reference_token} logits_max_abs={logit_abs:.8e} "
+            f"logits_max_rel={logit_rel:.8e} production_top10={production_top10.tolist()} "
+            f"reference_top10={reference_top10.tolist()}",
+            flush=True,
+        )
+        reference_token_ids.append(consumed_token)
+        next_reference_token = reference_token
+    generated_reference = reference_token_ids[len(prefill_token_ids) :]
+    print(f"reference_generated_token_ids={generated_reference}")
+    print(f"production_generated_token_ids={production_token_ids.tolist()}")
+    print(f"generated_token_sequence_parity={generated_reference == production_token_ids.tolist()}")
+    print(f"routing_membership_mismatches={routing_mismatches}")
+    print(f"routing_order_mismatches={order_mismatches}")
+    print(f"argmax_mismatches={argmax_mismatches}")
+    print(f"top10_mismatches={top10_mismatches}")
+    print(f"max_transformer_abs={max_abs:.8e} max_transformer_rel={max_rel:.8e}")
+    print(f"max_step_logits_abs={max_logit_abs:.8e} max_step_logits_rel={max_logit_rel:.8e}")
+    print(f"step_transformer_abs={step_max_abs}")
+    print(f"step_logits_abs={step_max_logit_abs}")
+
+
 def main():
     manifest_path, payload_path, checkpoint_path = sys.argv[1:4]
     depth = int(sys.argv[4]) if len(sys.argv) > 4 else 46
@@ -271,6 +382,9 @@ def main():
     tensors, experts, outputs = read_manifest(manifest_path)
     actual = read_records(checkpoint_path)
     reader = Reader(payload_path, tensors, outputs)
+    if input_mode == "generation":
+        generation_reference(actual, reader, tensors, experts, depth, int(sys.argv[7]))
+        return
     if real_input or decode_input:
         prefill_token_ids = actual["prefill.input_token_ids" if decode_input else "input_token_ids"].astype(np.int64).reshape(-1)
         expected_token_ids = np.asarray([51, 68, 82, 83], dtype=np.int64)
