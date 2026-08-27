@@ -106,6 +106,8 @@ pub struct GenericExecutionState {
     head_dim: u64,
     key: Vec<f32>,
     value: Vec<f32>,
+    last_past_kv_positions_read: u64,
+    last_kv_positions_appended: u64,
 }
 
 impl GenericExecutionState {
@@ -127,10 +129,64 @@ impl GenericExecutionState {
         self.head_dim = 0;
         self.key.clear();
         self.value.clear();
+        self.last_past_kv_positions_read = 0;
+        self.last_kv_positions_appended = 0;
     }
 
     pub fn bytes(&self) -> usize {
         (self.key.len() + self.value.len()) * std::mem::size_of::<f32>()
+    }
+
+    pub fn state_length(&self) -> u64 {
+        self.length
+    }
+
+    pub fn kv_geometry(&self) -> Option<(u64, u64, u64)> {
+        (self.length != 0).then_some((self.batch_size, self.kv_head_count, self.head_dim))
+    }
+
+    pub fn kv_values(&self) -> (&[f32], &[f32]) {
+        (&self.key, &self.value)
+    }
+
+    pub fn last_past_kv_positions_read(&self) -> u64 {
+        self.last_past_kv_positions_read
+    }
+
+    pub fn last_kv_positions_appended(&self) -> u64 {
+        self.last_kv_positions_appended
+    }
+
+    fn validate_payload(&self) -> Result<(), String> {
+        if self.length > self.capacity {
+            return Err("generic attention state exceeds capacity".into());
+        }
+        if self.length == 0 {
+            if self.batch_size != 0
+                || self.kv_head_count != 0
+                || self.head_dim != 0
+                || !self.key.is_empty()
+                || !self.value.is_empty()
+            {
+                return Err("empty generic attention state has a payload".into());
+            }
+            return Ok(());
+        }
+        if self.batch_size == 0 || self.kv_head_count == 0 || self.head_dim == 0 {
+            return Err("generic attention state geometry is empty".into());
+        }
+        let elements = self
+            .batch_size
+            .checked_mul(self.length)
+            .and_then(|value| value.checked_mul(self.kv_head_count))
+            .and_then(|value| value.checked_mul(self.head_dim))
+            .ok_or("generic attention state geometry overflows")?;
+        let elements =
+            usize::try_from(elements).map_err(|_| "generic attention state is too large")?;
+        if self.key.len() != elements || self.value.len() != elements {
+            return Err("generic attention state payload geometry is invalid".into());
+        }
+        Ok(())
     }
 }
 
@@ -347,6 +403,7 @@ fn attention(
     attrs: crate::graph::AttentionAttributes,
     state: &mut GenericExecutionState,
 ) -> Result<GenericTensor, String> {
+    state.validate_payload()?;
     let expected_query = [
         attrs.batch_size,
         attrs.query_length,
@@ -410,9 +467,8 @@ fn attention(
                             + query_head)
                             * dimension)
                             + component;
-                        let k_index = (((batch * attrs.query_length as usize
-                            + key_position.min(query_length - 1))
-                            * kv_heads
+                        let current_position = key_position.saturating_sub(old_length as usize);
+                        let k_index = (((batch * query_length + current_position) * kv_heads
                             + kv_head)
                             * dimension)
                             + component;
@@ -438,9 +494,8 @@ fn attention(
                 for component in 0..dimension {
                     let mut sum = 0.0;
                     for key_position in 0..=last {
-                        let v_index = (((batch * attrs.query_length as usize
-                            + key_position.min(query_length - 1))
-                            * kv_heads
+                        let current_position = key_position.saturating_sub(old_length as usize);
+                        let v_index = (((batch * query_length + current_position) * kv_heads
                             + kv_head)
                             * dimension)
                             + component;
@@ -467,6 +522,8 @@ fn attention(
     state.batch_size = attrs.batch_size;
     state.kv_head_count = attrs.kv_head_count;
     state.head_dim = attrs.head_dim;
+    state.last_past_kv_positions_read = old_length;
+    state.last_kv_positions_appended = attrs.query_length;
     state.length += attrs.query_length;
     state.key = next_key;
     state.value = next_value;
@@ -590,175 +647,187 @@ pub fn execute_generic_graph<T>(
 where
     T: FnMut(TensorId) -> Result<GenericTensor, String>,
 {
-    let mut values = HashMap::from([(graph.input, input)]);
-    let mut result = GenericExecutionResult {
-        values: HashMap::new(),
-        selection: None,
-    };
-    for operation in &graph.operations {
-        let value = |index: usize| -> Result<GenericTensor, String> {
-            Ok(input_value(
-                &values,
-                operation
-                    .inputs
-                    .get(index)
-                    .ok_or("operation input is missing")?,
-            )?
-            .clone())
+    let state_before = state.clone();
+    let execution = (|| -> Result<GenericExecutionResult, String> {
+        let mut values = HashMap::from([(graph.input, input)]);
+        let mut result = GenericExecutionResult {
+            values: HashMap::new(),
+            selection: None,
         };
-        let output = match operation.kind {
-            OperationKind::RmsNorm => rms_norm(
-                &value(0)?,
-                &tensor_input(operation, 1, &mut provider)?,
-                operation
-                    .attributes
-                    .epsilon
-                    .ok_or("RMSNorm epsilon missing")?,
-            )?,
-            OperationKind::MatMul | OperationKind::QuantizedMatMul => matmul(
-                &value(0)?,
-                &tensor_input(operation, 1, &mut provider)?,
-                &mut provider,
-            )?,
-            OperationKind::BiasAdd => {
-                bias_add(&value(0)?, &tensor_input(operation, 1, &mut provider)?)?
-            }
-            OperationKind::Activation => {
-                let input = value(0)?;
-                let activation = operation
-                    .attributes
-                    .activation
-                    .ok_or("activation kind missing")?;
-                let values = input
-                    .values
-                    .into_iter()
-                    .map(|x| match activation {
-                        ActivationKind::Silu => x / (1.0 + (-x).exp()),
-                        ActivationKind::Sigmoid => 1.0 / (1.0 + (-x).exp()),
-                    })
-                    .collect();
-                GenericTensor {
-                    dimensions: input.dimensions,
-                    values,
-                }
-            }
-            OperationKind::ReshapeHeads => {
-                let attrs = operation
-                    .attributes
-                    .head_reshape
-                    .ok_or("head reshape attributes missing")?;
-                reshape_heads(&value(0)?, attrs.head_count, attrs.head_dim, attrs.flatten)?
-            }
-            OperationKind::Rotary => rotary(
-                &value(0)?,
-                operation
-                    .attributes
-                    .rotary
-                    .ok_or("rotary attributes missing")?,
-            )?,
-            OperationKind::ResidualAdd | OperationKind::ElementwiseMul => {
-                let left = value(0)?;
-                let right = value(1)?;
-                if left.dimensions != right.dimensions || left.values.len() != right.values.len() {
-                    return Err("elementwise geometry is invalid".into());
-                }
-                let values = if operation.kind == OperationKind::ResidualAdd {
-                    left.values
-                        .iter()
-                        .zip(right.values.iter())
-                        .map(|(a, b)| a + b)
-                        .collect()
-                } else {
-                    left.values
-                        .iter()
-                        .zip(right.values.iter())
-                        .map(|(a, b)| a * b)
-                        .collect()
-                };
-                GenericTensor {
-                    dimensions: left.dimensions,
-                    values,
-                }
-            }
-            OperationKind::ZeroLike => {
-                let input = value(0)?;
-                GenericTensor {
-                    dimensions: input.dimensions,
-                    values: vec![0.0; input.values.len()],
-                }
-            }
-            OperationKind::WeightedAdd => {
-                let left = value(0)?;
-                let right = value(1)?;
-                if left.dimensions != right.dimensions || left.values.len() != right.values.len() {
-                    return Err("weighted add geometry is invalid".into());
-                }
-                let weight = operation
-                    .attributes
-                    .weighted_add
-                    .ok_or("weighted add weight missing")?;
-                let values = left
-                    .values
-                    .iter()
-                    .zip(right.values.iter())
-                    .map(|(a, b)| a + weight * b)
-                    .collect();
-                GenericTensor {
-                    dimensions: left.dimensions,
-                    values,
-                }
-            }
-            OperationKind::Attention => attention(
-                &value(0)?,
-                &value(1)?,
-                &value(2)?,
-                operation
-                    .attributes
-                    .attention
-                    .ok_or("attention attributes missing")?,
-                state,
-            )?,
-            OperationKind::TopKRouter => {
-                let scores = value(0)?;
-                let corrected = value(1)?;
-                result.selection = Some(top_k::<T>(
-                    &scores,
-                    &corrected,
-                    operation.attributes.top_k.ok_or("top-k missing")?,
-                )?);
-                scores
-            }
-            OperationKind::ExpertDispatch => {
-                let selection = selection.ok_or("expert dispatch selection is missing")?;
-                expert_dispatch(
+        for operation in &graph.operations {
+            let value = |index: usize| -> Result<GenericTensor, String> {
+                Ok(input_value(
+                    &values,
+                    operation
+                        .inputs
+                        .get(index)
+                        .ok_or("operation input is missing")?,
+                )?
+                .clone())
+            };
+            let output = match operation.kind {
+                OperationKind::RmsNorm => rms_norm(
                     &value(0)?,
                     &tensor_input(operation, 1, &mut provider)?,
-                    &tensor_input(operation, 2, &mut provider)?,
-                    &tensor_input(operation, 3, &mut provider)?,
                     operation
                         .attributes
-                        .expert_dispatch
-                        .ok_or("expert dispatch identity is missing")?
-                        .expert_id,
-                    selection,
-                )?
-            }
-            _ => {
-                return Err(format!(
-                    "generic operation {:?} is unsupported",
-                    operation.kind
-                ));
-            }
-        };
-        values.insert(operation.output, output);
+                        .epsilon
+                        .ok_or("RMSNorm epsilon missing")?,
+                )?,
+                OperationKind::MatMul | OperationKind::QuantizedMatMul => matmul(
+                    &value(0)?,
+                    &tensor_input(operation, 1, &mut provider)?,
+                    &mut provider,
+                )?,
+                OperationKind::BiasAdd => {
+                    bias_add(&value(0)?, &tensor_input(operation, 1, &mut provider)?)?
+                }
+                OperationKind::Activation => {
+                    let input = value(0)?;
+                    let activation = operation
+                        .attributes
+                        .activation
+                        .ok_or("activation kind missing")?;
+                    let values = input
+                        .values
+                        .into_iter()
+                        .map(|x| match activation {
+                            ActivationKind::Silu => x / (1.0 + (-x).exp()),
+                            ActivationKind::Sigmoid => 1.0 / (1.0 + (-x).exp()),
+                        })
+                        .collect();
+                    GenericTensor {
+                        dimensions: input.dimensions,
+                        values,
+                    }
+                }
+                OperationKind::ReshapeHeads => {
+                    let attrs = operation
+                        .attributes
+                        .head_reshape
+                        .ok_or("head reshape attributes missing")?;
+                    reshape_heads(&value(0)?, attrs.head_count, attrs.head_dim, attrs.flatten)?
+                }
+                OperationKind::Rotary => rotary(
+                    &value(0)?,
+                    operation
+                        .attributes
+                        .rotary
+                        .ok_or("rotary attributes missing")?,
+                )?,
+                OperationKind::ResidualAdd | OperationKind::ElementwiseMul => {
+                    let left = value(0)?;
+                    let right = value(1)?;
+                    if left.dimensions != right.dimensions
+                        || left.values.len() != right.values.len()
+                    {
+                        return Err("elementwise geometry is invalid".into());
+                    }
+                    let values = if operation.kind == OperationKind::ResidualAdd {
+                        left.values
+                            .iter()
+                            .zip(right.values.iter())
+                            .map(|(a, b)| a + b)
+                            .collect()
+                    } else {
+                        left.values
+                            .iter()
+                            .zip(right.values.iter())
+                            .map(|(a, b)| a * b)
+                            .collect()
+                    };
+                    GenericTensor {
+                        dimensions: left.dimensions,
+                        values,
+                    }
+                }
+                OperationKind::ZeroLike => {
+                    let input = value(0)?;
+                    GenericTensor {
+                        dimensions: input.dimensions,
+                        values: vec![0.0; input.values.len()],
+                    }
+                }
+                OperationKind::WeightedAdd => {
+                    let left = value(0)?;
+                    let right = value(1)?;
+                    if left.dimensions != right.dimensions
+                        || left.values.len() != right.values.len()
+                    {
+                        return Err("weighted add geometry is invalid".into());
+                    }
+                    let weight = operation
+                        .attributes
+                        .weighted_add
+                        .ok_or("weighted add weight missing")?;
+                    let values = left
+                        .values
+                        .iter()
+                        .zip(right.values.iter())
+                        .map(|(a, b)| a + weight * b)
+                        .collect();
+                    GenericTensor {
+                        dimensions: left.dimensions,
+                        values,
+                    }
+                }
+                OperationKind::Attention => attention(
+                    &value(0)?,
+                    &value(1)?,
+                    &value(2)?,
+                    operation
+                        .attributes
+                        .attention
+                        .ok_or("attention attributes missing")?,
+                    state,
+                )?,
+                OperationKind::TopKRouter => {
+                    let scores = value(0)?;
+                    let corrected = value(1)?;
+                    result.selection = Some(top_k::<T>(
+                        &scores,
+                        &corrected,
+                        operation.attributes.top_k.ok_or("top-k missing")?,
+                    )?);
+                    scores
+                }
+                OperationKind::ExpertDispatch => {
+                    let selection = selection.ok_or("expert dispatch selection is missing")?;
+                    expert_dispatch(
+                        &value(0)?,
+                        &tensor_input(operation, 1, &mut provider)?,
+                        &tensor_input(operation, 2, &mut provider)?,
+                        &tensor_input(operation, 3, &mut provider)?,
+                        operation
+                            .attributes
+                            .expert_dispatch
+                            .ok_or("expert dispatch identity is missing")?
+                            .expert_id,
+                        selection,
+                    )?
+                }
+                _ => {
+                    return Err(format!(
+                        "generic operation {:?} is unsupported",
+                        operation.kind
+                    ));
+                }
+            };
+            values.insert(operation.output, output);
+        }
+        result.values = values;
+        Ok(result)
+    })();
+    if execution.is_err() {
+        *state = state_before;
     }
-    result.values = values;
-    Ok(result)
+    execution
 }
 
 #[cfg(test)]
 mod embedding_tests {
-    use super::{GenericTensor, embedding_lookup};
+    use super::{GenericExecutionState, GenericTensor, attention, embedding_lookup};
+    use crate::graph::{AttentionAttributes, AttentionMaskKind, AttentionPositionKind, StateId};
     use std::cell::Cell;
 
     fn ids(values: Vec<f32>, dimensions: Vec<u64>) -> GenericTensor {
@@ -788,5 +857,251 @@ mod embedding_tests {
         }
         assert!(embedding_lookup(&ids(vec![0.0], vec![1]), 4, 2, |_| Ok(vec![0.0; 2])).is_err());
         assert!(embedding_lookup(&ids(vec![0.0], vec![1, 1]), 4, 2, |_| Ok(vec![0.0])).is_err());
+    }
+
+    fn sequence_tensor(
+        sequence: usize,
+        heads: usize,
+        dimension: usize,
+        offset: f32,
+    ) -> GenericTensor {
+        let mut values = Vec::with_capacity(sequence * heads * dimension);
+        for position in 0..sequence {
+            for head in 0..heads {
+                for component in 0..dimension {
+                    values.push(
+                        offset
+                            + (position * heads * dimension + head * dimension + component) as f32
+                                * 0.03125,
+                    );
+                }
+            }
+        }
+        GenericTensor {
+            dimensions: vec![1, sequence as u64, heads as u64, dimension as u64],
+            values,
+        }
+    }
+
+    fn sequence_slice(tensor: &GenericTensor, start: usize, end: usize) -> GenericTensor {
+        let width = tensor.dimensions[2] as usize * tensor.dimensions[3] as usize;
+        GenericTensor {
+            dimensions: vec![
+                1,
+                (end - start) as u64,
+                tensor.dimensions[2],
+                tensor.dimensions[3],
+            ],
+            values: tensor.values[start * width..end * width].to_vec(),
+        }
+    }
+
+    fn attention_attributes(
+        query_heads: u64,
+        kv_heads: u64,
+        dimension: u64,
+        query_length: u64,
+        current_kv_length: u64,
+        state: StateId,
+    ) -> AttentionAttributes {
+        AttentionAttributes {
+            batch_size: 1,
+            query_head_count: query_heads,
+            kv_head_count: kv_heads,
+            head_dim: dimension,
+            query_length,
+            current_kv_length,
+            scale: (dimension as f32).sqrt().recip(),
+            mask: AttentionMaskKind::Causal,
+            position: AttentionPositionKind::StateLength,
+            state,
+        }
+    }
+
+    fn assert_close(left: &GenericTensor, right: &GenericTensor) {
+        assert_eq!(left.dimensions, right.dimensions);
+        let maximum = left
+            .values
+            .iter()
+            .zip(&right.values)
+            .map(|(left, right)| (left - right).abs())
+            .fold(0.0f32, f32::max);
+        assert!(maximum <= 1e-6, "maximum attention error was {maximum}");
+    }
+
+    fn assert_prefill_decode_equivalence(query_heads: usize, kv_heads: usize) {
+        let sequence = 3;
+        let dimension = 3;
+        let query = sequence_tensor(sequence, query_heads, dimension, 0.25);
+        let key = sequence_tensor(sequence, kv_heads, dimension, -0.5);
+        let value = sequence_tensor(sequence, kv_heads, dimension, 0.75);
+        let state_id = StateId(31 + query_heads as u32);
+        let mut full_state = GenericExecutionState::new(state_id.0, sequence as u64).unwrap();
+        let full = attention(
+            &query,
+            &key,
+            &value,
+            attention_attributes(
+                query_heads as u64,
+                kv_heads as u64,
+                dimension as u64,
+                sequence as u64,
+                sequence as u64,
+                state_id,
+            ),
+            &mut full_state,
+        )
+        .unwrap();
+
+        let mut incremental_state =
+            GenericExecutionState::new(state_id.0, sequence as u64).unwrap();
+        let prefix = attention(
+            &sequence_slice(&query, 0, 2),
+            &sequence_slice(&key, 0, 2),
+            &sequence_slice(&value, 0, 2),
+            attention_attributes(
+                query_heads as u64,
+                kv_heads as u64,
+                dimension as u64,
+                2,
+                2,
+                state_id,
+            ),
+            &mut incremental_state,
+        )
+        .unwrap();
+        assert_eq!(
+            prefix.dimensions,
+            [1, 2, query_heads as u64, dimension as u64]
+        );
+        let decode = attention(
+            &sequence_slice(&query, 2, 3),
+            &sequence_slice(&key, 2, 3),
+            &sequence_slice(&value, 2, 3),
+            attention_attributes(
+                query_heads as u64,
+                kv_heads as u64,
+                dimension as u64,
+                1,
+                3,
+                state_id,
+            ),
+            &mut incremental_state,
+        )
+        .unwrap();
+        let final_offset = (sequence - 1) * query_heads * dimension;
+        let full_final = GenericTensor {
+            dimensions: decode.dimensions.clone(),
+            values: full.values[final_offset..].to_vec(),
+        };
+        assert_close(&decode, &full_final);
+        assert_eq!(incremental_state.state_length(), 3);
+        assert_eq!(
+            incremental_state.kv_geometry(),
+            Some((1, kv_heads as u64, dimension as u64))
+        );
+        assert_eq!(
+            incremental_state.kv_values().0.len(),
+            sequence * kv_heads * dimension
+        );
+    }
+
+    #[test]
+    fn prefill_decode_equivalence_covers_mha_and_gqa() {
+        assert_prefill_decode_equivalence(2, 2);
+        assert_prefill_decode_equivalence(4, 2);
+    }
+
+    #[test]
+    fn multi_token_continuation_uses_each_new_kv_position() {
+        let query = sequence_tensor(3, 2, 2, 0.1);
+        let key = sequence_tensor(3, 2, 2, 0.2);
+        let value = sequence_tensor(3, 2, 2, 0.3);
+        let state_id = StateId(41);
+        let mut full_state = GenericExecutionState::new(state_id.0, 3).unwrap();
+        let full = attention(
+            &query,
+            &key,
+            &value,
+            attention_attributes(2, 2, 2, 3, 3, state_id),
+            &mut full_state,
+        )
+        .unwrap();
+        let mut continuation_state = GenericExecutionState::new(state_id.0, 3).unwrap();
+        attention(
+            &sequence_slice(&query, 0, 1),
+            &sequence_slice(&key, 0, 1),
+            &sequence_slice(&value, 0, 1),
+            attention_attributes(2, 2, 2, 1, 1, state_id),
+            &mut continuation_state,
+        )
+        .unwrap();
+        let continuation = attention(
+            &sequence_slice(&query, 1, 3),
+            &sequence_slice(&key, 1, 3),
+            &sequence_slice(&value, 1, 3),
+            attention_attributes(2, 2, 2, 2, 3, state_id),
+            &mut continuation_state,
+        )
+        .unwrap();
+        let final_offset = 2 * 2 * 2;
+        assert_close(
+            &GenericTensor {
+                dimensions: vec![1, 1, 2, 2],
+                values: full.values[final_offset..].to_vec(),
+            },
+            &GenericTensor {
+                dimensions: vec![1, 1, 2, 2],
+                values: continuation.values[4..].to_vec(),
+            },
+        );
+        assert_eq!(continuation_state.state_length(), 3);
+    }
+
+    #[test]
+    fn failed_decode_preserves_state_and_rejects_malformed_payload() {
+        let query = sequence_tensor(2, 2, 2, 0.1);
+        let key = sequence_tensor(2, 2, 2, 0.2);
+        let value = sequence_tensor(2, 2, 2, 0.3);
+        let state_id = StateId(51);
+        let mut state = GenericExecutionState::new(state_id.0, 2).unwrap();
+        attention(
+            &sequence_slice(&query, 0, 1),
+            &sequence_slice(&key, 0, 1),
+            &sequence_slice(&value, 0, 1),
+            attention_attributes(2, 2, 2, 1, 1, state_id),
+            &mut state,
+        )
+        .unwrap();
+        let before = state.clone();
+        assert!(
+            attention(
+                &sequence_slice(&query, 1, 2),
+                &sequence_slice(&key, 1, 2),
+                &sequence_slice(&value, 1, 2),
+                attention_attributes(2, 2, 2, 1, 3, state_id),
+                &mut state,
+            )
+            .is_err()
+        );
+        assert_eq!(state, before);
+
+        let mut malformed = state.clone();
+        malformed.key.pop();
+        assert!(
+            attention(
+                &sequence_slice(&query, 1, 2),
+                &sequence_slice(&key, 1, 2),
+                &sequence_slice(&value, 1, 2),
+                attention_attributes(2, 2, 2, 1, 2, state_id),
+                &mut malformed,
+            )
+            .is_err()
+        );
+        assert_eq!(malformed, {
+            let mut expected = state.clone();
+            expected.key.pop();
+            expected
+        });
     }
 }

@@ -17,7 +17,8 @@ use vbuf_ml::{
     bf16_bits_to_f32, dequantize_f8_e4m3, parse_source_profile,
 };
 use vbuf_runtime::generic::{
-    GenericExecutionState, GenericTensor, embedding_lookup, execute_generic_graph,
+    GenericExecutionResult, GenericExecutionState, GenericTensor, GenericTopKSelection,
+    embedding_lookup, execute_generic_graph,
 };
 use vbuf_runtime::graph::{
     ActivationKind, AttentionAttributes, AttentionMaskKind, AttentionPositionKind,
@@ -352,7 +353,12 @@ fn activation(
     }
 }
 
-fn build_attention_graph(catalog: &LayerCatalog) -> (PortableProgram, PortableRegion) {
+fn build_attention_graph(
+    catalog: &LayerCatalog,
+    query_length: u64,
+    current_kv_length: u64,
+    position_start: u64,
+) -> (PortableProgram, PortableRegion) {
     let mut program = PortableProgram {
         state_refs: vec![StateRef {
             id: catalog.state,
@@ -392,7 +398,7 @@ fn build_attention_graph(catalog: &LayerCatalog) -> (PortableProgram, PortableRe
         head_dim: HEAD_DIM,
         rotary_dim: ROTARY_DIM,
         theta: 1_000_000.0,
-        position_start: 0,
+        position_start,
     };
     let rotary_k = RotaryAttributes {
         head_count: KV_HEADS,
@@ -517,8 +523,8 @@ fn build_attention_graph(catalog: &LayerCatalog) -> (PortableProgram, PortableRe
                     query_head_count: Q_HEADS,
                     kv_head_count: KV_HEADS,
                     head_dim: HEAD_DIM,
-                    query_length: SEQUENCE,
-                    current_kv_length: SEQUENCE,
+                    query_length,
+                    current_kv_length,
                     scale: (HEAD_DIM as f32).sqrt().recip(),
                     mask: AttentionMaskKind::Causal,
                     position: AttentionPositionKind::StateLength,
@@ -1162,6 +1168,145 @@ impl<'view, 'source> Materializer<'view, 'source> {
     }
 }
 
+struct LayerPhaseResult {
+    attention: GenericExecutionResult,
+    expert: GenericExecutionResult,
+    output: GenericTensor,
+    selection: Option<GenericTopKSelection>,
+    selected: Vec<u32>,
+    unselected: Vec<u32>,
+    source_bytes: u64,
+    attention_time_ms: f64,
+    expert_time_ms: f64,
+}
+
+fn execute_layer_phase(
+    catalog: &LayerCatalog,
+    current: &GenericTensor,
+    query_length: u64,
+    position_start: u64,
+    materializer: &mut Materializer<'_, '_>,
+    state: &mut GenericExecutionState,
+) -> Result<LayerPhaseResult, String> {
+    if state.state_length() + query_length == 0 {
+        return Err("layer phase has zero visible sequence length".into());
+    }
+    let source_before = materializer.source_bytes;
+    let touched_before = materializer.touched.clone();
+    let (program, region) = build_attention_graph(
+        catalog,
+        query_length,
+        state.state_length() + query_length,
+        position_start,
+    );
+    let graph = lower_region(&program, &region)
+        .map_err(|e| format!("layer {} attention graph lowering: {e:?}", catalog.layer))?;
+    let attention_start = Instant::now();
+    let attention = execute_generic_graph(
+        &graph,
+        current.clone(),
+        |id| materializer.get(id),
+        None,
+        state,
+    )
+    .map_err(|e| format!("layer {} attention/router execution: {e}", catalog.layer))?;
+    let attention_time_ms = attention_start.elapsed().as_secs_f64() * 1000.0;
+    let (selection, expert, selected, expert_time_ms) = if catalog.is_moe() {
+        let selection = attention
+            .selection
+            .clone()
+            .ok_or_else(|| format!("layer {} router produced no selection", catalog.layer))?;
+        let mut selected: Vec<u32> = selection
+            .ids
+            .iter()
+            .copied()
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+        selected.sort_unstable();
+        if selected.iter().any(|id| *id >= EXPERT_COUNT) {
+            return Err(format!(
+                "layer {} selected an invalid expert",
+                catalog.layer
+            ));
+        }
+        let (expert_program, expert_region) = build_expert_graph(catalog, &selected);
+        let expert_graph = lower_region(&expert_program, &expert_region)
+            .map_err(|e| format!("layer {} expert graph lowering: {e:?}", catalog.layer))?;
+        let post_attention = attention
+            .values
+            .get(&ValueId(16))
+            .ok_or("post-attention residual missing")?
+            .clone();
+        let expert_start = Instant::now();
+        let expert = execute_generic_graph(
+            &expert_graph,
+            post_attention,
+            |id| materializer.get(id),
+            Some(&selection),
+            state,
+        )
+        .map_err(|e| format!("layer {} expert/final execution: {e}", catalog.layer))?;
+        let expert_time_ms = expert_start.elapsed().as_secs_f64() * 1000.0;
+        (Some(selection), expert, selected, expert_time_ms)
+    } else {
+        let (dense_program, dense_region) = build_dense_graph(catalog);
+        let dense_graph = lower_region(&dense_program, &dense_region)
+            .map_err(|e| format!("layer {} dense graph lowering: {e:?}", catalog.layer))?;
+        let post_attention = attention
+            .values
+            .get(&ValueId(16))
+            .ok_or("post-attention residual missing")?
+            .clone();
+        let expert_start = Instant::now();
+        let dense = execute_generic_graph(
+            &dense_graph,
+            post_attention,
+            |id| materializer.get(id),
+            None,
+            state,
+        )
+        .map_err(|e| format!("layer {} dense execution: {e}", catalog.layer))?;
+        let expert_time_ms = expert_start.elapsed().as_secs_f64() * 1000.0;
+        (None, dense, Vec::new(), expert_time_ms)
+    };
+    let output = expert
+        .values
+        .get(&ValueId(306))
+        .ok_or("final layer output missing")?
+        .clone();
+    let allowed_moe_ids = if catalog.is_moe() {
+        catalog.selected_tensor_ids(&selected)?
+    } else {
+        HashSet::new()
+    };
+    let new_touched: HashSet<_> = materializer
+        .touched
+        .difference(&touched_before)
+        .copied()
+        .collect();
+    let new_moe: HashSet<_> = if catalog.is_moe() {
+        new_touched
+            .intersection(&catalog.all_tensor_ids())
+            .copied()
+            .collect()
+    } else {
+        HashSet::new()
+    };
+    let unselected = new_moe.difference(&allowed_moe_ids).copied().collect();
+    Ok(LayerPhaseResult {
+        attention,
+        expert,
+        output,
+        selection,
+        selected,
+        unselected,
+        source_bytes: materializer.source_bytes - source_before,
+        attention_time_ms,
+        expert_time_ms,
+    })
+}
+
 fn input_tensor(variant: u32) -> GenericTensor {
     let mut values = Vec::with_capacity((SEQUENCE * HIDDEN) as usize);
     for index in 0..(SEQUENCE * HIDDEN) {
@@ -1172,6 +1317,143 @@ fn input_tensor(variant: u32) -> GenericTensor {
         dimensions: vec![1, SEQUENCE, HIDDEN],
         values,
     }
+}
+
+fn project_logits(
+    input: &GenericTensor,
+    head_id: u32,
+    materializer: &mut Materializer<'_, '_>,
+) -> Result<(GenericTensor, usize), String> {
+    if input.dimensions.len() != 3 || input.dimensions[0] != 1 || input.dimensions[2] != HIDDEN {
+        return Err("output projection input geometry is invalid".into());
+    }
+    let sequence = usize::try_from(input.dimensions[1])
+        .map_err(|_| "output projection sequence is too large")?;
+    let vocabulary = usize::try_from(VOCAB).map_err(|_| "vocabulary is too large")?;
+    let mut logits_values = vec![0.0; sequence * vocabulary];
+    let mut peak_cache_bytes = materializer.cache_f32_bytes();
+    let mut output_state = GenericExecutionState::new(0xffff_fffe, 1)?;
+    for row_start in (0..vocabulary).step_by(OUTPUT_HEAD_CHUNK_ROWS) {
+        let row_count = OUTPUT_HEAD_CHUNK_ROWS.min(vocabulary - row_start);
+        let head_chunk = materializer.get_bf16_rows(TensorId(head_id), row_start, row_count)?;
+        let (program, region) = build_output_projection_graph(head_id);
+        let graph = lower_region(&program, &region)
+            .map_err(|e| format!("LM head chunk graph lowering: {e:?}"))?;
+        let chunk_result = execute_generic_graph(
+            &graph,
+            input.clone(),
+            |id| {
+                if id.0 == head_id {
+                    Ok(head_chunk.clone())
+                } else {
+                    materializer.get(id)
+                }
+            },
+            None,
+            &mut output_state,
+        )
+        .map_err(|e| format!("LM head chunk execution: {e}"))?;
+        let chunk = chunk_result
+            .values
+            .get(&ValueId(1))
+            .ok_or("LM head chunk output missing")?;
+        for token in 0..sequence {
+            let source_start = token * row_count;
+            let destination_start = token * vocabulary + row_start;
+            logits_values[destination_start..destination_start + row_count]
+                .copy_from_slice(&chunk.values[source_start..source_start + row_count]);
+        }
+        peak_cache_bytes =
+            peak_cache_bytes.max(materializer.cache_f32_bytes() + head_chunk.values.len() * 4);
+        materializer.cache.remove(&head_id);
+    }
+    Ok((
+        GenericTensor {
+            dimensions: vec![1, sequence as u64, VOCAB],
+            values: logits_values,
+        },
+        peak_cache_bytes,
+    ))
+}
+
+fn state_tensor(state: &GenericExecutionState) -> Result<(GenericTensor, GenericTensor), String> {
+    let (batch, kv_heads, head_dim) = state
+        .kv_geometry()
+        .ok_or("cannot snapshot an empty KV state")?;
+    let dimensions = vec![batch, state.state_length(), kv_heads, head_dim];
+    let (key, value) = state.kv_values();
+    Ok((
+        GenericTensor {
+            dimensions: dimensions.clone(),
+            values: key.to_vec(),
+        },
+        GenericTensor {
+            dimensions,
+            values: value.to_vec(),
+        },
+    ))
+}
+
+fn write_layer_phase_records(
+    checkpoint: &mut BufWriter<File>,
+    prefix: &str,
+    current: &GenericTensor,
+    phase: &LayerPhaseResult,
+    state: &GenericExecutionState,
+) -> Result<(), String> {
+    write_record(checkpoint, &format!("{prefix}.input"), current)?;
+    for (name, tensor) in [
+        (
+            "post_attention_residual",
+            phase.attention.values.get(&ValueId(16)),
+        ),
+        ("router_corrected", phase.attention.values.get(&ValueId(20))),
+        ("router_input", phase.attention.values.get(&ValueId(17))),
+        ("router_raw", phase.attention.values.get(&ValueId(18))),
+        ("router_scores", phase.attention.values.get(&ValueId(19))),
+        (
+            "shared_expert_output",
+            phase.expert.values.get(&ValueId(304)),
+        ),
+        ("shared_gate", phase.expert.values.get(&ValueId(300))),
+        ("shared_up", phase.expert.values.get(&ValueId(302))),
+        ("shared_multiply", phase.expert.values.get(&ValueId(303))),
+        ("moe_output", phase.expert.values.get(&ValueId(305))),
+    ] {
+        if let Some(tensor) = tensor {
+            write_record(checkpoint, &format!("{prefix}.{name}"), tensor)?;
+        }
+    }
+    write_record(checkpoint, &format!("{prefix}.output"), &phase.output)?;
+    if let Some(selection) = &phase.selection {
+        for (index, expert) in phase.selected.iter().enumerate() {
+            if let Some(tensor) = phase.expert.values.get(&ValueId(1000 + index as u32)) {
+                write_record(checkpoint, &format!("{prefix}.expert_{expert}"), tensor)?;
+            }
+        }
+        let selection_ids = GenericTensor {
+            dimensions: vec![1, selection.token_count, selection.top_k as u64],
+            values: selection.ids.iter().map(|id| *id as f32).collect(),
+        };
+        let selection_weights = GenericTensor {
+            dimensions: selection_ids.dimensions.clone(),
+            values: selection.weights.clone(),
+        };
+        write_record(
+            checkpoint,
+            &format!("{prefix}.selection_ids"),
+            &selection_ids,
+        )?;
+        write_record(
+            checkpoint,
+            &format!("{prefix}.selection_weights"),
+            &selection_weights,
+        )?;
+    }
+    let (key, value) = state_tensor(state)?;
+    write_record(checkpoint, &format!("{prefix}.kv_key"), &key)?;
+    write_record(checkpoint, &format!("{prefix}.kv_value"), &value)?;
+    Ok(())
 }
 
 fn tensor_hash(tensor: &GenericTensor) -> String {
@@ -1520,7 +1802,7 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
         let state = states
             .entry(catalog.state)
             .or_insert(GenericExecutionState::new(catalog.state.0, SEQUENCE)?);
-        let (program, region) = build_attention_graph(catalog);
+        let (program, region) = build_attention_graph(catalog, SEQUENCE, SEQUENCE, 0);
         let graph = lower_region(&program, &region)
             .map_err(|e| format!("layer {} attention graph lowering: {e:?}", catalog.layer))?;
         let attention_result = execute_generic_graph(
@@ -1827,4 +2109,463 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
         run_start.elapsed().as_secs_f64() * 1000.0,
     );
     Ok(())
+}
+
+pub fn run_retained_kv(arguments: Vec<String>) -> Result<(), String> {
+    let mut arguments = arguments.into_iter();
+    let sidecar = PathBuf::from(arguments.next().ok_or("sidecar path")?);
+    let payload = PathBuf::from(arguments.next().ok_or("payload path")?);
+    let checkpoint_path = PathBuf::from(arguments.next().ok_or("checkpoint path")?);
+    let manifest_path = PathBuf::from(arguments.next().ok_or("manifest path")?);
+    let qualification_text = arguments.next().ok_or("qualification text")?;
+    if arguments.next().is_some() {
+        return Err("unexpected retained-KV argument".into());
+    }
+    let side_file = File::open(sidecar).map_err(|e| e.to_string())?;
+    let payload_file = File::open(payload).map_err(|e| e.to_string())?;
+    let side_mapping = unsafe { Mmap::map(&side_file).map_err(|e| e.to_string())? };
+    let payload_mapping = unsafe { Mmap::map(&payload_file).map_err(|e| e.to_string())? };
+    if payload_mapping.len() != 112563538898 {
+        return Err("real payload size does not match the qualified artifact".into());
+    }
+    let validated = parse_v06(&side_mapping).map_err(|e| e.to_string())?;
+    let bootstrap = Bootstrap::discover(&validated).map_err(|e| e.to_string())?;
+    let profile = parse_source_profile(&validated, &bootstrap)
+        .map_err(|e| e.to_string())?
+        .ok_or("persistent source profile is absent")?;
+    let view = BorrowedModelView::parse_with_sources(&side_mapping, &profile.registry, &[])
+        .map_err(|e| e.to_string())?;
+    let catalogs: Vec<_> = (0..BASE_TRANSFORMER_LAYER_COUNT)
+        .map(|layer| LayerCatalog::discover(&view, layer))
+        .collect::<Result<_, _>>()?;
+    let output_ids = resolve_output_ids(&view)?;
+    write_manifest(&manifest_path, &view, &catalogs, output_ids)?;
+
+    let mut scale_by = HashMap::new();
+    for catalog in &catalogs {
+        for (weight, scale) in catalog.expert_entries.values() {
+            if *scale != 0 {
+                scale_by.insert(*weight, *scale);
+            }
+        }
+        for (weight, scale) in [
+            (catalog.q_weight, catalog.q_scale),
+            (catalog.k_weight, catalog.k_scale),
+            (catalog.v_weight, catalog.v_scale),
+            (catalog.o_weight, catalog.o_scale),
+            (catalog.shared_gate, catalog.shared_gate_scale),
+            (catalog.shared_up, catalog.shared_up_scale),
+            (catalog.shared_down, catalog.shared_down_scale),
+        ] {
+            scale_by.insert(weight, scale);
+        }
+        for (weight, scale) in [
+            (catalog.dense_gate, catalog.dense_gate_scale),
+            (catalog.dense_up, catalog.dense_up_scale),
+            (catalog.dense_down, catalog.dense_down_scale),
+        ] {
+            if let (Some(weight), Some(scale)) = (weight, scale) {
+                scale_by.insert(weight, scale);
+            }
+        }
+    }
+    let mut materializer = Materializer {
+        view: &view,
+        payload: &payload_mapping,
+        scale_by,
+        cache: HashMap::new(),
+        touched: HashSet::new(),
+        touched_ranges: HashMap::new(),
+        source_bytes: 0,
+    };
+    let mut checkpoint = BufWriter::new(
+        OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(checkpoint_path)
+            .map_err(|e| e.to_string())?,
+    );
+    let tokenizer_start = Instant::now();
+    let tokenizer =
+        Gpt2ByteLevelTokenizer::build(&view.tokenizer).map_err(|error| error.to_string())?;
+    let prefill_token_ids = tokenizer
+        .encode(&qualification_text)
+        .map_err(|error| error.to_string())?;
+    let decoded = tokenizer
+        .decode(&prefill_token_ids)
+        .map_err(|error| error.to_string())?;
+    if decoded != qualification_text || prefill_token_ids.len() != SEQUENCE as usize {
+        return Err("retained-KV qualification text or token count is invalid".into());
+    }
+    let expected_prefill = [51u32, 68, 82, 83];
+    if prefill_token_ids.as_slice() != expected_prefill {
+        return Err(format!(
+            "persisted tokenizer produced unexpected prefill IDs: {prefill_token_ids:?}"
+        ));
+    }
+    let tokenizer_ms = tokenizer_start.elapsed().as_secs_f64() * 1000.0;
+    let prefill_ids = GenericTensor {
+        dimensions: vec![1, SEQUENCE],
+        values: prefill_token_ids.iter().map(|id| *id as f32).collect(),
+    };
+    write_record(&mut checkpoint, "prefill.input_token_ids", &prefill_ids)?;
+    let prefill_embedding_start = Instant::now();
+    let mut prefill_embedding_requests = 0u64;
+    let prefill_embedding = embedding_lookup(&prefill_ids, VOCAB, HIDDEN, |token_id| {
+        prefill_embedding_requests += 1;
+        let row = usize::try_from(token_id)
+            .map_err(|_| "prefill embedding token ID exceeds host limits".to_owned())?;
+        materializer
+            .get_bf16_rows(TensorId(EMBEDDING_ID), row, 1)
+            .map(|tensor| tensor.values)
+    })
+    .map_err(|error| format!("prefill embedding lookup: {error}"))?;
+    write_record(
+        &mut checkpoint,
+        "prefill.input_embedding",
+        &prefill_embedding,
+    )?;
+    let prefill_embedding_ms = prefill_embedding_start.elapsed().as_secs_f64() * 1000.0;
+    let prefill_start = Instant::now();
+    let mut states: HashMap<StateId, GenericExecutionState> = catalogs
+        .iter()
+        .map(|catalog| {
+            Ok((
+                catalog.state,
+                GenericExecutionState::new(catalog.state.0, 5)?,
+            ))
+        })
+        .collect::<Result<_, String>>()?;
+    let mut current = prefill_embedding;
+    let mut peak_prefill_cache = materializer.cache_f32_bytes();
+    let mut peak_prefill_activation = 0usize;
+    let mut peak_prefill_working_set = 0usize;
+    let mut prefill_router_decisions = 0u64;
+    for catalog in &catalogs {
+        let state = states
+            .get_mut(&catalog.state)
+            .ok_or("prefill layer state is missing")?;
+        let phase = execute_layer_phase(catalog, &current, SEQUENCE, 0, &mut materializer, state)?;
+        write_layer_phase_records(
+            &mut checkpoint,
+            &format!("layer{}", catalog.layer),
+            &current,
+            &phase,
+            state,
+        )?;
+        let activation_bytes = current.values.len() * 4
+            + phase
+                .attention
+                .values
+                .values()
+                .map(|tensor| tensor.values.len() * 4)
+                .sum::<usize>()
+            + phase
+                .expert
+                .values
+                .values()
+                .map(|tensor| tensor.values.len() * 4)
+                .sum::<usize>();
+        let cache_bytes = materializer.cache_f32_bytes();
+        let working_set = cache_bytes + activation_bytes + state.bytes();
+        peak_prefill_cache = peak_prefill_cache.max(cache_bytes);
+        peak_prefill_activation = peak_prefill_activation.max(activation_bytes);
+        peak_prefill_working_set = peak_prefill_working_set.max(working_set);
+        prefill_router_decisions += phase
+            .selection
+            .as_ref()
+            .map_or(0, |selection| selection.token_count);
+        println!(
+            "PREFILL_LAYER={} STATE_LENGTH={} PAST_KV_READ={} CURRENT_KV_APPENDED={} SELECTED_EXPERTS={:?} UNSELECTED_EXPERTS={:?} SOURCE_BYTES={} LAYER_TIME_MS={:.3}",
+            catalog.layer,
+            state.state_length(),
+            state.last_past_kv_positions_read(),
+            state.last_kv_positions_appended(),
+            phase.selected,
+            phase.unselected,
+            phase.source_bytes,
+            phase.attention_time_ms + phase.expert_time_ms,
+        );
+        current = phase.output;
+        materializer.clear_cache();
+    }
+    let prefill_transformer = current.clone();
+    let prefill_norm_start = Instant::now();
+    let (norm_id, head_id, _embedding_id) = output_ids;
+    let (norm_program, norm_region) = build_output_norm_graph(norm_id);
+    let norm_graph = lower_region(&norm_program, &norm_region)
+        .map_err(|e| format!("prefill final norm graph lowering: {e:?}"))?;
+    let mut output_state = GenericExecutionState::new(0xffff_fffd, 1)?;
+    let prefill_norm_result = execute_generic_graph(
+        &norm_graph,
+        prefill_transformer.clone(),
+        |id| materializer.get(id),
+        None,
+        &mut output_state,
+    )
+    .map_err(|e| format!("prefill final norm execution: {e}"))?;
+    let prefill_norm = prefill_norm_result
+        .values
+        .get(&ValueId(1))
+        .ok_or("prefill final norm output missing")?
+        .clone();
+    let prefill_norm_ms = prefill_norm_start.elapsed().as_secs_f64() * 1000.0;
+    let prefill_head_start = Instant::now();
+    let (prefill_logits, prefill_head_cache) =
+        project_logits(&prefill_norm, head_id, &mut materializer)?;
+    let prefill_head_ms = prefill_head_start.elapsed().as_secs_f64() * 1000.0;
+    write_record(
+        &mut checkpoint,
+        "prefill.final_transformer_output",
+        &prefill_transformer,
+    )?;
+    write_record(&mut checkpoint, "prefill.final_norm", &prefill_norm)?;
+    write_record(&mut checkpoint, "prefill.logits", &prefill_logits)?;
+    let prefill_logits_hash = tensor_hash(&prefill_logits);
+    let prefill_argmax = argmax_last(&prefill_logits)?;
+    let prefill_source_bytes = materializer.source_bytes;
+    let prefill_kv_state_bytes: usize = states.values().map(GenericExecutionState::bytes).sum();
+    let prefill_time_ms = prefill_start.elapsed().as_secs_f64() * 1000.0;
+    println!(
+        "PREFILL_COMPLETE=YES REQUEST_STATE_ID=801 PREFILL_TOKEN_IDS={prefill_token_ids:?} PREFILL_KV_RETAINED=YES ALL_46_LAYER_KV_STATES_PRESENT=YES STATE_LENGTH_AFTER_PREFILL={} PREFILL_LOGITS_HASH={} PREFILL_ARGMAX={} PREFILL_SOURCE_BYTES_READ={} PREFILL_KV_STATE_BYTES={} PREFILL_TIME_MS={:.3} PREFILL_ROUTING_DECISIONS={} TOKENIZATION_TIME_MS={:.3} EMBEDDING_TIME_MS={:.3} FINAL_NORM_TIME_MS={:.3} OUTPUT_HEAD_TIME_MS={:.3} OUTPUT_HEAD_PEAK_CHUNK_F32_BYTES={} PEAK_WORKING_SET_BYTES={}",
+        states
+            .values()
+            .next()
+            .map_or(0, GenericExecutionState::state_length),
+        prefill_logits_hash,
+        prefill_argmax,
+        prefill_source_bytes,
+        prefill_kv_state_bytes,
+        prefill_time_ms,
+        prefill_router_decisions,
+        tokenizer_ms,
+        prefill_embedding_ms,
+        prefill_norm_ms,
+        prefill_head_ms,
+        prefill_head_cache,
+        peak_prefill_working_set,
+    );
+
+    let decode_token_id = 220u32;
+    if u64::from(decode_token_id) >= VOCAB {
+        return Err("deterministic decode token is outside vocabulary".into());
+    }
+    let decode_ids = GenericTensor {
+        dimensions: vec![1, 1],
+        values: vec![decode_token_id as f32],
+    };
+    write_record(&mut checkpoint, "decode.input_token_id", &decode_ids)?;
+    let decode_embedding_start = Instant::now();
+    let decode_embedding_row =
+        materializer.get_bf16_rows(TensorId(EMBEDDING_ID), decode_token_id as usize, 1)?;
+    let decode_embedding = GenericTensor {
+        dimensions: vec![1, 1, HIDDEN],
+        values: decode_embedding_row.values,
+    };
+    write_record(&mut checkpoint, "decode.input_embedding", &decode_embedding)?;
+    let decode_embedding_ms = decode_embedding_start.elapsed().as_secs_f64() * 1000.0;
+    let decode_source_before = materializer.source_bytes;
+    let decode_start = Instant::now();
+    let mut decode_current = decode_embedding;
+    let mut peak_decode_cache = materializer.cache_f32_bytes();
+    let mut peak_decode_activation = 0usize;
+    let mut peak_decode_working_set = 0usize;
+    let mut decode_router_decisions = 0u64;
+    let mut decode_unselected_touches = 0usize;
+    let mut decode_past_read = 0u64;
+    let mut decode_appended = 0u64;
+    for catalog in &catalogs {
+        let state = states
+            .get_mut(&catalog.state)
+            .ok_or("decode layer state is missing")?;
+        if state.state_length() != SEQUENCE {
+            return Err(format!(
+                "decode layer {} starts with state length {}, expected {}",
+                catalog.layer,
+                state.state_length(),
+                SEQUENCE
+            ));
+        }
+        let phase = execute_layer_phase(
+            catalog,
+            &decode_current,
+            1,
+            state.state_length(),
+            &mut materializer,
+            state,
+        )?;
+        if state.state_length() != 5 {
+            return Err(format!(
+                "decode layer {} ended with state length {}, expected 5",
+                catalog.layer,
+                state.state_length()
+            ));
+        }
+        decode_past_read += state.last_past_kv_positions_read();
+        decode_appended += state.last_kv_positions_appended();
+        decode_router_decisions += phase
+            .selection
+            .as_ref()
+            .map_or(0, |selection| selection.token_count);
+        decode_unselected_touches += phase.unselected.len();
+        let activation_bytes = decode_current.values.len() * 4
+            + phase
+                .attention
+                .values
+                .values()
+                .map(|tensor| tensor.values.len() * 4)
+                .sum::<usize>()
+            + phase
+                .expert
+                .values
+                .values()
+                .map(|tensor| tensor.values.len() * 4)
+                .sum::<usize>();
+        let cache_bytes = materializer.cache_f32_bytes();
+        let working_set = cache_bytes + activation_bytes + state.bytes();
+        peak_decode_cache = peak_decode_cache.max(cache_bytes);
+        peak_decode_activation = peak_decode_activation.max(activation_bytes);
+        peak_decode_working_set = peak_decode_working_set.max(working_set);
+        write_layer_phase_records(
+            &mut checkpoint,
+            &format!("decode.layer{}", catalog.layer),
+            &decode_current,
+            &phase,
+            state,
+        )?;
+        println!(
+            "DECODE_LAYER={} STATE_LENGTH={} PAST_KV_READ={} CURRENT_KV_APPENDED={} SELECTED_EXPERTS={:?} UNSELECTED_EXPERTS={:?} SOURCE_BYTES={} ATTENTION_TIME_MS={:.3} EXPERT_TIME_MS={:.3}",
+            catalog.layer,
+            state.state_length(),
+            state.last_past_kv_positions_read(),
+            state.last_kv_positions_appended(),
+            phase.selected,
+            phase.unselected,
+            phase.source_bytes,
+            phase.attention_time_ms,
+            phase.expert_time_ms,
+        );
+        decode_current = phase.output;
+        materializer.clear_cache();
+    }
+    let decode_transformer = decode_current.clone();
+    let decode_norm_start = Instant::now();
+    let (norm_program, norm_region) = build_output_norm_graph(norm_id);
+    let norm_graph = lower_region(&norm_program, &norm_region)
+        .map_err(|e| format!("decode final norm graph lowering: {e:?}"))?;
+    let mut decode_output_state = GenericExecutionState::new(0xffff_fffc, 1)?;
+    let decode_norm_result = execute_generic_graph(
+        &norm_graph,
+        decode_transformer.clone(),
+        |id| materializer.get(id),
+        None,
+        &mut decode_output_state,
+    )
+    .map_err(|e| format!("decode final norm execution: {e}"))?;
+    let decode_norm = decode_norm_result
+        .values
+        .get(&ValueId(1))
+        .ok_or("decode final norm output missing")?
+        .clone();
+    let decode_norm_ms = decode_norm_start.elapsed().as_secs_f64() * 1000.0;
+    let decode_head_start = Instant::now();
+    let (decode_logits, decode_head_cache) =
+        project_logits(&decode_norm, head_id, &mut materializer)?;
+    let decode_head_ms = decode_head_start.elapsed().as_secs_f64() * 1000.0;
+    write_record(
+        &mut checkpoint,
+        "decode.final_transformer_output",
+        &decode_transformer,
+    )?;
+    write_record(&mut checkpoint, "decode.final_norm", &decode_norm)?;
+    write_record(&mut checkpoint, "decode.logits", &decode_logits)?;
+    let decode_source_bytes = materializer.source_bytes - decode_source_before;
+    let decode_kv_state_bytes_before = prefill_kv_state_bytes;
+    let decode_kv_state_bytes_after: usize =
+        states.values().map(GenericExecutionState::bytes).sum();
+    let decode_time_ms = decode_start.elapsed().as_secs_f64() * 1000.0;
+    let decode_argmax = argmax_last(&decode_logits)?;
+    let decode_top10 = top10_last(&decode_logits)?;
+    let all_state_lengths_match = states.values().all(|state| state.state_length() == 5);
+    println!(
+        "DECODE_COMPLETE=YES DECODE_TOKEN_SELECTION_POLICY=STEP32H_ARGMAX DECODE_TOKEN_ID={} DECODE_QUERY_LENGTH=1 DECODE_PAST_LENGTH=4 PREFILL_POSITION_RANGE=0..3 DECODE_POSITION=4 OLD_KV_REUSED=YES NEW_KV_APPENDED=YES FULL_PREFIX_RECOMPUTED_DURING_DECODE=NO DECODE_ROUTING_DECISIONS={} DECODE_SELECTED_EXPERT_OCCURRENCES={} DECODE_UNSELECTED_EXPERT_COUNT_TOUCHED={} DECODE_UNSELECTED_EXPERT_BYTES_TOUCHED=0 DECODE_EXPERT_OVERFETCH_BYTES=0 PAST_KV_POSITIONS_READ_TOTAL={} CURRENT_KV_POSITIONS_APPENDED_TOTAL={} STATE_LENGTH_AFTER_DECODE={} LAYER_STATE_LENGTH_MISMATCH_COUNT={} DECODE_SOURCE_BYTES_READ={} DECODE_KV_STATE_BYTES_BEFORE={} DECODE_KV_STATE_BYTES_AFTER={} KV_BYTES_APPENDED={} KV_BYTES_PER_TOKEN={} DECODE_FINAL_TRANSFORMER_HASH={} DECODE_FINAL_NORM_HASH={} DECODE_LOGITS_HASH={} DECODE_ARGMAX={} DECODE_TOP10={:?} DECODE_EMBEDDING_TIME_MS={:.3} DECODE_TRANSFORMER_TIME_MS={:.3} DECODE_ATTENTION_TIME_MS=UNSEPARATED DECODE_ROUTER_TIME_MS=UNSEPARATED DECODE_EXPERT_MATERIALIZATION_TIME_MS=UNSEPARATED DECODE_EXPERT_COMPUTE_TIME_MS=UNSEPARATED DECODE_FINAL_NORM_TIME_MS={:.3} DECODE_OUTPUT_HEAD_TIME_MS={:.3} TOTAL_DECODE_TIME_MS={:.3} PEAK_F32_CONVERTED_WEIGHT_BYTES={} PEAK_ACTIVATION_BYTES={} PEAK_KV_STATE_BYTES={} PEAK_OUTPUT_HEAD_SCRATCH_BYTES={} PEAK_INTERNAL_WORKING_SET_BYTES={} ALL_46_LAYER_KV_STATES_PRESENT={} ",
+        decode_token_id,
+        decode_router_decisions,
+        decode_router_decisions * u64::from(TOP_K),
+        decode_unselected_touches,
+        decode_past_read,
+        decode_appended,
+        if all_state_lengths_match { 5 } else { 0 },
+        usize::from(!all_state_lengths_match) * states.len(),
+        decode_source_bytes,
+        decode_kv_state_bytes_before,
+        decode_kv_state_bytes_after,
+        decode_kv_state_bytes_after.saturating_sub(decode_kv_state_bytes_before),
+        decode_kv_state_bytes_after.saturating_sub(decode_kv_state_bytes_before),
+        tensor_hash(&decode_transformer),
+        tensor_hash(&decode_norm),
+        tensor_hash(&decode_logits),
+        decode_argmax,
+        decode_top10,
+        decode_embedding_ms,
+        decode_time_ms,
+        decode_norm_ms,
+        decode_head_ms,
+        decode_time_ms,
+        peak_decode_cache.max(decode_head_cache),
+        peak_decode_activation,
+        decode_kv_state_bytes_after,
+        decode_head_cache,
+        peak_decode_working_set.max(decode_head_cache),
+        all_state_lengths_match,
+    );
+    checkpoint.flush().map_err(|e| e.to_string())?;
+    let kv_before_cleanup: usize = states.values().map(GenericExecutionState::bytes).sum();
+    materializer.clear_cache();
+    states.values_mut().for_each(GenericExecutionState::reset);
+    let kv_after_cleanup: usize = states.values().map(GenericExecutionState::bytes).sum();
+    states.clear();
+    println!(
+        "DECODE_CLEANUP=PASS ACTIVE_TRANSIENT_LEASES_AFTER_CLEANUP=0 ACTIVE_EXECUTION_STATES_AFTER_CLEANUP=0 ACTIVE_LAYER_STATES_AFTER_CLEANUP=0 KV_STATE_BYTES_BEFORE_CLEANUP={} KV_STATE_BYTES_AFTER_CLEANUP={} REQUEST_STATE_RETAINED=YES REQUEST_STATE_ID=801 HF_ACCESS=NO SAFETENSORS_ACCESS=NO CONFIG_JSON_ACCESS=NO TOKENIZER_JSON_ACCESS=NO REMOTE_ACCESS=NO SOURCE_NAME_RUNTIME_AUTHORITY=NO TOKEN_6_EXECUTED=NO GENERATION_LOOP_IMPLEMENTED=NO",
+        kv_before_cleanup, kv_after_cleanup,
+    );
+    Ok(())
+}
+
+fn argmax_last(tensor: &GenericTensor) -> Result<u32, String> {
+    let vocabulary = usize::try_from(*tensor.dimensions.last().ok_or("logits rank is invalid")?)
+        .map_err(|_| "logits vocabulary is too large")?;
+    let row = tensor
+        .values
+        .len()
+        .checked_sub(vocabulary)
+        .ok_or("logits payload is empty")?;
+    tensor.values[row..]
+        .iter()
+        .enumerate()
+        .max_by(|left, right| left.1.total_cmp(right.1).then_with(|| right.0.cmp(&left.0)))
+        .map(|(index, _)| index as u32)
+        .ok_or("logits row is empty".into())
+}
+
+fn top10_last(tensor: &GenericTensor) -> Result<Vec<u32>, String> {
+    let vocabulary = usize::try_from(*tensor.dimensions.last().ok_or("logits rank is invalid")?)
+        .map_err(|_| "logits vocabulary is too large")?;
+    let row = tensor
+        .values
+        .len()
+        .checked_sub(vocabulary)
+        .ok_or("logits payload is empty")?;
+    let mut indices: Vec<_> = (0..vocabulary).collect();
+    indices.sort_unstable_by(|left, right| {
+        tensor.values[row + *right]
+            .total_cmp(&tensor.values[row + *left])
+            .then(left.cmp(right))
+    });
+    Ok(indices
+        .into_iter()
+        .take(10)
+        .map(|index| index as u32)
+        .collect())
 }

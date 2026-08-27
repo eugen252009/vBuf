@@ -1,4 +1,4 @@
-"""Independent bounded GLM-4.5-Air reference for Step 32G checkpoints."""
+"""Independent bounded GLM-4.5-Air reference for Step 32G/32I checkpoints."""
 
 import gc
 import hashlib
@@ -155,10 +155,12 @@ def apply_rope(value, heads):
     return result
 
 
-def attention(q, k, v):
-    q, k = apply_rope(q, 96), apply_rope(k, 8)
+def attention(q, k, v, rotated=False):
+    if not rotated:
+        q, k = apply_rope(q, 96), apply_rope(k, 8)
     result = np.empty_like(q)
-    for position in range(4):
+    sequence = q.shape[1]
+    for position in range(sequence):
         for head in range(96):
             kv_head = head // 12
             scores = np.empty(position + 1, dtype=np.float32)
@@ -178,23 +180,27 @@ def attention(q, k, v):
 
 
 def layer(reader, tensors, experts, layer_id, value):
+    sequence = value.shape[1]
     if layer_id == 0:
         base = 2
         normalized = rms(value, reader.get(0, base))
         q = linear(normalized, reader.get(0, base + 14)) + reader.get(0, base + 13)
         k = linear(normalized, reader.get(0, base + 9)) + reader.get(0, base + 8)
         v = linear(normalized, reader.get(0, base + 17)) + reader.get(0, base + 16)
-        attended = attention(
-            q.reshape(1, 4, 96, 128),
-            k.reshape(1, 4, 8, 128),
-            v.reshape(1, 4, 8, 128),
-        ).reshape(1, 4, 12288)
+        q_heads = apply_rope(q.reshape(1, sequence, 96, 128), 96)
+        k_heads = apply_rope(k.reshape(1, sequence, 8, 128), 8)
+        v_heads = v.reshape(1, sequence, 8, 128)
+        attended = attention(q_heads, k_heads, v_heads, rotated=True).reshape(1, sequence, 12288)
         residual = value + linear(attended, reader.get(0, base + 11))
         normalized = rms(residual, reader.get(0, base + 7))
         gate = linear(normalized, reader.get(0, base + 3))
         up = linear(normalized, reader.get(0, base + 5))
         output = residual + linear(gate / (1 + np.exp(-gate)) * up, reader.get(0, base + 1))
-        return output, None, {"post_attention_residual": residual}
+        return output, None, {
+            "kv_key": k_heads,
+            "kv_value": v_heads,
+            "post_attention_residual": residual,
+        }
 
     ids = [ident for pair in experts[layer_id].values() for ident in pair if ident != 0]
     post_norm = max(ids) + 1
@@ -202,11 +208,10 @@ def layer(reader, tensors, experts, layer_id, value):
     q = linear(normalized, reader.get(layer_id, post_norm + 7)) + reader.get(layer_id, post_norm + 6)
     k = linear(normalized, reader.get(layer_id, post_norm + 2)) + reader.get(layer_id, post_norm + 1)
     v = linear(normalized, reader.get(layer_id, post_norm + 10)) + reader.get(layer_id, post_norm + 9)
-    attended = attention(
-        q.reshape(1, 4, 96, 128),
-        k.reshape(1, 4, 8, 128),
-        v.reshape(1, 4, 8, 128),
-    ).reshape(1, 4, 12288)
+    q_heads = apply_rope(q.reshape(1, sequence, 96, 128), 96)
+    k_heads = apply_rope(k.reshape(1, sequence, 8, 128), 8)
+    v_heads = v.reshape(1, sequence, 8, 128)
+    attended = attention(q_heads, k_heads, v_heads, rotated=True).reshape(1, sequence, 12288)
     residual = value + linear(attended, reader.get(layer_id, post_norm + 4))
     normalized = rms(residual, reader.get(layer_id, post_norm))
     shared_key = 2**32 - 1
@@ -216,7 +221,7 @@ def layer(reader, tensors, experts, layer_id, value):
     selections = []
     for row in corrected.reshape(-1, corrected.shape[-1]):
         selections.extend(np.argsort(-row, kind="stable")[:8].tolist())
-    selections = np.asarray(selections, dtype=np.int64).reshape(4, 8)
+    selections = np.asarray(selections, dtype=np.int64).reshape(sequence, 8)
     routed = np.zeros_like(normalized)
     expert_stages = {}
     for expert in sorted(set(selections.reshape(-1).tolist())):
@@ -227,7 +232,7 @@ def layer(reader, tensors, experts, layer_id, value):
         up = linear(normalized, reader.get(layer_id, up_id))
         expert_value = linear(gate / (1 + np.exp(-gate)) * up, reader.get(layer_id, down_id))
         dispatched = np.zeros_like(expert_value)
-        for token in range(4):
+        for token in range(sequence):
             for rank in range(8):
                 if selections[token, rank] == expert:
                     denominator = np.sum(scores[0, token, selections[token]], dtype=np.float32)
@@ -240,6 +245,8 @@ def layer(reader, tensors, experts, layer_id, value):
     shared_multiply = shared_gate / (1 + np.exp(-shared_gate)) * shared_up
     shared = linear(shared_multiply, shared_down)
     return residual + routed + shared, selections, {
+        "kv_key": k_heads,
+        "kv_value": v_heads,
         "post_attention_residual": residual,
         "router_input": normalized,
         "router_raw": raw,
@@ -257,19 +264,28 @@ def layer(reader, tensors, experts, layer_id, value):
 def main():
     manifest_path, payload_path, checkpoint_path = sys.argv[1:4]
     depth = int(sys.argv[4]) if len(sys.argv) > 4 else 46
-    real_input = len(sys.argv) > 5 and sys.argv[5] == "real"
+    input_mode = sys.argv[5] if len(sys.argv) > 5 else "synthetic"
+    real_input = input_mode == "real"
+    decode_input = input_mode == "decode"
     qualification_text = sys.argv[6] if len(sys.argv) > 6 else "Test"
     tensors, experts, outputs = read_manifest(manifest_path)
     actual = read_records(checkpoint_path)
     reader = Reader(payload_path, tensors, outputs)
-    if real_input:
-        token_ids = actual["input_token_ids"].astype(np.int64).reshape(-1)
+    if real_input or decode_input:
+        prefill_token_ids = actual["prefill.input_token_ids" if decode_input else "input_token_ids"].astype(np.int64).reshape(-1)
         expected_token_ids = np.asarray([51, 68, 82, 83], dtype=np.int64)
-        token_ids_pass = np.array_equal(token_ids, expected_token_ids)
+        token_ids_pass = np.array_equal(prefill_token_ids, expected_token_ids)
         if not token_ids_pass:
-            raise AssertionError(f"token ID reference mismatch: {token_ids.tolist()}")
+            raise AssertionError(f"token ID reference mismatch: {prefill_token_ids.tolist()}")
+        token_ids = np.concatenate((prefill_token_ids, [220])) if decode_input else prefill_token_ids
         value = reader.bf16_rows("embedding", token_ids)
-        embedding_delta = np.abs(value - actual["input_embedding"])
+        embedding_key = "input_embedding" if real_input else "prefill.input_embedding"
+        embedding_delta = np.abs(value[:, :4] - actual[embedding_key]) if decode_input else np.abs(value - actual[embedding_key])
+        decode_embedding_delta = (
+            np.abs(value[:, 4:] - actual["decode.input_embedding"])
+            if decode_input
+            else np.empty(0, dtype=np.float32)
+        )
         print(f"real_text={qualification_text!r}")
         print(f"raw_text_utf8_bytes={len(qualification_text.encode('utf-8'))}")
         print(f"raw_text_sha256={hashlib.sha256(qualification_text.encode('utf-8')).hexdigest()}")
@@ -279,8 +295,11 @@ def main():
         print("persisted_tokenizer_reference=captured-independent-fixture")
         print(f"token_ids_reference_pass={token_ids_pass}")
         print(f"embedding_max_abs={np.max(embedding_delta):.8e}")
-        print(f"embedding_max_rel={np.max(embedding_delta / np.maximum(np.abs(actual['input_embedding']), 1e-20)):.8e}")
+        print(f"embedding_max_rel={np.max(embedding_delta / np.maximum(np.abs(actual[embedding_key]), 1e-20)):.8e}")
         print(f"embedding_reference_pass={np.max(embedding_delta) == 0.0}")
+        if decode_input:
+            print(f"decode_embedding_max_abs={np.max(decode_embedding_delta):.8e}")
+            print(f"decode_embedding_reference_pass={np.max(decode_embedding_delta) == 0.0}")
     else:
         value = np.empty((1, 4, 4096), dtype=np.float32)
         for index in range(value.size):
@@ -288,18 +307,25 @@ def main():
             value.reshape(-1)[index] = np.sin(x * np.float32(0.00017)) * np.float32(0.05) + np.cos(x * np.float32(0.000031)) * np.float32(0.01)
     max_abs = max_rel = 0.0
     routing_mismatches = 0
+    actual_prefix = "decode." if decode_input else ""
     for layer_id in range(depth):
         value, selections, stages = layer(reader, tensors, experts, layer_id, value)
-        output = actual[f"layer{layer_id}.output"]
+        output = actual[f"{actual_prefix}layer{layer_id}.output"]
+        expected_value = value[:, -1:] if decode_input else value
         delta = np.abs(value - output)
+        if decode_input:
+            delta = np.abs(expected_value - output)
         max_abs = max(max_abs, float(np.max(delta)))
         max_rel = max(max_rel, float(np.max(delta / np.maximum(np.abs(output), 1e-20))))
         if selections is not None:
-            expected = actual[f"layer{layer_id}.selection_ids"].astype(np.int64)
-            routing_mismatches += int(np.count_nonzero(expected != selections.reshape(1, 4, 8)))
+            expected = actual[f"{actual_prefix}layer{layer_id}.selection_ids"].astype(np.int64)
+            reference_selection = selections[None, -1:] if decode_input else selections
+            routing_mismatches += int(np.count_nonzero(expected != reference_selection.reshape(expected.shape)))
         for name, reference in stages.items():
-            expected_stage = actual.get(f"layer{layer_id}.{name}")
+            expected_stage = actual.get(f"{actual_prefix}layer{layer_id}.{name}")
             if expected_stage is not None:
+                if decode_input and name not in {"kv_key", "kv_value"}:
+                    reference = reference[:, -1:]
                 stage_delta = np.abs(reference - expected_stage)
                 print(
                     f"layer={layer_id} stage={name} max_abs={np.max(stage_delta):.8e}",
@@ -309,14 +335,19 @@ def main():
         gc.collect()
     final_norm = rms(value, reader.output("final_norm"))
     logits = linear(final_norm, reader.output("lm_head"))
-    norm_delta = np.abs(final_norm - actual["final_norm"])
-    logit_delta = np.abs(logits - actual["logits"])
+    actual_norm = actual["decode.final_norm"] if decode_input else actual["final_norm"]
+    actual_logits = actual["decode.logits"] if decode_input else actual["logits"]
+    if decode_input:
+        final_norm = final_norm[:, -1:]
+        logits = logits[:, -1:]
+    norm_delta = np.abs(final_norm - actual_norm)
+    logit_delta = np.abs(logits - actual_logits)
     print(f"routing_mismatches={routing_mismatches}")
     print(f"transformer_max_abs={max_abs:.8e} transformer_max_rel={max_rel:.8e}")
-    print(f"final_norm_max_abs={np.max(norm_delta):.8e} final_norm_max_rel={np.max(norm_delta / np.maximum(np.abs(actual['final_norm']), 1e-20)):.8e}")
-    print(f"logits_max_abs={np.max(logit_delta):.8e} logits_max_rel={np.max(logit_delta / np.maximum(np.abs(actual['logits']), 1e-20)):.8e}")
+    print(f"final_norm_max_abs={np.max(norm_delta):.8e} final_norm_max_rel={np.max(norm_delta / np.maximum(np.abs(actual_norm), 1e-20)):.8e}")
+    print(f"logits_max_abs={np.max(logit_delta):.8e} logits_max_rel={np.max(logit_delta / np.maximum(np.abs(actual_logits), 1e-20)):.8e}")
     generic = np.argsort(-logits[0, -1])[:10]
-    reference = np.argsort(-actual["logits"][0, -1])[:10]
+    reference = np.argsort(-actual_logits[0, -1])[:10]
     print(f"generic_argmax={int(generic[0])} reference_argmax={int(reference[0])}")
     print(f"generic_top5={generic[:5].tolist()} reference_top5={reference[:5].tolist()}")
     print(f"generic_top10={generic.tolist()} reference_top10={reference.tolist()}")

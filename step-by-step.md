@@ -2992,6 +2992,28 @@ semantics were not changed. Evidence:
 
 This remains portable generic F32 qualification, not canonical GGML parity.
 
+#### Step 32I - RETAINED-KV ONE-TOKEN DECODE
+
+**Status: REAL RETAINED-KV ONE-TOKEN DECODE QUALIFIED THROUGH ALL 46 LAYERS.
+REPEATED GENERATION, DEVICE EXECUTION, AND GGML PARITY REMAIN OPEN.**
+
+The runtime now retains one request-local checked KV state per layer after the
+real-text `Test` prefill `[51,68,82,83]`, then executes exactly one incremental
+decode for token `220`. The decode uses query length `1`, past length `4`,
+position `4`, and capacity `5`; every layer reads four prior positions and
+appends one, reaching state length `5`. No prefix recomputation, token 6, or
+generation loop is executed.
+
+The independent five-token causal reference reports zero routing membership
+mismatches and matches the production decode argmax `16` and top-10 ordering
+`[16,17,18,19,20,21,22,23,98668,24]`. Maximum absolute differences are
+`2.44140625e-04` for the transformer output, `1.02996826e-04` for final norm,
+and `4.76837158e-05` for logits. Cleanup returns KV state bytes and active
+state/lease counts to zero. Evidence:
+`research/results/vbuf-ml-integration/step32i-retained-kv-one-token-decode.md`.
+
+This remains portable generic F32 qualification, not canonical GGML parity.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced
