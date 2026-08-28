@@ -35,6 +35,22 @@ struct CudaTensor {
     _private: [u8; 0],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CudaAllocationInfo {
+    pub live_tensor_bytes: u64,
+    pub peak_tensor_bytes: u64,
+    pub peak_total_bytes: u64,
+    pub live_tensor_count: u64,
+    pub live_weight_bytes: u64,
+    pub peak_weight_bytes: u64,
+    pub live_activation_bytes: u64,
+    pub peak_activation_bytes: u64,
+    pub live_scratch_bytes: u64,
+    pub peak_scratch_bytes: u64,
+    pub minimum_free_bytes: u64,
+}
+
 unsafe extern "C" {
     fn vbuf_cuda_device_count() -> c_int;
     fn vbuf_cuda_device_info(index: c_int, info: *mut CudaDeviceInfo) -> c_int;
@@ -45,6 +61,7 @@ unsafe extern "C" {
         free_bytes: *mut u64,
         total_bytes: *mut u64,
     ) -> c_int;
+    fn vbuf_cuda_context_stats(context: *mut CudaContext, info: *mut CudaAllocationInfo) -> c_int;
     fn vbuf_cuda_context_create(index: c_int, result: *mut *mut CudaContext) -> c_int;
     fn vbuf_cuda_context_destroy(context: *mut CudaContext) -> c_int;
     fn vbuf_cuda_tensor_destroy(tensor: *mut CudaTensor) -> c_int;
@@ -54,6 +71,7 @@ unsafe extern "C" {
         count: u64,
         rank: c_int,
         dimensions: *const u64,
+        kind: c_int,
         result: *mut *mut CudaTensor,
     ) -> c_int;
     fn vbuf_cuda_tensor_download(tensor: *mut CudaTensor, values: *mut f32, count: u64) -> c_int;
@@ -162,6 +180,8 @@ pub struct CudaTelemetry {
     pub cpu_fallback_ops: u64,
     pub host_to_device_bytes: u64,
     pub device_to_host_bytes: u64,
+    pub weight_host_to_device_bytes: u64,
+    pub activation_host_to_device_bytes: u64,
     pub control_to_device_bytes: u64,
     pub control_to_host_bytes: u64,
     pub persistent_bytes_read: u64,
@@ -178,6 +198,8 @@ impl Default for CudaTelemetry {
             cpu_fallback_ops: 0,
             host_to_device_bytes: 0,
             device_to_host_bytes: 0,
+            weight_host_to_device_bytes: 0,
+            activation_host_to_device_bytes: 0,
             control_to_device_bytes: 0,
             control_to_host_bytes: 0,
             persistent_bytes_read: 0,
@@ -293,6 +315,15 @@ impl CudaBackend {
         Ok((free, total))
     }
 
+    pub fn allocation_info(&self) -> Result<CudaAllocationInfo, String> {
+        let mut info = CudaAllocationInfo::default();
+        // SAFETY: info is a valid writable output buffer owned by this call.
+        unsafe {
+            check(vbuf_cuda_context_stats(self.context.as_ptr(), &mut info))?;
+        }
+        Ok(info)
+    }
+
     pub fn record_weight_bytes(&self, bytes: u64) {
         let mut telemetry = self.telemetry.lock().expect("CUDA telemetry lock");
         telemetry.device_weight_peak_bytes = telemetry.device_weight_peak_bytes.max(bytes);
@@ -310,6 +341,16 @@ impl CudaBackend {
             telemetry.host_to_device_bytes += bytes;
         } else {
             telemetry.device_to_host_bytes += bytes;
+        }
+    }
+
+    fn record_upload(&self, bytes: u64, weight: bool) {
+        let mut telemetry = self.telemetry.lock().expect("CUDA telemetry lock");
+        telemetry.host_to_device_bytes += bytes;
+        if weight {
+            telemetry.weight_host_to_device_bytes += bytes;
+        } else {
+            telemetry.activation_host_to_device_bytes += bytes;
         }
     }
 
@@ -593,6 +634,46 @@ impl CudaBackend {
         self.record_transfer(false, (count * 4) as u64);
         Ok(output)
     }
+
+    fn upload_kind(
+        &self,
+        values: &[f32],
+        dimensions: &[u64],
+        kind: c_int,
+        weight: bool,
+    ) -> Result<DeviceTensor, String> {
+        let count = dimensions.iter().try_fold(1u64, |value, dimension| {
+            value
+                .checked_mul(*dimension)
+                .ok_or("tensor shape overflows")
+        })?;
+        if count as usize != values.len() {
+            return Err("CUDA upload shape does not match values".into());
+        }
+        let mut raw = std::ptr::null_mut();
+        let status = unsafe {
+            vbuf_cuda_tensor_upload(
+                self.context.as_ptr(),
+                values.as_ptr(),
+                count,
+                dimensions.len() as c_int,
+                dimensions.as_ptr(),
+                kind,
+                &mut raw,
+            )
+        };
+        check(status)?;
+        self.record_upload(count * 4, weight);
+        self.wrap(raw, dimensions.to_vec())
+    }
+
+    pub fn upload_weight_f32(
+        &self,
+        values: &[f32],
+        dimensions: &[u64],
+    ) -> Result<DeviceTensor, String> {
+        self.upload_kind(values, dimensions, 1, true)
+    }
 }
 
 impl DeviceBackend for CudaBackend {
@@ -611,28 +692,7 @@ impl DeviceBackend for CudaBackend {
     }
 
     fn upload_f32(&self, values: &[f32], dimensions: &[u64]) -> Result<DeviceTensor, String> {
-        let count = dimensions.iter().try_fold(1u64, |value, dimension| {
-            value
-                .checked_mul(*dimension)
-                .ok_or("tensor shape overflows")
-        })?;
-        if count as usize != values.len() {
-            return Err("CUDA upload shape does not match values".into());
-        }
-        let mut raw = std::ptr::null_mut();
-        let status = unsafe {
-            vbuf_cuda_tensor_upload(
-                self.context.as_ptr(),
-                values.as_ptr(),
-                count,
-                dimensions.len() as c_int,
-                dimensions.as_ptr(),
-                &mut raw,
-            )
-        };
-        check(status)?;
-        self.record_transfer(true, count * 4);
-        self.wrap(raw, dimensions.to_vec())
+        self.upload_kind(values, dimensions, 0, false)
     }
 
     fn download_f32(&self, tensor: &DeviceTensor) -> Result<Vec<f32>, String> {

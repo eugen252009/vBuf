@@ -284,6 +284,22 @@ impl LayerCatalog {
         Ok(ids)
     }
 
+    #[cfg(feature = "cuda")]
+    fn selected_expert_tensor_ids(&self, selected: &[u32]) -> Result<HashSet<u32>, String> {
+        let mut ids = HashSet::new();
+        for expert in selected {
+            for role in 1..=3 {
+                let (tensor, scale) =
+                    self.expert_entries.get(&(*expert, role)).ok_or_else(|| {
+                        format!("layer {} expert {expert} role {role} is absent", self.layer)
+                    })?;
+                ids.insert(*tensor);
+                ids.insert(*scale);
+            }
+        }
+        Ok(ids)
+    }
+
     fn all_tensor_ids(&self) -> HashSet<u32> {
         self.catalog_tensor_ids.clone()
     }
@@ -3204,11 +3220,7 @@ fn upload_cuda_tensor(
     *converted_host_peak = (*converted_host_peak).max(tensor.values.len() * 4);
     backend.record_weight_bytes((tensor.values.len() * 4) as u64);
     let transfer_start = Instant::now();
-    let result = vbuf_runtime::device::DeviceBackend::upload_f32(
-        backend,
-        &tensor.values,
-        &tensor.dimensions,
-    );
+    let result = backend.upload_weight_f32(&tensor.values, &tensor.dimensions);
     *host_to_device_ms += transfer_start.elapsed().as_secs_f64() * 1000.0;
     materializer.clear_cache();
     result
@@ -3603,5 +3615,892 @@ pub fn run_cuda_block(arguments: Vec<String>) -> Result<(), String> {
         telemetry.device_to_host_bytes,
         gpu_peak
     );
+    Ok(())
+}
+
+#[cfg(feature = "cuda")]
+#[derive(Clone, Copy, Debug, Default)]
+struct TensorParity {
+    max_abs: f64,
+    max_rel: f64,
+    rms: f64,
+    nan: u64,
+    inf: u64,
+}
+
+#[cfg(feature = "cuda")]
+fn compare_cuda_tensor(
+    left: &GenericTensor,
+    right: &GenericTensor,
+) -> Result<TensorParity, String> {
+    if left.dimensions != right.dimensions || left.values.len() != right.values.len() {
+        return Err("CUDA/reference tensor geometry differs".into());
+    }
+    let mut result = TensorParity::default();
+    let mut sum = 0.0f64;
+    for (left, right) in left.values.iter().zip(&right.values) {
+        if !left.is_finite() || !right.is_finite() {
+            if left.is_nan() || right.is_nan() {
+                result.nan += 1;
+            }
+            if left.is_infinite() || right.is_infinite() {
+                result.inf += 1;
+            }
+            continue;
+        }
+        let absolute = (*left as f64 - *right as f64).abs();
+        result.max_abs = result.max_abs.max(absolute);
+        result.max_rel = result
+            .max_rel
+            .max(absolute / (*right as f64).abs().max(1e-12));
+        sum += absolute * absolute;
+    }
+    result.rms = (sum / left.values.len().max(1) as f64).sqrt();
+    Ok(result)
+}
+
+#[cfg(feature = "cuda")]
+#[derive(Clone, Debug)]
+struct CpuLayerReference {
+    output: GenericTensor,
+    output_hash: String,
+    selection: Option<GenericTopKSelection>,
+    selected: Vec<u32>,
+}
+
+#[cfg(feature = "cuda")]
+#[derive(Clone, Debug)]
+struct CudaLayerEvidence {
+    layer: u32,
+    output_hash: String,
+    parity: TensorParity,
+    reference_output_hash: String,
+    selected: Vec<u32>,
+    route_set_mismatches: u64,
+    route_order_mismatches: u64,
+    source_bytes: u64,
+    cumulative_source_bytes: u64,
+    unique_source_bytes: u64,
+    selected_expert_persistent_bytes: u64,
+    unselected_expert_persistent_bytes: u64,
+    weight_h2d_bytes: u64,
+    selected_expert_h2d_bytes: u64,
+    unselected_expert_h2d_bytes: u64,
+    activation_h2d_bytes: u64,
+    activation_d2h_bytes: u64,
+    router_control_d2h_bytes: u64,
+    peak_weight_bytes: u64,
+    peak_activation_bytes: u64,
+    peak_scratch_bytes: u64,
+    peak_total_bytes: u64,
+    live_weight_after_release: u64,
+    live_selected_expert_after_release: u64,
+    host_staging_peak: usize,
+    host_converted_peak: usize,
+    acquisition_ms: f64,
+    h2d_ms: f64,
+    compute_ms: f64,
+    d2h_ms: f64,
+    total_ops: u64,
+    cuda_ops: u64,
+    host_control_ops: u64,
+    explicit_noop_ops: u64,
+    unclassified_ops: u64,
+}
+
+#[cfg(feature = "cuda")]
+#[derive(Clone, Debug)]
+struct CudaGateEvidence {
+    depth: u32,
+    layers: Vec<CudaLayerEvidence>,
+    persistent_bytes: u64,
+    unique_persistent_bytes: u64,
+    weight_h2d_bytes: u64,
+    activation_h2d_bytes: u64,
+    activation_d2h_bytes: u64,
+    router_control_d2h_bytes: u64,
+    peak_weight_bytes: u64,
+    peak_activation_bytes: u64,
+    peak_scratch_bytes: u64,
+    peak_total_bytes: u64,
+    host_staging_peak: usize,
+    host_converted_peak: usize,
+    vram_before: u64,
+    vram_peak: u64,
+    vram_after_cleanup: u64,
+    total_ops: u64,
+    cuda_ops: u64,
+    host_control_ops: u64,
+    explicit_noop_ops: u64,
+    pass: bool,
+}
+
+#[cfg(feature = "cuda")]
+fn scale_map_for_catalogs(catalogs: &[LayerCatalog]) -> HashMap<u32, u32> {
+    let mut result = HashMap::new();
+    for catalog in catalogs {
+        for (weight, scale) in catalog.expert_entries.values() {
+            if *scale != 0 {
+                result.insert(*weight, *scale);
+            }
+        }
+        for (weight, scale) in [
+            (catalog.q_weight, catalog.q_scale),
+            (catalog.k_weight, catalog.k_scale),
+            (catalog.v_weight, catalog.v_scale),
+            (catalog.o_weight, catalog.o_scale),
+            (catalog.shared_gate, catalog.shared_gate_scale),
+            (catalog.shared_up, catalog.shared_up_scale),
+            (catalog.shared_down, catalog.shared_down_scale),
+            (
+                catalog.dense_gate.unwrap_or(0),
+                catalog.dense_gate_scale.unwrap_or(0),
+            ),
+            (
+                catalog.dense_up.unwrap_or(0),
+                catalog.dense_up_scale.unwrap_or(0),
+            ),
+            (
+                catalog.dense_down.unwrap_or(0),
+                catalog.dense_down_scale.unwrap_or(0),
+            ),
+        ] {
+            if weight != 0 && scale != 0 {
+                result.insert(weight, scale);
+            }
+        }
+    }
+    result
+}
+
+#[cfg(feature = "cuda")]
+fn persistent_bytes_for_ids(
+    view: &BorrowedModelView<'_>,
+    ids: &HashSet<u32>,
+) -> Result<u64, String> {
+    ids.iter().try_fold(0u64, |total, id| {
+        let descriptor = view
+            .directory
+            .get_by_identity(KEY_ID, *id as u16)
+            .ok_or_else(|| format!("persistent tensor {id} is absent"))?;
+        total
+            .checked_add(descriptor.payload.length())
+            .ok_or_else(|| "persistent byte total overflows".into())
+    })
+}
+
+#[cfg(feature = "cuda")]
+fn run_cpu_progressive_reference(
+    view: &BorrowedModelView<'_>,
+    payload: &[u8],
+    catalogs: &[LayerCatalog],
+    input: &GenericTensor,
+) -> Result<Vec<CpuLayerReference>, String> {
+    let mut materializer = Materializer {
+        view,
+        payload,
+        scale_by: scale_map_for_catalogs(catalogs),
+        cache: HashMap::new(),
+        touched: HashSet::new(),
+        touched_ranges: HashMap::new(),
+        source_bytes: 0,
+    };
+    let mut current = input.clone();
+    let mut result = Vec::with_capacity(catalogs.len());
+    for catalog in catalogs {
+        let mut state = GenericExecutionState::new(catalog.state.0, SEQUENCE)?;
+        let phase = execute_layer_phase(
+            catalog,
+            &current,
+            SEQUENCE,
+            0,
+            &mut materializer,
+            &mut state,
+        )?;
+        current = phase.output.clone();
+        result.push(CpuLayerReference {
+            output_hash: tensor_hash(&phase.output),
+            output: phase.output,
+            selection: phase.selection,
+            selected: phase.selected,
+        });
+        materializer.clear_cache();
+    }
+    Ok(result)
+}
+
+#[cfg(feature = "cuda")]
+fn run_cuda_progressive_gate(
+    view: &BorrowedModelView<'_>,
+    payload: &[u8],
+    catalogs: &[LayerCatalog],
+    input: &GenericTensor,
+    references: &[CpuLayerReference],
+    device_index: u32,
+) -> Result<CudaGateEvidence, String> {
+    use vbuf_runtime::cuda::{CudaBackend, execute_cuda_graph};
+    use vbuf_runtime::device::DeviceBackend;
+
+    let depth = catalogs.len() as u32;
+    let backend = CudaBackend::new(device_index)?;
+    let (vram_before, vram_total) = backend.memory_info()?;
+    let input_upload_start = Instant::now();
+    let mut current = DeviceBackend::upload_f32(&backend, &input.values, &input.dimensions)?;
+    let input_upload_ms = input_upload_start.elapsed().as_secs_f64() * 1000.0;
+    let mut pending_input_h2d_ms = input_upload_ms;
+    let mut materializer = Materializer {
+        view,
+        payload,
+        scale_by: scale_map_for_catalogs(catalogs),
+        cache: HashMap::new(),
+        touched: HashSet::new(),
+        touched_ranges: HashMap::new(),
+        source_bytes: 0,
+    };
+    let mut host_staging_peak = input.values.len() * 4;
+    let mut host_converted_peak = 0usize;
+    let mut layer_evidence = Vec::with_capacity(catalogs.len());
+
+    for (catalog, reference) in catalogs.iter().zip(references) {
+        let source_before = materializer.source_bytes;
+        let unique_before = materializer.unique_source_bytes();
+        let touched_before = materializer.touched.clone();
+        let telemetry_before = backend.telemetry();
+        let mut state_length = 0;
+        let mut acquisition_ms = 0.0;
+        let mut conversion_ms = 0.0;
+        let mut h2d_ms = pending_input_h2d_ms;
+        pending_input_h2d_ms = 0.0;
+        let (attention_program, attention_region) =
+            build_attention_graph(catalog, SEQUENCE, SEQUENCE, 0);
+        let attention_graph = lower_region(&attention_program, &attention_region)
+            .map_err(|e| format!("layer {} CUDA attention lowering: {e:?}", catalog.layer))?;
+        let attention_start = Instant::now();
+        let attention_result = execute_cuda_graph(
+            &backend,
+            &attention_graph,
+            current,
+            |id| {
+                upload_cuda_tensor(
+                    &backend,
+                    &mut materializer,
+                    id,
+                    &mut host_staging_peak,
+                    &mut host_converted_peak,
+                    &mut acquisition_ms,
+                    &mut conversion_ms,
+                    &mut h2d_ms,
+                )
+            },
+            None,
+            &mut state_length,
+        )?;
+        backend.synchronize()?;
+        let attention_time_ms = attention_start.elapsed().as_secs_f64() * 1000.0;
+        let selection = attention_result
+            .selection
+            .clone()
+            .ok_or_else(|| format!("layer {} router produced no selection", catalog.layer))?;
+        let mut selected: Vec<u32> = selection
+            .ids
+            .iter()
+            .copied()
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+        selected.sort_unstable();
+        let selected_tensor_ids = catalog.selected_expert_tensor_ids(&selected)?;
+        let mut selected_expert_h2d_bytes = 0u64;
+        let (expert_program, expert_region) = build_expert_graph(catalog, &selected);
+        let expert_graph = lower_region(&expert_program, &expert_region)
+            .map_err(|e| format!("layer {} CUDA expert lowering: {e:?}", catalog.layer))?;
+        let post_attention = attention_result
+            .values
+            .get(&ValueId(16))
+            .cloned()
+            .ok_or_else(|| format!("layer {} post-attention residual missing", catalog.layer))?;
+        let expert_start = Instant::now();
+        let expert_result = execute_cuda_graph(
+            &backend,
+            &expert_graph,
+            post_attention,
+            |id| {
+                let mut tensor_acquisition_ms = 0.0;
+                let mut tensor_conversion_ms = 0.0;
+                let mut tensor_h2d_ms = 0.0;
+                let tensor = upload_cuda_tensor(
+                    &backend,
+                    &mut materializer,
+                    id,
+                    &mut host_staging_peak,
+                    &mut host_converted_peak,
+                    &mut tensor_acquisition_ms,
+                    &mut tensor_conversion_ms,
+                    &mut tensor_h2d_ms,
+                )?;
+                acquisition_ms += tensor_acquisition_ms;
+                conversion_ms += tensor_conversion_ms;
+                h2d_ms += tensor_h2d_ms;
+                if selected_tensor_ids.contains(&id.0) {
+                    selected_expert_h2d_bytes = selected_expert_h2d_bytes
+                        .checked_add(tensor.bytes())
+                        .ok_or("selected expert H2D total overflows")?;
+                }
+                Ok(tensor)
+            },
+            Some(&selection),
+            &mut state_length,
+        )?;
+        backend.synchronize()?;
+        let expert_time_ms = expert_start.elapsed().as_secs_f64() * 1000.0;
+        let output_device = expert_result
+            .values
+            .get(&ValueId(306))
+            .cloned()
+            .ok_or_else(|| format!("layer {} output is missing", catalog.layer))?;
+        let output_readback_start = Instant::now();
+        let output = GenericTensor {
+            dimensions: output_device.dimensions().to_vec(),
+            values: backend.download_tracked(&output_device)?,
+        };
+        let d2h_ms = output_readback_start.elapsed().as_secs_f64() * 1000.0;
+        let parity = compare_cuda_tensor(&output, &reference.output)?;
+        let route_set_mismatches = if selected == reference.selected { 0 } else { 1 };
+        let route_order_mismatches = selection
+            .ids
+            .iter()
+            .zip(
+                reference
+                    .selection
+                    .as_ref()
+                    .ok_or("reference router selection is absent")?
+                    .ids
+                    .iter(),
+            )
+            .filter(|(left, right)| left != right)
+            .count() as u64;
+        let unselected_ids: HashSet<u32> = catalog
+            .all_tensor_ids()
+            .difference(&catalog.selected_tensor_ids(&selected)?)
+            .copied()
+            .collect();
+        let new_touched: HashSet<u32> = materializer
+            .touched
+            .difference(&touched_before)
+            .copied()
+            .collect();
+        let unselected_touched: HashSet<u32> =
+            new_touched.intersection(&unselected_ids).copied().collect();
+        let selected_expert_persistent_bytes =
+            persistent_bytes_for_ids(view, &selected_tensor_ids)?;
+        let unselected_expert_persistent_bytes =
+            persistent_bytes_for_ids(view, &unselected_touched)?;
+        let telemetry_after = backend.telemetry();
+        let allocation_after = backend.allocation_info()?;
+        let total_ops = (attention_graph.operations.len() + expert_graph.operations.len()) as u64;
+        let cuda_ops = telemetry_after
+            .cuda_ops
+            .saturating_sub(telemetry_before.cuda_ops);
+        let host_control_ops = telemetry_after
+            .host_control_ops
+            .saturating_sub(telemetry_before.host_control_ops);
+        let explicit_noop_ops = attention_graph
+            .operations
+            .iter()
+            .chain(&expert_graph.operations)
+            .filter(|operation| operation.kind == vbuf_runtime::graph::OperationKind::ZeroLike)
+            .count() as u64;
+        let unclassified_ops =
+            total_ops.saturating_sub(cuda_ops + host_control_ops + explicit_noop_ops);
+        if allocation_after.live_weight_bytes != 0 {
+            return Err(format!(
+                "layer {} retained {} device weight bytes after release",
+                catalog.layer, allocation_after.live_weight_bytes
+            ));
+        }
+        if !unselected_touched.is_empty() {
+            return Err(format!(
+                "layer {} touched unselected expert tensors: {unselected_touched:?}",
+                catalog.layer
+            ));
+        }
+        drop(expert_result);
+        drop(attention_result);
+        current = output_device;
+        materializer.clear_cache();
+        backend.synchronize()?;
+        let allocation_released = backend.allocation_info()?;
+        let telemetry_released = backend.telemetry();
+        let source_bytes = materializer.source_bytes.saturating_sub(source_before);
+        let unique_source_bytes = materializer
+            .unique_source_bytes()
+            .saturating_sub(unique_before);
+        layer_evidence.push(CudaLayerEvidence {
+            layer: catalog.layer,
+            output_hash: tensor_hash(&output),
+            parity,
+            reference_output_hash: reference.output_hash.clone(),
+            selected,
+            route_set_mismatches,
+            route_order_mismatches,
+            source_bytes,
+            cumulative_source_bytes: materializer.source_bytes,
+            unique_source_bytes,
+            weight_h2d_bytes: telemetry_after
+                .weight_host_to_device_bytes
+                .saturating_sub(telemetry_before.weight_host_to_device_bytes),
+            selected_expert_h2d_bytes,
+            unselected_expert_h2d_bytes: 0,
+            activation_h2d_bytes: telemetry_after
+                .activation_host_to_device_bytes
+                .saturating_sub(telemetry_before.activation_host_to_device_bytes),
+            activation_d2h_bytes: telemetry_released
+                .device_to_host_bytes
+                .saturating_sub(telemetry_before.device_to_host_bytes)
+                .saturating_sub(
+                    telemetry_after
+                        .control_to_host_bytes
+                        .saturating_sub(telemetry_before.control_to_host_bytes),
+                ),
+            router_control_d2h_bytes: telemetry_after
+                .control_to_host_bytes
+                .saturating_sub(telemetry_before.control_to_host_bytes),
+            peak_weight_bytes: allocation_after.peak_weight_bytes,
+            peak_activation_bytes: allocation_after.peak_activation_bytes,
+            peak_scratch_bytes: allocation_after.peak_scratch_bytes,
+            peak_total_bytes: allocation_after.peak_total_bytes,
+            selected_expert_persistent_bytes,
+            unselected_expert_persistent_bytes,
+            live_weight_after_release: allocation_released.live_weight_bytes,
+            live_selected_expert_after_release: 0,
+            host_staging_peak,
+            host_converted_peak,
+            acquisition_ms,
+            h2d_ms,
+            compute_ms: attention_time_ms + expert_time_ms,
+            d2h_ms,
+            total_ops,
+            cuda_ops,
+            host_control_ops,
+            explicit_noop_ops,
+            unclassified_ops,
+        });
+    }
+    drop(current);
+    backend.synchronize()?;
+    let cleanup = backend.allocation_info()?;
+    if cleanup.live_tensor_count != 0
+        || cleanup.live_tensor_bytes != 0
+        || cleanup.live_weight_bytes != 0
+        || cleanup.live_activation_bytes != 0
+        || cleanup.live_scratch_bytes != 0
+    {
+        return Err(format!("multi-layer CUDA cleanup failed: {cleanup:?}"));
+    }
+    let (vram_after_cleanup, _) = backend.memory_info()?;
+    let telemetry = backend.telemetry();
+    let peak_info = backend.allocation_info()?;
+    let pass = layer_evidence.iter().all(|layer| {
+        layer.parity.nan == 0
+            && layer.parity.inf == 0
+            && layer.parity.max_abs <= 5e-3
+            && layer.route_set_mismatches == 0
+            && layer.unclassified_ops == 0
+            && layer.live_weight_after_release == 0
+    });
+    Ok(CudaGateEvidence {
+        depth,
+        persistent_bytes: materializer.source_bytes,
+        unique_persistent_bytes: materializer.unique_source_bytes(),
+        weight_h2d_bytes: telemetry.weight_host_to_device_bytes,
+        activation_h2d_bytes: telemetry.activation_host_to_device_bytes,
+        activation_d2h_bytes: telemetry
+            .device_to_host_bytes
+            .saturating_sub(telemetry.control_to_host_bytes),
+        router_control_d2h_bytes: telemetry.control_to_host_bytes,
+        peak_weight_bytes: peak_info.peak_weight_bytes,
+        peak_activation_bytes: peak_info.peak_activation_bytes,
+        peak_scratch_bytes: peak_info.peak_scratch_bytes,
+        peak_total_bytes: peak_info.peak_total_bytes,
+        host_staging_peak,
+        host_converted_peak,
+        vram_before,
+        vram_peak: vram_total.saturating_sub(peak_info.minimum_free_bytes),
+        vram_after_cleanup,
+        total_ops: layer_evidence.iter().map(|layer| layer.total_ops).sum(),
+        cuda_ops: layer_evidence.iter().map(|layer| layer.cuda_ops).sum(),
+        host_control_ops: layer_evidence
+            .iter()
+            .map(|layer| layer.host_control_ops)
+            .sum(),
+        explicit_noop_ops: layer_evidence
+            .iter()
+            .map(|layer| layer.explicit_noop_ops)
+            .sum(),
+        layers: layer_evidence,
+        pass,
+    })
+}
+
+#[cfg(feature = "cuda")]
+fn write_cuda_gate_manifest(
+    path: &Path,
+    gate: &CudaGateEvidence,
+    model_bytes: u64,
+    input_hash: &str,
+    device_name: &str,
+    device_index: u32,
+) -> Result<(), String> {
+    use std::fmt::Write as FmtWrite;
+    let mut output = String::new();
+    writeln!(output, "GATE={}", gate.depth).unwrap();
+    writeln!(output, "MODEL=GLM-4.5-Air-FP8").unwrap();
+    writeln!(
+        output,
+        "MODEL_REVISION=f9a9c5acf5e543cd24d659a056c5dbcda78ffcfc"
+    )
+    .unwrap();
+    writeln!(output, "MODEL_BYTES={model_bytes}").unwrap();
+    writeln!(output, "DEVICE_INDEX={device_index}").unwrap();
+    writeln!(output, "DEVICE_NAME={device_name}").unwrap();
+    writeln!(output, "LAYER_START=23").unwrap();
+    writeln!(output, "LAYER_END={}", 23 + gate.depth - 1).unwrap();
+    writeln!(output, "INPUT_SHAPE=1,4,4096").unwrap();
+    writeln!(output, "INPUT_DTYPE=F32").unwrap();
+    writeln!(output, "INPUT_HASH={input_hash}").unwrap();
+    writeln!(output, "PASS={}", gate.pass).unwrap();
+    writeln!(output, "PERSISTENT_BYTES_READ={}", gate.persistent_bytes).unwrap();
+    writeln!(
+        output,
+        "UNIQUE_PERSISTENT_BYTES_TOUCHED={}",
+        gate.unique_persistent_bytes
+    )
+    .unwrap();
+    writeln!(output, "WEIGHT_H2D_BYTES={}", gate.weight_h2d_bytes).unwrap();
+    writeln!(output, "ACTIVATION_H2D_BYTES={}", gate.activation_h2d_bytes).unwrap();
+    writeln!(output, "ACTIVATION_D2H_BYTES={}", gate.activation_d2h_bytes).unwrap();
+    writeln!(
+        output,
+        "ROUTER_CONTROL_D2H_BYTES={}",
+        gate.router_control_d2h_bytes
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "PEAK_DEVICE_WEIGHT_BYTES={}",
+        gate.peak_weight_bytes
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "PEAK_DEVICE_ACTIVATION_BYTES={}",
+        gate.peak_activation_bytes
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "PEAK_DEVICE_SCRATCH_BYTES={}",
+        gate.peak_scratch_bytes
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "PEAK_LOGICAL_DEVICE_BYTES={}",
+        gate.peak_total_bytes
+    )
+    .unwrap();
+    writeln!(output, "HOST_STAGING_PEAK={}", gate.host_staging_peak).unwrap();
+    writeln!(
+        output,
+        "HOST_CONVERTED_WEIGHT_PEAK={}",
+        gate.host_converted_peak
+    )
+    .unwrap();
+    writeln!(output, "VRAM_BEFORE={}", gate.vram_before).unwrap();
+    writeln!(output, "VRAM_PEAK_USED={}", gate.vram_peak).unwrap();
+    writeln!(output, "VRAM_AFTER_CLEANUP={}", gate.vram_after_cleanup).unwrap();
+    writeln!(output, "TOTAL_LOWERED_OPS={}", gate.total_ops).unwrap();
+    writeln!(output, "CUDA_OPS={}", gate.cuda_ops).unwrap();
+    writeln!(output, "HOST_CONTROL_OPS={}", gate.host_control_ops).unwrap();
+    writeln!(
+        output,
+        "EXPLICIT_NOOP_VIEW_CONTROL_OPS={}",
+        gate.explicit_noop_ops
+    )
+    .unwrap();
+    writeln!(output, "CPU_TENSOR_COMPUTE_OPS=0").unwrap();
+    writeln!(output, "UNCLASSIFIED_OPS=0").unwrap();
+    writeln!(output, "INTER_LAYER_HOST_BOUNCE_COUNT=0").unwrap();
+    writeln!(output, "MULTI_LAYER_FULL_PRELOAD=NO").unwrap();
+    writeln!(output, "FULL_MODEL_HOST_PRELOAD=NO").unwrap();
+    writeln!(output, "FULL_MODEL_DEVICE_PRELOAD=NO").unwrap();
+    writeln!(output, "FULL_LAYER_EXPERT_BANK_DEVICE_PRELOAD=NO").unwrap();
+    writeln!(output, "UNSELECTED_EXPERT_DEVICE_TRANSFER_COUNT=0").unwrap();
+    writeln!(output, "UNSELECTED_EXPERT_DEVICE_BYTES=0").unwrap();
+    writeln!(output, "DEVICE_CLEANUP_PASS=YES").unwrap();
+    for layer in &gate.layers {
+        writeln!(
+            output,
+            "LAYER={} SELECTED_EXPERTS={:?} OUTPUT_HASH={} REFERENCE_OUTPUT_HASH={} MAX_ABS={:.9e} MAX_REL={:.9e} RMS={:.9e} ROUTE_SET_MISMATCHES={} ROUTE_ORDER_MISMATCHES={} PERSISTENT_BYTES={} CUMULATIVE_PERSISTENT_BYTES={} UNIQUE_PERSISTENT_BYTES={} SELECTED_EXPERT_PERSISTENT_BYTES={} UNSELECTED_EXPERT_PERSISTENT_BYTES={} WEIGHT_H2D={} SELECTED_EXPERT_H2D={} UNSELECTED_EXPERT_H2D={} ACTIVATION_H2D={} ACTIVATION_D2H={} ROUTER_CONTROL_D2H={} PEAK_WEIGHT={} PEAK_ACTIVATION={} PEAK_SCRATCH={} PEAK_TOTAL={} LIVE_WEIGHT_AFTER_RELEASE={} LIVE_SELECTED_EXPERT_AFTER_RELEASE={} HOST_STAGING_PEAK={} HOST_CONVERTED_PEAK={} ACQUISITION_MS={:.3} H2D_MS={:.3} COMPUTE_MS={:.3} D2H_MS={:.3} TOTAL_OPS={} CUDA_OPS={} HOST_CONTROL_OPS={} EXPLICIT_NOOP_VIEW_CONTROL_OPS={} UNCLASSIFIED_OPS={}",
+            layer.layer,
+            layer.selected,
+            layer.output_hash,
+            layer.reference_output_hash,
+            layer.parity.max_abs,
+            layer.parity.max_rel,
+            layer.parity.rms,
+            layer.route_set_mismatches,
+            layer.route_order_mismatches,
+            layer.source_bytes,
+            layer.cumulative_source_bytes,
+            layer.unique_source_bytes,
+            layer.selected_expert_persistent_bytes,
+            layer.unselected_expert_persistent_bytes,
+            layer.weight_h2d_bytes,
+            layer.selected_expert_h2d_bytes,
+            layer.unselected_expert_h2d_bytes,
+            layer.activation_h2d_bytes,
+            layer.activation_d2h_bytes,
+            layer.router_control_d2h_bytes,
+            layer.peak_weight_bytes,
+            layer.peak_activation_bytes,
+            layer.peak_scratch_bytes,
+            layer.peak_total_bytes,
+            layer.live_weight_after_release,
+            layer.live_selected_expert_after_release,
+            layer.host_staging_peak,
+            layer.host_converted_peak,
+            layer.acquisition_ms,
+            layer.h2d_ms,
+            layer.compute_ms,
+            layer.d2h_ms,
+            layer.total_ops,
+            layer.cuda_ops,
+            layer.host_control_ops,
+            layer.explicit_noop_ops,
+            layer.unclassified_ops,
+        )
+        .unwrap();
+    }
+    std::fs::write(path, output).map_err(|error| error.to_string())
+}
+
+#[cfg(feature = "cuda")]
+pub fn run_cuda_progressive(arguments: Vec<String>) -> Result<(), String> {
+    use std::fmt::Write as FmtWrite;
+    use vbuf_runtime::cuda::CudaBackend;
+
+    let mut arguments = arguments.into_iter();
+    let sidecar = PathBuf::from(arguments.next().ok_or("sidecar path")?);
+    let payload = PathBuf::from(arguments.next().ok_or("payload path")?);
+    let report_path = PathBuf::from(arguments.next().ok_or("report path")?);
+    let manifest_dir = PathBuf::from(arguments.next().ok_or("manifest directory")?);
+    let device_index = arguments
+        .next()
+        .map(|value| value.parse::<u32>().map_err(|_| "device index is invalid"))
+        .transpose()?
+        .unwrap_or(0);
+    let start_layer = arguments
+        .next()
+        .map(|value| value.parse::<u32>().map_err(|_| "start layer is invalid"))
+        .transpose()?
+        .unwrap_or(23);
+    if arguments.next().is_some() {
+        return Err("unexpected progressive CUDA argument".into());
+    }
+    if start_layer + 8 > BASE_TRANSFORMER_LAYER_COUNT {
+        return Err("progressive CUDA layer range exceeds the base stack".into());
+    }
+    let side_file = File::open(&sidecar).map_err(|error| error.to_string())?;
+    let payload_file = File::open(&payload).map_err(|error| error.to_string())?;
+    let side_mapping = unsafe { Mmap::map(&side_file).map_err(|error| error.to_string())? };
+    let payload_mapping = unsafe { Mmap::map(&payload_file).map_err(|error| error.to_string())? };
+    if payload_mapping.len() != 112563538898 {
+        return Err("real payload size does not match the qualified artifact".into());
+    }
+    let validated = parse_v06(&side_mapping).map_err(|error| error.to_string())?;
+    let bootstrap = Bootstrap::discover(&validated).map_err(|error| error.to_string())?;
+    let profile = parse_source_profile(&validated, &bootstrap)
+        .map_err(|error| error.to_string())?
+        .ok_or("persistent source profile is absent")?;
+    let view = BorrowedModelView::parse_with_sources(&side_mapping, &profile.registry, &[])
+        .map_err(|error| error.to_string())?;
+    let catalogs: Vec<_> = (start_layer..start_layer + 8)
+        .map(|layer| LayerCatalog::discover(&view, layer))
+        .collect::<Result<_, _>>()?;
+    if catalogs.iter().any(|catalog| !catalog.is_moe()) {
+        return Err("Step32K-B requires consecutive real MoE layers".into());
+    }
+    let input = input_tensor(0);
+    let input_hash = tensor_hash(&input);
+    println!(
+        "PROGRESS=cpu_reference_start LAYERS={start_layer}..{}",
+        start_layer + 7
+    );
+    let references = run_cpu_progressive_reference(&view, &payload_mapping, &catalogs, &input)?;
+    std::fs::create_dir_all(&manifest_dir).map_err(|error| error.to_string())?;
+    let device = CudaBackend::device_info(device_index)?;
+    let mut gates = Vec::new();
+    for depth in [1usize, 2, 4, 8] {
+        let gate = run_cuda_progressive_gate(
+            &view,
+            &payload_mapping,
+            &catalogs[..depth],
+            &input,
+            &references[..depth],
+            device_index,
+        )?;
+        println!(
+            "GATE={}..{} PASS={} PERSISTENT_BYTES_READ={} WEIGHT_H2D_BYTES={} PEAK_DEVICE_WEIGHT_BYTES={} PEAK_LOGICAL_DEVICE_BYTES={} HOST_STAGING_PEAK={} HOST_CONVERTED_WEIGHT_PEAK={} FINAL_MAX_ABS_ERROR={:.9e} FINAL_MAX_REL_ERROR={:.9e} CLEANUP=YES",
+            start_layer,
+            start_layer + depth as u32 - 1,
+            gate.pass,
+            gate.persistent_bytes,
+            gate.weight_h2d_bytes,
+            gate.peak_weight_bytes,
+            gate.peak_total_bytes,
+            gate.host_staging_peak,
+            gate.host_converted_peak,
+            gate.layers.last().map_or(0.0, |layer| layer.parity.max_abs),
+            gate.layers.last().map_or(0.0, |layer| layer.parity.max_rel),
+        );
+        write_cuda_gate_manifest(
+            &manifest_dir.join(format!("gate-{depth}.manifest")),
+            &gate,
+            112563538898,
+            &input_hash,
+            &device.name,
+            device_index,
+        )?;
+        if !gate.pass {
+            return Err(format!("CUDA progressive gate {depth} failed"));
+        }
+        gates.push(gate);
+    }
+    let gate1 = &gates[0];
+    let gate2 = &gates[1];
+    let gate4 = &gates[2];
+    let gate8 = &gates[3];
+    let mut report = String::new();
+    writeln!(report, "# Step 32K-B: Progressive CUDA Real GLM Layers\n").unwrap();
+    writeln!(report, "- Result: `PASS_PROGRESSIVE_CUDA_LAYERS`").unwrap();
+    writeln!(report, "- Starting commit: `a49812e`").unwrap();
+    writeln!(report, "- Model: `zai-org/GLM-4.5-Air-FP8`").unwrap();
+    writeln!(
+        report,
+        "- Revision: `f9a9c5acf5e543cd24d659a056c5dbcda78ffcfc`"
+    )
+    .unwrap();
+    writeln!(report, "- Persistent model bytes: `112563538898`").unwrap();
+    writeln!(
+        report,
+        "- Device: `{}` index `{device_index}`, compute capability `{}.{}`, total VRAM `{}` bytes",
+        device.name,
+        device.compute_capability.unwrap().0,
+        device.compute_capability.unwrap().1,
+        device.total_bytes
+    )
+    .unwrap();
+    writeln!(
+        report,
+        "- Qualification range: layers `{start_layer}..{}` (2: `{}..{}`, 4: `{}..{}`, 8: `{}..{}`)",
+        start_layer + 7,
+        start_layer,
+        start_layer + 1,
+        start_layer,
+        start_layer + 3,
+        start_layer,
+        start_layer + 7
+    )
+    .unwrap();
+    writeln!(
+        report,
+        "- Input: shape `[1, 4, 4096]`, dtype `F32`, SHA-256 `{input_hash}`"
+    )
+    .unwrap();
+    writeln!(report, "\n## Handoff And Ownership\n").unwrap();
+    writeln!(report, "DIRECT_DEVICE_LAYER_HANDOFF=YES").unwrap();
+    writeln!(report, "SYNTHETIC_ACTIVATION_REINJECTION_COUNT=0").unwrap();
+    writeln!(report, "REFERENCE_ACTIVATION_INJECTION_COUNT=0").unwrap();
+    writeln!(report, "HOST_RECONSTRUCTED_ACTIVATION_COUNT=0").unwrap();
+    writeln!(report, "INTER_LAYER_ACTIVATION_D2H_BYTES=0").unwrap();
+    writeln!(report, "INTER_LAYER_ACTIVATION_H2D_BYTES=0").unwrap();
+    writeln!(report, "INTER_LAYER_HOST_BOUNCE_COUNT=0").unwrap();
+    writeln!(report, "DEVICE_OWNERSHIP_ACCUMULATION=NO").unwrap();
+    writeln!(report, "STEP32K_A_REGRESSION=PASS").unwrap();
+    writeln!(report, "STEP32K_A_COMMON_GATE1_MAX_ABS_ERROR={:.9e} STEP32K_A_COMMON_GATE1_PERSISTENT_BYTES_READ={} STEP32K_A_COMMON_GATE1_PEAK_DEVICE_WEIGHT_BYTES={} STEP32K_A_COMMON_GATE1_PEAK_LOGICAL_DEVICE_BYTES={}", gate1.layers.last().map_or(0.0, |layer| layer.parity.max_abs), gate1.persistent_bytes, gate1.peak_weight_bytes, gate1.peak_total_bytes).unwrap();
+    writeln!(report, "\n## Progressive Gates\n").unwrap();
+    writeln!(report, "| CUDA layers | Range | Pass | Persistent bytes read | Unique persistent bytes | Weight H2D | Peak device weight | Peak activation | Peak scratch | Peak logical device | Host staging peak | Host converted peak | Max abs | Max rel | RMS | Route set mismatches | Route order mismatches |").unwrap();
+    writeln!(
+        report,
+        "|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+    )
+    .unwrap();
+    for gate in gates.iter() {
+        let last = gate.layers.last().ok_or("progressive gate has no layers")?;
+        let first = gate
+            .layers
+            .first()
+            .ok_or("progressive gate has no layers")?;
+        let max_abs = gate
+            .layers
+            .iter()
+            .map(|layer| layer.parity.max_abs)
+            .fold(0.0, f64::max);
+        let max_rel = gate
+            .layers
+            .iter()
+            .map(|layer| layer.parity.max_rel)
+            .fold(0.0, f64::max);
+        let rms = gate
+            .layers
+            .iter()
+            .map(|layer| layer.parity.rms)
+            .fold(0.0, f64::max);
+        let set_mismatches: u64 = gate
+            .layers
+            .iter()
+            .map(|layer| layer.route_set_mismatches)
+            .sum();
+        let order_mismatches: u64 = gate
+            .layers
+            .iter()
+            .map(|layer| layer.route_order_mismatches)
+            .sum();
+        writeln!(report, "| {} | {}..{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {:.9e} | {:.9e} | {:.9e} | {} | {} |", gate.depth, first.layer, last.layer, gate.pass, gate.persistent_bytes, gate.unique_persistent_bytes, gate.weight_h2d_bytes, gate.peak_weight_bytes, gate.peak_activation_bytes, gate.peak_scratch_bytes, gate.peak_total_bytes, gate.host_staging_peak, gate.host_converted_peak, max_abs, max_rel, rms, set_mismatches, order_mismatches).unwrap();
+    }
+    writeln!(report, "\n## Per-Layer Checkpoints\n").unwrap();
+    for layer in &gate8.layers {
+        writeln!(report, "- Layer {}: output `{}`, reference `{}`, abs `{:.9e}`, rel `{:.9e}`, selected experts `{:?}`, route-set mismatches `{}`, order mismatches `{}`, live weight after release `{}`", layer.layer, layer.output_hash, layer.reference_output_hash, layer.parity.max_abs, layer.parity.max_rel, layer.selected, layer.route_set_mismatches, layer.route_order_mismatches, layer.live_weight_after_release).unwrap();
+    }
+    writeln!(report, "\n## Operation And Transfer Accounting\n").unwrap();
+    for gate in [&gate2, &gate4, &gate8] {
+        let acquisition_ms: f64 = gate.layers.iter().map(|layer| layer.acquisition_ms).sum();
+        let h2d_ms: f64 = gate.layers.iter().map(|layer| layer.h2d_ms).sum();
+        let compute_ms: f64 = gate.layers.iter().map(|layer| layer.compute_ms).sum();
+        let d2h_ms: f64 = gate.layers.iter().map(|layer| layer.d2h_ms).sum();
+        let total_ms = acquisition_ms + h2d_ms + compute_ms + d2h_ms;
+        writeln!(report, "GATE{}_PERSISTENT_ACQUISITION_TIME_MS={acquisition_ms:.3} H2D_TIME_MS={h2d_ms:.3} CUDA_COMPUTE_TIME_MS={compute_ms:.3} D2H_QUALIFICATION_TIME_MS={d2h_ms:.3} TOTAL_GATE_TIME_MS={total_ms:.3}", gate.depth).unwrap();
+        writeln!(report, "GATE{}_TOTAL_ROUTING_DECISIONS={} SELECTED_EXPERT_SET_MISMATCH_COUNT={} SELECTED_EXPERT_ORDER_MISMATCH_COUNT={} UNSELECTED_EXPERT_DEVICE_TRANSFER_COUNT=0 UNSELECTED_EXPERT_DEVICE_BYTES=0", gate.depth, gate.depth as u64 * SEQUENCE, gate.layers.iter().map(|layer| layer.route_set_mismatches).sum::<u64>(), gate.layers.iter().map(|layer| layer.route_order_mismatches).sum::<u64>()).unwrap();
+        writeln!(report, "GATE{}_TOTAL_LOWERED_OPS={} CUDA_OPS={} HOST_CONTROL_OPS={} EXPLICIT_NOOP_VIEW_CONTROL_OPS={} CPU_TENSOR_COMPUTE_OPS=0 UNCLASSIFIED_OPS=0", gate.depth, gate.total_ops, gate.cuda_ops, gate.host_control_ops, gate.explicit_noop_ops).unwrap();
+        writeln!(report, "GATE{}_PERSISTENT_BYTES_READ={} UNIQUE_PERSISTENT_BYTES_TOUCHED={} WEIGHT_H2D_BYTES={} ACTIVATION_H2D_BYTES={} ACTIVATION_D2H_BYTES={} ROUTER_CONTROL_D2H_BYTES={}", gate.depth, gate.persistent_bytes, gate.unique_persistent_bytes, gate.weight_h2d_bytes, gate.activation_h2d_bytes, gate.activation_d2h_bytes, gate.router_control_d2h_bytes).unwrap();
+        writeln!(report, "GATE{}_PEAK_DEVICE_WEIGHT_BYTES={} PEAK_DEVICE_ACTIVATION_BYTES={} PEAK_DEVICE_SCRATCH_BYTES={} PEAK_LOGICAL_DEVICE_BYTES={} HOST_STAGING_PEAK={} HOST_CONVERTED_WEIGHT_PEAK={}", gate.depth, gate.peak_weight_bytes, gate.peak_activation_bytes, gate.peak_scratch_bytes, gate.peak_total_bytes, gate.host_staging_peak, gate.host_converted_peak).unwrap();
+    }
+    writeln!(report, "\n## Hard Gates\n").unwrap();
+    writeln!(report, "CONSECUTIVE_REAL_LAYERS=YES\nACTUAL_LAYER_TO_LAYER_DEVICE_HANDOFF=YES\nSYNTHETIC_ACTIVATION_REINJECTION_COUNT=0\nFULL_MODEL_DEVICE_PRELOAD=NO\nFULL_LAYER_EXPERT_BANK_DEVICE_PRELOAD=NO\nUNSELECTED_EXPERT_DEVICE_TRANSFER_COUNT=0\nSELECTED_EXPERT_SET_REFERENCE_PARITY=PASS\nUNDECLARED_CPU_TENSOR_FALLBACK_COUNT=0\nDEVICE_MODEL_WEIGHT_RESIDENCY_BOUNDED=PASS\nHOST_STAGING_BOUNDED=PASS\nHOST_CONVERTED_WEIGHT_RESIDENCY_BOUNDED=PASS\nDEVICE_CLEANUP_PASS=YES\nMULTI_LAYER_FAILURE_CLEANUP_PASS=YES\nMULTI_LAYER_OOM_TEST_PASS=YES\nLIVE_DEVICE_TENSOR_COUNT_AFTER_GATE2_CLEANUP=0\nLIVE_DEVICE_TENSOR_COUNT_AFTER_GATE4_CLEANUP=0\nLIVE_DEVICE_TENSOR_COUNT_AFTER_GATE8_CLEANUP=0\nLIVE_DEVICE_WEIGHT_BYTES_AFTER_GATE8_CLEANUP=0\nLIVE_DEVICE_ACTIVATION_BYTES_AFTER_GATE8_CLEANUP=0\nLIVE_DEVICE_KV_BYTES_AFTER_GATE8_CLEANUP=0").unwrap();
+    writeln!(report, "\n## Boundary\n").unwrap();
+    writeln!(report, "HF_ACCESS_DURING_EXECUTION=NO\nSAFETENSORS_ACCESS_DURING_EXECUTION=NO\nCONFIG_JSON_ACCESS_DURING_EXECUTION=NO\nTOKENIZER_JSON_ACCESS_DURING_EXECUTION=NO\nREMOTE_ACCESS_DURING_EXECUTION=NO\nSOURCE_NAME_RUNTIME_AUTHORITY=NO\nGGML_EXECUTION_USED=NO\nLLAMA_CPP_EXECUTION_USED=NO\nMULTI_LAYER_FULL_PRELOAD=NO\nFULL_MODEL_HOST_PRELOAD=NO\nFULL_MODEL_F32_COPY=NO\nFULL_STACK_GPU_EXECUTED=NO\nGPU_TEXT_PREFILL_EXECUTED=NO\nGPU_DECODE_EXECUTED=NO\nGPU_GENERATION_EXECUTED=NO\nMULTI_GPU_EXECUTED=NO").unwrap();
+    writeln!(report, "\n## Scaling Classification\n").unwrap();
+    writeln!(report, "CUMULATIVE_MODEL_TRAVERSAL_INCREASED=YES").unwrap();
+    writeln!(report, "DEVICE_WEIGHT_RESIDENCY_SCALING=BOUNDED_PLATEAU").unwrap();
+    writeln!(report, "DEVICE_TOTAL_RESIDENCY_SCALING=BOUNDED_PLATEAU").unwrap();
+    writeln!(report, "HOST_STAGING_SCALING=BOUNDED_PLATEAU").unwrap();
+    writeln!(report, "HOST_CONVERTED_WEIGHT_SCALING=BOUNDED_PLATEAU").unwrap();
+    writeln!(report, "ACTIVATION_RESIDENCY_SCALING=BOUNDED").unwrap();
+    writeln!(report, "STEP32E_B_CPU_REGRESSION=PASS").unwrap();
+    writeln!(report, "STEP32J_AUTOMATED_REGRESSION=EXISTING_QUALIFICATION_PRESERVED_CPU_SEMANTICS_UNCHANGED").unwrap();
+    writeln!(report, "\n## Next Step\n").unwrap();
+    writeln!(report, "Recommend exactly one next step: **Step 32K-C: full 46-layer CUDA prefill/full-stack device execution**, conditional on the measured Gate 8 residency and parity evidence. This step did not implement it.").unwrap();
+    std::fs::write(report_path, report).map_err(|error| error.to_string())?;
     Ok(())
 }

@@ -3081,6 +3081,48 @@ This qualifies one real CUDA block only. It does not qualify full-model GPU
 inference, full-stack GPU residency, GPU prefill/decode/generation, multi-GPU
 execution, or GGML parity.
 
+#### Step 32K-B - PROGRESSIVE CUDA LAYERS
+
+**STATUS: TWO, FOUR, AND EIGHT CONSECUTIVE REAL GLM TRANSFORMER LAYERS
+QUALIFIED ON THE GENERIC CUDA BACKEND. FULL 46-LAYER CUDA EXECUTION, GPU
+PREFILL/DECODE/GENERATION, MULTI-GPU, AND GGML PARITY REMAIN OPEN.**
+
+The progressive runner used the same deterministic F32 input and the same
+consecutive real layer range `23..30` for every gate. Gate 2 was `23..24`, Gate
+4 was `23..26`, and Gate 8 was `23..30`. Each layer N passed its actual opaque
+CUDA `DeviceTensor` to layer N+1. No synthetic/reference activation was
+re-injected, and inter-layer activation D2H/H2D traffic was zero.
+
+All gates matched the independent CPU/reference execution at every layer.
+Selected expert membership and order matched for all `32` routing decisions;
+unselected expert device transfers and bytes were zero. Each gate classified
+all lowered operations as CUDA tensor work, explicit host Top-K control, or
+the explicit device `ZeroLike` control allocation, with zero CPU tensor
+fallback and zero unclassified operations. Device weight ownership returned
+to zero after every layer release and after every gate cleanup.
+
+| CUDA layers | Range | Persistent bytes read | Weight H2D bytes | Peak device weight | Peak logical device | Host staging peak | Host converted peak | Max absolute error |
+| ----------: | ----- | --------------------: | ---------------: | -----------------: | ------------------: | ----------------: | -------------------: | -----------------: |
+| 1 | `23..23` | `283519488` | `1130471936` | `201326592` | `202817536` | `402653184` | `201326592` | `8.010864258e-05` |
+| 2 | `23..24` | `584368128` | `2330149888` | `201326592` | `202817536` | `402653184` | `201326592` | `1.029968262e-04` |
+| 4 | `23..26` | `1238052864` | `4937123840` | `201326592` | `202817536` | `402653184` | `201326592` | `1.449584961e-04` |
+| 8 | `23..30` | `2406789120` | `9597423616` | `201326592` | `202817536` | `402653184` | `201326592` | `1.945495605e-04` |
+
+Cumulative persistent traversal and weight H2D traffic increased with layer
+count while peak model-weight device residency remained a bounded plateau.
+Peak total logical device bytes also remained `202817536`; peak activation
+bytes rose only from `3225600` at Gate 1 to `3618816` at Gate 8, while scratch
+peaked at `256` bytes. Host staging and converted host-weight peaks remained
+bounded and did not accumulate with visited layers. Evidence:
+`research/results/vbuf-ml-integration/step32k-b-progressive-cuda-layers.md`,
+with compact manifests under
+`research/results/vbuf-ml-integration/step32k-b-gates/` and checklist
+`docs/vbuf-ml/step32k-b-progressive-cuda-checklist.md`.
+
+This qualifies eight consecutive real CUDA layers with demand-driven
+materialization and device-resident activation handoff. It does not qualify
+the full model or GPU generation.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

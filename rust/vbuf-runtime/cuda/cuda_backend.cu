@@ -41,6 +41,17 @@ static int cublas_fail(cublasStatus_t status, const char *where) {
 struct VbufCudaContext {
     int device;
     cublasHandle_t blas;
+    uint64_t live_tensor_bytes;
+    uint64_t peak_tensor_bytes;
+    uint64_t peak_total_bytes;
+    uint64_t live_tensor_count;
+    uint64_t live_weight_bytes;
+    uint64_t peak_weight_bytes;
+    uint64_t live_activation_bytes;
+    uint64_t peak_activation_bytes;
+    uint64_t live_scratch_bytes;
+    uint64_t peak_scratch_bytes;
+    uint64_t minimum_free_bytes;
 };
 
 struct VbufCudaTensor {
@@ -48,8 +59,74 @@ struct VbufCudaTensor {
     float *data;
     uint64_t elements;
     int rank;
+    int kind;
     uint64_t dimensions[4];
 };
+
+struct VbufCudaAllocationInfo {
+    uint64_t live_tensor_bytes;
+    uint64_t peak_tensor_bytes;
+    uint64_t peak_total_bytes;
+    uint64_t live_tensor_count;
+    uint64_t live_weight_bytes;
+    uint64_t peak_weight_bytes;
+    uint64_t live_activation_bytes;
+    uint64_t peak_activation_bytes;
+    uint64_t live_scratch_bytes;
+    uint64_t peak_scratch_bytes;
+    uint64_t minimum_free_bytes;
+};
+
+static void update_peak(uint64_t value, uint64_t *peak) {
+    if (value > *peak) *peak = value;
+}
+
+static void sample_memory(VbufCudaContext *context) {
+    uint64_t free_bytes = 0, total_bytes = 0;
+    if (cudaMemGetInfo(&free_bytes, &total_bytes) == cudaSuccess &&
+        free_bytes < context->minimum_free_bytes)
+        context->minimum_free_bytes = free_bytes;
+}
+
+static void add_tensor_bytes(VbufCudaContext *context, uint64_t bytes, int kind) {
+    context->live_tensor_bytes += bytes;
+    context->live_tensor_count += 1;
+    update_peak(context->live_tensor_bytes, &context->peak_tensor_bytes);
+    update_peak(context->live_tensor_bytes + context->live_scratch_bytes,
+                &context->peak_total_bytes);
+    if (kind == 1) {
+        context->live_weight_bytes += bytes;
+        update_peak(context->live_weight_bytes, &context->peak_weight_bytes);
+    } else {
+        context->live_activation_bytes += bytes;
+        update_peak(context->live_activation_bytes, &context->peak_activation_bytes);
+    }
+    sample_memory(context);
+}
+
+static void remove_tensor_bytes(VbufCudaContext *context, uint64_t bytes, int kind) {
+    context->live_tensor_bytes -= bytes;
+    context->live_tensor_count -= 1;
+    if (kind == 1) context->live_weight_bytes -= bytes;
+    else context->live_activation_bytes -= bytes;
+}
+
+static int tracked_scratch_malloc(VbufCudaContext *context, void **result, uint64_t bytes) {
+    auto error = cudaMalloc(result, bytes);
+    if (error != cudaSuccess) return cuda_fail(error, "cudaMalloc scratch");
+    context->live_scratch_bytes += bytes;
+    update_peak(context->live_scratch_bytes, &context->peak_scratch_bytes);
+    update_peak(context->live_tensor_bytes + context->live_scratch_bytes,
+                &context->peak_total_bytes);
+    sample_memory(context);
+    return 0;
+}
+
+static void tracked_scratch_free(VbufCudaContext *context, void *pointer, uint64_t bytes) {
+    if (!pointer) return;
+    cudaFree(pointer);
+    context->live_scratch_bytes -= bytes;
+}
 
 static int checked_elements(const uint64_t *dimensions, int rank, uint64_t *result) {
     if (!dimensions || rank < 1 || rank > 4) return fail("invalid CUDA tensor rank");
@@ -64,7 +141,7 @@ static int checked_elements(const uint64_t *dimensions, int rank, uint64_t *resu
 }
 
 static int make_tensor(VbufCudaContext *context, int rank, const uint64_t *dimensions,
-                       VbufCudaTensor **result) {
+                       VbufCudaTensor **result, int kind = 0) {
     uint64_t elements = 0;
     if (!context || checked_elements(dimensions, rank, &elements)) return 1;
     auto *tensor = new (std::nothrow) VbufCudaTensor{};
@@ -72,6 +149,7 @@ static int make_tensor(VbufCudaContext *context, int rank, const uint64_t *dimen
     tensor->context = context;
     tensor->elements = elements;
     tensor->rank = rank;
+    tensor->kind = kind;
     std::memcpy(tensor->dimensions, dimensions, sizeof(uint64_t) * rank);
     if (elements > UINT64_MAX / sizeof(float)) {
         delete tensor;
@@ -82,6 +160,7 @@ static int make_tensor(VbufCudaContext *context, int rank, const uint64_t *dimen
         delete tensor;
         return cuda_fail(error, "cudaMalloc");
     }
+    add_tensor_bytes(context, elements * sizeof(float), kind);
     *result = tensor;
     return 0;
 }
@@ -273,6 +352,7 @@ int vbuf_cuda_context_create(int device, VbufCudaContext **result) {
     auto *context = new (std::nothrow) VbufCudaContext{};
     if (!context) return fail("CUDA context allocation failed");
     context->device = device;
+    context->minimum_free_bytes = UINT64_MAX;
     if (cublasCreate(&context->blas) != CUBLAS_STATUS_SUCCESS) {
         delete context;
         return fail("cublasCreate failed");
@@ -298,22 +378,42 @@ int vbuf_cuda_tensor_destroy(VbufCudaTensor *tensor) {
     if (!tensor) return 0;
     cudaSetDevice(tensor->context->device);
     auto error = cudaFree(tensor->data);
+    remove_tensor_bytes(tensor->context, tensor->elements * sizeof(float), tensor->kind);
     delete tensor;
     return error == cudaSuccess ? 0 : cuda_fail(error, "cudaFree");
 }
 
 int vbuf_cuda_tensor_upload(VbufCudaContext *context, const float *values, uint64_t count,
-                            int rank, const uint64_t *dimensions, VbufCudaTensor **result) {
+                            int rank, const uint64_t *dimensions, int kind,
+                            VbufCudaTensor **result) {
     if (!values || !result) return fail("CUDA upload argument is null");
     uint64_t elements = 0;
     if (checked_elements(dimensions, rank, &elements) || elements != count) return 1;
-    if (make_tensor(context, rank, dimensions, result)) return 1;
+    if (make_tensor(context, rank, dimensions, result, kind)) return 1;
     auto error = cudaMemcpy((*result)->data, values, count * sizeof(float), cudaMemcpyHostToDevice);
     if (error != cudaSuccess) {
         vbuf_cuda_tensor_destroy(*result);
         *result = nullptr;
         return cuda_fail(error, "cudaMemcpyHostToDevice");
     }
+    return 0;
+}
+
+int vbuf_cuda_context_stats(VbufCudaContext *context, VbufCudaAllocationInfo *info) {
+    if (!context || !info) return fail("CUDA allocation info argument is null");
+    *info = {
+        context->live_tensor_bytes,
+        context->peak_tensor_bytes,
+        context->peak_total_bytes,
+        context->live_tensor_count,
+        context->live_weight_bytes,
+        context->peak_weight_bytes,
+        context->live_activation_bytes,
+        context->peak_activation_bytes,
+        context->live_scratch_bytes,
+        context->peak_scratch_bytes,
+        context->minimum_free_bytes,
+    };
     return 0;
 }
 
@@ -504,6 +604,7 @@ int vbuf_cuda_expert_dispatch(VbufCudaTensor *input, VbufCudaTensor *gate, VbufC
     uint32_t *device_ids = nullptr;
     float *device_weights = nullptr;
     cudaError_t error = cudaSuccess;
+    uint64_t selection_count = 0;
     if (make_tensor(input->context, 2, intermediate_dims, &gate_output) ||
         make_tensor(input->context, 2, intermediate_dims, &up_output)) goto expert_error;
     {
@@ -541,10 +642,25 @@ int vbuf_cuda_expert_dispatch(VbufCudaTensor *input, VbufCudaTensor *gate, VbufC
                                   static_cast<int>(down->dimensions[0]));
         if (status != CUBLAS_STATUS_SUCCESS) { cublas_fail(status, "expert down"); goto expert_error; }
     }
-    error = cudaMalloc(&device_ids, token_count * top_k * sizeof(uint32_t));
-    if (error != cudaSuccess) { cuda_fail(error, "expert IDs"); goto expert_error; }
-    error = cudaMalloc(&device_weights, token_count * top_k * sizeof(float));
-    if (error != cudaSuccess) { cuda_fail(error, "expert weights"); goto expert_error; }
+    if (top_k && token_count > UINT64_MAX / top_k) {
+        fail("expert selection size overflows");
+        goto expert_error;
+    }
+    selection_count = token_count * top_k;
+    if (selection_count > UINT64_MAX / sizeof(uint32_t)) {
+        fail("expert selection ID size overflows");
+        goto expert_error;
+    }
+    if (tracked_scratch_malloc(input->context, reinterpret_cast<void **>(&device_ids),
+                               selection_count * sizeof(uint32_t)))
+        goto expert_error;
+    if (selection_count > UINT64_MAX / sizeof(float)) {
+        fail("expert selection weight size overflows");
+        goto expert_error;
+    }
+    if (tracked_scratch_malloc(input->context, reinterpret_cast<void **>(&device_weights),
+                               selection_count * sizeof(float)))
+        goto expert_error;
     error = cudaMemcpy(device_ids, ids, token_count * top_k * sizeof(uint32_t), cudaMemcpyHostToDevice);
     if (error == cudaSuccess) error = cudaMemcpy(device_weights, weights, token_count * top_k * sizeof(float), cudaMemcpyHostToDevice);
     if (error != cudaSuccess) { cuda_fail(error, "expert selection upload"); goto expert_error; }
@@ -552,7 +668,8 @@ int vbuf_cuda_expert_dispatch(VbufCudaTensor *input, VbufCudaTensor *gate, VbufC
                                                                                          device_weights, token_count,
                                                                                          input->dimensions[2], top_k, expert);
     error = cudaGetLastError();
-    cudaFree(device_ids); cudaFree(device_weights);
+    tracked_scratch_free(input->context, device_ids, selection_count * sizeof(uint32_t));
+    tracked_scratch_free(input->context, device_weights, selection_count * sizeof(float));
     device_ids = nullptr;
     device_weights = nullptr;
     if (error != cudaSuccess) { cuda_fail(error, "expert selection kernel"); goto expert_error; }
@@ -566,8 +683,8 @@ expert_error:
     if (activated) vbuf_cuda_tensor_destroy(activated);
     if (activated_output) vbuf_cuda_tensor_destroy(activated_output);
     if (output) vbuf_cuda_tensor_destroy(output);
-    if (device_ids) cudaFree(device_ids);
-    if (device_weights) cudaFree(device_weights);
+    if (device_ids) tracked_scratch_free(input->context, device_ids, selection_count * sizeof(uint32_t));
+    if (device_weights) tracked_scratch_free(input->context, device_weights, selection_count * sizeof(float));
     return 1;
 }
 

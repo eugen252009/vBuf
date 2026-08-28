@@ -1,10 +1,11 @@
 #![cfg(feature = "cuda")]
 
-use vbuf_runtime::cuda::CudaBackend;
+use vbuf_runtime::cuda::{CudaBackend, execute_cuda_graph};
 use vbuf_runtime::device::DeviceBackend;
 use vbuf_runtime::generic::GenericTopKSelection;
 use vbuf_runtime::graph::{
-    ActivationKind, AttentionAttributes, AttentionMaskKind, AttentionPositionKind, StateId,
+    ActivationKind, AttentionAttributes, AttentionMaskKind, AttentionPositionKind, ExecutionGraph,
+    InputRef, MatMulWeightOperand, OperationAttributes, OperationKind, StateId, TensorId, ValueId,
 };
 
 fn backend() -> CudaBackend {
@@ -130,4 +131,60 @@ fn cuda_selected_expert_dispatch_uses_only_the_requested_expert() {
     drop((output, down, up, gate, input));
     backend.synchronize().unwrap();
     assert_eq!(backend.live_bytes(), 0);
+}
+
+fn failed_second_layer_graph(backend: &CudaBackend, message: &'static str) {
+    let input = backend.upload_f32(&[1.0, 2.0], &[1, 2]).unwrap();
+    let mut graph = ExecutionGraph {
+        input: ValueId(0),
+        output: ValueId(2),
+        ..Default::default()
+    };
+    graph.operation(
+        "layer1_zero",
+        OperationKind::ZeroLike,
+        [InputRef::Value(ValueId(0))],
+        ValueId(1),
+        OperationAttributes::default(),
+    );
+    graph.operation(
+        "layer2_matmul",
+        OperationKind::MatMul,
+        [InputRef::Value(ValueId(1)), InputRef::Tensor(TensorId(99))],
+        ValueId(2),
+        OperationAttributes {
+            matmul_weight_operand: Some(MatMulWeightOperand::Rhs),
+            ..Default::default()
+        },
+    );
+    let mut state_length = 0;
+    let error = execute_cuda_graph(
+        backend,
+        &graph,
+        input,
+        |_| Err(message.into()),
+        None,
+        &mut state_length,
+    )
+    .unwrap_err();
+    assert_eq!(error, message);
+    backend.synchronize().unwrap();
+    let allocation = backend.allocation_info().unwrap();
+    assert_eq!(allocation.live_tensor_count, 0);
+    assert_eq!(allocation.live_tensor_bytes, 0);
+    assert_eq!(allocation.live_weight_bytes, 0);
+    assert_eq!(allocation.live_activation_bytes, 0);
+    assert_eq!(allocation.live_scratch_bytes, 0);
+}
+
+#[test]
+fn cuda_multilayer_failure_releases_previous_layer_ownership() {
+    let backend = backend();
+    failed_second_layer_graph(&backend, "layer 2 compute failed");
+}
+
+#[test]
+fn cuda_multilayer_mocked_oom_is_fail_closed() {
+    let backend = backend();
+    failed_second_layer_graph(&backend, "layer 2 device out of memory");
 }
