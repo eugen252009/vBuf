@@ -294,6 +294,26 @@ impl GenericExecutionState {
         (&self.key, &self.value)
     }
 
+    pub fn restore_kv(
+        &mut self,
+        dimensions: &[u64],
+        key: Vec<f32>,
+        value: Vec<f32>,
+    ) -> Result<(), String> {
+        if dimensions.len() != 4 || dimensions[0] == 0 || dimensions[1] == 0 {
+            return Err("generic attention restore geometry is invalid".into());
+        }
+        self.length = dimensions[1];
+        self.batch_size = dimensions[0];
+        self.kv_head_count = dimensions[2];
+        self.head_dim = dimensions[3];
+        self.key = key;
+        self.value = value;
+        self.last_past_kv_positions_read = 0;
+        self.last_kv_positions_appended = 0;
+        self.validate_payload()
+    }
+
     pub fn last_past_kv_positions_read(&self) -> u64 {
         self.last_past_kv_positions_read
     }

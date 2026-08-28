@@ -9,6 +9,12 @@ fi
 root_dir="$(git -C "$(dirname "$0")/../../.." rev-parse --show-toplevel)"
 artifact_dir="$root_dir/.step32c/step32j-generation/gate-$1"
 mkdir -p "$artifact_dir"
+resume_arg=()
+if [[ -s "$artifact_dir/generation.checkpoints.progress" ]] \
+    && grep -q '^PHASE=PREFILL$' "$artifact_dir/generation.checkpoints.progress" \
+    && grep -q '^LAYER=45$' "$artifact_dir/generation.checkpoints.progress"; then
+    resume_arg=(--resume-prefill)
+fi
 
 exec >> "$artifact_dir/run.log" 2>&1
 set +e
@@ -17,7 +23,7 @@ set +e
     "$root_dir/.step32c/glm-4.5-air-fp8.vbuf" \
     "$artifact_dir/generation.checkpoints" \
     "$artifact_dir/generation.manifest" \
-    Test "$1"
+    Test "${resume_arg[@]}" "$1"
 status=$?
 printf 'HARNESS_EXIT_STATUS=%s\n' "$status"
 date -Is > "$artifact_dir/completed-at.tmp"

@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Write};
+use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use vbuf_core::v06::parse_v06;
@@ -1526,6 +1526,71 @@ fn write_progress(path: &Path, phase: &str, step: u32, layer: u32) -> Result<(),
     std::fs::rename(temporary, path).map_err(|e| e.to_string())
 }
 
+fn read_checkpoint_records(path: &Path) -> Result<HashMap<String, GenericTensor>, String> {
+    let file = File::open(path).map_err(|e| e.to_string())?;
+    let mut reader = BufReader::new(file);
+    let mut records = HashMap::new();
+    loop {
+        let mut bytes = [0u8; 4];
+        match reader.read_exact(&mut bytes) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => break,
+            Err(error) => return Err(error.to_string()),
+        }
+        let name_length = u32::from_le_bytes(bytes) as usize;
+        let mut name_bytes = vec![0u8; name_length];
+        reader
+            .read_exact(&mut name_bytes)
+            .map_err(|e| e.to_string())?;
+        let name = String::from_utf8(name_bytes).map_err(|e| e.to_string())?;
+        reader.read_exact(&mut bytes).map_err(|e| e.to_string())?;
+        let rank = u32::from_le_bytes(bytes) as usize;
+        let mut dimensions = Vec::with_capacity(rank);
+        for _ in 0..rank {
+            let mut dimension = [0u8; 8];
+            reader
+                .read_exact(&mut dimension)
+                .map_err(|e| e.to_string())?;
+            dimensions.push(u64::from_le_bytes(dimension));
+        }
+        let mut count_bytes = [0u8; 8];
+        reader
+            .read_exact(&mut count_bytes)
+            .map_err(|e| e.to_string())?;
+        let count = usize::try_from(u64::from_le_bytes(count_bytes))
+            .map_err(|_| "checkpoint tensor is too large")?;
+        let byte_count = count
+            .checked_mul(std::mem::size_of::<f32>())
+            .ok_or("checkpoint tensor byte count overflows")?;
+        let needed = name == "prefill.input_token_ids"
+            || name == "prefill.input_embedding"
+            || name == "prefill.final_norm"
+            || name == "prefill.logits"
+            || name.starts_with("layer")
+                && (name.ends_with(".output")
+                    || name.ends_with(".kv_key")
+                    || name.ends_with(".kv_value"));
+        if !needed {
+            reader
+                .seek(SeekFrom::Current(i64::try_from(byte_count).map_err(
+                    |_| "checkpoint tensor offset exceeds host limits",
+                )?))
+                .map_err(|e| e.to_string())?;
+            continue;
+        }
+        let mut value_bytes = vec![0u8; byte_count];
+        reader
+            .read_exact(&mut value_bytes)
+            .map_err(|e| e.to_string())?;
+        let values = value_bytes
+            .chunks_exact(4)
+            .map(|value| f32::from_le_bytes([value[0], value[1], value[2], value[3]]))
+            .collect();
+        records.insert(name, GenericTensor { dimensions, values });
+    }
+    Ok(records)
+}
+
 fn write_manifest(
     path: &Path,
     view: &BorrowedModelView<'_>,
@@ -2131,6 +2196,7 @@ pub fn run_progressive(arguments: Vec<String>) -> Result<(), String> {
 enum RetainedRunMode {
     OneTokenFixture,
     Greedy { max_new_tokens: u32 },
+    GreedyResume { max_new_tokens: u32 },
 }
 
 pub fn run_retained_kv(arguments: Vec<String>) -> Result<(), String> {
@@ -2138,6 +2204,12 @@ pub fn run_retained_kv(arguments: Vec<String>) -> Result<(), String> {
 }
 
 pub fn run_repeated_generation(mut arguments: Vec<String>) -> Result<(), String> {
+    let resume_prefill = arguments
+        .last()
+        .is_some_and(|argument| argument == "--resume-prefill");
+    if resume_prefill {
+        arguments.pop();
+    }
     let max_new_tokens = arguments
         .pop()
         .ok_or("max new tokens")?
@@ -2146,7 +2218,14 @@ pub fn run_repeated_generation(mut arguments: Vec<String>) -> Result<(), String>
     if !matches!(max_new_tokens, 2 | 4 | 8) {
         return Err("max new tokens must be one of 2, 4, or 8".into());
     }
-    run_retained_kv_mode(arguments, RetainedRunMode::Greedy { max_new_tokens })
+    run_retained_kv_mode(
+        arguments,
+        if resume_prefill {
+            RetainedRunMode::GreedyResume { max_new_tokens }
+        } else {
+            RetainedRunMode::Greedy { max_new_tokens }
+        },
+    )
 }
 
 fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result<(), String> {
@@ -2160,6 +2239,7 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
     if arguments.next().is_some() {
         return Err("unexpected retained-KV argument".into());
     }
+    let resume_prefill = matches!(mode, RetainedRunMode::GreedyResume { .. });
     let side_file = File::open(sidecar).map_err(|e| e.to_string())?;
     let payload_file = File::open(payload).map_err(|e| e.to_string())?;
     let side_mapping = unsafe { Mmap::map(&side_file).map_err(|e| e.to_string())? };
@@ -2217,14 +2297,26 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
         touched_ranges: HashMap::new(),
         source_bytes: 0,
     };
-    let mut checkpoint = BufWriter::new(
+    let checkpoint_file = if resume_prefill {
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&checkpoint_path)
+            .map_err(|e| e.to_string())?
+    } else {
         OpenOptions::new()
             .create(true)
             .truncate(true)
             .write(true)
             .open(&checkpoint_path)
-            .map_err(|e| e.to_string())?,
-    );
+            .map_err(|e| e.to_string())?
+    };
+    let checkpoint_records = if resume_prefill {
+        Some(read_checkpoint_records(&checkpoint_path)?)
+    } else {
+        None
+    };
+    let mut checkpoint = BufWriter::new(checkpoint_file);
     let tokenizer_start = Instant::now();
     let tokenizer =
         Gpt2ByteLevelTokenizer::build(&view.tokenizer).map_err(|error| error.to_string())?;
@@ -2248,28 +2340,35 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
         dimensions: vec![1, SEQUENCE],
         values: prefill_token_ids.iter().map(|id| *id as f32).collect(),
     };
-    write_record(&mut checkpoint, "prefill.input_token_ids", &prefill_ids)?;
+    if !resume_prefill {
+        write_record(&mut checkpoint, "prefill.input_token_ids", &prefill_ids)?;
+    }
     let prefill_embedding_start = Instant::now();
     let mut prefill_embedding_requests = 0u64;
-    let prefill_embedding = embedding_lookup(&prefill_ids, VOCAB, HIDDEN, |token_id| {
-        prefill_embedding_requests += 1;
-        let row = usize::try_from(token_id)
-            .map_err(|_| "prefill embedding token ID exceeds host limits".to_owned())?;
-        materializer
-            .get_bf16_rows(TensorId(EMBEDDING_ID), row, 1)
-            .map(|tensor| tensor.values)
-    })
-    .map_err(|error| format!("prefill embedding lookup: {error}"))?;
-    write_record(
-        &mut checkpoint,
-        "prefill.input_embedding",
-        &prefill_embedding,
-    )?;
+    let prefill_embedding = if let Some(records) = &checkpoint_records {
+        records
+            .get("prefill.input_embedding")
+            .cloned()
+            .ok_or("resume checkpoint is missing the prefill embedding")?
+    } else {
+        let embedding = embedding_lookup(&prefill_ids, VOCAB, HIDDEN, |token_id| {
+            prefill_embedding_requests += 1;
+            let row = usize::try_from(token_id)
+                .map_err(|_| "prefill embedding token ID exceeds host limits".to_owned())?;
+            materializer
+                .get_bf16_rows(TensorId(EMBEDDING_ID), row, 1)
+                .map(|tensor| tensor.values)
+        })
+        .map_err(|error| format!("prefill embedding lookup: {error}"))?;
+        write_record(&mut checkpoint, "prefill.input_embedding", &embedding)?;
+        embedding
+    };
     let prefill_embedding_ms = prefill_embedding_start.elapsed().as_secs_f64() * 1000.0;
     let prefill_start = Instant::now();
     let max_new_tokens = match mode {
         RetainedRunMode::OneTokenFixture => 1,
         RetainedRunMode::Greedy { max_new_tokens } => max_new_tokens,
+        RetainedRunMode::GreedyResume { max_new_tokens } => max_new_tokens,
     };
     let state_capacity = SEQUENCE
         .checked_add(u64::from(max_new_tokens))
@@ -2283,60 +2382,84 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
             ))
         })
         .collect::<Result<_, String>>()?;
-    let mut current = prefill_embedding;
+    if let Some(records) = &checkpoint_records {
+        for catalog in &catalogs {
+            let key = records
+                .get(&format!("layer{}.kv_key", catalog.layer))
+                .ok_or("resume checkpoint is missing a layer KV key")?;
+            let value = records
+                .get(&format!("layer{}.kv_value", catalog.layer))
+                .ok_or("resume checkpoint is missing a layer KV value")?;
+            states
+                .get_mut(&catalog.state)
+                .ok_or("resume layer state is missing")?
+                .restore_kv(&key.dimensions, key.values.clone(), value.values.clone())?;
+        }
+    }
+    let mut current = if let Some(records) = &checkpoint_records {
+        records
+            .get("layer45.output")
+            .cloned()
+            .ok_or("resume checkpoint is missing the final prefill activation")?
+    } else {
+        prefill_embedding
+    };
     let mut peak_prefill_cache = materializer.cache_f32_bytes();
     let mut peak_prefill_activation = 0usize;
     let mut peak_prefill_working_set = 0usize;
     let mut prefill_router_decisions = 0u64;
-    for catalog in &catalogs {
-        let state = states
-            .get_mut(&catalog.state)
-            .ok_or("prefill layer state is missing")?;
-        let phase = execute_layer_phase(catalog, &current, SEQUENCE, 0, &mut materializer, state)?;
-        write_layer_phase_records(
-            &mut checkpoint,
-            &format!("layer{}", catalog.layer),
-            &current,
-            &phase,
-            state,
-        )?;
-        durable_flush(&mut checkpoint)?;
-        write_progress(&progress_path, "PREFILL", 0, catalog.layer)?;
-        let activation_bytes = current.values.len() * 4
-            + phase
-                .attention
-                .values
-                .values()
-                .map(|tensor| tensor.values.len() * 4)
-                .sum::<usize>()
-            + phase
-                .expert
-                .values
-                .values()
-                .map(|tensor| tensor.values.len() * 4)
-                .sum::<usize>();
-        let cache_bytes = materializer.cache_f32_bytes();
-        let working_set = cache_bytes + activation_bytes + state.bytes();
-        peak_prefill_cache = peak_prefill_cache.max(cache_bytes);
-        peak_prefill_activation = peak_prefill_activation.max(activation_bytes);
-        peak_prefill_working_set = peak_prefill_working_set.max(working_set);
-        prefill_router_decisions += phase
-            .selection
-            .as_ref()
-            .map_or(0, |selection| selection.token_count);
-        println!(
-            "PREFILL_LAYER={} STATE_LENGTH={} PAST_KV_READ={} CURRENT_KV_APPENDED={} SELECTED_EXPERTS={:?} UNSELECTED_EXPERTS={:?} SOURCE_BYTES={} LAYER_TIME_MS={:.3}",
-            catalog.layer,
-            state.state_length(),
-            state.last_past_kv_positions_read(),
-            state.last_kv_positions_appended(),
-            phase.selected,
-            phase.unselected,
-            phase.source_bytes,
-            phase.attention_time_ms + phase.expert_time_ms,
-        );
-        current = phase.output;
-        materializer.clear_cache();
+    if !resume_prefill {
+        for catalog in &catalogs {
+            let state = states
+                .get_mut(&catalog.state)
+                .ok_or("prefill layer state is missing")?;
+            let phase =
+                execute_layer_phase(catalog, &current, SEQUENCE, 0, &mut materializer, state)?;
+            write_layer_phase_records(
+                &mut checkpoint,
+                &format!("layer{}", catalog.layer),
+                &current,
+                &phase,
+                state,
+            )?;
+            durable_flush(&mut checkpoint)?;
+            write_progress(&progress_path, "PREFILL", 0, catalog.layer)?;
+            let activation_bytes = current.values.len() * 4
+                + phase
+                    .attention
+                    .values
+                    .values()
+                    .map(|tensor| tensor.values.len() * 4)
+                    .sum::<usize>()
+                + phase
+                    .expert
+                    .values
+                    .values()
+                    .map(|tensor| tensor.values.len() * 4)
+                    .sum::<usize>();
+            let cache_bytes = materializer.cache_f32_bytes();
+            let working_set = cache_bytes + activation_bytes + state.bytes();
+            peak_prefill_cache = peak_prefill_cache.max(cache_bytes);
+            peak_prefill_activation = peak_prefill_activation.max(activation_bytes);
+            peak_prefill_working_set = peak_prefill_working_set.max(working_set);
+            prefill_router_decisions += phase
+                .selection
+                .as_ref()
+                .map_or(0, |selection| selection.token_count);
+            println!(
+                "PREFILL_LAYER={} STATE_LENGTH={} PAST_KV_READ={} CURRENT_KV_APPENDED={} SELECTED_EXPERTS={:?} UNSELECTED_EXPERTS={:?} SOURCE_BYTES={} LAYER_TIME_MS={:.3}",
+                catalog.layer,
+                state.state_length(),
+                state.last_past_kv_positions_read(),
+                state.last_kv_positions_appended(),
+                phase.selected,
+                phase.unselected,
+                phase.source_bytes,
+                phase.attention_time_ms + phase.expert_time_ms,
+            );
+            current = phase.output;
+            materializer.clear_cache();
+        }
     }
     let prefill_transformer = current.clone();
     let prefill_norm_start = Instant::now();
