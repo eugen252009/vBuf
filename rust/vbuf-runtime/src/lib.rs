@@ -12,6 +12,9 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use vbuf_ml::{BorrowedModel, MlError};
 
+#[cfg(feature = "cuda")]
+pub mod cuda;
+pub mod device;
 pub mod generic;
 pub mod graph;
 pub use graph::{

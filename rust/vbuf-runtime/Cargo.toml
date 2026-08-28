@@ -9,6 +9,7 @@ crate-type = ["rlib", "cdylib"]
 [features]
 default = []
 ggml = []
+cuda = []
 
 [dependencies]
 memmap2 = "0.9"

@@ -19,6 +19,7 @@
   remain a numerical near-tie qualification note.
 - [x] Qualify tokenization, retained-KV decode, and repeated generation through
   the Step 32H/I/J gates.
-- [ ] Qualify device execution or GGML parity.
+- [x] Qualify one complete real layer-23 CUDA block through Step32K-A.
+- [ ] Qualify broader CUDA execution or GGML parity.
 
 Evidence: `research/results/vbuf-ml-integration/step32g-full-stack-logits.md`.

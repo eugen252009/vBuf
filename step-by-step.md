@@ -3048,6 +3048,39 @@ GGML parity. Evidence:
 
 This remains portable generic F32 qualification, not canonical GGML parity.
 
+#### Step 32K-A - GENERIC CUDA DEVICE BLOCK
+
+**STATUS: ONE COMPLETE REAL GLM LAYER-23 BLOCK QUALIFIED ON THE GENERIC CUDA
+BACKEND. FULL-STACK GPU EXECUTION, GPU PREFILL/DECODE/GENERATION, MULTI-GPU,
+AND GGML PARITY REMAIN OPEN.**
+
+The runtime now exposes backend-neutral device identity, opaque device tensor
+ownership, bounded device residency, and a CUDA adapter below the portable
+semantic graph. On CUDA device 0 (`NVIDIA GeForce RTX 3060`, compute capability
+`8.6`), it executed one complete real layer-23 GLM-4.5-Air-FP8 block using the
+canonical vBuf payload and semantic sidecar. The run used persistent FP8
+weights with bounded host F32 staging and device F32 execution/accumulation;
+TF32 was disabled.
+
+The block executed `48` lowered operations: `46` on CUDA and one explicit host
+Top-K control operation. The router ran before acquisition, selected
+`[1, 6, 11, 19, 27, 52, 59, 62, 89]`, transferred no unselected expert, and
+matched the CPU selection. Persistent bytes read were `283519488`; peak live
+logical device allocation was `202817536` bytes; device-owned allocations
+returned to zero.
+
+The final output matched the existing CPU block path with maximum absolute
+error `8.010864258e-05`, maximum relative error `3.848298940e-02`, RMS error
+`2.504991820e-06`, and no NaN or Inf values. CUDA, cuBLAS, GGML, llama.cpp,
+Hugging Face, Safetensors, and remote source access were not used as runtime
+authority. Evidence:
+`research/results/vbuf-ml-integration/step32k-a-cuda-device-block.md` and
+`docs/vbuf-ml/step32k-a-cuda-device-checklist.md`.
+
+This qualifies one real CUDA block only. It does not qualify full-model GPU
+inference, full-stack GPU residency, GPU prefill/decode/generation, multi-GPU
+execution, or GGML parity.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

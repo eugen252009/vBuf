@@ -18,6 +18,7 @@
   rank swaps remain a documented near-tie exception.
 - [x] Qualify retained-KV decode and repeated generation through the Step 32I/J
   gates.
-- [ ] Qualify device execution or GGML parity.
+- [x] Qualify one complete real layer-23 CUDA block through Step32K-A.
+- [ ] Qualify broader CUDA execution or GGML parity.
 
 Evidence: `research/results/vbuf-ml-integration/step32h-real-text-full-stack.md`.

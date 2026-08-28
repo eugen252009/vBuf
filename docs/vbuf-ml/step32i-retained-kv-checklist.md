@@ -15,6 +15,7 @@
 - [x] Verify cleanup leaves zero active leases, execution states, and layer states.
 - [x] Run `cargo test --workspace` and the Python syntax check.
 - [x] Qualify repeated generation through the Step 32J gate.
-- [ ] Qualify device execution or GGML parity.
+- [x] Qualify one complete real layer-23 CUDA block through Step32K-A.
+- [ ] Qualify broader CUDA execution or GGML parity.
 
 Evidence: `research/results/vbuf-ml-integration/step32i-retained-kv-one-token-decode.md`.

@@ -16,6 +16,7 @@
 - [x] Persist and recover reference progress atomically across interrupted runs.
 - [x] Verify cleanup leaves zero active leases, execution states, layer states, and KV bytes.
 - [x] Qualify the final replay with `REFERENCE_EXIT_STATUS=0` and `GENERATION_COMPLETE=YES`.
-- [ ] Qualify device execution or GGML parity.
+- [x] Qualify one complete real layer-23 CUDA block through Step32K-A.
+- [ ] Qualify broader CUDA execution or GGML parity.
 
 Evidence: `research/results/vbuf-ml-integration/step32j-repeated-autoregressive-generation.md`.
