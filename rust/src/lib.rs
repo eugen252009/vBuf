@@ -1,3 +1,4 @@
+pub mod nested;
 pub mod v06;
 pub mod writer;
 mod writer_ffi;

@@ -8,8 +8,9 @@
 use crate::bootstrap::Bootstrap;
 use crate::error::{MlError, MlErrorCode};
 use crate::region_roles::RegionRole;
-use vbuf_core::v06::{V06Physical, V06Semantic, ValidatedV06, parse_v06};
-use vbuf_layout::{ByteRange, CheckedRange};
+use vbuf_core::nested::NestedV06;
+use vbuf_core::v06::{V06Physical, V06Semantic, ValidatedV06};
+use vbuf_layout::CheckedRange;
 
 pub const NESTED_DIRECTORY_MAGIC: [u8; 8] = *b"VBTNEST\0";
 pub const NESTED_DIRECTORY_VERSION: u16 = 1;
@@ -126,44 +127,21 @@ impl<'a> NestedDirectory<'a> {
                 ));
             }
             occupied.push((entry.child_offset, child_end));
-            let absolute_start = target
-                .payload_start
-                .checked_add(entry.child_offset)
-                .ok_or_else(|| {
-                    MlError::new(
-                        MlErrorCode::NestedChildRangeInvalid,
-                        "nested child start overflows",
-                    )
-                })?;
-            let absolute_end = absolute_start
-                .checked_add(entry.child_length)
-                .ok_or_else(|| {
-                    MlError::new(
-                        MlErrorCode::NestedChildRangeInvalid,
-                        "nested child end overflows",
-                    )
-                })?;
-            let range = CheckedRange::from_mapping(
-                parent.bytes(),
-                ByteRange::from_end(absolute_start, absolute_end).map_err(|_| {
-                    MlError::new(
-                        MlErrorCode::NestedChildRangeInvalid,
-                        "nested child range cannot be represented",
-                    )
-                })?,
+            let nested = NestedV06::from_parent_payload(
+                parent,
+                target_index,
+                entry.child_offset,
+                entry.child_length,
             )
-            .map_err(|_| {
-                MlError::new(
-                    MlErrorCode::NestedChildRangeInvalid,
-                    "nested child range cannot be exposed",
-                )
+            .map_err(|error| {
+                let code = if error.code == vbuf_core::v06::V06ErrorCode::InvalidNestedStream {
+                    MlErrorCode::NestedChildNotCanonical
+                } else {
+                    MlErrorCode::NestedChildRangeInvalid
+                };
+                MlError::new(code, "nested child range or canonical stream is invalid")
             })?;
-            let validated = parse_v06(range.bytes()).map_err(|_| {
-                MlError::new(
-                    MlErrorCode::NestedChildNotCanonical,
-                    "nested child is not a valid canonical v0.6 stream",
-                )
-            })?;
+            let (range, validated) = nested.into_parts();
             children.push(NestedChild {
                 name: entry.name,
                 key_id: entry.key_id,

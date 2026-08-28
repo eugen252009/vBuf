@@ -39,6 +39,7 @@ pub enum V06ErrorCode {
     NotFound = 19,
     TypeMismatch = 20,
     HostUnsupported = 21,
+    InvalidNestedStream = 22,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -57,7 +58,7 @@ impl V06Error {
         }
     }
 
-    fn global(code: V06ErrorCode, detail: &'static str) -> Self {
+    pub(crate) fn global(code: V06ErrorCode, detail: &'static str) -> Self {
         Self {
             code,
             offset: None,

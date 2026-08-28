@@ -219,7 +219,31 @@ A conforming reader MUST reject malformed magic/version, invalid shifts, flags, 
 
 Readers MAY expose opaque bytes without interpreting profile/application meaning. Typed native views require representation, bounds, host-width, and alignment validation in addition to syntactic conformance.
 
-## 7. Optional artifacts and Nano relationship
+## 7. Nested canonical vBuf streams
+
+A higher-level contract MAY identify a non-empty checked subrange of a canonical
+payload as a nested vBuf stream. The subrange MUST contain a complete canonical
+v0.6 stream, including its own global header and data region. It is validated by
+running the canonical v0.6 parser on exactly that bounded subrange; bytes outside
+the subrange MUST NOT be consulted for child validity.
+
+A nested stream has an independent local geometry, block sequence, duplicate
+Key-ID rules, continuation chains, and Key-ID namespace. Its offsets and
+alignment are relative to the nested stream root, so moving or extracting the
+complete child byte range does not require patching its internal bytes.
+
+The base format does not assign names, roles, tensor meaning, parent-child
+relationships, or a discovery directory to nested streams. A profile or
+application MUST provide any child discovery information and MUST resolve it to
+a checked parent payload subrange before invoking nested validation. Generic
+implementations SHOULD expose this operation as a borrowed checked range plus a
+validated child view.
+
+An implementation MUST reject empty, overflowing, out-of-parent, truncated, or
+non-canonical nested ranges. Nested validation MUST preserve the same checked
+arithmetic and host-range safety requirements as top-level validation.
+
+## 8. Optional artifacts and Nano relationship
 
 No Nano-Index, rank/select checkpoint, region directory, checksum, footer, or finalization table is selected by v0.6 base version 0.6. Such structures require separate qualification and specification.
 
