@@ -2,6 +2,8 @@
 
 import gc
 import hashlib
+import json
+import os
 import struct
 import sys
 from collections import defaultdict
@@ -28,6 +30,44 @@ def read_records(path):
         pos += count * 4
         result[name] = value.reshape(dimensions)
     return result
+
+
+def write_generation_state(path, state):
+    temporary = f"{path}.tmp"
+    with open(temporary, "w", encoding="utf-8") as stream:
+        json.dump(state, stream, sort_keys=True)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+
+
+def read_generation_state(path):
+    if not path:
+        return None
+    try:
+        with open(path, encoding="utf-8") as stream:
+            state = json.load(stream)
+    except FileNotFoundError:
+        return None
+    required = {
+        "next_step",
+        "reference_token_ids",
+        "next_reference_token",
+        "routing_mismatches",
+        "order_mismatches",
+        "argmax_mismatches",
+        "top10_mismatches",
+        "max_abs",
+        "max_rel",
+        "max_logit_abs",
+        "max_logit_rel",
+        "step_max_abs",
+        "step_logits_abs",
+    }
+    if not required.issubset(state):
+        raise AssertionError("reference state is missing required fields")
+    return state
 
 
 def read_manifest(path):
@@ -261,7 +301,7 @@ def layer(reader, tensors, experts, layer_id, value):
     }
 
 
-def generation_reference(actual, reader, tensors, experts, depth, max_steps):
+def generation_reference(actual, reader, tensors, experts, depth, max_steps, state_path=None):
     prefill_token_ids = actual["prefill.input_token_ids"].astype(np.int64).reshape(-1)
     if not np.array_equal(prefill_token_ids, [51, 68, 82, 83]):
         raise AssertionError(f"token ID reference mismatch: {prefill_token_ids.tolist()}")
@@ -270,21 +310,43 @@ def generation_reference(actual, reader, tensors, experts, depth, max_steps):
         raise AssertionError(
             f"production generated {production_token_ids.size} tokens, expected {max_steps}"
         )
-    reference_token_ids = prefill_token_ids.tolist()
-    max_abs = max_rel = 0.0
-    max_logit_abs = max_logit_rel = 0.0
-    routing_mismatches = 0
-    order_mismatches = 0
-    argmax_mismatches = 0
-    top10_mismatches = 0
-    step_max_abs = []
-    step_max_logit_abs = []
+    state = read_generation_state(state_path)
+    if state is None:
+        start_step = 0
+        reference_token_ids = prefill_token_ids.tolist()
+        max_abs = max_rel = 0.0
+        max_logit_abs = max_logit_rel = 0.0
+        routing_mismatches = 0
+        order_mismatches = 0
+        argmax_mismatches = 0
+        top10_mismatches = 0
+        step_max_abs = []
+        step_max_logit_abs = []
+    else:
+        start_step = int(state["next_step"])
+        reference_token_ids = [int(token) for token in state["reference_token_ids"]]
+        if len(reference_token_ids) != len(prefill_token_ids) + start_step:
+            raise AssertionError("reference state token count is inconsistent")
+        max_abs = float(state["max_abs"])
+        max_rel = float(state["max_rel"])
+        max_logit_abs = float(state["max_logit_abs"])
+        max_logit_rel = float(state["max_logit_rel"])
+        routing_mismatches = int(state["routing_mismatches"])
+        order_mismatches = int(state["order_mismatches"])
+        argmax_mismatches = int(state["argmax_mismatches"])
+        top10_mismatches = int(state["top10_mismatches"])
+        step_max_abs = [float(value) for value in state["step_max_abs"]]
+        step_max_logit_abs = [float(value) for value in state["step_logits_abs"]]
     prefill_value = reader.bf16_rows("embedding", np.asarray(reference_token_ids, dtype=np.int64))
     for layer_id in range(depth):
         prefill_value, _, _ = layer(reader, tensors, experts, layer_id, prefill_value)
     prefill_logits = linear(rms(prefill_value, reader.output("final_norm")), reader.output("lm_head"))
-    next_reference_token = int(np.argmax(prefill_logits[0, -1]))
-    for step in range(max_steps):
+    next_reference_token = (
+        int(state["next_reference_token"])
+        if state is not None
+        else int(np.argmax(prefill_logits[0, -1]))
+    )
+    for step in range(start_step, max_steps):
         token_ids = np.asarray(reference_token_ids, dtype=np.int64)
         consumed_token = next_reference_token
         token_ids = np.concatenate((token_ids, [consumed_token]))
@@ -358,6 +420,25 @@ def generation_reference(actual, reader, tensors, experts, depth, max_steps):
         )
         reference_token_ids.append(consumed_token)
         next_reference_token = reference_token
+        if state_path:
+            write_generation_state(
+                state_path,
+                {
+                    "next_step": step + 1,
+                    "reference_token_ids": reference_token_ids,
+                    "next_reference_token": next_reference_token,
+                    "routing_mismatches": routing_mismatches,
+                    "order_mismatches": order_mismatches,
+                    "argmax_mismatches": argmax_mismatches,
+                    "top10_mismatches": top10_mismatches,
+                    "max_abs": max_abs,
+                    "max_rel": max_rel,
+                    "max_logit_abs": max_logit_abs,
+                    "max_logit_rel": max_logit_rel,
+                    "step_max_abs": step_max_abs,
+                    "step_logits_abs": step_max_logit_abs,
+                },
+            )
     generated_reference = reference_token_ids[len(prefill_token_ids) :]
     print(f"reference_generated_token_ids={generated_reference}")
     print(f"production_generated_token_ids={production_token_ids.tolist()}")
@@ -379,11 +460,18 @@ def main():
     real_input = input_mode == "real"
     decode_input = input_mode == "decode"
     qualification_text = sys.argv[6] if len(sys.argv) > 6 else "Test"
+    state_path = None
+    if len(sys.argv) > 8:
+        if sys.argv[8] != "--state" or len(sys.argv) != 10:
+            raise AssertionError("invalid reference state arguments")
+        state_path = sys.argv[9]
     tensors, experts, outputs = read_manifest(manifest_path)
     actual = read_records(checkpoint_path)
     reader = Reader(payload_path, tensors, outputs)
     if input_mode == "generation":
-        generation_reference(actual, reader, tensors, experts, depth, int(sys.argv[7]))
+        generation_reference(
+            actual, reader, tensors, experts, depth, int(sys.argv[7]), state_path
+        )
         return
     if real_input or decode_input:
         prefill_token_ids = actual["prefill.input_token_ids" if decode_input else "input_token_ids"].astype(np.int64).reshape(-1)
