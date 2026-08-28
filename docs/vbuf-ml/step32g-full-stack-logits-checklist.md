@@ -17,6 +17,8 @@
 - [ ] Claim strict full-chain independent ordered route-ID equality; the two
   documented differences are rank swaps within one selected expert set and
   remain a numerical near-tie qualification note.
-- [ ] Qualify tokenization, decode, generation, device execution, or GGML.
+- [x] Qualify tokenization, retained-KV decode, and repeated generation through
+  the Step 32H/I/J gates.
+- [ ] Qualify device execution or GGML parity.
 
 Evidence: `research/results/vbuf-ml-integration/step32g-full-stack-logits.md`.

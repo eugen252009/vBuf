@@ -14,6 +14,7 @@
 - [x] Verify no prefix recomputation, token 6 execution, or generation loop.
 - [x] Verify cleanup leaves zero active leases, execution states, and layer states.
 - [x] Run `cargo test --workspace` and the Python syntax check.
-- [ ] Qualify repeated generation, device execution, or GGML parity.
+- [x] Qualify repeated generation through the Step 32J gate.
+- [ ] Qualify device execution or GGML parity.
 
 Evidence: `research/results/vbuf-ml-integration/step32i-retained-kv-one-token-decode.md`.

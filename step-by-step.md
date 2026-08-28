@@ -3014,6 +3014,40 @@ state/lease counts to zero. Evidence:
 
 This remains portable generic F32 qualification, not canonical GGML parity.
 
+#### Step 32J - REPEATED AUTOREGRESSIVE GENERATION
+
+**Status: EIGHT CONSECUTIVE REAL-TEXT GREEDY DECODE STEPS QUALIFIED THROUGH
+ALL 46 LAYERS WITH INDEPENDENT TOKEN, LOGIT-ORDERING, ROUTING, RESIDENCY, AND
+CLEANUP PARITY. DEVICE EXECUTION AND GGML PARITY REMAIN OPEN.**
+
+The generic runner reused the retained request-local KV state after the real
+`Test` prefill `[51,68,82,83]` and executed eight consecutive greedy decode
+steps. Production and the independent persisted-range causal reference selected
+`[220,16,25,220,16,13,576,2629]` exactly. Every step matched the reference
+argmax and top-10 ordering; routing membership and order mismatches were both
+zero. The run appended `46` KV positions per step, touched no unselected
+expert tensor, and cleanup returned active leases, execution/layer states, and
+logical KV bytes to zero.
+
+The production path reported `GENERATION_COMPLETE=YES`,
+`GENERATION_CLEANUP=PASS`, and `HARNESS_EXIT_STATUS=0`. Prefill source bytes
+were `1241522176`; each decode step read `13463473152` source bytes. Peak
+converted model-weight working set was `1061249536` bytes, peak activation
+bytes were `806912`, and peak total working set was `1062154752` bytes. The
+independent reference's maximum per-step logits absolute difference was
+`5.91278076e-05`, with maximum transformer absolute difference
+`3.96728516e-04`; these are bounded numerical differences, not byte-identity
+claims.
+
+The reference required durable step recovery after earlier host reboots. Its
+final replay completed with exit status `0` after the second GPU was moved to a
+dedicated PSU PCIe cable and the GPU-heavy game workload was closed. This is
+environment stability evidence only; it does not qualify device execution or
+GGML parity. Evidence:
+`research/results/vbuf-ml-integration/step32j-repeated-autoregressive-generation.md`.
+
+This remains portable generic F32 qualification, not canonical GGML parity.
+
 #### Step 31J — Deferred experiments
 
 Keep idle warmup, next-use prefetch, compute/prefetch overlap, advanced

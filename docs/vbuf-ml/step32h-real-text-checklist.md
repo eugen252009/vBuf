@@ -16,6 +16,8 @@
 - [x] Verify deterministic real-input checkpoints and deterministic manifest emission.
 - [ ] Claim strict full-chain independent ordered route-ID equality; two same-set
   rank swaps remain a documented near-tie exception.
-- [ ] Qualify decode, generation, device execution, or GGML parity.
+- [x] Qualify retained-KV decode and repeated generation through the Step 32I/J
+  gates.
+- [ ] Qualify device execution or GGML parity.
 
 Evidence: `research/results/vbuf-ml-integration/step32h-real-text-full-stack.md`.
