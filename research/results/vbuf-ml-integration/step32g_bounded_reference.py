@@ -3,6 +3,7 @@
 import gc
 import hashlib
 import json
+import mmap
 import os
 import struct
 import sys
@@ -125,6 +126,11 @@ class Reader:
         self.payload = np.memmap(payload, mode="r", dtype=np.uint8)
         self.tensors = tensors
         self.outputs = outputs
+
+    def release_payload_pages(self):
+        mapped = getattr(self.payload, "_mmap", None)
+        if mapped is not None and hasattr(mapped, "madvise"):
+            mapped.madvise(mmap.MADV_DONTNEED)
 
     def decode(self, rep, dims, offset, length, scale_id=None, layer=None):
         raw = self.payload[offset : offset + length]
@@ -337,15 +343,19 @@ def generation_reference(actual, reader, tensors, experts, depth, max_steps, sta
         top10_mismatches = int(state["top10_mismatches"])
         step_max_abs = [float(value) for value in state["step_max_abs"]]
         step_max_logit_abs = [float(value) for value in state["step_logits_abs"]]
-    prefill_value = reader.bf16_rows("embedding", np.asarray(reference_token_ids, dtype=np.int64))
-    for layer_id in range(depth):
-        prefill_value, _, _ = layer(reader, tensors, experts, layer_id, prefill_value)
-    prefill_logits = linear(rms(prefill_value, reader.output("final_norm")), reader.output("lm_head"))
-    next_reference_token = (
-        int(state["next_reference_token"])
-        if state is not None
-        else int(np.argmax(prefill_logits[0, -1]))
-    )
+    if state is None:
+        prefill_value = reader.bf16_rows(
+            "embedding", np.asarray(reference_token_ids, dtype=np.int64)
+        )
+        for layer_id in range(depth):
+            prefill_value, _, _ = layer(reader, tensors, experts, layer_id, prefill_value)
+            reader.release_payload_pages()
+        prefill_logits = linear(
+            rms(prefill_value, reader.output("final_norm")), reader.output("lm_head")
+        )
+        next_reference_token = int(np.argmax(prefill_logits[0, -1]))
+    else:
+        next_reference_token = int(state["next_reference_token"])
     for step in range(start_step, max_steps):
         token_ids = np.asarray(reference_token_ids, dtype=np.int64)
         consumed_token = next_reference_token
@@ -355,6 +365,7 @@ def generation_reference(actual, reader, tensors, experts, depth, max_steps, sta
         step_rel = 0.0
         for layer_id in range(depth):
             value, selections, stages = layer(reader, tensors, experts, layer_id, value)
+            reader.release_payload_pages()
             prefix = f"generation.step{step}.layer{layer_id}"
             output = actual[f"{prefix}.output"]
             delta = np.abs(value[:, -1:] - output)
