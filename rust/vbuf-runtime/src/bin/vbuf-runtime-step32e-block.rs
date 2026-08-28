@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
-use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use vbuf_core::v06::parse_v06;
@@ -1516,6 +1516,19 @@ fn durable_flush(writer: &mut BufWriter<File>) -> Result<(), String> {
     writer.get_ref().sync_data().map_err(|e| e.to_string())
 }
 
+fn read_checkpoint_bytes<R: Read>(reader: &mut R, bytes: &mut [u8]) -> Result<bool, String> {
+    match reader.read_exact(bytes) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => Ok(false),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn truncate_checkpoint_tail(file: &File, offset: u64) -> Result<(), String> {
+    file.set_len(offset).map_err(|e| e.to_string())?;
+    file.sync_data().map_err(|e| e.to_string())
+}
+
 fn write_progress(path: &Path, phase: &str, step: u32, layer: u32) -> Result<(), String> {
     let temporary = path.with_extension("progress.tmp");
     let mut file = File::create(&temporary).map_err(|e| e.to_string())?;
@@ -1527,41 +1540,83 @@ fn write_progress(path: &Path, phase: &str, step: u32, layer: u32) -> Result<(),
 }
 
 fn read_checkpoint_records(path: &Path) -> Result<HashMap<String, GenericTensor>, String> {
-    let file = File::open(path).map_err(|e| e.to_string())?;
-    let mut reader = BufReader::new(file);
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .map_err(|e| e.to_string())?;
+    let mut reader = file;
     let mut records = HashMap::new();
     loop {
+        let record_start = reader.stream_position().map_err(|e| e.to_string())?;
         let mut bytes = [0u8; 4];
-        match reader.read_exact(&mut bytes) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => break,
-            Err(error) => return Err(error.to_string()),
+        if !read_checkpoint_bytes(&mut reader, &mut bytes)? {
+            break;
         }
         let name_length = u32::from_le_bytes(bytes) as usize;
+        let remaining = reader
+            .metadata()
+            .map_err(|e| e.to_string())?
+            .len()
+            .saturating_sub(reader.stream_position().map_err(|e| e.to_string())?);
+        if u64::try_from(name_length).map_or(true, |length| length > remaining) {
+            truncate_checkpoint_tail(&reader, record_start)?;
+            return Ok(records);
+        }
         let mut name_bytes = vec![0u8; name_length];
-        reader
-            .read_exact(&mut name_bytes)
-            .map_err(|e| e.to_string())?;
-        let name = String::from_utf8(name_bytes).map_err(|e| e.to_string())?;
-        reader.read_exact(&mut bytes).map_err(|e| e.to_string())?;
+        if !read_checkpoint_bytes(&mut reader, &mut name_bytes)? {
+            truncate_checkpoint_tail(&reader, record_start)?;
+            return Ok(records);
+        }
+        let name = match String::from_utf8(name_bytes) {
+            Ok(name) => name,
+            Err(_) => {
+                truncate_checkpoint_tail(&reader, record_start)?;
+                return Ok(records);
+            }
+        };
+        if !read_checkpoint_bytes(&mut reader, &mut bytes)? {
+            truncate_checkpoint_tail(&reader, record_start)?;
+            return Ok(records);
+        }
         let rank = u32::from_le_bytes(bytes) as usize;
+        let remaining = reader
+            .metadata()
+            .map_err(|e| e.to_string())?
+            .len()
+            .saturating_sub(reader.stream_position().map_err(|e| e.to_string())?);
+        if rank > 64 || u64::try_from(rank).map_or(true, |rank| rank * 8 > remaining) {
+            truncate_checkpoint_tail(&reader, record_start)?;
+            return Ok(records);
+        }
         let mut dimensions = Vec::with_capacity(rank);
         for _ in 0..rank {
             let mut dimension = [0u8; 8];
-            reader
-                .read_exact(&mut dimension)
-                .map_err(|e| e.to_string())?;
+            if !read_checkpoint_bytes(&mut reader, &mut dimension)? {
+                truncate_checkpoint_tail(&reader, record_start)?;
+                return Ok(records);
+            }
             dimensions.push(u64::from_le_bytes(dimension));
         }
         let mut count_bytes = [0u8; 8];
-        reader
-            .read_exact(&mut count_bytes)
-            .map_err(|e| e.to_string())?;
+        if !read_checkpoint_bytes(&mut reader, &mut count_bytes)? {
+            truncate_checkpoint_tail(&reader, record_start)?;
+            return Ok(records);
+        }
         let count = usize::try_from(u64::from_le_bytes(count_bytes))
-            .map_err(|_| "checkpoint tensor is too large")?;
+            .map_err(|_| "checkpoint tensor is too large".to_string())?;
         let byte_count = count
             .checked_mul(std::mem::size_of::<f32>())
-            .ok_or("checkpoint tensor byte count overflows")?;
+            .ok_or_else(|| "checkpoint tensor byte count overflows".to_string())?;
+        let remaining = reader
+            .metadata()
+            .map_err(|e| e.to_string())?
+            .len()
+            .saturating_sub(reader.stream_position().map_err(|e| e.to_string())?);
+        if u64::try_from(byte_count).map_or(true, |bytes| bytes > remaining) {
+            truncate_checkpoint_tail(&reader, record_start)?;
+            return Ok(records);
+        }
         let needed = name == "prefill.input_token_ids"
             || name == "prefill.input_embedding"
             || name == "prefill.final_norm"
@@ -1569,19 +1624,27 @@ fn read_checkpoint_records(path: &Path) -> Result<HashMap<String, GenericTensor>
             || name.starts_with("layer")
                 && (name.ends_with(".output")
                     || name.ends_with(".kv_key")
-                    || name.ends_with(".kv_value"));
+                    || name.ends_with(".kv_value"))
+            || name.starts_with("generation.step")
+                && (name.ends_with(".input_token_id")
+                    || name.ends_with(".input_embedding")
+                    || name.ends_with(".output")
+                    || name.ends_with(".kv_key")
+                    || name.ends_with(".kv_value")
+                    || name.ends_with(".logits"));
         if !needed {
             reader
                 .seek(SeekFrom::Current(i64::try_from(byte_count).map_err(
-                    |_| "checkpoint tensor offset exceeds host limits",
+                    |_| "checkpoint tensor offset exceeds host limits".to_string(),
                 )?))
                 .map_err(|e| e.to_string())?;
             continue;
         }
         let mut value_bytes = vec![0u8; byte_count];
-        reader
-            .read_exact(&mut value_bytes)
-            .map_err(|e| e.to_string())?;
+        if !read_checkpoint_bytes(&mut reader, &mut value_bytes)? {
+            truncate_checkpoint_tail(&reader, record_start)?;
+            return Ok(records);
+        }
         let values = value_bytes
             .chunks_exact(4)
             .map(|value| f32::from_le_bytes([value[0], value[1], value[2], value[3]]))
@@ -1589,6 +1652,30 @@ fn read_checkpoint_records(path: &Path) -> Result<HashMap<String, GenericTensor>
         records.insert(name, GenericTensor { dimensions, values });
     }
     Ok(records)
+}
+
+fn read_generation_progress(path: &Path) -> Result<Option<(u32, u32)>, String> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.to_string()),
+    };
+    if !text.lines().any(|line| line == "PHASE=GENERATION") {
+        return Ok(None);
+    }
+    let step = text
+        .lines()
+        .find_map(|line| line.strip_prefix("STEP="))
+        .ok_or_else(|| "generation progress is missing a step".to_string())?
+        .parse::<u32>()
+        .map_err(|_| "generation progress step is invalid".to_string())?;
+    let layer = text
+        .lines()
+        .find_map(|line| line.strip_prefix("LAYER="))
+        .ok_or_else(|| "generation progress is missing a layer".to_string())?
+        .parse::<u32>()
+        .map_err(|_| "generation progress layer is invalid".to_string())?;
+    Ok(Some((step.saturating_sub(1), layer)))
 }
 
 fn write_manifest(
@@ -2204,17 +2291,17 @@ pub fn run_retained_kv(arguments: Vec<String>) -> Result<(), String> {
 }
 
 pub fn run_repeated_generation(mut arguments: Vec<String>) -> Result<(), String> {
+    let max_new_tokens = arguments
+        .pop()
+        .ok_or("max new tokens")?
+        .parse::<u32>()
+        .map_err(|_| "max new tokens must be an integer".to_owned())?;
     let resume_prefill = arguments
         .last()
         .is_some_and(|argument| argument == "--resume-prefill");
     if resume_prefill {
         arguments.pop();
     }
-    let max_new_tokens = arguments
-        .pop()
-        .ok_or("max new tokens")?
-        .parse::<u32>()
-        .map_err(|_| "max new tokens must be an integer".to_owned())?;
     if !matches!(max_new_tokens, 2 | 4 | 8) {
         return Err("max new tokens must be one of 2, 4, or 8".into());
     }
@@ -2240,6 +2327,11 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
         return Err("unexpected retained-KV argument".into());
     }
     let resume_prefill = matches!(mode, RetainedRunMode::GreedyResume { .. });
+    let resume_generation = if resume_prefill {
+        read_generation_progress(&progress_path)?
+    } else {
+        None
+    };
     let side_file = File::open(sidecar).map_err(|e| e.to_string())?;
     let payload_file = File::open(payload).map_err(|e| e.to_string())?;
     let side_mapping = unsafe { Mmap::map(&side_file).map_err(|e| e.to_string())? };
@@ -2396,6 +2488,41 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
                 .restore_kv(&key.dimensions, key.values.clone(), value.values.clone())?;
         }
     }
+    if let (Some(records), Some((step, layer))) = (&checkpoint_records, resume_generation) {
+        if layer >= BASE_TRANSFORMER_LAYER_COUNT {
+            return Err("generation progress layer is outside the model".into());
+        }
+        let base_step = step.checked_sub(1);
+        for catalog in &catalogs {
+            let prefix = base_step.map_or_else(
+                || format!("layer{}", catalog.layer),
+                |base| format!("generation.step{base}.layer{}", catalog.layer),
+            );
+            let key = records
+                .get(&format!("{prefix}.kv_key"))
+                .ok_or("resume checkpoint is missing the previous-step KV key")?;
+            let value = records
+                .get(&format!("{prefix}.kv_value"))
+                .ok_or("resume checkpoint is missing the previous-step KV value")?;
+            states
+                .get_mut(&catalog.state)
+                .ok_or("resume previous-step state is missing")?
+                .restore_kv(&key.dimensions, key.values.clone(), value.values.clone())?;
+        }
+        for catalog in catalogs.iter().filter(|catalog| catalog.layer <= layer) {
+            let prefix = format!("generation.step{step}.layer{}", catalog.layer);
+            let key = records
+                .get(&format!("{prefix}.kv_key"))
+                .ok_or("resume checkpoint is missing the current-step KV key")?;
+            let value = records
+                .get(&format!("{prefix}.kv_value"))
+                .ok_or("resume checkpoint is missing the current-step KV value")?;
+            states
+                .get_mut(&catalog.state)
+                .ok_or("resume current-step state is missing")?
+                .restore_kv(&key.dimensions, key.values.clone(), value.values.clone())?;
+        }
+    }
     let mut current = if let Some(records) = &checkpoint_records {
         records
             .get("layer45.output")
@@ -2518,7 +2645,53 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
         peak_prefill_working_set,
     );
 
-    if let RetainedRunMode::Greedy { max_new_tokens } = mode {
+    if let RetainedRunMode::Greedy { max_new_tokens }
+    | RetainedRunMode::GreedyResume { max_new_tokens } = mode
+    {
+        let resume_step = resume_generation.map_or(0, |(step, _)| step);
+        let resume_layer = resume_generation.map(|(_, layer)| layer);
+        let resume_activation = resume_generation.and_then(|(step, layer)| {
+            checkpoint_records.as_ref().and_then(|records| {
+                records
+                    .get(&format!("generation.step{step}.layer{layer}.output"))
+                    .cloned()
+            })
+        });
+        let resume_embedding = resume_generation.and_then(|(step, _)| {
+            checkpoint_records.as_ref().and_then(|records| {
+                records
+                    .get(&format!("generation.step{step}.input_embedding"))
+                    .cloned()
+            })
+        });
+        let mut previous_generated_ids = Vec::with_capacity(resume_step as usize);
+        let mut generation_prompt_ids = prefill_token_ids.clone();
+        if let Some(records) = &checkpoint_records {
+            for step in 0..resume_step {
+                let token = records
+                    .get(&format!("generation.step{step}.input_token_id"))
+                    .and_then(|tensor| tensor.values.first())
+                    .copied()
+                    .filter(|token| token.is_finite() && *token >= 0.0 && token.fract() == 0.0)
+                    .and_then(|token| u32::try_from(token as u64).ok())
+                    .ok_or("resume checkpoint has an invalid generated token")?;
+                previous_generated_ids.push(token);
+                generation_prompt_ids.push(token);
+            }
+        } else if resume_step != 0 {
+            return Err("generation resume state is missing its checkpoint records".into());
+        }
+        let generation_initial_logits = if resume_step == 0 {
+            prefill_logits.clone()
+        } else {
+            checkpoint_records
+                .as_ref()
+                .and_then(|records| {
+                    records.get(&format!("generation.step{}.logits", resume_step - 1))
+                })
+                .cloned()
+                .ok_or("resume checkpoint is missing the previous-step logits")?
+        };
         let eos_token_id = view
             .tokenizer
             .specials()
@@ -2528,12 +2701,24 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
             .transpose()?;
         let materializer_cell = RefCell::new(&mut materializer);
         let checkpoint_cell = RefCell::new(&mut checkpoint);
-        let generation_step = Cell::new(0u32);
+        let generation_step = Cell::new(resume_step);
         let generation_embedding_source_bytes = Cell::new(0u64);
         let mut decode = |embedding: GenericTensor, position: u64| {
             let step = generation_step.get().saturating_sub(1);
             let mut materializer = materializer_cell.borrow_mut();
-            let mut current = embedding;
+            let start_layer = if step == resume_step {
+                resume_layer.map_or(0, |layer| layer.saturating_add(1))
+            } else {
+                0
+            };
+            let mut current = if start_layer == 0 {
+                embedding
+            } else {
+                resume_activation
+                    .as_ref()
+                    .cloned()
+                    .ok_or("resume checkpoint is missing the partial layer activation")?
+            };
             let source_before = materializer.source_bytes;
             let decode_start = Instant::now();
             let mut peak_cache = materializer.cache_f32_bytes();
@@ -2544,7 +2729,7 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
             let mut routing_decisions = 0u64;
             let mut selected_occurrences = 0u64;
             let mut unselected_touches = 0usize;
-            for catalog in &catalogs {
+            for catalog in catalogs.iter().skip(start_layer as usize) {
                 let state = states
                     .get_mut(&catalog.state)
                     .ok_or("generation layer state is missing")?;
@@ -2671,6 +2856,12 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
             let mut embed = |token_id: u32| {
                 let step = generation_step.get();
                 generation_step.set(step + 1);
+                if resume_generation.is_some() && step == resume_step {
+                    generation_embedding_source_bytes.set(0);
+                    return resume_embedding.as_ref().cloned().ok_or_else(|| {
+                        "resume checkpoint is missing the partial token embedding".to_string()
+                    });
+                }
                 let mut materializer = materializer_cell.borrow_mut();
                 let source_before = materializer.source_bytes;
                 let row =
@@ -2698,10 +2889,10 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
                 Ok(embedding)
             };
             generate(
-                &prefill_token_ids,
-                prefill_logits.clone(),
+                &generation_prompt_ids,
+                generation_initial_logits,
                 GenerationConfig {
-                    max_new_tokens,
+                    max_new_tokens: max_new_tokens.saturating_sub(resume_step),
                     eos_token_id,
                 },
                 &selector,
@@ -2710,13 +2901,11 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
                 || false,
             )
         };
+        let mut generated_token_ids = previous_generated_ids;
+        generated_token_ids.extend_from_slice(&generation.generated_token_ids);
         let generated_ids = GenericTensor {
-            dimensions: vec![1, generation.generated_token_ids.len() as u64],
-            values: generation
-                .generated_token_ids
-                .iter()
-                .map(|id| *id as f32)
-                .collect(),
+            dimensions: vec![1, generated_token_ids.len() as u64],
+            values: generated_token_ids.iter().map(|id| *id as f32).collect(),
         };
         write_record(
             &mut checkpoint_cell.borrow_mut(),
@@ -2728,7 +2917,7 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
             .map_err(|error| error.to_string())?;
         println!(
             "GENERATION_COMPLETE=YES GREEDY_TOKEN_SELECTION=YES GENERATED_TOKEN_IDS={:?} GENERATED_TOKEN_IDS_HASH={} GENERATED_TEXT={:?} GENERATED_TEXT_SHA256={} EOS_TOKEN_ID={:?} EOS_SELECTED_AT_STEP={} MAX_NEW_TOKENS={} TERMINATION_REASON={:?} GENERATION_ERROR={:?} TOTAL_DECODE_STEPS_EXECUTED={} EMBEDDING_SOURCE_BYTES_LAST_STEP={} PREFIX_RECOMPUTATION=NO HISTORICAL_QKV_RECOMPUTATION=NO FULL_TOKEN_ACTIVATION_HISTORY_RETAINED=NO",
-            generation.generated_token_ids,
+            generated_token_ids,
             tensor_hash(&generated_ids),
             generated_text,
             bytes_hash(generated_text.as_bytes()),
@@ -2741,14 +2930,14 @@ fn run_retained_kv_mode(arguments: Vec<String>, mode: RetainedRunMode) -> Result
             max_new_tokens,
             generation.stop_reason,
             generation.error,
-            generation.steps.len(),
+            resume_step + generation.steps.len() as u32,
             generation_embedding_source_bytes.get(),
         );
         durable_flush(&mut checkpoint_cell.borrow_mut())?;
         write_progress(
             &progress_path,
             "GENERATION_COMPLETE",
-            generation.steps.len() as u32,
+            resume_step + generation.steps.len() as u32,
             45,
         )?;
         let kv_before_cleanup: usize = states.values().map(GenericExecutionState::bytes).sum();

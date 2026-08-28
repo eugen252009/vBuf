@@ -11,8 +11,12 @@ artifact_dir="$root_dir/.step32c/step32j-generation/gate-$1"
 mkdir -p "$artifact_dir"
 resume_arg=()
 if [[ -s "$artifact_dir/generation.checkpoints.progress" ]] \
-    && grep -q '^PHASE=PREFILL$' "$artifact_dir/generation.checkpoints.progress" \
-    && grep -q '^LAYER=45$' "$artifact_dir/generation.checkpoints.progress"; then
+    && { \
+        { grep -q '^PHASE=PREFILL$' "$artifact_dir/generation.checkpoints.progress" \
+            && grep -q '^LAYER=45$' "$artifact_dir/generation.checkpoints.progress"; } \
+        || grep -q '^PHASE=GENERATION$' "$artifact_dir/generation.checkpoints.progress" \
+        || grep -q '^PHASE=GENERATION_COMPLETE$' "$artifact_dir/generation.checkpoints.progress"; \
+    }; then
     resume_arg=(--resume-prefill)
 fi
 

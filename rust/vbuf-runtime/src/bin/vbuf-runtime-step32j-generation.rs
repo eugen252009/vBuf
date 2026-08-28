@@ -7,7 +7,7 @@ mod block_runner {
 
 fn main() -> Result<(), String> {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
-    if arguments.len() != 6 {
+    if arguments.len() != 6 && arguments.len() != 7 {
         return Err(
             "usage: step32j <sidecar> <payload> <checkpoint> <manifest> <qualification-text> <max-new-tokens>"
                 .into(),
