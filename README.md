@@ -89,7 +89,8 @@ The direct runtime has explicit modes:
 
 Qualification controls must not be mistaken for production inference cost.
 Qualification remains serial. Normal inference does not execute reference work.
-Autoregressive decode remains the unchanged single-position path.
+The Android direct runtime keeps its unchanged single-position decode path;
+the portable GLM runtime separately qualifies retained-KV greedy generation.
 
 ## OpenAI-Compatible Serving
 
@@ -120,10 +121,62 @@ generation is active, without enabling concurrent inference. The lifecycle
 evidence remains in [`step31s-persistent-server-lifecycle-qualification.md`](research/results/vbuf-ml-integration/step31s-persistent-server-lifecycle-qualification.md);
 the dispatch qualification is in
 [`step31w-control-plane-separation.md`](research/results/vbuf-ml-integration/step31w-control-plane-separation.md).
+Step 31X adds cancellation-aware serial admission without changing the
+one-generation production policy. Steps 31Y and 31Z qualify isolated-session
+and shared immutable-residency concurrency on x86_64 as research seams, but
+production serving remains serial; the 256 MiB shared-concurrency case did not
+qualify. See [`Step 31X`](research/results/vbuf-ml-integration/step31x-cancellable-admission.md),
+[`Step 31Y`](research/results/vbuf-ml-integration/step31y-backend-concurrency-feasibility.md),
+and [`Step 31Z`](research/results/vbuf-ml-integration/step31z-shared-residency-concurrency.md).
+
+## Portable FP8, Full-Stack, And CUDA Qualification
+
+The latest portable-runtime lineage uses the pinned public
+`zai-org/GLM-4.5-Air-FP8` artifact at revision
+`f9a9c5acf5e543cd24d659a056c5dbcda78ffcfc`. The direct-range Safetensors
+import produced a canonical `112,563,538,898`-byte vBuf artifact without a
+complete local Safetensors copy. Its source payload exceeded measured host RAM
+plus aggregate GPU VRAM. A separate `14,306,259`-byte semantic sidecar persists
+tokenizer, tensor, FP8 scale, MoE, and source bindings without rewriting the
+payload.
+
+The generic Rust portable runtime has qualified:
+
+- real persisted text through all 46 base transformer layers to logits;
+- retained-KV one-token decode;
+- eight consecutive greedy decode steps with the same generated token sequence,
+  routing, argmax, and top-10 ordering as an independent persisted-range NumPy
+  reference; and
+- selected-expert-only acquisition with bounded layer-local converted-weight
+  residency and cleanup.
+
+The generated eight-token continuation for the fixed input `Test` was:
+
+```text
+Test 1: 1. The sum
+```
+
+This is a CPU F32 portable execution qualification, not GGML parity or a
+throughput claim. Full evidence is in
+[`Step 32C`](research/results/vbuf-ml-integration/step32c-real-fp8-oversubscription.md),
+[`Step 32D`](research/results/vbuf-ml-integration/step32d-glm-semantic-sidecar.md),
+[`Step 32H`](research/results/vbuf-ml-integration/step32h-real-text-full-stack.md),
+and [`Step 32J`](research/results/vbuf-ml-integration/step32j-repeated-autoregressive-generation.md).
+
+The backend-neutral device contract and CUDA adapter have separately qualified
+one complete real GLM block and progressive 2/4/8-layer execution on an RTX
+3060. Layer outputs remain device-resident between layers, selected-expert
+parity passes, unselected expert transfers are zero, and logical device
+residency plateaus at approximately 203 MB in the eight-layer gate. Persistent
+FP8 weights are currently materialized through bounded host F32 staging and
+uploaded as F32; Top-K remains host control. Full-stack CUDA prefill, CUDA
+decode/generation, native FP8 device execution, and multi-GPU execution remain
+unqualified. See [`Step 32K-A`](research/results/vbuf-ml-integration/step32k-a-cuda-device-block.md)
+and [`Step 32K-B`](research/results/vbuf-ml-integration/step32k-b-progressive-cuda-layers.md).
 
 ## Android Qualification And Performance
 
-The current physical target is a Pixel 7 Pro running Android 17, arm64-v8a,
+The current Android qualification target is a Pixel 7 Pro running Android 17, arm64-v8a,
 with DeepSeek-V2-Lite IQ2_XXS, a seven-token prompt, and a 256 MiB residency
 cap. The prompt was:
 
@@ -198,31 +251,54 @@ parallel.
 | Bounded materialization, readiness, and leases | Implemented |
 | Bounded residency | Implemented |
 | Portable program/lowering and generic GGML adapter | Implemented and contract-qualified |
+| Streaming Safetensors-to-vBuf import | Implemented; real 112.56 GB FP8 artifact qualified |
+| Persistent block-scaled F8_E4M3 plus semantic scale bindings | Implemented and qualified |
+| Portable CPU full-stack text-to-logits | Qualified on 46-layer GLM-4.5-Air-FP8 |
+| Portable retained-KV autoregressive generation | Eight greedy decode steps qualified against an independent reference |
+| Generic CUDA device backend | Complete real block and progressive 2/4/8 layers qualified |
+| Full-stack CUDA prefill/decode/generation | Not qualified |
 | Android arm64 direct runtime | Physically qualified |
 | Android application harness | Physically qualified over the direct runtime; see [`Android app baseline`](research/results/vbuf-android-demo-poc/android-app-baseline.md) |
 | Normal/Qualification runtime modes | Implemented and qualified |
 | Layer-major prompt batching | Implemented and physically qualified in normal mode |
-| Autoregressive decode | Implemented; unchanged by batching |
+| Production server inference concurrency | Serial; research concurrency seams do not change policy |
 
-The real DeepSeek-V2-Lite target is a qualification example, not a
-DeepSeek-specific format. Backend/model neutrality remains a design requirement.
+DeepSeek-V2-Lite and GLM-4.5-Air-FP8 are qualification examples, not
+model-specific format definitions. Backend/model neutrality remains a design
+requirement.
 
-The vBuf-ML importer also has an offline-qualified streaming Safetensors path:
-it plans canonical vBuf layout from metadata and bounded shard headers, then
-can write exact tensor bytes from bounded HTTP ranges directly into final
-aligned destinations without storing a complete local Safetensors shard or a
-second model-sized payload. Public Hugging Face smoke qualification and new
-architecture/dtype runtime support remain separate gates; see
-[`Step 32A`](research/results/vbuf-ml-integration/step32a-hf-safetensors-streaming-vbuf-conversion.md).
+The importer plans canonical vBuf layout from bounded Safetensors metadata and
+writes exact tensor bytes from bounded HTTP ranges directly into final aligned
+destinations without retaining a complete local shard or second model-sized
+payload. Step 32A established the generic path; Steps 32B and 32C added
+persistent block-scaled F8_E4M3 semantics and physically qualified the real
+oversubscribed artifact. See
+[`Step 32A`](research/results/vbuf-ml-integration/step32a-hf-safetensors-streaming-vbuf-conversion.md)
+and [`Step 32B`](research/results/vbuf-ml-integration/step32b-f8-e4m3-block-scaled.md).
+
+## Closed Research Directions
+
+Contextual Correction Code (CCC) research is **closed / rejected** after four
+independent lineages were preserved and reconciled. Contextual baselines and
+power geometry did not survive strong controls; C3 and plain C4 are numerically
+dominated, and the claimed C3 runtime advantage failed a native-kernel fairness
+audit. Packed sub-byte direct compute remains a positive systems result. The
+unreplicated sparse C4 residual-tail point is evidence only and does not
+authorize implementation. The canonical decision and reopening criteria are in
+[`CCC Research Conclusion`](docs/vbuf-ml/ccc_research_conclusion.md).
 
 ## Current Limitations
 
 - Causal attention and KV state transitions remain ordered per prompt position.
 - Autoregressive decode remains token-serial by definition.
-- Full hidden-state, KV, and final-logit hashes for every batched prompt row were not retained; first-decode parity and router/MoE audit were recorded.
-- Materialization and request/reload amplification remain observable; no new prefetch or compute/materialization overlap was implemented.
-- Backend thread configuration was not separately tuned; the existing Android configuration keeps OpenMP disabled.
-- The APK was not rebuilt in the final direct-probe qualification because the current environment lacks a usable `javac`; the changed ARM64 direct probe was built and physically run.
+- Full hidden-state, KV, and final-logit hashes for every Android batched prompt row were not retained; first-decode parity and router/MoE audit were recorded.
+- The portable GLM CPU path materializes demanded FP8/BF16 weights to bounded F32 working sets; it is correctness qualification, not production performance qualification.
+- CUDA is qualified only through eight consecutive real layers. Full-stack CUDA text prefill, retained-KV decode, generation, native FP8 execution, and multi-GPU remain open.
+- CUDA Top-K is host control in the qualified path; inter-layer activations otherwise remain device-resident.
+- Production OpenAI-compatible serving remains serial despite bounded x86_64 concurrency feasibility evidence.
+- Materialization and request/reload amplification remain observable; no general prefetch or compute/materialization overlap policy was selected.
+- Backend thread configuration was not separately tuned; the Android configuration keeps OpenMP disabled.
+- The APK was not rebuilt during the final historical direct-probe qualification; the ARM64 direct probe was built and physically run. This is not a claim that the documented Android toolchain is currently unavailable.
 
 ## Performance Progression
 
@@ -575,20 +651,26 @@ Current verification status:
 
 | Check | Status |
 |---|---|
-| Rust workspace tests | PASS |
-| Native CTest | PASS, 21/21 |
-| Portable graph neutrality guard | PASS, `FORBIDDEN_LEAKAGE_COUNT=0` |
-| ARM64 direct probe build | PASS |
-| APK build | Not rebuilt; blocked by unavailable usable `javac` |
+| Rust workspace tests | PASS in the latest Step 32K qualification |
+| Native CTest | PASS, 22/22 in the Step 32A verification record |
+| Portable graph neutrality guard | PASS, `FORBIDDEN_LEAKAGE_COUNT=0` and `CUDA_TYPE_LEAKAGE_COUNT=0` |
+| CUDA backend build and device tests | PASS; four CUDA tests on device 0 |
+| Real CUDA execution | PASS for one complete block and progressive 2/4/8 layers |
+| ARM64 direct probe build | PASS in its recorded qualification |
+| APK build | Not rerun in the latest CPU/CUDA work |
 
-The APK status is an environment/build-verification limitation, not a runtime
-failure. The ARM64 direct probe was built and physically qualified separately.
+The latest Step 32 work did not require an APK rebuild. The established Android
+SDK/JDK/NDK/CMake environment remains documented separately; the historical
+APK non-rebuild is not a runtime failure.
 
 ## Evidence and Scope
 
 The detailed architecture and qualification evidence is preserved in:
 
 - [`vbuf-ML documentation`](docs/vbuf-ml/);
+- [`CCC final research conclusion`](docs/vbuf-ml/ccc_research_conclusion.md);
+- [`real FP8 repeated generation`](research/results/vbuf-ml-integration/step32j-repeated-autoregressive-generation.md);
+- [`progressive CUDA layers`](research/results/vbuf-ml-integration/step32k-b-progressive-cuda-layers.md);
 - [`cross-architecture matrix`](research/results/vbuf-autoregressive-generation-poc22-x86/cross-architecture-qualification-matrix.md);
 - [`ARM32 records`](research/results/vbuf-cross-architecture/arm32/);
 - [`ARM64 records`](research/results/vbuf-cross-architecture/arm64/);
