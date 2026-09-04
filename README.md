@@ -11,6 +11,19 @@ optional semantic/profile layer for model metadata, tokenizers, tensor
 directories, and external tensor sources. vBuf is not defined by machine
 learning or by any particular backend such as llama.cpp or ggml.
 
+## Latest Findings
+
+The project is trying to make very large models usable without requiring the
+whole model in RAM or VRAM: persistent bytes stay in a validated vBuf artifact,
+while vBuf-ML fetches, materializes, and evicts only the ranges needed by the
+runtime. The backend receives validated tensors; it does not own loading or
+residency policy.
+
+For a short, current snapshot of the largest qualified results and their limits,
+see [`research/last-findings.md`](research/last-findings.md). It is intentionally
+kept to the latest two or three findings; detailed evidence and historical
+results remain in [`research/results/`](research/results/).
+
 ## Current Runtime Architecture
 
 vBuf-ML is the optional ML semantic/runtime layer above the generic vBuf
