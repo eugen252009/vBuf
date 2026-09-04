@@ -19,10 +19,9 @@ while vBuf-ML fetches, materializes, and evicts only the ranges needed by the
 runtime. The backend receives validated tensors; it does not own loading or
 residency policy.
 
-For a short, current snapshot of the largest qualified results and their limits,
-see [`research/last-findings.md`](research/last-findings.md). It is intentionally
-kept to the latest two or three findings; detailed evidence and historical
-results remain in [`research/results/`](research/results/).
+For the current qualified results, important limits, architecture, and
+historical context, see the [`vBuf-ML current-state summary`](research/results/vbuf-ml-current-state-summary.md).
+Detailed reports and raw evidence remain in [`research/results/`](research/results/).
 
 ## Current Runtime Architecture
 

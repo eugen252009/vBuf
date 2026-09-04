@@ -1,16 +1,25 @@
 # vBuf-ML Current-State Summary
 
-Date: 2026-08-20
+Last updated: 2026-09-04
 Branch: `vbuf-ml`
 Baseline: `27c8bd9 Establish Android normal inference baseline`
 
 ## 1. Scope
 
 This report consolidates the current generic vBuf substrate, the vBuf-ML
-semantic/runtime layer, the portable backend boundary, and the completed
-Android direct-runtime qualification and prompt-prefill batching work. Numbers
-are labeled as measured, derived, or historical. This is a documentation and
-evidence summary; it does not authorize another optimization stage.
+semantic/runtime layer, the portable backend boundary, and the latest model and
+hardware qualification results. Numbers are labeled as measured, derived, or
+historical. This is a documentation and evidence summary; it does not authorize
+another optimization stage.
+
+## Latest Findings
+
+This is the current high-level snapshot. Replace these items when larger
+achievements are qualified; do not append an unbounded changelog here.
+
+- **112G GLM-4.5-Air-FP8 on a 64 GiB RAM / 20 GiB aggregate-VRAM workstation:** direct remote Safetensors-range import, all 46 layers, retained-KV execution, and 8-token greedy generation passed independent token, routing, argmax, and top-10 parity. Peak converted working set was approximately **1.06 GiB**. **Edge:** CPU F32 qualification only; full-stack GPU, GGML, and throughput remain unqualified. Evidence: [Step 32C](vbuf-ml-integration/step32c-real-fp8-oversubscription.md) and [Step 32J](vbuf-ml-integration/step32j-repeated-autoregressive-generation.md).
+- **112G GLM on an RTX 3060:** progressive 1/2/4/8-layer CUDA gates passed with direct device activation handoff, selected-expert-only transfers, zero unselected-expert bytes, and approximately **203 MiB** bounded logical device residency. **Edge:** full 46-layer CUDA prefill, GPU decode/generation, native FP8 device execution, and multi-GPU remain unqualified. Evidence: [Step 32K-B](vbuf-ml-integration/step32k-b-progressive-cuda-layers.md).
+- **5.6 GB DeepSeek-V2-Lite IQ2_XXS on a Pixel 7 Pro:** Android 17 arm64-v8a remote bounded-range materialization, execution, prompt prefill, and bounded generation passed with a **256 MiB** vBuf-ML residency cap. **Edge:** this is ARM64, not ARM32; ARM32 format/runtime evidence does not qualify this model-compute path. Evidence: [Android qualification](vbuf-android-demo-poc/step31i-residency-curve-after-geometry-fix.md).
 
 ## 2. vBuf vs vBuf-ML
 
@@ -331,6 +340,11 @@ position 0.
 | Bounded residency | Implemented |
 | Portable program/lowering | Implemented |
 | Generic GGML adapter | Implemented and contract-qualified |
+| Streaming Safetensors-to-vBuf import | Implemented; real 112.56 GB FP8 artifact qualified |
+| Portable CPU full-stack text-to-logits | Qualified on 46-layer GLM-4.5-Air-FP8 |
+| Portable retained-KV autoregressive generation | Eight greedy decode steps qualified against an independent reference |
+| Generic CUDA device backend | Real block and progressive 1/2/4/8-layer execution qualified |
+| Full-stack CUDA prefill/decode/generation | Not qualified |
 | Android arm64 direct runtime | Physically qualified |
 | Android application harness | Physically qualified over the direct runtime |
 | `NormalInference` / `Qualification` modes | Implemented and qualified |
@@ -349,6 +363,9 @@ tokens (`----`) on the Pixel. See [`android-app-baseline.md`](vbuf-android-demo-
 - Materialization and request/reload amplification remain observable; no new prefetch or compute/materialization overlap was implemented.
 - Backend thread configuration was not separately tuned; the existing Android configuration keeps OpenMP disabled.
 - The APK was not rebuilt in the final direct-probe qualification because the current environment lacks a usable `javac`; the changed ARM64 direct probe was built and physically run.
+- The portable GLM CPU path materializes demanded FP8/BF16 weights to bounded F32 working sets; it is correctness qualification, not production performance qualification.
+- CUDA is qualified only through eight consecutive real layers. Full-stack CUDA text prefill, retained-KV decode, generation, native FP8 execution, and multi-GPU remain open.
+- CUDA Top-K is host control in the qualified path; inter-layer activations otherwise remain device-resident.
 - The generic portable adapter's real DeepSeek router-prefix execution remains a separate qualification boundary; its Rust/ABI/neutrality contracts are not the same evidence as the direct runtime qualification.
 
 ## 18. Next Evidence-Driven Optimization Areas
