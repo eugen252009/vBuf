@@ -141,8 +141,11 @@ bool LocalVbufRangeSource::read_range(uint64_t offset, uint64_t length,
     return true;
 }
 
-HttpRangeSource::HttpRangeSource(std::string endpoint, std::string local_source_ip)
-    : endpoint_(std::move(endpoint)), local_source_ip_(std::move(local_source_ip)) {}
+HttpRangeSource::HttpRangeSource(std::string endpoint, std::string local_source_ip,
+    uint64_t expected_source_size, std::string expected_source_sha256)
+    : endpoint_(std::move(endpoint)), local_source_ip_(std::move(local_source_ip)),
+      expected_source_size_(expected_source_size),
+      expected_source_sha256_(std::move(expected_source_sha256)) {}
 
 HttpRangeSource::~HttpRangeSource() {
     if (socket_fd_ >= 0) close(socket_fd_);
@@ -267,6 +270,7 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
     std::string protocol;
     status_fields >> protocol >> result->status_code;
     std::string content_range;
+    std::string etag;
     uint64_t content_length = 0;
     bool have_content_length = false;
     std::string line;
@@ -276,6 +280,11 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
             have_content_length = true;
         } else if (line.size() >= 14 && line.compare(0, 14, "Content-Range:") == 0) {
             content_range = line.substr(14);
+        } else if (line.size() >= 5 && line.compare(0, 5, "ETag:") == 0) {
+            etag = line.substr(5);
+            while (!etag.empty() && (etag.front() == ' ' || etag.front() == '\t')) etag.erase(etag.begin());
+            while (!etag.empty() && (etag.back() == '\r' || etag.back() == '\n' || etag.back() == ' ' || etag.back() == '\t')) etag.pop_back();
+            if (etag.size() >= 2 && etag.front() == '"' && etag.back() == '"') etag = etag.substr(1, etag.size() - 2);
         }
     }
     result->content_range = content_range;
@@ -332,14 +341,26 @@ bool HttpRangeSource::read_range(uint64_t offset, uint64_t length,
         uint64_t start = 0;
         char dash = 0;
         uint64_t last = 0;
-        fields >> unit >> start >> dash >> last;
-        if (fields.fail() || unit.find("bytes") == std::string::npos ||
-            start != offset || last != end - 1) {
+        char slash = 0;
+        uint64_t total = 0;
+        const bool valid_range = static_cast<bool>(fields >> unit >> start >> dash >> last);
+        const bool has_total = static_cast<bool>(fields >> slash >> total);
+        if (!valid_range || unit.find("bytes") == std::string::npos ||
+            start != offset || last != end - 1 ||
+            (expected_source_size_ != 0 && (!has_total || total != expected_source_size_))) {
             close(socket_fd_);
             socket_fd_ = -1;
             result->error = "HTTP Content-Range does not match the request";
             return false;
         }
+    }
+    if (expected_source_size_ != 0 && (content_range.empty() || etag != expected_source_sha256_)) {
+        close(socket_fd_);
+        socket_fd_ = -1;
+        result->error = content_range.empty()
+            ? "HTTP source identity requires Content-Range with total size"
+            : "HTTP source SHA-256 identity does not match the sidecar";
+        return false;
     }
     vbuf_d0_1_http_request(request_start_ns, send_complete_ns,
         result->first_byte_timestamp_ns, body_complete_ns, length,

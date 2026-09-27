@@ -32,7 +32,9 @@ bool spec_for(uint8_t representation, RepresentationSpec * spec) {
     case 7: *spec = { GGML_TYPE_IQ4_NL, 32, 18 }; return true;
     case 10: *spec = { GGML_TYPE_IQ2_XXS, 256, 66 }; return true;
     case 4: *spec = { GGML_TYPE_Q2_K, 256, 84 }; return true;
+    case 6: *spec = { GGML_TYPE_Q4_K, 256, 144 }; return true;
     case 13: *spec = { GGML_TYPE_Q5_K, 256, 176 }; return true;
+    case 14: *spec = { GGML_TYPE_Q6_K, 256, 210 }; return true;
     default: return false;
     }
 }

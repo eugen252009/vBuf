@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import hashlib
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -38,6 +39,7 @@ class RangeHandler(BaseHTTPRequestHandler):
             self.send_response(206)
             self.send_header("Accept-Ranges", "bytes")
             self.send_header("Content-Range", f"bytes {advertised_start}-{end}/{size}")
+            self.send_header("ETag", f'"{self.server.source_sha256}"')
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -65,6 +67,11 @@ def main():
     args = parser.parse_args()
     server = RangeServer((args.host, args.port), RangeHandler)
     server.path = args.file
+    digest = hashlib.sha256()
+    with open(args.file, "rb") as source:
+        for chunk in iter(lambda: source.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    server.source_sha256 = digest.hexdigest()
     server.mode = args.mode
     server.log_enabled = args.log
     server.serve_forever()

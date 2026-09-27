@@ -45,7 +45,9 @@ bool descriptor_cases() {
         { 7, 32, 18 },
         { 10, 256, 66 },
         { 4, 256, 84 },
+        { 6, 256, 144 },
         { 13, 256, 176 },
+        { 14, 256, 210 },
     };
     for (const Case & item : cases) {
         const uint64_t dimensions[] = { item.block_elements, 2 };
@@ -211,6 +213,47 @@ bool borrowed_q2_execution() {
     return pass;
 }
 
+bool borrowed_q4_q6_execution() {
+    struct alignas(64) KStorage { std::array<uint8_t, 210> bytes{}; };
+    const struct { uint8_t representation; size_t row_bytes; } cases[] = {
+        { 6, 144 }, { 14, 210 },
+    };
+    for (const auto & item : cases) {
+        auto owner = std::make_shared<KStorage>();
+        const uint64_t dimensions[] = { 256, 1 };
+        VbufTensorView view{ item.representation, 2, dimensions,
+            owner->bytes.data(), item.row_bytes };
+        auto tensor = BorrowedGgmlTensor::create(view);
+        std::shared_ptr<const void> lease(owner, static_cast<const void *>(owner.get()));
+        std::string detail;
+        if (!tensor || tensor->bind_cpu_exact(lease, &detail) != AdapterError::None) {
+            std::fprintf(stderr, "Q%u_K bind failed: %s\n",
+                item.representation == 6 ? 4 : 6, detail.c_str());
+            return false;
+        }
+        ggml_tensor * input = ggml_new_tensor_1d(tensor->context(), GGML_TYPE_F32, 256);
+        ggml_tensor * output = ggml_mul_mat(tensor->context(), tensor->tensor(), input);
+        ggml_cgraph * graph = ggml_new_graph(tensor->context());
+        ggml_build_forward_expand(graph, output);
+        ggml_backend_buffer_t compute = ggml_backend_alloc_ctx_tensors(
+            tensor->context(), tensor->backend());
+        if (compute == nullptr) return false;
+        std::array<float, 256> values{};
+        values.fill(1.0f);
+        ggml_backend_tensor_set(input, values.data(), 0, sizeof(values));
+        const bool computed = ggml_backend_graph_compute(tensor->backend(), graph) == GGML_STATUS_SUCCESS;
+        float result = 1.0f;
+        ggml_backend_tensor_get(output, &result, 0, sizeof(result));
+        ggml_backend_buffer_free(compute);
+        if (!computed || result != 0.0f || tensor->bound_data() != owner->bytes.data()) {
+            std::fprintf(stderr, "Q%u_K compute failed: computed=%d result=%g\n",
+                item.representation == 6 ? 4 : 6, computed, result);
+            return false;
+        }
+    }
+    return true;
+}
+
 bool materialized_null_payload_binding() {
     std::array<float, 2> source_storage{{ 7.0f, 11.0f }};
     auto source = std::make_shared<LocalVbufRangeSource>(
@@ -245,10 +288,11 @@ int main() {
     const bool malformed = malformed_cases();
     const bool f32 = borrowed_f32_execution();
     const bool q2 = borrowed_q2_execution();
+    const bool q4_q6 = borrowed_q4_q6_execution();
     const bool materialized = materialized_null_payload_binding();
-    const bool pass = descriptors && malformed && f32 && q2 && materialized;
-    std::printf("descriptors=%d malformed=%d f32=%d q2=%d materialized=%d\n",
-        descriptors, malformed, f32, q2, materialized);
+    const bool pass = descriptors && malformed && f32 && q2 && q4_q6 && materialized;
+    std::printf("descriptors=%d malformed=%d f32=%d q2=%d q4_q6=%d materialized=%d\n",
+        descriptors, malformed, f32, q2, q4_q6, materialized);
     std::printf("tensor_adapter_qualification=%s\n", pass ? "PASS" : "FAIL");
     return pass ? 0 : 1;
 }

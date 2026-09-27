@@ -127,7 +127,15 @@ if(TARGET vbuf_ml)
     target_link_libraries(vbuf_region_executor PUBLIC vbuf_ml)
 endif()
 
+add_library(vbuf_model_architecture STATIC src/vbuf_model_architecture.cpp)
+target_compile_features(vbuf_model_architecture PUBLIC cxx_std_17)
+target_include_directories(vbuf_model_architecture PUBLIC include)
+
 if(VBUF_BUILD_PROBES)
+    add_executable(vbuf_model_architecture_contract tests/model_architecture_contract.cpp)
+    target_compile_features(vbuf_model_architecture_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_model_architecture_contract PRIVATE vbuf_model_architecture)
+
     add_executable(vbuf_ggml_smoke tests/ggml_smoke.cpp)
     target_compile_features(vbuf_ggml_smoke PRIVATE cxx_std_17)
     target_link_libraries(vbuf_ggml_smoke PRIVATE vbuf_region_executor)
@@ -242,6 +250,7 @@ if(VBUF_BUILD_PROBES)
     endif()
 
     enable_testing()
+    add_test(NAME vbuf_model_architecture_contract COMMAND vbuf_model_architecture_contract)
     add_test(NAME vbuf_ggml_smoke COMMAND vbuf_ggml_smoke)
     add_test(NAME vbuf_borrowed_cpu_buffer_probe
         COMMAND vbuf_borrowed_cpu_buffer_probe)
@@ -337,30 +346,30 @@ if(VBUF_ML_LIBRARY)
 
     add_executable(vbuf_multi_layer_poc16 tools/multi_layer_poc16.cpp)
     target_compile_features(vbuf_multi_layer_poc16 PRIVATE cxx_std_17)
-    target_link_libraries(vbuf_multi_layer_poc16 PRIVATE vbuf_region_executor)
+    target_link_libraries(vbuf_multi_layer_poc16 PRIVATE vbuf_region_executor vbuf_model_architecture)
 
     add_executable(vbuf_deep_stack_poc19 tools/multi_layer_poc16.cpp)
     target_compile_features(vbuf_deep_stack_poc19 PRIVATE cxx_std_17)
-    target_link_libraries(vbuf_deep_stack_poc19 PRIVATE vbuf_region_executor)
+    target_link_libraries(vbuf_deep_stack_poc19 PRIVATE vbuf_region_executor vbuf_model_architecture)
 
     add_executable(vbuf_autoregressive_poc22 tools/autoregressive_poc22.cpp)
     target_compile_features(vbuf_autoregressive_poc22 PRIVATE cxx_std_17)
-    target_link_libraries(vbuf_autoregressive_poc22 PRIVATE vbuf_region_executor)
+    target_link_libraries(vbuf_autoregressive_poc22 PRIVATE vbuf_region_executor vbuf_model_architecture)
 
     if(VBUF_BUILD_COMPAT_SERVER)
         add_executable(vbuf_compat_server tools/vbuf_compat_server.cpp)
         target_compile_features(vbuf_compat_server PRIVATE cxx_std_17)
-        target_link_libraries(vbuf_compat_server PRIVATE vbuf_region_executor Threads::Threads)
+        target_link_libraries(vbuf_compat_server PRIVATE vbuf_region_executor vbuf_model_architecture Threads::Threads)
 
         add_executable(vbuf_direct_control tools/vbuf_direct_control.cpp)
         target_compile_features(vbuf_direct_control PRIVATE cxx_std_17)
-        target_link_libraries(vbuf_direct_control PRIVATE vbuf_region_executor Threads::Threads)
+        target_link_libraries(vbuf_direct_control PRIVATE vbuf_region_executor vbuf_model_architecture Threads::Threads)
 
         add_executable(vbuf_step31y_backend_concurrency
             tools/vbuf_step31y_backend_concurrency.cpp)
         target_compile_features(vbuf_step31y_backend_concurrency PRIVATE cxx_std_17)
         target_link_libraries(vbuf_step31y_backend_concurrency
-            PRIVATE vbuf_region_executor Threads::Threads)
+            PRIVATE vbuf_region_executor vbuf_model_architecture Threads::Threads)
     endif()
 
     if(VBUF_BUILD_REAL_GATE2B AND VBUF_RUNTIME_LIBRARY)

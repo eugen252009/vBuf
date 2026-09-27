@@ -4,6 +4,8 @@
 #include "vbuf_tensor_wave.h"
 #include "vbuf_topk.h"
 #include "vbuf_runtime_mode.h"
+#include "vbuf_ml_model_metadata_ffi.h"
+#include "vbuf_model_architecture.h"
 
 #include <algorithm>
 #include <array>
@@ -169,6 +171,14 @@ struct Metadata {
     const VbufMlTensorView * views = nullptr;
     uint64_t count = 0;
     std::vector<Meta> tensors;
+    VbufMlModelMetadataInfo model_ffi{};
+    uint64_t external_source_id = 0;
+    bool external_source_id_set = false;
+    uint64_t external_source_size = 0;
+    std::string external_source_sha256;
+    vbuf_ggml::ModelMetadataDescriptor model;
+    std::vector<vbuf_ggml::ModelTensorMetadata> model_tensors;
+    vbuf_ggml::Qwen3DenseTensorCatalog qwen3_catalog;
     ~Metadata() { if (handle != nullptr) vbuf_ml_consumer_close(handle); }
 };
 

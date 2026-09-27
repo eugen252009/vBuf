@@ -58,7 +58,8 @@ private:
 
 class HttpRangeSource final : public RangeSource {
 public:
-    explicit HttpRangeSource(std::string endpoint, std::string local_source_ip = {});
+    explicit HttpRangeSource(std::string endpoint, std::string local_source_ip = {},
+        uint64_t expected_source_size = 0, std::string expected_source_sha256 = {});
     ~HttpRangeSource() override;
 
     const std::string & endpoint() const { return endpoint_; }
@@ -72,6 +73,8 @@ public:
 private:
     std::string endpoint_;
     std::string local_source_ip_;
+    uint64_t expected_source_size_ = 0;
+    std::string expected_source_sha256_;
     int socket_fd_ = -1;
     mutable std::mutex socket_mutex_;
     std::vector<uint64_t> request_durations_ns_;

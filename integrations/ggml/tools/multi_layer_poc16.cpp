@@ -84,14 +84,75 @@ void load_metadata(const std::string & artifact, Metadata * metadata) {
             vbuf_ml_consumer_tensor_views(metadata->handle, &metadata->views, &metadata->count) != 0)
             throw std::runtime_error("metadata open failed");
     }
+    char architecture[128]{};
+    if (vbuf_ml_consumer_architecture(metadata->handle, architecture, sizeof(architecture)) != 0 ||
+        vbuf_ml_consumer_metadata(metadata->handle, &metadata->model_ffi) != 0)
+        throw std::runtime_error("validated model architecture/metadata lookup failed");
+    metadata->model.source_name = architecture;
+    metadata->model.architecture = vbuf_ggml::parse_model_architecture(metadata->model.source_name);
+    metadata->model.context_length = metadata->model_ffi.context_length;
+    metadata->model.embedding_length = metadata->model_ffi.embedding_length;
+    metadata->model.layer_count = metadata->model_ffi.layer_count;
+    metadata->model.head_count = metadata->model_ffi.head_count;
+    metadata->model.kv_head_count = metadata->model_ffi.kv_head_count;
+    metadata->model.key_head_dimension = metadata->model_ffi.key_head_dimension;
+    metadata->model.value_head_dimension = metadata->model_ffi.value_head_dimension;
+    metadata->model.feed_forward_length = metadata->model_ffi.feed_forward_length;
+    metadata->model.normalization_epsilon = metadata->model_ffi.normalization_epsilon;
+    metadata->model.rope_theta = metadata->model_ffi.rope_theta;
+    metadata->model.rope_dimension = metadata->model_ffi.rope_dimension;
+    metadata->model.vocabulary_size = metadata->model_ffi.vocabulary_size;
+    metadata->model.expert_count = metadata->model_ffi.expert_count;
+    metadata->model.expert_used_count = metadata->model_ffi.expert_used_count;
+    std::string model_error;
+    if (!vbuf_ggml::validate_model_metadata(metadata->model, &model_error))
+        throw std::runtime_error("model metadata validation failed: " + model_error);
+
+    metadata->model_tensors.reserve(metadata->count);
     for (uint64_t i = 0; i < metadata->count; ++i) {
         uint64_t offset = 0, length = 0;
-        if (vbuf_ml_consumer_tensor_physical_range(metadata->handle, i, &offset, &length) != 0)
-            throw std::runtime_error("tensor range lookup failed");
+        VbufMlTensorSourceInfo source_info{};
+        if (vbuf_ml_consumer_tensor_source(metadata->handle, i, &source_info) != 0 ||
+            vbuf_ml_consumer_tensor_physical_range(metadata->handle, i, &offset, &length) != 0)
+            throw std::runtime_error("tensor source range lookup failed");
+        if (length != source_info.length)
+            throw std::runtime_error("tensor source range length differs from validated binding");
+        if (!metadata->external_source_id_set) {
+            metadata->external_source_id = source_info.source_id;
+            metadata->external_source_id_set = true;
+        } else if (metadata->external_source_id != source_info.source_id) {
+            throw std::runtime_error("direct HTTP runtime requires tensors to share one source ID");
+        }
         VbufMlTensorView view = metadata->views[i];
         view.payload_len = length;
         metadata->tensors.push_back({ view, i, offset });
+        if (view.dimensions == nullptr || view.rank == 0)
+            throw std::runtime_error("tensor metadata has invalid shape");
+        vbuf_ggml::ModelTensorMetadata tensor;
+        tensor.name.assign(view.name, view.name_len);
+        tensor.dimensions.assign(view.dimensions, view.dimensions + view.rank);
+        tensor.representation = view.representation;
+        tensor.source_offset = offset;
+        tensor.payload_length = length;
+        metadata->model_tensors.push_back(std::move(tensor));
     }
+    if (metadata->external_source_id != 0) {
+        VbufMlSourceIdentityInfo source_identity{};
+        if (vbuf_ml_consumer_source_identity(metadata->handle, metadata->external_source_id,
+                &source_identity) != 0 || source_identity.hash_algorithm != 1 || source_identity.hash_len != 32)
+            throw std::runtime_error("external tensor source has no qualified SHA-256 identity");
+        metadata->external_source_size = source_identity.declared_size;
+        static constexpr char hex[] = "0123456789abcdef";
+        metadata->external_source_sha256.reserve(64);
+        for (uint8_t byte : source_identity.full_source_hash) {
+            metadata->external_source_sha256.push_back(hex[byte >> 4]);
+            metadata->external_source_sha256.push_back(hex[byte & 0x0f]);
+        }
+    }
+    if (metadata->model.architecture == vbuf_ggml::ModelArchitecture::Qwen3 &&
+        !vbuf_ggml::discover_qwen3_dense_tensors(metadata->model, metadata->model_tensors,
+            &metadata->qwen3_catalog, &model_error))
+        throw std::runtime_error("Qwen3 tensor discovery failed: " + model_error);
 }
 
 LayerPlan make_plan(const Metadata & all, uint32_t block_id, uint32_t namespace_base) {

@@ -354,6 +354,10 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
             config.max_new_tokens;
         if (total_positions > 4096)
             throw std::runtime_error("generation request exceeds bounded position limit");
+        if (impl_->metadata.model.architecture == ModelArchitecture::Qwen3)
+            throw std::runtime_error("Qwen3 metadata and tensors are recognized, but its direct graph builder is not implemented");
+        if (impl_->metadata.model.architecture != ModelArchitecture::DeepSeekV2)
+            throw std::runtime_error("direct generation does not support this model architecture");
 
         const Metadata & all = impl_->metadata;
         const std::vector<LayerPlan> & plans = impl_->plans;
@@ -362,7 +366,9 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
             impl_->residency_capacity != config.residency_capacity) {
             impl_->source_endpoint = config.source_endpoint;
             impl_->residency_capacity = config.residency_capacity;
-            impl_->http_source = std::make_shared<HttpRangeSource>(config.source_endpoint);
+            impl_->http_source = std::make_shared<HttpRangeSource>(config.source_endpoint,
+                std::string{}, impl_->metadata.external_source_size,
+                impl_->metadata.external_source_sha256);
             impl_->controlled_source = std::make_shared<ControlledFailureRangeSource>(impl_->http_source);
             impl_->source = impl_->controlled_source;
             impl_->residency = impl_->shared_residency ? impl_->shared_residency :
@@ -606,7 +612,8 @@ int main(int argc, char ** argv) {
         for (uint32_t block = first_block; block < first_block + block_count; ++block)
             plans.push_back(make_plan(all, block, (block + 1) * 10000));
         auto lease = model_lease(all.handle);
-        std::shared_ptr<RangeSource> source = std::make_shared<HttpRangeSource>(argv[2]);
+        std::shared_ptr<RangeSource> source = std::make_shared<HttpRangeSource>(argv[2],
+            std::string{}, all.external_source_size, all.external_source_sha256);
         const ResidencyReplacementPolicyKind policy = std::string(argv[7]) == "cost-aware"
             ? ResidencyReplacementPolicyKind::CostAware : ResidencyReplacementPolicyKind::LRU;
         auto backing = std::make_shared<LocalVbufRangeMaterializer>(source);
