@@ -22,6 +22,9 @@ struct VbufGenerationConfig {
     uint32_t source_failure_requests = 0;
     std::optional<uint64_t> source_failure_after_successful_requests;
     RuntimeMode mode = RuntimeMode::NormalInference;
+    bool detailed_trace = false;
+    uint32_t expert_workers = 1;
+    uint32_t expert_threads = 1;
     std::vector<uint32_t> prompt_tokens;
     std::optional<uint32_t> stop_token;
     std::function<bool(uint32_t, uint32_t)> on_token;
@@ -29,6 +32,11 @@ struct VbufGenerationConfig {
 };
 
 struct VbufGenerationResult {
+    uint64_t parallel_expert_jobs = 0;
+    uint64_t parallel_expert_waves = 0;
+    uint64_t peak_expert_workers = 0;
+    uint64_t peak_expert_wave_bytes = 0;
+    uint64_t expert_serial_fallbacks = 0;
     bool completed = false;
     bool cancelled = false;
     std::string error;

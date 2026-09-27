@@ -178,7 +178,8 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
     const std::shared_ptr<TensorResidencyStore> & residency,
     const std::shared_ptr<RangeSource> & source, const std::string & label,
     bool preload_gates, uint32_t namespace_base = 0, bool no_jit_fallback = false,
-    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr) {
+    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr,
+    ExpertExecution * execution = nullptr) {
     constexpr uint32_t width = 2048;
     constexpr float epsilon = 1e-6f;
     LayerRun result;
@@ -231,7 +232,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
         TopKSelection reference_selection;
         std::string topk_error;
         deterministic_top_k(reference_logits, 64, 6, &reference_selection, &topk_error);
-        const std::vector<float> reference_weights = normalized_selected_weights(reference_logits, reference_selection);
+        const std::vector<float> reference_weights = selected_softmax_weights(reference_logits, reference_selection);
         result.ok = result.ok && parity(routed.weights, reference_weights, "selected_weight_parity");
     }
     std::printf("%s topk_ids=%s normalized_weights=", label.c_str(), ids_text(routed.selection).c_str());
@@ -240,7 +241,7 @@ LayerRun run_layer(const Metadata & metadata, const Activation & input,
 
     MultiRun routed_run = execute_selected(metadata, routed.selection, normalized, lease,
         materializer, residency, label + "_routed", source, preload_gates, namespace_base,
-        no_jit_fallback, mode, timing);
+        no_jit_fallback, mode, timing, execution);
     result.ok = result.ok && routed_run.ok;
     if (!routed_run.ok) {
         result.failure_detail = routed_run.failure_detail;

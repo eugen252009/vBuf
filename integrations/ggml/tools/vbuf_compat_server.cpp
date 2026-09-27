@@ -90,6 +90,9 @@ struct ServerConfig {
     uint32_t max_new_tokens = 4;
     uint32_t source_failure_requests = 0;
     bool qualification_faults = false;
+    bool detailed_trace = false;
+    uint32_t expert_workers = 1;
+    uint32_t expert_threads = 1;
     vbuf_ggml::RuntimeMode mode = vbuf_ggml::RuntimeMode::NormalInference;
 };
 
@@ -1137,6 +1140,9 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                 request.body, "vbuf_source_failure_after_requests", 0);
         }
         generation.mode = runtime->config.mode;
+        generation.detailed_trace = runtime->config.detailed_trace;
+        generation.expert_workers = runtime->config.expert_workers;
+        generation.expert_threads = runtime->config.expert_threads;
         generation.prompt_tokens = prompt_tokens;
         generation.stop_token = runtime->tokenizer.eos();
         generation.should_cancel = [&] {
@@ -1208,6 +1214,11 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
                 << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
                 << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec
+                << " parallel_expert_jobs=" << result.parallel_expert_jobs
+                << " peak_expert_workers=" << result.peak_expert_workers
+                << " parallel_expert_waves=" << result.parallel_expert_waves
+                << " peak_expert_wave_bytes=" << result.peak_expert_wave_bytes
+                << " expert_serial_fallbacks=" << result.expert_serial_fallbacks
                 << " generated_tokens=" << result.tokens.size() << " source_bytes=" << result.source_bytes
                 << " materialized_bytes=" << result.materialized_bytes << " resident_bytes_before=" << result.resident_bytes_before
                 << " resident_bytes_after=" << result.resident_bytes_after << " peak_residency_bytes=" << result.peak_resident_bytes
@@ -1264,6 +1275,11 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
             << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
             << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec
+            << " parallel_expert_jobs=" << result.parallel_expert_jobs
+            << " peak_expert_workers=" << result.peak_expert_workers
+            << " parallel_expert_waves=" << result.parallel_expert_waves
+            << " peak_expert_wave_bytes=" << result.peak_expert_wave_bytes
+            << " expert_serial_fallbacks=" << result.expert_serial_fallbacks
             << " generated_tokens=" << result.tokens.size() << " source_bytes=" << result.source_bytes
             << " materialized_bytes=" << result.materialized_bytes << " resident_bytes_before=" << result.resident_bytes_before
             << " resident_bytes_after=" << result.resident_bytes_after << " peak_residency_bytes=" << result.peak_resident_bytes
@@ -1309,6 +1325,19 @@ static ServerConfig parse_args(int argc, char ** argv) {
     ServerConfig config;
     for (int index = 1; index < argc; ++index) {
         const std::string arg = argv[index];
+        if (arg == "--help") {
+            std::cout << "vbuf_compat_server --semantic-model PATH --source-url URL\n"
+                "  --blocks N                 Number of model blocks to execute\n"
+                "  --capacity BYTES           Payload residency budget\n"
+                "  --max-new-tokens N         Generation bound\n"
+                "  --expert-workers N         Independent selected-expert workers (1..6; default 1)\n"
+                "  --expert-threads N         Threads per parallel expert (1..8; default 1)\n"
+                "                             Product must not exceed 32\n"
+                "  --runtime-trace            Collect detailed diagnostic histories (expensive)\n"
+                "  --runtime-mode normal|qualification  Qualification stays serial\n"
+                "  --host HOST --port PORT --model-alias ID\n";
+            std::exit(0);
+        }
         auto value = [&] {
             if (index + 1 >= argc) fail("missing value for " + arg);
             return std::string(argv[++index]);
@@ -1324,6 +1353,16 @@ static ServerConfig parse_args(int argc, char ** argv) {
         else if (arg == "--source-failure-requests")
             config.source_failure_requests = static_cast<uint32_t>(std::stoul(value()));
         else if (arg == "--enable-qualification-faults") config.qualification_faults = true;
+        else if (arg == "--runtime-trace") config.detailed_trace = true;
+        else if (arg == "--expert-workers") {
+            const auto count = std::stoul(value());
+            if (count < 1 || count > 6) fail("expert workers must be in 1..6");
+            config.expert_workers = static_cast<uint32_t>(count);
+        } else if (arg == "--expert-threads") {
+            const auto count = std::stoul(value());
+            if (count < 1 || count > 8) fail("expert threads must be in 1..8");
+            config.expert_threads = static_cast<uint32_t>(count);
+        }
         else if (arg == "--runtime-mode") {
             const std::string mode = value();
             if (mode == "qualification") config.mode = vbuf_ggml::RuntimeMode::Qualification;
@@ -1331,8 +1370,11 @@ static ServerConfig parse_args(int argc, char ** argv) {
         } else fail("unknown argument: " + arg);
     }
     if (config.semantic_model.empty() || config.source_url.empty())
-        fail("usage: --semantic-model PATH --source-url URL [--model-alias ID --host HOST --port PORT --blocks N --capacity BYTES --max-new-tokens N --source-failure-requests N --enable-qualification-faults]");
+        fail("usage: --semantic-model PATH --source-url URL [--model-alias ID --host HOST --port PORT --blocks N --capacity BYTES --max-new-tokens N --expert-workers N --expert-threads N --runtime-trace --source-failure-requests N --enable-qualification-faults]; see --help");
     if (config.max_new_tokens == 0 || config.blocks == 0) fail("generation bounds must be positive");
+    if (config.expert_workers * config.expert_threads > 32) fail("expert compute thread budget exceeds 32");
+    if (config.expert_workers == 1 && config.expert_threads != 1)
+        fail("--expert-threads requires --expert-workers greater than 1");
     return config;
 }
 

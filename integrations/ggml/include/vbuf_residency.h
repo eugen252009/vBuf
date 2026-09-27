@@ -93,6 +93,7 @@ public:
     bool evict(uint32_t tensor_ref, const std::string & tensor_name = {});
     void clear();
     void clear_trace();
+    void set_trace_enabled(bool enabled);
 
     uint64_t max_resident_bytes() const { return max_resident_bytes_; }
     uint64_t resident_bytes() const;
@@ -126,6 +127,7 @@ private:
     std::unordered_map<uint32_t, uint64_t> observed_request_count_;
     std::unordered_set<uint32_t> materialized_tensors_;
     std::vector<ResidencyTraceEvent> trace_;
+    bool trace_enabled_ = true;
     std::shared_ptr<const ResidencyReplacementPolicy> replacement_policy_;
     uint64_t materialization_count_ = 0;
     uint64_t reacquisition_count_ = 0;

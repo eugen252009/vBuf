@@ -106,6 +106,7 @@ TensorResidencyStore::~TensorResidencyStore() {
 
 void TensorResidencyStore::add_event(uint32_t tensor_ref, const std::string & tensor_name,
     ResidencyEventKind kind, uint64_t before, uint32_t leases, const std::string & source_id) {
+    if (!trace_enabled_) return;
     trace_.push_back({ tensor_ref, tensor_name, kind, before, resident_bytes_, leases,
         now_ns(), source_id });
 }
@@ -274,6 +275,12 @@ void TensorResidencyStore::clear() {
 void TensorResidencyStore::clear_trace() {
     std::lock_guard<std::mutex> lock(mutex_);
     trace_.clear();
+}
+
+void TensorResidencyStore::set_trace_enabled(bool enabled) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    trace_enabled_ = enabled;
+    if (!enabled) std::vector<ResidencyTraceEvent>().swap(trace_);
 }
 
 uint64_t TensorResidencyStore::resident_bytes() const {

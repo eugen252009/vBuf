@@ -5,6 +5,8 @@
 #undef main
 
 #include "vbuf_runtime_mode.h"
+#include "ggml-cpu.h"
+#include "vbuf_parallel_executor.h"
 
 #include "vbuf_weighted_merge.h"
 #include "vbuf_source_selection.h"
@@ -43,19 +45,27 @@ struct RoutedResult {
     uint64_t first_consumer_start_ns = 0;
 };
 
-std::vector<float> normalized_selected_weights(const std::vector<float> & logits,
+std::vector<float> selected_softmax_weights(const std::vector<float> & logits,
     const TopKSelection & selection) {
-    float maximum = *std::max_element(logits.begin(), logits.end());
-    std::vector<float> probabilities(logits.size());
-    float total = 0.0f;
-    for (size_t i = 0; i < logits.size(); ++i) {
-        probabilities[i] = std::exp(logits[i] - maximum);
-        total += probabilities[i];
-    }
+    if (logits.empty()) throw std::runtime_error("empty router logits");
+    ggml_init_params params{1024 * 1024 + logits.size() * sizeof(float) * 2, nullptr, false};
+    std::unique_ptr<ggml_context, decltype(&ggml_free)> ctx(ggml_init(params), ggml_free);
+    if (!ctx) throw std::runtime_error("router softmax allocation failed");
+    auto * input = ggml_new_tensor_1d(ctx.get(), GGML_TYPE_F32, logits.size());
+    std::memcpy(input->data, logits.data(), logits.size() * sizeof(float));
+    auto * output = ggml_soft_max(ctx.get(), input);
+    auto * graph = ggml_new_graph(ctx.get());
+    ggml_build_forward_expand(graph, output);
+    if (ggml_graph_compute_with_ctx(ctx.get(), graph, 2) != GGML_STATUS_SUCCESS)
+        throw std::runtime_error("router softmax failed");
+    const auto * probabilities = static_cast<const float *>(output->data);
     std::vector<float> result;
-    float selected_total = 0.0f;
-    for (uint32_t id : selection.ids) selected_total += probabilities[id] / total;
-    for (uint32_t id : selection.ids) result.push_back((probabilities[id] / total) / selected_total);
+    // DeepSeek-V2-Lite has expert_weights_norm=false and scale=1: retain the
+    // full-router softmax probabilities, not a second softmax over TopK.
+    for (uint32_t id : selection.ids) {
+        if (id >= logits.size()) throw std::runtime_error("router selection out of range");
+        result.push_back(probabilities[id]);
+    }
     return result;
 }
 
@@ -86,7 +96,7 @@ RoutedResult route_activation(RouterGraph & graph, const Activation & activation
     const uint64_t selection_start_ns = execution_now_ns();
     if (!deterministic_top_k(logits, expert_count, k, &result.selection, &error))
         throw std::runtime_error(error);
-    result.weights = normalized_selected_weights(logits, result.selection);
+    result.weights = selected_softmax_weights(logits, result.selection);
     if (timing != nullptr) timing->router_selection_ns += execution_now_ns() - selection_start_ns;
     return result;
 }
@@ -112,6 +122,127 @@ struct MultiRun {
     uint64_t first_consumer_start_ns = 0;
 };
 
+// Execution-only view of already prepared tensors. Workers cannot issue source
+// requests or change residency policy. The controlling wave owns real leases.
+class PreparedExpertMaterializer final : public TensorMaterializer {
+public:
+    explicit PreparedExpertMaterializer(std::array<MaterializedTensor, 3> tensors)
+        : tensors_(std::move(tensors)) {}
+    bool request(uint32_t ref, const PersistentTensorRef & tensor, uint64_t budget) override {
+        if (ref >= tensors_.size() || tensor.view.payload_len > budget) return false;
+        const auto view = tensors_[ref].view();
+        if (view.rank != tensor.view.rank || view.representation != tensor.view.representation ||
+            view.payload_len != tensor.view.payload_len) return false;
+        for (uint8_t i = 0; i < view.rank; ++i)
+            if (view.dimensions[i] != tensor.view.dimensions[i]) return false;
+        return true;
+    }
+    MaterializationState state(uint32_t ref) const override {
+        return ref < tensors_.size() ? MaterializationState::Ready : MaterializationState::NotRequested;
+    }
+    MaterializationState wait(uint32_t ref) override { return state(ref); }
+    std::optional<MaterializedTensor> obtain_ready_tensor(uint32_t ref) override {
+        return ref < tensors_.size() ? std::optional<MaterializedTensor>(tensors_[ref]) : std::nullopt;
+    }
+    void release(uint32_t) override {}
+    uint64_t active_inflight_bytes() const override { return 0; }
+    uint64_t active_ready_bytes() const override {
+        uint64_t total = 0; for (const auto & tensor : tensors_) total += tensor.bytes; return total;
+    }
+    std::vector<MaterializationTraceEvent> trace() const override { return {}; }
+private:
+    std::array<MaterializedTensor, 3> tensors_;
+};
+
+std::optional<MultiRun> execute_selected_parallel(const Metadata & metadata,
+    const TopKSelection & selection, const Activation & activation,
+    const std::shared_ptr<const void> & lease,
+    const std::shared_ptr<ResidentTensorMaterializer> & materializer,
+    const std::shared_ptr<TensorResidencyStore> & residency, uint32_t namespace_base,
+    ExpertExecution & execution) {
+    struct Job {
+        std::array<ExpertTensor, 3> weights;
+        std::array<MaterializedTensor, 3> ready;
+        uint64_t bytes;
+        uint32_t base;
+    };
+    std::vector<Job> jobs;
+    const uint64_t budget = residency->max_resident_bytes();
+    for (const auto expert : selection.ids) {
+        Job job{{make_expert(lookup(metadata, "blk.1.ffn_gate_exps.weight"), expert),
+                 make_expert(lookup(metadata, "blk.1.ffn_up_exps.weight"), expert),
+                 make_expert(lookup(metadata, "blk.1.ffn_down_exps.weight"), expert)}, {}, 0,
+                 namespace_base + expert * 3};
+        for (const auto & weight : job.weights) {
+            if (weight.bytes > budget - job.bytes) {
+                ++execution.serial_fallbacks;
+                return std::nullopt; // This budget needs the existing tensor-at-a-time path.
+            }
+            job.bytes += weight.bytes;
+        }
+        jobs.push_back(std::move(job));
+    }
+    MultiRun result;
+    result.actual.resize(jobs.size());
+    for (size_t begin = 0; begin < jobs.size();) {
+        size_t end = begin;
+        uint64_t wave_bytes = 0;
+        while (end < jobs.size() && end - begin < execution.pool.workers() &&
+               jobs[end].bytes <= budget - wave_bytes) wave_bytes += jobs[end++].bytes;
+        struct WaveLeases {
+            std::shared_ptr<ResidentTensorMaterializer> materializer;
+            std::vector<uint32_t> refs;
+            ~WaveLeases() {
+                // Drain acquisition on failure as well as success before releasing owners.
+                for (auto ref : refs) materializer->wait(ref);
+                for (auto ref : refs) materializer->release(ref);
+            }
+        } wave{materializer, {}};
+        wave.refs.reserve((end - begin) * 3);
+        // vBuf-ML issues the bounded acquisition wave before waiting; transfer
+        // and validation workers can overlap. No unselected experts are loaded.
+        for (size_t i = begin; i < end; ++i) {
+            for (uint32_t tensor = 0; tensor < 3; ++tensor) {
+                const uint32_t ref = jobs[i].base + tensor;
+                wave.refs.push_back(ref);
+                if (!materializer->request(ref, jobs[i].weights[tensor].ref(), wave_bytes))
+                    throw std::runtime_error("parallel expert acquisition rejected");
+            }
+        }
+        for (size_t i = begin; i < end; ++i) {
+            for (uint32_t tensor = 0; tensor < 3; ++tensor) {
+                const uint32_t ref = jobs[i].base + tensor;
+                if (materializer->wait(ref) != MaterializationState::Ready)
+                    throw std::runtime_error("parallel expert source failed");
+                const auto ready = materializer->obtain_ready_tensor(ref);
+                if (!ready) throw std::runtime_error("parallel expert payload unavailable");
+                jobs[i].ready[tensor] = *ready;
+            }
+        }
+        ++execution.waves;
+        execution.jobs += end - begin;
+        execution.peak_prepared_bytes = std::max(execution.peak_prepared_bytes, wave_bytes);
+        result.selected_bytes += wave_bytes;
+        result.peak_active = std::max(result.peak_active, wave_bytes);
+        result.peak_resident = std::max(result.peak_resident, residency->resident_bytes());
+        execution.pool.run(end - begin, [&](size_t slot) {
+            const size_t rank = begin + slot;
+            auto & job = jobs[rank];
+            ScopedCpuExecutionThreads threads(execution.threads_per_expert);
+            PreparedExpertMaterializer prepared(job.ready);
+            auto graph = build_expert_graph(job.weights[0], job.weights[1], job.weights[2]);
+            const auto run = execute_expert(graph, activation.view(), lease, &prepared);
+            if (run.error != AdapterError::None)
+                throw std::runtime_error("parallel expert compute failed: " + run.detail);
+            result.actual[rank] = floats(run.output);
+        });
+        // Release worker-owned ready views before the next wave is admitted.
+        for (size_t i = begin; i < end; ++i) jobs[i].ready = {};
+        begin = end;
+    }
+    return result;
+}
+
 std::string ids_text(const TopKSelection & selection) {
     std::string result;
     for (size_t i = 0; i < selection.ids.size(); ++i) {
@@ -128,8 +259,13 @@ MultiRun execute_selected(const Metadata & metadata, const TopKSelection & selec
     const std::shared_ptr<RangeSource> & source, bool preload_gates,
     uint32_t namespace_base = 0,
     bool no_jit_fallback = false,
-    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr) {
+    RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr,
+    ExpertExecution * execution = nullptr) {
     MultiRun result;
+    if (execution && !runs_reference_control(mode) && !preload_gates) {
+        if (auto parallel = execute_selected_parallel(metadata, selection, activation, lease,
+                shared_materializer, residency, namespace_base, *execution)) return *parallel;
+    }
     result.selected_bytes = 0;
     result.materialization_events_before = shared_materializer->trace().size();
     result.residency_events_before = residency->trace().size();

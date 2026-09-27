@@ -288,6 +288,8 @@ struct VbufGenerationSession::Impl {
     mutable std::shared_ptr<RangeSource> source;
     mutable std::shared_ptr<TensorResidencyStore> residency;
     mutable std::shared_ptr<ResidentTensorMaterializer> materializer;
+    mutable std::shared_ptr<LocalVbufRangeMaterializer> local_materializer;
+    mutable std::unique_ptr<ExpertExecution> expert_execution;
     std::shared_ptr<TensorResidencyStore> shared_residency;
     mutable uint64_t request_count = 0;
     mutable uint64_t active_generations = 0;
@@ -343,7 +345,19 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
     };
     uint32_t completed_layers = 0;
     uint64_t completed_positions = 0;
+    if (impl_->expert_execution) impl_->expert_execution->reset_metrics();
     try {
+        if (config.expert_workers < 1 || config.expert_workers > 6 ||
+            config.expert_threads < 1 || config.expert_threads > 8 ||
+            config.expert_workers * config.expert_threads > 32)
+            throw std::runtime_error("expert workers must be 1..6, threads 1..8, total at most 32");
+        if (config.expert_workers == 1 && config.expert_threads != 1)
+            throw std::runtime_error("expert_threads requires parallel expert_workers > 1");
+        if (config.expert_workers > 1 && !runs_reference_control(config.mode)) {
+            if (!impl_->expert_execution || impl_->expert_execution->pool.workers() != config.expert_workers ||
+                impl_->expert_execution->threads_per_expert != static_cast<int>(config.expert_threads))
+                impl_->expert_execution = std::make_unique<ExpertExecution>(config.expert_workers, config.expert_threads);
+        } else impl_->expert_execution.reset();
         if (config.prompt_tokens.empty())
             throw std::runtime_error("prompt tokenization produced no tokens");
         if (config.block_count == 0 || config.max_new_tokens == 0)
@@ -374,8 +388,9 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
             impl_->residency = impl_->shared_residency ? impl_->shared_residency :
                 std::make_shared<TensorResidencyStore>(config.residency_capacity,
                     ResidencyReplacementPolicyKind::CostAware);
+            impl_->local_materializer = std::make_shared<LocalVbufRangeMaterializer>(impl_->source);
             impl_->materializer = std::make_shared<ResidentTensorMaterializer>(
-                std::make_shared<LocalVbufRangeMaterializer>(impl_->source), impl_->residency);
+                impl_->local_materializer, impl_->residency);
             impl_->source_failure_requests = config.source_failure_requests;
             impl_->controlled_source->configure_persistent_failures(config.source_failure_requests);
         } else if (impl_->source_failure_requests != config.source_failure_requests) {
@@ -385,13 +400,19 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         impl_->source_failure_after_successful_requests = config.source_failure_after_successful_requests;
         impl_->controlled_source->configure_request_fault(
             config.source_failure_after_successful_requests);
+        const bool detailed_trace = config.detailed_trace || runs_reference_control(config.mode) ||
+            impl_->shared_residency != nullptr;
+        impl_->local_materializer->set_trace_enabled(detailed_trace);
+        impl_->residency->set_trace_enabled(detailed_trace);
+        const uint64_t materialized_before = impl_->local_materializer->materialized_bytes();
+        const uint64_t reloaded_before = impl_->local_materializer->reloaded_bytes();
+        const uint64_t evictions_before = impl_->residency->eviction_count();
         auto lease = model_lease(all.handle);
         const auto & source = impl_->source;
         const auto & residency = impl_->residency;
         const auto & backing = impl_->materializer;
         result.resident_bytes_before = residency->resident_bytes();
         const uint64_t reacquisitions_before = residency->reacquisition_count();
-        const size_t trace_before = residency->trace().size();
         const uint64_t source_bytes_before = impl_->http_source->metrics().bytes;
         const Meta embedding = lookup(all, "token_embd.weight");
         const Meta output_norm = lookup(all, "output_norm.weight");
@@ -411,6 +432,7 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         bool decode_started = false;
         std::chrono::steady_clock::time_point decode_start;
         auto add_trace = [&](size_t trace_begin) {
+            if (!detailed_trace) return;
             const auto trace = residency->trace();
             const auto identities = trace_identities(plans);
             for (size_t index = trace_begin; index < trace.size(); ++index) {
@@ -453,7 +475,7 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
             const SequenceRun sequence = run_sequence(plans, input, static_cast<uint32_t>(position),
                 &actual_k, &actual_v, &reference_k, &reference_v, lease, backing, residency,
                 source, "server_generation", false, nullptr, 2, config.mode, nullptr,
-                &completed_layers);
+                &completed_layers, impl_->expert_execution.get());
             if (!sequence.ok) throw std::runtime_error("autoregressive transformer failure");
             add_trace(trace_begin);
             peak_resident = std::max(peak_resident, residency->resident_bytes());
@@ -503,12 +525,11 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         result.active_lease_count_after = residency->active_lease_count();
         result.active_lease_bytes_after = residency->active_lease_bytes();
         result.active_inflight_bytes_after = backing->active_inflight_bytes();
-        const auto residency_trace = residency->trace();
-        result.evictions = trace_before < residency_trace.size() ? std::count_if(
-            residency_trace.begin() + static_cast<std::ptrdiff_t>(trace_before),
-            residency_trace.end(), [](const ResidencyTraceEvent & event) {
-                return event.kind == ResidencyEventKind::Evict;
-            }) : 0;
+        result.evictions = residency->eviction_count() - evictions_before;
+        // Counters include embedding/output-head materialization as well as
+        // transformer work and do not depend on optional diagnostic histories.
+        result.materialized_bytes = impl_->local_materializer->materialized_bytes() - materialized_before;
+        result.reload_bytes = impl_->local_materializer->reloaded_bytes() - reloaded_before;
         result.reacquisitions = residency->reacquisition_count() - reacquisitions_before;
         if (decode_started) {
             result.decode_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -542,6 +563,13 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
     }
     result.elapsed_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now() - start).count());
+    if (impl_->expert_execution) {
+        result.parallel_expert_jobs = impl_->expert_execution->jobs;
+        result.parallel_expert_waves = impl_->expert_execution->waves;
+        result.peak_expert_workers = impl_->expert_execution->pool.peak_workers();
+        result.peak_expert_wave_bytes = impl_->expert_execution->peak_prepared_bytes;
+        result.expert_serial_fallbacks = impl_->expert_execution->serial_fallbacks;
+    }
     return result;
 }
 

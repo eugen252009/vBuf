@@ -107,6 +107,7 @@ target_compile_features(vbuf_agent_protocol PUBLIC cxx_std_17)
 target_include_directories(vbuf_agent_protocol PUBLIC include)
 
 add_library(vbuf_region_executor STATIC
+    src/vbuf_parallel_executor.cpp
     src/vbuf_region_executor.cpp
     src/vbuf_execution_region.cpp
     src/vbuf_tensor_wave.cpp
@@ -144,6 +145,12 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_model_architecture_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_model_architecture_contract PRIVATE vbuf_model_architecture)
 
+    add_executable(vbuf_parallel_executor_contract tests/parallel_executor_contract.cpp)
+    target_compile_features(vbuf_parallel_executor_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_parallel_executor_contract PRIVATE vbuf_region_executor Threads::Threads)
+    add_executable(vbuf_runtime_trace_contract tests/runtime_trace_contract.cpp)
+    target_compile_features(vbuf_runtime_trace_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_runtime_trace_contract PRIVATE vbuf_region_executor)
     add_executable(vbuf_ggml_smoke tests/ggml_smoke.cpp)
     target_compile_features(vbuf_ggml_smoke PRIVATE cxx_std_17)
     target_link_libraries(vbuf_ggml_smoke PRIVATE vbuf_region_executor)
@@ -172,6 +179,10 @@ if(VBUF_BUILD_PROBES)
         tests/materializer_contract.cpp)
     target_compile_features(vbuf_materializer_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_materializer_contract PRIVATE vbuf_region_executor)
+
+    add_executable(vbuf_materializer_page_lifetime_contract tests/materializer_page_lifetime_contract.cpp)
+    target_compile_features(vbuf_materializer_page_lifetime_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_materializer_page_lifetime_contract PRIVATE vbuf_region_executor)
 
     add_executable(vbuf_range_source_contract
         tests/range_source_contract.cpp)
@@ -260,6 +271,8 @@ if(VBUF_BUILD_PROBES)
     enable_testing()
     add_test(NAME vbuf_agent_protocol_contract COMMAND vbuf_agent_protocol_contract)
     add_test(NAME vbuf_model_architecture_contract COMMAND vbuf_model_architecture_contract)
+    add_test(NAME vbuf_parallel_executor_contract COMMAND vbuf_parallel_executor_contract)
+    add_test(NAME vbuf_runtime_trace_contract COMMAND vbuf_runtime_trace_contract)
     add_test(NAME vbuf_ggml_smoke COMMAND vbuf_ggml_smoke)
     add_test(NAME vbuf_borrowed_cpu_buffer_probe
         COMMAND vbuf_borrowed_cpu_buffer_probe)
@@ -271,6 +284,7 @@ if(VBUF_BUILD_PROBES)
         COMMAND vbuf_prefetch_planner_contract)
     add_test(NAME vbuf_materializer_contract
         COMMAND vbuf_materializer_contract)
+    add_test(NAME vbuf_materializer_page_lifetime_contract COMMAND vbuf_materializer_page_lifetime_contract)
     add_test(NAME vbuf_range_source_contract
         COMMAND vbuf_range_source_contract)
     add_test(NAME vbuf_progressive_range_source_contract
@@ -299,6 +313,12 @@ if(VBUF_BUILD_PROBES)
 endif()
 
 if(VBUF_ML_LIBRARY)
+    if(VBUF_BUILD_PROBES)
+        add_executable(vbuf_deepseek_semantics_contract tests/deepseek_semantics_contract.cpp)
+        target_compile_features(vbuf_deepseek_semantics_contract PRIVATE cxx_std_17)
+        target_link_libraries(vbuf_deepseek_semantics_contract PRIVATE vbuf_region_executor)
+        add_test(NAME vbuf_deepseek_semantics_contract COMMAND vbuf_deepseek_semantics_contract)
+    endif()
     add_library(vbuf_portable_graph_adapter STATIC
         tools/portable_graph_poc22_adapter.cpp)
     target_compile_features(vbuf_portable_graph_adapter PUBLIC cxx_std_17)

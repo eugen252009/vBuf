@@ -1,4 +1,5 @@
 #include "vbuf_tensor_wave.h"
+#include "vbuf_parallel_executor.h"
 #include "vbuf_materializer.h"
 #include "ggml-cpu.h"
 
@@ -436,7 +437,9 @@ AdapterError TensorDependencyExecutor::execute(
                 return AdapterError::BackendAllocationFailed;
             }
             backend = tensor->backend();
-            if (std::getenv("VBUF_AUDIT_LOCAL_KERNEL") != nullptr) {
+            if (cpu_execution_threads() > 0) {
+                ggml_backend_cpu_set_n_threads(backend, cpu_execution_threads());
+            } else if (std::getenv("VBUF_AUDIT_LOCAL_KERNEL") != nullptr) {
                 ggml_backend_cpu_set_n_threads(backend, 2);
             }
             tensors.emplace(static_cast<uint32_t>(&input_ref - operation.inputs.data()), tensor->tensor());

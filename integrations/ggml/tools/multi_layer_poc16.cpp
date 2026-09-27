@@ -907,7 +907,7 @@ std::vector<Activation> run_moe_layer_batch(const LayerPlan & plan,
         std::string error;
         if (!deterministic_top_k(row_logits, experts, top_k, &selections[row], &error))
             throw std::runtime_error(error);
-        weights[row] = normalized_selected_weights(row_logits, selections[row]);
+        weights[row] = selected_softmax_weights(row_logits, selections[row]);
         for (uint32_t expert : selections[row].ids) rows_by_expert[expert].push_back(row);
     }
 
@@ -1008,10 +1008,8 @@ std::vector<Activation> run_sequence_batched(const std::vector<LayerPlan> & plan
             if (attention.output.empty()) throw std::runtime_error("batched attention failed");
             if (timing != nullptr) timing->actual_attention_ns += clock_ns() - start;
             Activation ffn_input{ attention.output, { 2048, 1 } };
-            if (layer == 0) {
-                for (size_t i = 0; i < ffn_input.values.size(); ++i)
-                    ffn_input.values[i] += current[row].values[i];
-            }
+            for (size_t i = 0; i < ffn_input.values.size(); ++i)
+                ffn_input.values[i] += current[row].values[i];
             attention_outputs.push_back(std::move(ffn_input));
         }
         const uint64_t ffn_start = clock_ns();
@@ -1037,7 +1035,7 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
     const std::shared_ptr<RangeSource> & source, const char * label, bool reference_only = false,
     const MultiSelectiveFailureSource * failure_source = nullptr, uint32_t failure_block = 2,
     RuntimeMode mode = RuntimeMode::Qualification, RuntimeTiming * timing = nullptr,
-    uint32_t * completed_layers = nullptr) {
+    uint32_t * completed_layers = nullptr, ExpertExecution * execution = nullptr) {
     SequenceRun result;
     Activation actual = input;
     Activation reference = input;
@@ -1075,7 +1073,6 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
             return result;
         }
         const std::string block_label = std::string(label) + "_blk" + std::to_string(plan.block_id);
-        const Activation ffn_input{ actual_attention.output, { 2048, 1 } };
         std::vector<float> ffn_input_with_residual(2048);
         for (size_t i = 0; i < ffn_input_with_residual.size(); ++i)
             ffn_input_with_residual[i] = actual_attention.output[i] + actual.values[i];
@@ -1088,9 +1085,9 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
         const LayerRun actual_ffn = dense_block
             ? run_dense_layer(plan, dense_ffn_input, lease, reference_only ? nullptr : materializer,
                 reference_only ? nullptr : residency, source, block_label, mode, timing)
-            : run_layer(plan.metadata, ffn_input, lease, reference_only ? nullptr : materializer,
+            : run_layer(plan.metadata, dense_ffn_input, lease, reference_only ? nullptr : materializer,
                 reference_only ? nullptr : residency, source, block_label, false, plan.namespace_base,
-                 false, mode, timing);
+                 false, mode, timing, execution);
         if (timing != nullptr) timing->actual_ffn_ns += clock_ns() - actual_ffn_start;
         if (failure_source != nullptr && failure_source->failures() != 0 && plan.block_id == failure_block) {
             result.ok = false;
@@ -1117,7 +1114,7 @@ SequenceRun run_sequence(const std::vector<LayerPlan> & plans, const Activation 
             reference_ffn = dense_block
                 ? run_dense_layer(plan, reference_dense_ffn_input, lease, ref_materializer, ref_residency,
                     ref_source, "reference_" + block_label, mode)
-                : run_layer(plan.metadata, Activation{ reference_attention.output, { 2048, 1 } }, lease,
+                : run_layer(plan.metadata, reference_dense_ffn_input, lease,
                     ref_materializer, ref_residency,
                     ref_source, "reference_" + block_label, false, plan.namespace_base, false, mode);
             if (timing != nullptr) timing->reference_ffn_ns += clock_ns() - reference_ffn_start;

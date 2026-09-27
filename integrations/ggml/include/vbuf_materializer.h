@@ -106,6 +106,9 @@ public:
     uint64_t active_ready_bytes() const override;
     std::vector<MaterializationTraceEvent> trace() const override;
     void clear_trace();
+    void set_trace_enabled(bool enabled);
+    uint64_t materialized_bytes() const;
+    uint64_t reloaded_bytes() const;
 
 private:
     struct Impl;

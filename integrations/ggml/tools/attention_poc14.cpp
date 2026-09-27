@@ -5,6 +5,8 @@
 #undef VBUF_POC12_LIBRARY_ONLY
 
 #include "vbuf_runtime_state.h"
+#include "deepseek_v2_lite_semantics.h"
+#include "ggml-cpu.h"
 
 #include <chrono>
 
@@ -150,52 +152,67 @@ OpResult run_op(const Meta & meta, const Activation & input, TensorWaveOpKind ki
     return { result.error, floats(result.output) };
 }
 
-std::vector<float> rope_neox(const std::vector<float> & input, uint32_t position,
-    uint32_t dimension, float base = 10000.0f) {
-    std::vector<float> output = input;
-    const uint32_t half = dimension / 2;
-    for (uint32_t i = 0; i < half; ++i) {
-        const float frequency = std::pow(base, -2.0f * static_cast<float>(i) / dimension);
-        const float angle = position * frequency;
-        const float c = std::cos(angle), s = std::sin(angle);
-        const float a = input[i], b = input[i + half];
-        output[i] = a * c - b * s;
-        output[i + half] = a * s + b * c;
-    }
-    return output;
-}
-
 std::vector<float> attention_context(const std::vector<float> & q_nope,
     const std::vector<float> & q_pe, const RuntimeStateSlot & k_state,
     const RuntimeStateSlot & v_state, float scale, std::vector<float> * probabilities) {
     constexpr uint32_t heads = 16, nope = 128, rope = 64, value = 128;
-    std::vector<float> context(heads * value, 0.0f);
-    probabilities->clear();
+    const uint32_t positions = k_state.size();
+    if (positions == 0 || positions > 4096 || positions != v_state.size() ||
+        k_state.width() != heads * (nope + rope) || v_state.width() != heads * value ||
+        q_nope.size() != heads * nope || q_pe.size() != heads * rope)
+        throw std::runtime_error("invalid attention state geometry");
+    // Use the backend's F32 reductions for QK, softmax, and weighted V. A
+    // scalar float accumulation changes subsequent quantized-matmul inputs
+    // at rounding boundaries, amplifying tiny errors across the model.
+    // Backend-local zero padding fixes the reduction geometry independently
+    // of the live KV length. It does not append positions to runtime KV state.
+    const uint32_t padded_positions = ((positions + 255) / 256) * 256;
+    const size_t elements = size_t(heads) * ((nope + rope + value + 2) * padded_positions + nope + rope + value);
+    ggml_init_params params{elements * sizeof(float) + 1024 * 1024, nullptr, false};
+    std::unique_ptr<ggml_context, decltype(&ggml_free)> ctx(ggml_init(params), ggml_free);
+    if (!ctx) throw std::runtime_error("attention compute allocation failed");
+    auto * q = ggml_new_tensor_3d(ctx.get(), GGML_TYPE_F32, nope + rope, 1, heads);
+    auto * k = ggml_new_tensor_3d(ctx.get(), GGML_TYPE_F32, nope + rope, padded_positions, heads);
+    auto * v = ggml_new_tensor_3d(ctx.get(), GGML_TYPE_F32, padded_positions, value, heads);
+    auto * mask = ggml_new_tensor_1d(ctx.get(), GGML_TYPE_F32, padded_positions);
+    ggml_set_zero(k);
+    ggml_set_zero(v);
+    auto * mask_data = static_cast<float *>(mask->data);
+    for (uint32_t i = 0; i < padded_positions; ++i)
+        mask_data[i] = i < positions ? 0.0f : -INFINITY;
+    auto * q_data = static_cast<float *>(q->data);
+    auto * k_data = static_cast<float *>(k->data);
+    auto * v_data = static_cast<float *>(v->data);
     for (uint32_t head = 0; head < heads; ++head) {
-        std::vector<float> q(192);
-        std::copy_n(q_nope.data() + head * nope, nope, q.data());
-        std::copy_n(q_pe.data() + head * rope, rope, q.data() + nope);
-        std::vector<float> scores;
-        for (uint32_t position = 0; position < k_state.size(); ++position) {
-            std::vector<float> key;
-            k_state.read(position, &key);
-            float score = 0.0f;
-            for (uint32_t i = 0; i < q.size(); ++i) score += q[i] * key[head * 192 + i];
-            scores.push_back(score * scale);
-        }
-        const float maximum = *std::max_element(scores.begin(), scores.end());
-        float total = 0.0f;
-        for (float & score : scores) { score = std::exp(score - maximum); total += score; }
-        for (float & score : scores) score /= total;
-        probabilities->insert(probabilities->end(), scores.begin(), scores.end());
-        for (uint32_t position = 0; position < k_state.size(); ++position) {
-            std::vector<float> value_state;
-            v_state.read(position, &value_state);
+        std::copy_n(q_nope.data() + head * nope, nope, q_data + head * (nope + rope));
+        std::copy_n(q_pe.data() + head * rope, rope, q_data + head * (nope + rope) + nope);
+    }
+    for (uint32_t position = 0; position < positions; ++position) {
+        std::vector<float> key, values;
+        k_state.read(position, &key);
+        v_state.read(position, &values);
+        for (uint32_t head = 0; head < heads; ++head) {
+            std::copy_n(key.data() + head * (nope + rope), nope + rope,
+                k_data + (head * padded_positions + position) * (nope + rope));
             for (uint32_t i = 0; i < value; ++i)
-                context[head * value + i] += scores[position] * value_state[head * value + i];
+                v_data[(head * value + i) * padded_positions + position] = values[head * value + i];
         }
     }
-    return context;
+    auto * scores = ggml_mul_mat(ctx.get(), k, q);
+    auto * probs = ggml_soft_max_ext(ctx.get(), scores, mask, scale, 0.0f);
+    auto * result = ggml_mul_mat(ctx.get(), v, probs);
+    ggml_mul_mat_set_prec(result, GGML_PREC_F32);
+    auto * graph = ggml_new_graph(ctx.get());
+    ggml_build_forward_expand(graph, result);
+    if (ggml_graph_compute_with_ctx(ctx.get(), graph, 2) != GGML_STATUS_SUCCESS)
+        throw std::runtime_error("attention compute failed");
+    const auto * probability_data = static_cast<const float *>(probs->data);
+    probabilities->clear();
+    for (uint32_t head = 0; head < heads; ++head)
+        probabilities->insert(probabilities->end(), probability_data + head * padded_positions,
+            probability_data + head * padded_positions + positions);
+    const auto * output = static_cast<const float *>(result->data);
+    return {output, output + heads * value};
 }
 
 TokenData compute_token(const AttentionTensors & tensors, const Activation & input,
@@ -233,11 +250,11 @@ TokenData compute_token(const AttentionTensors & tensors, const Activation & inp
     data.v.resize(heads * value);
     for (uint32_t head = 0; head < heads; ++head) {
         std::copy_n(q_result.values.data() + head * q_head, nope, data.q_nope.data() + head * nope);
-        const std::vector<float> q_rope = rope_neox(
+        const std::vector<float> q_rope = deepseek_rotary(
             std::vector<float>(q_result.values.begin() + head * q_head + nope,
-                q_result.values.begin() + (head + 1) * q_head), position, rope);
+                q_result.values.begin() + (head + 1) * q_head), position);
         std::copy(q_rope.begin(), q_rope.end(), data.q_pe.begin() + head * rope);
-        std::vector<float> key_rope = rope_neox(kv_rope, position, rope);
+        std::vector<float> key_rope = deepseek_rotary(kv_rope, position);
         for (uint32_t i = 0; i < nope; ++i) data.k[head * q_head + i] = kv_b_result.values[head * 256 + i];
         std::copy(key_rope.begin(), key_rope.end(), data.k.begin() + head * q_head + nope);
         for (uint32_t i = 0; i < value; ++i) data.v[head * value + i] = kv_b_result.values[head * 256 + nope + i];
@@ -250,7 +267,7 @@ TokenData compute_token(const AttentionTensors & tensors, const Activation & inp
     }
     std::vector<float> probabilities;
     data.context = attention_context(data.q_nope, data.q_pe, *k_state, *v_state,
-        1.0f / std::sqrt(192.0f), &probabilities);
+        DeepSeekV2LiteRope{}.attention_scale(q_head), &probabilities);
     const Activation context_input{ data.context, { 2048, 1 } };
     const OpResult output = run_op(tensors.output, context_input, TensorWaveOpKind::MulMat,
         lease, materializer, "attention_output", 0.0f, no_jit_fallback, timing);
