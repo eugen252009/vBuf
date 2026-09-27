@@ -4,7 +4,7 @@
 
 ## BUILD / HTTP ENVIRONMENT
 
-- **GGML revision:** `2d191b5dee1a591c41ee8a653ce42bfcd9c8716d` (`ggml` 0.20.0), separately fetched into `/home/eugen/.cache/vbuf-agent-qualification/ggml`; verified by CMake and `git rev-parse`.
+- **GGML revision:** `2d191b5dee1a591c41ee8a653ce42bfcd9c8716d` (`ggml` 0.20.0), separately fetched into `${GGML_SOURCE_DIR}`; verified by CMake and `git rev-parse`.
 - **vBuf-ML revision:** repository `73d38721841ec7ff0221bb4350c4c0d81f7af496`; Rust sources were clean at that commit when built. The surrounding repository worktree had unrelated pre-existing changes; these were preserved.
 - **Compiler:** GNU C/C++ 14.2.0; `rustc` 1.95.0; Cargo 1.95.0; CMake 3.31.6; Ninja 1.12.1.
 - **Build:** `cargo build --release --manifest-path rust/Cargo.toml -p vbuf-ml`; configured using the repository's `integrations/ggml/CMakeLists.txt`, `Release`, Ninja, `GGML_NATIVE=OFF`, pinned `VBUF_GGML_SOURCE_DIR`, `VBUF_ENABLE_CUDA=OFF`, `VBUF_BUILD_PROBES=ON`, and the just-built `VBUF_ML_LIBRARY`. Built `vbuf_compat_server` and `vbuf_agent_protocol_contract`.
@@ -12,8 +12,9 @@
 - **Linked libraries:** `libggml.so.0.20.0`, `libggml-cpu.so.0.20.0`, `libggml-base.so.0.20.0`, and `rust/target/release/libvbuf_ml.so`; the vBuf region executor and agent protocol are static libraries. No llama.cpp runtime or model loader is linked.
 - **HTTP test command:** `python3 integrations/ggml/tests/vbuf_compat_server_http_test.py --url http://127.0.0.1:18080 --model vbuf-deepseek-bounded` — **PASS**, `VBUF_COMPAT_SERVER_HTTP_TEST=PASS`.
 - **Test server configuration:** `--blocks 2 --capacity 268435456 --max-new-tokens 4`, CPU. This is the established bounded two-block HTTP path, not full 27-layer model qualification.
-- **Test artifact:** `legraphista/DeepSeek-V2-Lite-IMat-GGUF`, revision `3048fc1df365e992c92a055324e8fd872e5763b9`; GGUF SHA-256 `3b7da33584bebf89afcdbdd2e7a8e3e47e11092971559371f13b510f475e3c0c`; converted payload SHA-256 `2ef0cdde67154ecc68bd82558007a4ea9da36262c4405007cb83306f68456e47`. Model/build artifacts and logs are outside the worktree under `/home/eugen/.cache/vbuf-agent-qualification/`.
+- **Test artifact:** `legraphista/DeepSeek-V2-Lite-IMat-GGUF`, revision `3048fc1df365e992c92a055324e8fd872e5763b9`; GGUF SHA-256 `3b7da33584bebf89afcdbdd2e7a8e3e47e11092971559371f13b510f475e3c0c`; converted payload SHA-256 `2ef0cdde67154ecc68bd82558007a4ea9da36262c4405007cb83306f68456e47`. Model/build artifacts and logs are outside the worktree under `${QUALIFICATION_CACHE_DIR}/`.
 - **Build warnings:** the two pre-existing PoC22 `-Wsubobject-linkage` warnings remain; they did not block the build.
+- **Path privacy:** local artifact/cache paths in this report are normalized to `${GGML_SOURCE_DIR}`, `${MODEL_ARTIFACT_DIR}`, `${QUALIFICATION_BUILD_DIR}`, and `${QUALIFICATION_CACHE_DIR}`; artifact hashes and test results are unchanged.
 
 ## HTTP PROTOCOL
 

@@ -132,7 +132,7 @@ The earlier “full artifact not downloaded” and “no Qwen sidecar” stateme
 
 ### Artifact and conversion identity
 
-- Downloaded the exact candidate outside the worktree to `/home/eugen/.cache/vbuf-agent-qualification/qwen3-14b-full/Qwen_Qwen3-14B-Q4_K_M.gguf`.
+- Downloaded the exact candidate outside the worktree to `${QWEN3_ARTIFACT_DIR}/Qwen_Qwen3-14B-Q4_K_M.gguf`.
 - Exact size `9,001,753,632` bytes; full SHA-256 **verified** as `915913e22399475dbe6c968ac014d9f1fbe08975e489279aede9d5c7b2c98eb6`, matching the pinned repository LFS identity.
 - Generated and validated a Qwen conversion manifest and converted artifact with the repository’s vBuf-ML converter. Converted range payload: `Qwen_Qwen3-14B-Q4_K_M.vbuf`, size `9,000,232,144`, SHA-256 `f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31`.
 - Generated a 4,450,377-byte semantic bootstrap whose persisted source ID 1 declares exactly the converted `.vbuf` size/hash above. The consumer FFI identity was read and independently matched against `stat` and `sha256sum` of that payload. Therefore the serving payload for this sidecar is the converted `.vbuf`, **not** the GGUF.

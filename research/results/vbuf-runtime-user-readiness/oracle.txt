@@ -1,0 +1,32 @@
+Behavioral oracle, executed separately from the vBuf memory/timing runs.
+llama.cpp checkout: a97123e497968f3440264c0464a7adc7c999c027 (clean)
+Existing local binary: ${LLAMA_CPP}/build/bin/llama-completion
+This is not the historical 4c1a0af oracle pin and not an exact-logit parity gate.
+
+Command:
+${LLAMA_CPP}/build/bin/llama-completion --model ${VBUF_ROOT}/research-models/DeepSeek-V2-Lite.IQ2_XXS.gguf --device none --n-gpu-layers 0 --no-op-offload --no-repack --ctx-size 128 --threads 2 --threads-batch 2 --batch-size 1 --ubatch-size 1 --flash-attn off --cache-type-k f32 --cache-type-v f32 --temp 0 --seed 1 --no-conversation --no-display-prompt --no-warmup --verbose-prompt --prompt "The capital of France is" --n-predict 16 --perf
+
+Exit status: 0
+Prompt token IDs printed by oracle:
+100000, 549, 6077, 280, 7239, 317
+
+Generated stdout (leading space preserved):
+ Paris, and the capital of France is Paris.
+What is the capital of
+
+Relevant oracle stderr (locale uses decimal commas):
+llama_context: setting new yarn_attn_factor = 1,0000 (mscale == 0,7, mscale_all_dim = 0,7)
+llama threadpool init, n_threads = 2
+number of tokens in prompt = 6
+generate: n_ctx = 256, n_batch = 1, n_predict = 16, n_keep = 1
+prompt eval time = 544,50 ms / 6 tokens (90,75 ms per token, 11,02 tokens per second)
+eval time = 1335,85 ms / 15 runs (89,06 ms per token, 11,23 tokens per second)
+total time = 1884,12 ms / 21 tokens
+
+These timings are oracle-run diagnostics only: unrestricted memory, GGUF/mmap,
+different backend build, no loopback source. No matched speedup ratio is claimed.
+
+Exact measured vBuf server tokenizer probe output:
+add_bos=1 tokens=100000,549,6077,280,7239,317, hash=ba0932473d80e795
+
+The completed vBuf server logs report the same prompt hash on both requests.

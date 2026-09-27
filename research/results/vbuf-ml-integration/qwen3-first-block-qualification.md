@@ -48,6 +48,8 @@ No result qualifies full-model inference or production Qwen3 support.
 
 ## Reference and artifacts
 
+Local GGML/llama.cpp/artifact paths in commands are normalized to `${GGML_SOURCE_DIR}`, `${LLAMA_CPP}`, and `${QWEN3_ARTIFACT_DIR}`; hashes and qualification results are unchanged.
+
 - Model: `bartowski/Qwen_Qwen3-14B-GGUF`, revision
   `bd080f768a6401c2d5a7fa53a2e50cd8218a9ce2`, file
   `Qwen_Qwen3-14B-Q4_K_M.gguf`.
@@ -74,7 +76,7 @@ llama.cpp checkout at the revision above. Example vBuf build:
 
 ```bash
 cmake -S integrations/ggml -B /tmp/vbuf-qwen3-block-build \
-  -DVBUF_GGML_SOURCE_DIR=/home/eugen/.cache/vbuf-agent-qualification/ggml \
+  -DVBUF_GGML_SOURCE_DIR=${GGML_SOURCE_DIR} \
   -DVBUF_ML_LIBRARY="$PWD/rust/target/release/libvbuf_ml.so" \
   -DVBUF_BUILD_COMPAT_SERVER=OFF -DVBUF_BUILD_PROBES=ON \
   -DCMAKE_BUILD_TYPE=Release
@@ -87,11 +89,11 @@ and its built `libllama.so.0.1.0` / GGML libraries:
 
 ```bash
 g++ -O2 -std=c++17 \\
-  -I/home/eugen/projekte/llama.cpp/include \\
-  -I/home/eugen/projekte/llama.cpp/ggml/include \\
+  -I${LLAMA_CPP}/include \\
+  -I${LLAMA_CPP}/ggml/include \\
   integrations/ggml/qualification/qwen3_llama_reference_dump.cpp \\
-  -L/home/eugen/projekte/llama.cpp/build/bin \\
-  -Wl,-rpath,/home/eugen/projekte/llama.cpp/build/bin \\
+  -L${LLAMA_CPP}/build/bin \\
+  -Wl,-rpath,${LLAMA_CPP}/build/bin \\
   -l:libllama.so.0.1.0 -l:libggml-base.so.0 -l:libggml.so.0 \\
   -l:libggml-cpu.so.0 -lpthread -ldl -o /tmp/qwen3_llama_reference_dump
 ```

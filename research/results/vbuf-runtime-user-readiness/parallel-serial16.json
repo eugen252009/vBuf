@@ -1,0 +1,586 @@
+{
+  "run_directory": "${RUN_ROOT}/experts-serial16",
+  "unit": "vbuf-experts-serial16.service",
+  "result": {
+    "platform": "Linux-6.12.107+deb13-amd64-x86_64-with-glibc2.41",
+    "cgroup": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/vbuf-experts-serial16.service",
+    "memory_limit_bytes": 2147483648,
+    "swap_limit_bytes": 0,
+    "scope": "runtime + loopback payload provider + client/sampler; no oracle",
+    "cache_state": "payload POSIX_FADV_DONTNEED requested once; advisory, coldness not proven; repeated requests reuse runtime/source",
+    "payload_bytes": 5639819878,
+    "configuration": {
+      "server": "${RUN_ROOT}/deepseek-qualification-build/vbuf_compat_server",
+      "semantic_model": "${VBUF_ROOT}/research-models/DeepSeek-V2-Lite.IQ2_XXS.semantic.vbuf",
+      "payload": "${VBUF_ROOT}/research-models/DeepSeek-V2-Lite.IQ2_XXS.vbuf",
+      "output": "${RUN_ROOT}/experts-serial16",
+      "blocks": 27,
+      "capacity": 268435456,
+      "tokens": 16,
+      "requests": 2,
+      "prompt": "The capital of France is",
+      "timeout": 600,
+      "port": 18080,
+      "source_port": 18124,
+      "server_preload": null,
+      "trim_control": false,
+      "expected_output": "${RUN_ROOT}/oracle-generation16/generation.txt",
+      "runtime_trace": false,
+      "expert_workers": 1,
+      "expert_threads": 1
+    },
+    "requests": [
+      {
+        "done": true,
+        "finish_reason": "length",
+        "text": " Paris, and the capital of France is Paris.\nWhat is the capital of",
+        "token_events": 16,
+        "arrival_seconds": [
+          34.185707093998644,
+          40.00501868200081,
+          45.96823448199939,
+          51.63690633599981,
+          57.54062005599917,
+          63.44504847999997,
+          69.26278604099934,
+          74.93930688899854,
+          80.76736038099989,
+          86.6281498999997,
+          92.60167030599769,
+          98.31164003199956,
+          104.20089936699878,
+          109.90848916599862,
+          115.6375254859995,
+          121.46713214199917
+        ],
+        "time_to_first_token_seconds": 34.185707093998644,
+        "elapsed_seconds": 121.46880433899787,
+        "decode_tokens_per_second": 0.17185787229929772,
+        "source_before": {
+          "connections": 0,
+          "successful_requests": 0,
+          "requested_bytes": 0,
+          "unique_requested_bytes": 0
+        },
+        "source_after": {
+          "connections": 1,
+          "successful_requests": 14906,
+          "requested_bytes": 15707595552,
+          "unique_requested_bytes": 3634105888
+        },
+        "health_after": {
+          "status": "ok",
+          "runtime": "ready"
+        },
+        "oracle_text_match": true
+      },
+      {
+        "done": true,
+        "finish_reason": "length",
+        "text": " Paris, and the capital of France is Paris.\nWhat is the capital of",
+        "token_events": 16,
+        "arrival_seconds": [
+          32.79978143399785,
+          38.53778502999921,
+          44.386525522997545,
+          50.00710884399814,
+          55.834216609997384,
+          61.70564044799903,
+          67.50252276199899,
+          73.17222086199763,
+          78.9651245899986,
+          84.80385555699831,
+          90.78124412299803,
+          96.45434512399879,
+          102.24320510899997,
+          107.94197731500026,
+          113.63799790899793,
+          119.49927207299697
+        ],
+        "time_to_first_token_seconds": 32.79978143399785,
+        "elapsed_seconds": 119.50082913900042,
+        "decode_tokens_per_second": 0.17301139706180357,
+        "source_before": {
+          "connections": 1,
+          "successful_requests": 14906,
+          "requested_bytes": 15707595552,
+          "unique_requested_bytes": 3634105888
+        },
+        "source_after": {
+          "connections": 1,
+          "successful_requests": 29579,
+          "requested_bytes": 31034988096,
+          "unique_requested_bytes": 3634105888
+        },
+        "health_after": {
+          "status": "ok",
+          "runtime": "ready"
+        },
+        "oracle_text_match": true
+      }
+    ],
+    "command": [
+      "${RUN_ROOT}/deepseek-qualification-build/vbuf_compat_server",
+      "--semantic-model",
+      "${VBUF_ROOT}/research-models/DeepSeek-V2-Lite.IQ2_XXS.semantic.vbuf",
+      "--source-url",
+      "http://127.0.0.1:18124/model.vbuf",
+      "--model-alias",
+      "deepseek-footprint",
+      "--port",
+      "18080",
+      "--blocks",
+      "27",
+      "--capacity",
+      "268435456",
+      "--max-new-tokens",
+      "16",
+      "--runtime-mode",
+      "normal",
+      "--expert-workers",
+      "1",
+      "--expert-threads",
+      "1"
+    ],
+    "initial_health": {
+      "status": "ok",
+      "runtime": "ready"
+    },
+    "status": "COMPLETED",
+    "server_exit_code": 0,
+    "memory_peak_bytes": 2147979264,
+    "memory_events": {
+      "low": 0,
+      "high": 0,
+      "max": 25655,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0
+    },
+    "memory_swap_peak_bytes": 0,
+    "source": {
+      "connections": 1,
+      "successful_requests": 29579,
+      "requested_bytes": 31034988096,
+      "unique_requested_bytes": 3634105888
+    },
+    "total_wall_seconds": 241.48942282699863
+  },
+  "systemd_properties": "Result=success\nExecMainCode=0\nExecMainStatus=0\nMemoryPeak=[not set]\nMemoryMax=infinity\nMemorySwapMax=infinity\n",
+  "journal": "Sep 14 15:25:26 debian systemd[2889]: Started vbuf-experts-serial16.service - [systemd-run] python3 ${VBUF_ROOT}/scripts/qualify_runtime_footprint.py --server ${RUN_ROOT}/deepseek-qualification-build/vbuf_compat_server --semantic-model ${VBUF_ROOT}/research-models/DeepSeek-V2-Lite.IQ2_XXS.semantic.vbuf --payload ${VBUF_ROOT}/research-models/DeepSeek-V2-Lite.IQ2_XXS.vbuf --output ${RUN_ROOT}/experts-serial16 --blocks 27 --tokens 16 --requests 2 --expert-workers 1 --expected-output ${RUN_ROOT}/oracle-generation16/generation.txt.\nSep 14 15:29:28 debian systemd[2889]: vbuf-experts-serial16.service: Consumed 1min 35.606s CPU time, 2G memory peak.\n",
+  "server_log": "vbuf-compat-server listening on 127.0.0.1:18080 model=deepseek-footprint blocks=27 runtime_mode=normal\nvbuf_connection accepted_ns=19578728516973\nvbuf_control_request path=/health accepted_ns=19578728516973 dispatch_start_ns=19578728601273 request_end_ns=19578728726714\nvbuf_connection accepted_ns=19578729137386\nvbuf_admission event=waiting id=chatcmpl-vbuf-1 connection_order=1 admission_state=WAITING cancellation_reason=none runtime_entry_count=0 inference_lease_acquires=0 inference_lease_releases=0 admission_wait_ns=0 queued_generations=1 active_generations=0 total_admitted=0 total_cancelled_before_admission=0 total_runtime_entries=0 accepted_ns=19578729137386 dispatch_start_ns=19578729157366\nvbuf_admission event=terminal id=chatcmpl-vbuf-1 connection_order=1 admission_state=COMPLETED cancellation_reason=none runtime_entry_count=1 inference_lease_acquires=1 inference_lease_releases=0 admission_wait_ns=370 queued_generations=0 active_generations=1 total_admitted=1 total_cancelled_before_admission=0 total_runtime_entries=1 accepted_ns=19578729137386 dispatch_start_ns=19578729157366\nvbuf_request id=chatcmpl-vbuf-1 request_index=1 model=deepseek-footprint prompt_tokens=6 prompt_token_hash=ba0932473d80e795 parallel_expert_jobs=0 peak_expert_workers=0 parallel_expert_waves=0 peak_expert_wave_bytes=0 expert_serial_fallbacks=0 generated_tokens=16 source_bytes=15707595552 materialized_bytes=15707595552 resident_bytes_before=0 resident_bytes_after=267590656 peak_residency_bytes=268379136 active_leases_after=0 active_lease_bytes_after=0 active_inflight_bytes_after=0 active_generations_after=0 active_requests_after=0 queued_generations=0 active_streams_after=0 active_cancellations_after=0 evictions=14832 reacquisitions=11439 source_successful_requests=14906 source_successful_requests_before_failure=14906 completed_layers=27 completed_positions=21 source_failure_injected=no prefill_ns=34185335452 decode_ns=87281533338 http_parse_ns=9260 prompt_build_ns=0 tokenize_ns=38320 materialization_ns=UNINSTRUMENTED response_serialization_ns=4550 accepted_ns=19578729137386 dispatch_start_ns=19578729157366 runtime_start_ns=19578729272517 first_token_ns=19612914516568 runtime_end_ns=19700197669414 inference_wait_ns=370 elapsed_ns=121468395527 finish_reason=length cancelled=no error=none total_ns=121468666528\nvbuf_connection accepted_ns=19700203464879\nvbuf_control_request path=/health accepted_ns=19700203464879 dispatch_start_ns=19700203495479 request_end_ns=19700203589359\nvbuf_connection accepted_ns=19700208919842\nvbuf_admission event=waiting id=chatcmpl-vbuf-2 connection_order=3 admission_state=WAITING cancellation_reason=none runtime_entry_count=0 inference_lease_acquires=0 inference_lease_releases=0 admission_wait_ns=0 queued_generations=1 active_generations=0 total_admitted=1 total_cancelled_before_admission=0 total_runtime_entries=1 accepted_ns=19700208919842 dispatch_start_ns=19700208962273\nvbuf_admission event=terminal id=chatcmpl-vbuf-2 connection_order=3 admission_state=COMPLETED cancellation_reason=none runtime_entry_count=1 inference_lease_acquires=1 inference_lease_releases=0 admission_wait_ns=460 queued_generations=0 active_generations=1 total_admitted=2 total_cancelled_before_admission=0 total_runtime_entries=2 accepted_ns=19700208919842 dispatch_start_ns=19700208962273\nvbuf_request id=chatcmpl-vbuf-2 request_index=2 model=deepseek-footprint prompt_tokens=6 prompt_token_hash=ba0932473d80e795 parallel_expert_jobs=0 peak_expert_workers=0 parallel_expert_waves=0 peak_expert_wave_bytes=0 expert_serial_fallbacks=0 generated_tokens=16 source_bytes=15327392544 materialized_bytes=15327392544 resident_bytes_before=267590656 resident_bytes_after=268198912 peak_residency_bytes=268401664 active_leases_after=0 active_lease_bytes_after=0 active_inflight_bytes_after=0 active_generations_after=0 active_requests_after=0 queued_generations=0 active_streams_after=0 active_cancellations_after=0 evictions=14671 reacquisitions=14673 source_successful_requests=14673 source_successful_requests_before_failure=14673 completed_layers=27 completed_positions=21 source_failure_injected=no prefill_ns=32799381372 decode_ns=86699573060 http_parse_ns=9170 prompt_build_ns=0 tokenize_ns=40180 materialization_ns=UNINSTRUMENTED response_serialization_ns=2750 accepted_ns=19700208919842 dispatch_start_ns=19700208962273 runtime_start_ns=19700209082963 first_token_ns=19733008347995 runtime_end_ns=19819709467561 inference_wait_ns=460 elapsed_ns=119500384038 finish_reason=length cancelled=no error=none total_ns=119500648348\nvbuf_connection accepted_ns=19819723122318\nvbuf_control_request path=/health accepted_ns=19819723122318 dispatch_start_ns=19819723176608 request_end_ns=19819723293359\nvbuf-compat-server stopped cleanly\n",
+  "stream_events": {
+    "request-1.jsonl": [
+      {
+        "seconds": 34.18562923399804,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392361,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 34.185707093998644,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392361,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Paris\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 40.00501868200081,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392367,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\",\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 45.96823448199939,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392373,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" and\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 51.63690633599981,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392379,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" the\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 57.54062005599917,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392385,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" capital\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 63.44504847999997,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392391,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" of\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 69.26278604099934,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392396,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" France\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 74.93930688899854,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392402,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" is\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 80.76736038099989,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392408,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Paris\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 86.6281498999997,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392414,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\".\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 92.60167030599769,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392420,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\n\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 98.31164003199956,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392425,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"What\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 104.20089936699878,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392431,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" is\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 109.90848916599862,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392437,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" the\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 115.6375254859995,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392443,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" capital\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 121.46713214199917,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392449,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" of\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 121.46872517899828,
+        "data": "{\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"created\":1789392449,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"length\"}]}"
+      },
+      {
+        "seconds": 121.46874884899808,
+        "data": "[DONE]"
+      }
+    ],
+    "request-2.jsonl": [
+      {
+        "seconds": 32.799693163000484,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392481,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 32.79978143399785,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392481,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Paris\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 38.53778502999921,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392487,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\",\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 44.386525522997545,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392493,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" and\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 50.00710884399814,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392499,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" the\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 55.834216609997384,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392504,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" capital\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 61.70564044799903,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392510,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" of\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 67.50252276199899,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392516,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" France\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 73.17222086199763,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392522,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" is\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 78.9651245899986,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392528,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Paris\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 84.80385555699831,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392533,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\".\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 90.78124412299803,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392539,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\n\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 96.45434512399879,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392545,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"What\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 102.24320510899997,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392551,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" is\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 107.94197731500026,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392556,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" the\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 113.63799790899793,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392562,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" capital\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 119.49927207299697,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392568,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" of\"},\"finish_reason\":null}]}"
+      },
+      {
+        "seconds": 119.50074628899893,
+        "data": "{\"id\":\"chatcmpl-vbuf-2\",\"object\":\"chat.completion.chunk\",\"created\":1789392568,\"model\":\"deepseek-footprint\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"length\"}]}"
+      },
+      {
+        "seconds": 119.50077760899876,
+        "data": "[DONE]"
+      }
+    ]
+  },
+  "sample_count": 965,
+  "sampled_peak_runtime_rss_bytes": 485801984,
+  "sampled_peak_runtime_anon_bytes": 473174016,
+  "sampled_peak_provider_rss_bytes": 189243392,
+  "sampled_peak_cgroup_bytes": 2147483648,
+  "sampled_peak_swap_bytes": 0,
+  "first_sample": {
+    "seconds": 0.0006908430004841648,
+    "runtime": {
+      "VmHWM": 962560,
+      "VmRSS": 962560,
+      "RssAnon": 106496,
+      "RssFile": 663552,
+      "VmSwap": 0
+    },
+    "provider_and_sampler": {
+      "VmHWM": 25202688,
+      "VmRSS": 25202688,
+      "RssAnon": 12804096,
+      "RssFile": 12398592,
+      "VmSwap": 0
+    },
+    "memory_current": 14090240,
+    "memory_stat": {
+      "anon": 12976128,
+      "file": 4096,
+      "kernel": 372736,
+      "kernel_stack": 49152,
+      "pagetables": 167936,
+      "sec_pagetables": 0,
+      "percpu": 576,
+      "sock": 0,
+      "vmalloc": 0,
+      "shmem": 4096,
+      "zswap": 0,
+      "zswapped": 0,
+      "file_mapped": 0,
+      "file_dirty": 0,
+      "file_writeback": 0,
+      "swapcached": 0,
+      "anon_thp": 0,
+      "file_thp": 0,
+      "shmem_thp": 0,
+      "inactive_anon": 0,
+      "active_anon": 12861440,
+      "inactive_file": 0,
+      "active_file": 4096,
+      "unevictable": 0,
+      "slab_reclaimable": 16672,
+      "slab_unreclaimable": 97200,
+      "slab": 113872,
+      "workingset_refault_anon": 0,
+      "workingset_refault_file": 0,
+      "workingset_activate_anon": 0,
+      "workingset_activate_file": 0,
+      "workingset_restore_anon": 0,
+      "workingset_restore_file": 0,
+      "workingset_nodereclaim": 0,
+      "pgdemote_kswapd": 0,
+      "pgdemote_direct": 0,
+      "pgdemote_khugepaged": 0,
+      "pgpromote_success": 0,
+      "pgscan": 0,
+      "pgsteal": 0,
+      "pgscan_kswapd": 0,
+      "pgscan_direct": 0,
+      "pgscan_khugepaged": 0,
+      "pgsteal_kswapd": 0,
+      "pgsteal_direct": 0,
+      "pgsteal_khugepaged": 0,
+      "pgfault": 4176,
+      "pgmajfault": 0,
+      "pgrefill": 0,
+      "pgactivate": 0,
+      "pgdeactivate": 0,
+      "pglazyfree": 0,
+      "pglazyfreed": 0,
+      "swpin_zero": 0,
+      "swpout_zero": 0,
+      "zswpin": 0,
+      "zswpout": 0,
+      "zswpwb": 0,
+      "thp_fault_alloc": 0,
+      "thp_collapse_alloc": 0,
+      "thp_swpout": 0,
+      "thp_swpout_fallback": 0,
+      "numa_pages_migrated": 0,
+      "numa_pte_updates": 0,
+      "numa_hint_faults": 0
+    }
+  },
+  "last_sample": {
+    "seconds": 241.43304914100008,
+    "runtime": {},
+    "provider_and_sampler": {
+      "VmHWM": 188497920,
+      "VmRSS": 45350912,
+      "RssAnon": 31981568,
+      "RssFile": 13369344,
+      "VmSwap": 0
+    },
+    "memory_current": 1527992320,
+    "memory_stat": {
+      "anon": 31981568,
+      "file": 1485754368,
+      "kernel": 9912320,
+      "kernel_stack": 32768,
+      "pagetables": 159744,
+      "sec_pagetables": 0,
+      "percpu": 288,
+      "sock": 0,
+      "vmalloc": 0,
+      "shmem": 1675264,
+      "zswap": 0,
+      "zswapped": 0,
+      "file_mapped": 0,
+      "file_dirty": 0,
+      "file_writeback": 0,
+      "swapcached": 0,
+      "anon_thp": 6291456,
+      "file_thp": 0,
+      "shmem_thp": 0,
+      "inactive_anon": 0,
+      "active_anon": 33652736,
+      "inactive_file": 652730368,
+      "active_file": 831352832,
+      "unevictable": 0,
+      "slab_reclaimable": 9642040,
+      "slab_unreclaimable": 63968,
+      "slab": 9706008,
+      "workingset_refault_anon": 0,
+      "workingset_refault_file": 2242733,
+      "workingset_activate_anon": 0,
+      "workingset_activate_file": 2242733,
+      "workingset_restore_anon": 0,
+      "workingset_restore_file": 64915,
+      "workingset_nodereclaim": 0,
+      "pgdemote_kswapd": 0,
+      "pgdemote_direct": 0,
+      "pgdemote_khugepaged": 0,
+      "pgpromote_success": 0,
+      "pgscan": 2823603,
+      "pgsteal": 2823603,
+      "pgscan_kswapd": 0,
+      "pgscan_direct": 2823603,
+      "pgscan_khugepaged": 0,
+      "pgsteal_kswapd": 0,
+      "pgsteal_direct": 2823603,
+      "pgsteal_khugepaged": 0,
+      "pgfault": 8453400,
+      "pgmajfault": 0,
+      "pgrefill": 202966,
+      "pgactivate": 0,
+      "pgdeactivate": 0,
+      "pglazyfree": 0,
+      "pglazyfreed": 0,
+      "swpin_zero": 0,
+      "swpout_zero": 0,
+      "zswpin": 0,
+      "zswpout": 0,
+      "zswpwb": 0,
+      "thp_fault_alloc": 556,
+      "thp_collapse_alloc": 0,
+      "thp_swpout": 0,
+      "thp_swpout_fallback": 0,
+      "numa_pages_migrated": 0,
+      "numa_pte_updates": 0,
+      "numa_hint_faults": 0
+    }
+  },
+  "peak_runtime_sample": {
+    "seconds": 218.14263556700098,
+    "runtime": {
+      "VmHWM": 485801984,
+      "VmRSS": 485801984,
+      "RssAnon": 473174016,
+      "RssFile": 10764288,
+      "VmSwap": 0
+    },
+    "provider_and_sampler": {
+      "VmHWM": 187846656,
+      "VmRSS": 44769280,
+      "RssAnon": 31399936,
+      "RssFile": 13369344,
+      "VmSwap": 0
+    },
+    "memory_current": 2001969152,
+    "memory_stat": {
+      "anon": 504573952,
+      "file": 1485918208,
+      "kernel": 11223040,
+      "kernel_stack": 98304,
+      "pagetables": 1290240,
+      "sec_pagetables": 0,
+      "percpu": 576,
+      "sock": 0,
+      "vmalloc": 0,
+      "shmem": 1503232,
+      "zswap": 0,
+      "zswapped": 0,
+      "file_mapped": 0,
+      "file_dirty": 0,
+      "file_writeback": 0,
+      "swapcached": 0,
+      "anon_thp": 44040192,
+      "file_thp": 0,
+      "shmem_thp": 0,
+      "inactive_anon": 0,
+      "active_anon": 506003456,
+      "inactive_file": 658706432,
+      "active_file": 825716736,
+      "unevictable": 0,
+      "slab_reclaimable": 9647736,
+      "slab_unreclaimable": 165320,
+      "slab": 9813056,
+      "workingset_refault_anon": 0,
+      "workingset_refault_file": 1978588,
+      "workingset_activate_anon": 0,
+      "workingset_activate_file": 1978588,
+      "workingset_restore_anon": 0,
+      "workingset_restore_file": 64915,
+      "workingset_nodereclaim": 0,
+      "pgdemote_kswapd": 0,
+      "pgdemote_direct": 0,
+      "pgdemote_khugepaged": 0,
+      "pgpromote_success": 0,
+      "pgscan": 2559347,
+      "pgsteal": 2559347,
+      "pgscan_kswapd": 0,
+      "pgscan_direct": 2559347,
+      "pgscan_khugepaged": 0,
+      "pgsteal_kswapd": 0,
+      "pgsteal_direct": 2559347,
+      "pgsteal_khugepaged": 0,
+      "pgfault": 7598751,
+      "pgmajfault": 0,
+      "pgrefill": 201589,
+      "pgactivate": 0,
+      "pgdeactivate": 0,
+      "pglazyfree": 0,
+      "pglazyfreed": 0,
+      "swpin_zero": 0,
+      "swpout_zero": 0,
+      "zswpin": 0,
+      "zswpout": 0,
+      "zswpwb": 0,
+      "thp_fault_alloc": 488,
+      "thp_collapse_alloc": 0,
+      "thp_swpout": 0,
+      "thp_swpout_fallback": 0,
+      "numa_pages_migrated": 0,
+      "numa_pte_updates": 0,
+      "numa_hint_faults": 0
+    }
+  },
+  "raw_memory_sha256": "68b872bd7d089c9a3b323a37f182c82390fbc3242df650b61dc01135d9753821"
+}
