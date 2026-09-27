@@ -186,6 +186,42 @@ The Android llama.cpp qualification path established real model construction,
 remote payload parity, EAGER_ALL behavior, generation, and GGML interoperability.
 Those results remain valid evidence even though that loader is not canonical.
 
+## Bloom Capability Discovery
+
+`bloom` is the local command for discovering and executing registered,
+validated capabilities over vBuf data. vBuf input/output are the defaults.
+Discovery does not load native artifacts; `bloom run` does load native code and
+must be used only with trusted local capabilities and inputs. Bloom is not a
+security sandbox.
+
+When a capability is needed, do not conclude that it is unavailable from the
+first listing alone. Search the catalog as well:
+
+```bash
+bloom capabilities
+bloom search "<case-insensitive AND terms>"
+bloom describe <capability>
+bloom run <capability> [input]
+```
+
+`bloom search` matches capability names and input/output contracts using a
+case-insensitive AND of literal whitespace-separated terms. An empty result is
+successful, so agents should try relevant alternate terms before designing a
+new implementation. `describe` is authoritative for the contract and its
+supported CLI formats. `run` accepts a file, stdin with `-`, or omitted stdin;
+use `--input-format` / `--output-format` only when the described contract
+supports them. Global options such as `--catalog`, `--vbuf-library`, and
+`--max-workspace-bytes` must precede the command.
+
+Bloom discovery telemetry is opt-in and local-only. When explicitly enabled
+with `--telemetry-path` or `BLOOM_TELEMETRY_PATH`, it appends JSONL discovery
+events (queries and catalog matches, never payload bytes), normally with mode
+0600. Queries may contain sensitive information; inspect and protect the path.
+There is no automatic upload, remote collector, or retention policy. Do not
+enable telemetry unless the task or user requests it. Native capabilities may
+access external resources only according to their trusted contract; a catalog
+entry is not permission to access arbitrary external resources.
+
 ## Testing and Qualification
 
 For changes to generic vBuf behavior, run the relevant cross-language, checked
