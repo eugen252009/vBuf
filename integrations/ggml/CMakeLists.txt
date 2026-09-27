@@ -102,6 +102,10 @@ set(GGML_CUDA ${VBUF_ENABLE_CUDA} CACHE BOOL "" FORCE)
 
 add_subdirectory("${GGML_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/ggml" EXCLUDE_FROM_ALL)
 
+add_library(vbuf_agent_protocol STATIC src/vbuf_agent_protocol.cpp)
+target_compile_features(vbuf_agent_protocol PUBLIC cxx_std_17)
+target_include_directories(vbuf_agent_protocol PUBLIC include)
+
 add_library(vbuf_region_executor STATIC
     src/vbuf_region_executor.cpp
     src/vbuf_execution_region.cpp
@@ -132,6 +136,10 @@ target_compile_features(vbuf_model_architecture PUBLIC cxx_std_17)
 target_include_directories(vbuf_model_architecture PUBLIC include)
 
 if(VBUF_BUILD_PROBES)
+    add_executable(vbuf_agent_protocol_contract tests/agent_protocol_contract.cpp)
+    target_compile_features(vbuf_agent_protocol_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_agent_protocol_contract PRIVATE vbuf_agent_protocol)
+
     add_executable(vbuf_model_architecture_contract tests/model_architecture_contract.cpp)
     target_compile_features(vbuf_model_architecture_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_model_architecture_contract PRIVATE vbuf_model_architecture)
@@ -250,6 +258,7 @@ if(VBUF_BUILD_PROBES)
     endif()
 
     enable_testing()
+    add_test(NAME vbuf_agent_protocol_contract COMMAND vbuf_agent_protocol_contract)
     add_test(NAME vbuf_model_architecture_contract COMMAND vbuf_model_architecture_contract)
     add_test(NAME vbuf_ggml_smoke COMMAND vbuf_ggml_smoke)
     add_test(NAME vbuf_borrowed_cpu_buffer_probe
@@ -359,7 +368,7 @@ if(VBUF_ML_LIBRARY)
     if(VBUF_BUILD_COMPAT_SERVER)
         add_executable(vbuf_compat_server tools/vbuf_compat_server.cpp)
         target_compile_features(vbuf_compat_server PRIVATE cxx_std_17)
-        target_link_libraries(vbuf_compat_server PRIVATE vbuf_region_executor vbuf_model_architecture Threads::Threads)
+        target_link_libraries(vbuf_compat_server PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_agent_protocol Threads::Threads)
 
         add_executable(vbuf_direct_control tools/vbuf_direct_control.cpp)
         target_compile_features(vbuf_direct_control PRIVATE cxx_std_17)

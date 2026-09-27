@@ -3,6 +3,7 @@
 #undef VBUF_POC22_LIBRARY_ONLY
 
 #include "vbuf_generation.h"
+#include "vbuf_agent_protocol.h"
 
 #include <algorithm>
 #include <array>
@@ -993,7 +994,7 @@ static uint64_t token_hash(const std::vector<uint32_t> & tokens) {
 }
 
 static void reject_unsupported(const std::string & body) {
-    for (const char * key : {"temperature", "top_p", "stop", "seed", "tools", "tool_choice", "response_format", "stream_options"})
+    for (const char * key : {"temperature", "top_p", "stop", "seed", "response_format", "stream_options"})
         if (has_top_level_key(body, key)) fail(std::string("unsupported generation option: ") + key);
 }
 
@@ -1069,6 +1070,19 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         reject_unsupported(request.body);
         const std::string model = top_level_string(request.body, "model");
         if (model != runtime->config.model_alias) fail("model '" + model + "' not found");
+        if (request.path == "/v1/chat/completions") {
+            const vbuf_agent::ChatRequest protocol = vbuf_agent::parse_chat_request(request.body);
+            const bool contains_tool_history = std::any_of(protocol.messages.begin(), protocol.messages.end(),
+                [](const vbuf_agent::ChatMessage & message) {
+                    return message.role == vbuf_agent::ChatMessage::Role::Tool || !message.tool_calls.empty();
+                });
+            if (!protocol.tools.empty() || contains_tool_history ||
+                protocol.tool_choice.kind == vbuf_agent::ToolChoice::Kind::ForcedFunction)
+                throw vbuf_agent::ProtocolError(vbuf_agent::ProtocolError::Category::UnsupportedFeature,
+                    "tool protocol is valid but this model has no qualified native tool-call adapter");
+        } else if (has_top_level_key(request.body, "tools") || has_top_level_key(request.body, "tool_choice")) {
+            fail("tool-calling fields are supported only by /v1/chat/completions");
+        }
         const uint32_t max_tokens = top_level_uint(request.body, "max_tokens",
             top_level_uint(request.body, "max_completion_tokens", runtime->config.max_new_tokens));
         if (max_tokens == 0 || max_tokens > runtime->config.max_new_tokens)
@@ -1276,6 +1290,14 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             << " cancelled=" << (result.cancelled ? "yes" : "no") << " error="
             << (result.error.empty() ? "none" : json_escape(result.error)) << " sent=" << (sent ? "yes" : "no")
             << " total_ns=" << (steady_now_ns() - request_start_ns) << "\n";
+    } catch (const vbuf_agent::ProtocolError & error) {
+        const bool client_error = error.category != vbuf_agent::ProtocolError::Category::Internal;
+        const char * type = error.category == vbuf_agent::ProtocolError::Category::InvalidConversation
+            ? "invalid_conversation_state" : error.category == vbuf_agent::ProtocolError::Category::UnsupportedFeature
+            ? "unsupported_feature" : client_error ? "invalid_request_error" : "server_error";
+        (void)send_response(fd, client_error ? 400 : 500,
+            client_error ? "Bad Request" : "Internal Server Error", "application/json",
+            error_body(error.what(), type));
     } catch (const JsonError & error) {
         (void)send_response(fd, 400, "Bad Request", "application/json", error_body(error.what()));
     } catch (const std::exception & error) {
