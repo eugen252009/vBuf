@@ -8,6 +8,8 @@
 #include "qwen3_kv_cache.h"
 #include "qwen3_query_groups.h"
 #include "softmax_compute_extent.h"
+#include "qwen3_execution_policy.h"
+#include "vbuf_parallel_executor.h"
 
 #include <algorithm>
 #include <array>
@@ -15,11 +17,13 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <chrono>
 #include <cstring>
 #include <fstream>
 #include <filesystem>
 #include <memory>
 #include <limits>
+#include <map>
 #include <numeric>
 #include <sstream>
 #include <stdexcept>
@@ -124,6 +128,72 @@ struct QualificationMemoryPeaks {
     size_t final_head_bytes = 0;
 };
 QualificationMemoryPeaks g_qualification_memory_peaks;
+
+Qwen3ExecutionPolicy g_execution_policy;
+bool g_serial_convenience = false;
+std::unique_ptr<BoundedExecutor> g_qwen_executor;
+struct SchedulerMetrics {
+    uint64_t tasks_launched = 0;
+    size_t max_simultaneous_tasks = 0;
+    uint32_t max_active_kernel_threads = 0;
+    std::vector<int> kernel_budgets;
+};
+SchedulerMetrics g_scheduler_metrics;
+
+void execute_independent(const std::vector<std::function<void(int)>> & tasks,
+    const std::vector<int> & budgets) {
+    if (tasks.empty() || tasks.size() != budgets.size())
+        throw std::invalid_argument("invalid independent Qwen task group");
+    g_scheduler_metrics.tasks_launched += tasks.size();
+    for (int budget : budgets) {
+        if (budget < 1) throw std::invalid_argument("kernel budget must be positive");
+        g_scheduler_metrics.kernel_budgets.push_back(budget);
+    }
+    const auto batches = qwen3_independent_task_batches(tasks.size(), g_execution_policy);
+    for (const auto & batch : batches) {
+        const uint32_t active_kernel_threads = qwen3_batch_kernel_budget(batch, budgets);
+        const bool parallel_batch = g_execution_policy.mode == Qwen3ExecutionMode::Parallel &&
+            batch.size() > 1;
+        if (active_kernel_threads > g_execution_policy.total_cpu_threads)
+            throw std::logic_error("Qwen task kernel budgets exceed the global CPU budget");
+        g_scheduler_metrics.max_active_kernel_threads = std::max(
+            g_scheduler_metrics.max_active_kernel_threads, active_kernel_threads);
+        if (parallel_batch) {
+            if (!g_qwen_executor) throw std::logic_error("Qwen parallel executor not initialized");
+            g_qwen_executor->run(batch.size(), [&](size_t job) { tasks[batch[job]](budgets[batch[job]]); });
+            g_scheduler_metrics.max_simultaneous_tasks = std::max(
+                g_scheduler_metrics.max_simultaneous_tasks, g_qwen_executor->peak_workers());
+        } else {
+            tasks[batch.front()](budgets[batch.front()]);
+            g_scheduler_metrics.max_simultaneous_tasks = std::max<size_t>(
+                g_scheduler_metrics.max_simultaneous_tasks, 1);
+        }
+    }
+}
+
+void print_execution_metrics() {
+    std::map<int, uint64_t> budget_counts;
+    for (int budget : g_scheduler_metrics.kernel_budgets) ++budget_counts[budget];
+    std::printf("execution_policy mode=%s total_cpu_threads=%u serial_convenience=%s\n",
+        g_execution_policy.mode == Qwen3ExecutionMode::Parallel ? "parallel" : "serial",
+        g_execution_policy.total_cpu_threads,
+        g_serial_convenience ? "YES" : "NO");
+    std::printf("scheduler_metrics tasks_scheduled=%llu max_simultaneous_tasks=%zu executor_workers=%zu "
+        "peak_executor_workers=%zu max_active_kernel_threads=%u budgets=",
+        static_cast<unsigned long long>(g_scheduler_metrics.tasks_launched),
+        g_scheduler_metrics.max_simultaneous_tasks,
+        g_qwen_executor ? g_qwen_executor->workers() : 0,
+        g_qwen_executor ? g_qwen_executor->peak_workers() : 0,
+        g_scheduler_metrics.max_active_kernel_threads);
+    bool first = true;
+    for (const auto & entry : budget_counts) {
+        std::printf("%s%d:%llu", first ? "" : ",", entry.first,
+            static_cast<unsigned long long>(entry.second));
+        first = false;
+    }
+    std::printf(" oversubscription=NO_BY_ASSIGNED_BUDGET\n");
+}
+struct ExecutionMetricsReporter { ~ExecutionMetricsReporter() { print_execution_metrics(); } };
 
 struct Context {
     Context() = default;
@@ -254,11 +324,12 @@ Context make_context(size_t arena = 32 * 1024 * 1024) {
     result.ctx = ggml_init(params);
     result.backend = ggml_backend_init_by_type(GGML_BACKEND_DEVICE_TYPE_CPU, nullptr);
     if (!result.ctx || !result.backend) throw std::runtime_error("GGML CPU context/backend unavailable");
-    const char * configured_threads = std::getenv("VBUF_QWEN_THREADS");
-    const int threads = configured_threads == nullptr ? 8 : std::stoi(configured_threads);
-    if (threads < 1 || threads > 128) throw std::runtime_error("VBUF_QWEN_THREADS must be in 1..128");
+    const int scoped_threads = cpu_execution_threads();
+    const int threads = scoped_threads > 0 ? scoped_threads :
+        static_cast<int>(g_execution_policy.total_cpu_threads);
+    if (threads < 1 || threads > 128) throw std::runtime_error("Qwen kernel thread budget must be in 1..128");
     ggml_backend_cpu_set_n_threads(result.backend, threads);
-    std::printf("cpu_backend=GGML_CPU threads=%d\n", threads);
+    if (scoped_threads == 0) std::printf("cpu_backend=GGML_CPU threads=%d\n", threads);
     return result;
 }
 ggml_tensor * make_tensor(Context & context, Tensor & tensor) {
@@ -298,6 +369,42 @@ void compute(Context & context, ggml_tensor * output) {
         throw std::runtime_error("GGML graph execution failed");
     ggml_backend_synchronize(context.backend);
 }
+
+std::vector<uint8_t> get_tensor_bytes(Context & context, ggml_tensor * tensor) {
+    if (!tensor) throw std::invalid_argument("cannot read a null GGML tensor");
+    std::vector<uint8_t> result(ggml_nbytes(tensor));
+    ggml_backend_tensor_get(tensor, result.data(), 0, result.size());
+    ggml_backend_synchronize(context.backend);
+    return result;
+}
+
+std::vector<float> execute_projection_kernel(const VbufTensorView & descriptor,
+    const std::vector<uint8_t> & weight_bytes, const std::vector<float> & input_values,
+    uint32_t input_width, uint32_t output_width, uint32_t positions, int threads) {
+    ScopedCpuExecutionThreads thread_scope(threads);
+    Context context = make_context();
+    TensorGeometry geometry{};
+    if (derive_tensor_geometry(descriptor, &geometry) != AdapterError::None ||
+        geometry.nbytes != weight_bytes.size() || geometry.ne[0] != input_width ||
+        geometry.ne[1] != output_width || input_values.size() != static_cast<size_t>(input_width) * positions)
+        throw std::runtime_error("independent projection geometry mismatch");
+    ggml_tensor * weight = ggml_new_tensor(context.ctx, geometry.type, geometry.rank, geometry.ne);
+    ggml_tensor * input = ggml_new_tensor_2d(context.ctx, GGML_TYPE_F32, input_width, positions);
+    ggml_tensor * output = ggml_mul_mat(context.ctx, weight, input);
+    ggml_cgraph * graph = ggml_new_graph(context.ctx);
+    if (!weight || !input || !output || !graph)
+        throw std::runtime_error("independent projection graph construction failed");
+    ggml_build_forward_expand(graph, output);
+    context.buffer = ggml_backend_alloc_ctx_tensors(context.ctx, context.backend);
+    if (!context.buffer) throw std::runtime_error("independent projection allocation failed");
+    set_tensor(weight, weight_bytes.data(), weight_bytes.size());
+    set_tensor(input, input_values.data(), input_values.size() * sizeof(float));
+    if (ggml_backend_graph_compute(context.backend, graph) != GGML_STATUS_SUCCESS)
+        throw std::runtime_error("independent projection execution failed");
+    ggml_backend_synchronize(context.backend);
+    return get_f32(context, output);
+}
+
 std::vector<float> reference(const std::string & directory, const std::string & stem) {
     std::ifstream input(directory + "/" + stem + ".f32", std::ios::binary | std::ios::ate);
     if (!input) throw std::runtime_error("missing independent checkpoint: " + stem);
@@ -634,6 +741,9 @@ void print_matmul_geometry(const char * label, const ggml_tensor * tensor) {
     print_operand(tensor->src[0]); std::printf("} src1={"); print_operand(tensor->src[1]);
     std::printf("} contiguous_src1=%s\n", ggml_is_contiguous(tensor->src[1]) ? "YES" : "NO");
 }
+void write_binary_export(const std::filesystem::path & path, const uint8_t * bytes, size_t size);
+void write_f32_export(const std::filesystem::path & path, const std::vector<float> & values);
+
 std::vector<float> run_positions(Model & model, const std::string & reference_dir,
     uint32_t positions, uint32_t layer, const std::vector<float> & input_hidden,
     bool reference_reset = false, const std::vector<int32_t> & input_tokens = {},
@@ -643,6 +753,7 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
     const std::vector<uint8_t> * replay_value_history = nullptr,
     bool use_canonical_softmax_extent = false,
     bool force_all_final_positions = false) {
+    const auto block_started = std::chrono::steady_clock::now();
     const bool replay_incremental = replay_key_history != nullptr || replay_value_history != nullptr;
     if ((replay_key_history == nullptr) != (replay_value_history == nullptr) ||
         (retained_cache != nullptr && replay_incremental))
@@ -689,16 +800,15 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
         layer_input = ggml_new_tensor_2d(first.ctx, GGML_TYPE_F32, EMBED, positions);
     }
     ggml_tensor * attn_norm_w = add_weight(prefix + "attn_norm.weight");
-    ggml_tensor * q_w = add_weight(prefix + "attn_q.weight");
-    ggml_tensor * k_w = add_weight(prefix + "attn_k.weight");
-    ggml_tensor * v_w = add_weight(prefix + "attn_v.weight");
     ggml_tensor * q_norm_w = add_weight(prefix + "attn_q_norm.weight");
     ggml_tensor * k_norm_w = add_weight(prefix + "attn_k_norm.weight");
 
     ggml_tensor * attn_norm = ggml_mul(first.ctx, ggml_rms_norm(first.ctx, layer_input, 1e-6f), attn_norm_w);
-    ggml_tensor * q_linear = ggml_mul_mat(first.ctx, q_w, attn_norm);
-    ggml_tensor * k_linear = ggml_mul_mat(first.ctx, k_w, attn_norm);
-    ggml_tensor * v_linear = ggml_mul_mat(first.ctx, v_w, attn_norm);
+    // Q/K/V are dependency-independent once the shared attention norm is ready.
+    // Their matmuls run in separate GGML contexts/backends under vBuf budgeting.
+    ggml_tensor * q_linear = ggml_new_tensor_2d(first.ctx, GGML_TYPE_F32, EMBED, positions);
+    ggml_tensor * k_linear = ggml_new_tensor_2d(first.ctx, GGML_TYPE_F32, KV_HEADS * HEAD_DIM, positions);
+    ggml_tensor * v_linear = ggml_new_tensor_2d(first.ctx, GGML_TYPE_F32, KV_HEADS * HEAD_DIM, positions);
     ggml_tensor * q_heads = ggml_reshape_3d(first.ctx, q_linear, HEAD_DIM, HEADS, positions);
     ggml_tensor * k_heads = ggml_reshape_3d(first.ctx, k_linear, HEAD_DIM, KV_HEADS, positions);
     ggml_tensor * v_heads = ggml_reshape_3d(first.ctx, v_linear, HEAD_DIM, KV_HEADS, positions);
@@ -906,14 +1016,76 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
         ggml_backend_tensor_set(tensor->ggml, ready->payload, 0, tensor->length);
         model.materializer->release(ref_id - 1);
     }
+    const auto materialize_projection_weight = [&](Tensor & tensor) {
+        if (!model.materializer->request(ref_id, tensor.persistent(), tensor.length) ||
+            model.materializer->wait(ref_id) != MaterializationState::Ready)
+            throw std::runtime_error("vBuf projection weight request failed: " + tensor.name);
+        auto ready = model.materializer->obtain_ready_tensor(ref_id++);
+        if (!ready || ready->payload_len != tensor.length)
+            throw std::runtime_error("vBuf projection weight lease failed: " + tensor.name);
+        std::vector<uint8_t> bytes(ready->payload, ready->payload + ready->payload_len);
+        model.materializer->release(ref_id - 1);
+        return bytes;
+    };
+    const auto q_weight_bytes = materialize_projection_weight(get(model, prefix + "attn_q.weight"));
+    const auto k_weight_bytes = materialize_projection_weight(get(model, prefix + "attn_k.weight"));
+    const auto v_weight_bytes = materialize_projection_weight(get(model, prefix + "attn_v.weight"));
+    ggml_cgraph * norm_graph = ggml_new_graph(first.ctx);
+    ggml_build_forward_expand(norm_graph, attn_norm);
+    if (ggml_backend_graph_compute(first.backend, norm_graph) != GGML_STATUS_SUCCESS)
+        throw std::runtime_error("Qwen embedding/attention-normalization graph execution failed");
+    ggml_backend_synchronize(first.backend);
+    const auto attn_norm_values = get_f32(first, attn_norm);
+    std::vector<float> q_projection, k_projection, v_projection;
+    const auto qkv_started = std::chrono::steady_clock::now();
+    const std::vector<int> projection_budgets = qwen3_qkv_kernel_budgets(g_execution_policy);
+    execute_independent({
+        [&](int threads) { q_projection = execute_projection_kernel(get(model, prefix + "attn_q.weight").generic, q_weight_bytes,
+            attn_norm_values, EMBED, EMBED, positions, threads); },
+        [&](int threads) { k_projection = execute_projection_kernel(get(model, prefix + "attn_k.weight").generic, k_weight_bytes,
+            attn_norm_values, EMBED, KV_HEADS * HEAD_DIM, positions, threads); },
+        [&](int threads) { v_projection = execute_projection_kernel(get(model, prefix + "attn_v.weight").generic, v_weight_bytes,
+            attn_norm_values, EMBED, KV_HEADS * HEAD_DIM, positions, threads); },
+    }, projection_budgets);
+    set_tensor(q_linear, q_projection.data(), q_projection.size() * sizeof(float));
+    set_tensor(k_linear, k_projection.data(), k_projection.size() * sizeof(float));
+    set_tensor(v_linear, v_projection.data(), v_projection.size() * sizeof(float));
+    const double qkv_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - qkv_started).count();
+    std::printf("qkv_parallel_stage layer=%u ms=%.3f mode=%s budget=%u tasks=3 assigned=%d,%d,%d\n",
+        layer, qkv_ms, g_execution_policy.mode == Qwen3ExecutionMode::Parallel ? "parallel" : "serial",
+        g_execution_policy.total_cpu_threads, projection_budgets[0], projection_budgets[1], projection_budgets[2]);
+
+    const auto attention_started = std::chrono::steady_clock::now();
     ggml_cgraph * first_graph = ggml_new_graph_custom(first.ctx, 2048, false);
     ggml_build_forward_expand(first_graph, qrope); ggml_build_forward_expand(first_graph, krope);
     ggml_build_forward_expand(first_graph, v_heads);
     ggml_build_forward_expand(first_graph, attention_context);
     ggml_build_forward_expand(first_graph, reference_attention_context);
     if (ggml_backend_graph_compute(first.backend, first_graph) != GGML_STATUS_SUCCESS)
-        throw std::runtime_error("Qwen embedding/QKV graph execution failed");
+        throw std::runtime_error("Qwen attention graph execution failed");
     ggml_backend_synchronize(first.backend);
+    if (const char * export_dir = std::getenv("VBUF_QWEN_EXPORT_DIR")) {
+        const std::filesystem::path directory(export_dir);
+        std::filesystem::create_directories(directory);
+        const auto keys = get_tensor_bytes(first, k_cache);
+        const auto values = get_tensor_bytes(first, v_cache);
+        const size_t bytes_per_token = static_cast<size_t>(KV_HEADS) * HEAD_DIM * sizeof(uint16_t);
+        if (keys.size() != bytes_per_token * positions || values.size() != keys.size())
+            throw std::runtime_error("KV byte export geometry mismatch");
+        for (uint32_t position = 0; position < positions; ++position) {
+            const uint32_t cache_position = incremental_execution ? absolute_position + position : position;
+            std::ostringstream key_name, value_name;
+            key_name << "kv_key_layer-" << layer << "_position-" << cache_position << ".f16";
+            value_name << "kv_value_layer-" << layer << "_position-" << cache_position << ".f16";
+            write_binary_export(directory / key_name.str(), keys.data() + position * bytes_per_token, bytes_per_token);
+            write_binary_export(directory / value_name.str(), values.data() + position * bytes_per_token, bytes_per_token);
+        }
+    }
+    const double attention_graph_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - attention_started).count();
+    std::printf("attention_graph_stage layer=%u ms=%.3f includes_qk_norm_rope_attention=YES\n",
+        layer, attention_graph_ms);
     if (incremental_execution && layer == 14 && absolute_position == 7) {
         const size_t old_bytes = retained_cache != nullptr ? retained_cache->layer_bytes(layer) : replay_key_history->size();
         const uint8_t * old_key = retained_cache != nullptr ? retained_cache->key_bytes(layer) : replay_key_history->data();
@@ -929,7 +1101,6 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
         if (!exact) throw std::runtime_error("cached K/V changed while loading past tensors into graph");
     }
     const auto layer_input_values = get_f32(first, layer_input);
-    const auto attn_norm_values = get_f32(first, attn_norm);
     const auto q_linear_values = get_f32(first, q_linear);
     const auto k_linear_values = get_f32(first, k_linear);
     const auto qnorm_values = get_f32(first, qnorm);
@@ -1082,8 +1253,6 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
     auto add_second = [&](const std::string & name) { Tensor & tensor = get(model, name); make_tensor(second, tensor); return tensor.ggml; };
     ggml_tensor * out_w = add_second(prefix + "attn_output.weight");
     ggml_tensor * ffnorm_w = add_second(prefix + "ffn_norm.weight");
-    ggml_tensor * gate = add_second(prefix + "ffn_gate.weight");
-    ggml_tensor * up = add_second(prefix + "ffn_up.weight");
     ggml_tensor * down = add_second(prefix + "ffn_down.weight");
     Tensor & down_metadata = get(model, prefix + "ffn_down.weight");
     TensorGeometry down_geometry{};
@@ -1100,14 +1269,15 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
     ggml_tensor * projected = ggml_mul_mat(second.ctx, out_w, attention_in);
     ggml_tensor * residual = ggml_add(second.ctx, projected, hidden_in);
     ggml_tensor * ffn_norm = ggml_mul(second.ctx, ggml_rms_norm(second.ctx, residual, 1e-6f), ffnorm_w);
-    ggml_tensor * gate_out = ggml_mul_mat(second.ctx, gate, ffn_norm);
-    ggml_tensor * up_out = ggml_mul_mat(second.ctx, up, ffn_norm);
+    // Gate and up share the completed FFN normalization and have no dependency
+    // on one another; they are evaluated in independent kernel contexts.
+    ggml_tensor * gate_out = ggml_new_tensor_2d(second.ctx, GGML_TYPE_F32, FFN, ffn_positions);
+    ggml_tensor * up_out = ggml_new_tensor_2d(second.ctx, GGML_TYPE_F32, FFN, ffn_positions);
     ggml_tensor * swiglu = ggml_mul(second.ctx, ggml_silu(second.ctx, gate_out), up_out);
     ggml_tensor * down_out = ggml_mul_mat(second.ctx, down, swiglu);
     ggml_tensor * down_reference_input = ggml_mul_mat(second.ctx, down, reference_swiglu_in);
     const auto * down_cpu_traits = ggml_get_type_traits_cpu(down->type);
-    const char * configured_threads = std::getenv("VBUF_QWEN_THREADS");
-    const int thread_count = configured_threads == nullptr ? 8 : std::stoi(configured_threads);
+    const int thread_count = static_cast<int>(g_execution_policy.total_cpu_threads);
     const int64_t chunk_size = down_out->ne[0] == 1 || down_out->ne[1] == 1 ? 64 : 16;
     const int64_t output_chunks = (down_out->ne[0] + chunk_size - 1) / chunk_size;
     const int64_t token_chunks = (down_out->ne[1] + chunk_size - 1) / chunk_size;
@@ -1138,6 +1308,7 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
     const size_t down_row_bytes = ggml_row_size(down_geometry.type, down_geometry.ne[0]);
     std::vector<float> direct_decoded_rows(row_ids_values.size() * down_geometry.ne[0]);
     uint64_t materialized_down_hash = 0;
+    std::vector<uint8_t> gate_weight_bytes, up_weight_bytes;
     ref_id = 100;
     for (const std::string & name : { prefix + "attn_output.weight", prefix + "ffn_norm.weight", prefix + "ffn_gate.weight", prefix + "ffn_up.weight", prefix + "ffn_down.weight" }) {
         Tensor & tensor = get(model, name);
@@ -1145,7 +1316,11 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
             throw std::runtime_error("vBuf FFN weight request failed: " + name);
         auto ready = model.materializer->obtain_ready_tensor(ref_id++);
         if (!ready || ready->payload_len != tensor.length) throw std::runtime_error("vBuf FFN lease failed");
-        if (name == prefix + "ffn_down.weight") {
+        if (name == prefix + "ffn_gate.weight")
+            gate_weight_bytes.assign(ready->payload, ready->payload + ready->payload_len);
+        else if (name == prefix + "ffn_up.weight")
+            up_weight_bytes.assign(ready->payload, ready->payload + ready->payload_len);
+        else if (name == prefix + "ffn_down.weight") {
             materialized_down_hash = fnv1a64(ready->payload, ready->payload_len);
             std::printf("ffn_down_materialized bytes=%llu fnv1a64=%016llx\n",
                 static_cast<unsigned long long>(ready->payload_len),
@@ -1154,9 +1329,35 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
                 down_traits->to_float(ready->payload + static_cast<uint64_t>(row_ids_values[i]) * down_row_bytes,
                     direct_decoded_rows.data() + i * down_geometry.ne[0], down_geometry.ne[0]);
         }
-        ggml_backend_tensor_set(tensor.ggml, ready->payload, 0, tensor.length);
+        if (name != prefix + "ffn_gate.weight" && name != prefix + "ffn_up.weight")
+            ggml_backend_tensor_set(tensor.ggml, ready->payload, 0, tensor.length);
         model.materializer->release(ref_id - 1);
     }
+    ggml_cgraph * pre_gate_graph = ggml_new_graph(second.ctx);
+    ggml_build_forward_expand(pre_gate_graph, ffn_norm);
+    if (ggml_backend_graph_compute(second.backend, pre_gate_graph) != GGML_STATUS_SUCCESS)
+        throw std::runtime_error("Qwen attention output/FFN normalization graph execution failed");
+    ggml_backend_synchronize(second.backend);
+    const auto fn_values = get_f32(second, ffn_norm);
+    std::vector<float> gate_projection, up_projection;
+    const auto gate_up_started = std::chrono::steady_clock::now();
+    const std::vector<int> gate_up_budgets = qwen3_gate_up_kernel_budgets(g_execution_policy);
+    execute_independent({
+        [&](int threads) { gate_projection = execute_projection_kernel(
+            get(model, prefix + "ffn_gate.weight").generic, gate_weight_bytes, fn_values,
+            EMBED, FFN, ffn_positions, threads); },
+        [&](int threads) { up_projection = execute_projection_kernel(
+            get(model, prefix + "ffn_up.weight").generic, up_weight_bytes, fn_values,
+            EMBED, FFN, ffn_positions, threads); },
+    }, gate_up_budgets);
+    set_tensor(gate_out, gate_projection.data(), gate_projection.size() * sizeof(float));
+    set_tensor(up_out, up_projection.data(), up_projection.size() * sizeof(float));
+    const double gate_up_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - gate_up_started).count();
+    std::printf("ffn_gate_up_parallel_stage layer=%u ms=%.3f mode=%s budget=%u assigned=%d,%d\n",
+        layer, gate_up_ms, g_execution_policy.mode == Qwen3ExecutionMode::Parallel ? "parallel" : "serial",
+        g_execution_policy.total_cpu_threads, gate_up_budgets[0], gate_up_budgets[1]);
+    const auto ffn_down_started = std::chrono::steady_clock::now();
     ggml_cgraph * second_graph = ggml_new_graph(second.ctx);
     ggml_build_forward_expand(second_graph, block_out);
     ggml_build_forward_expand(second_graph, down_reference_input);
@@ -1164,9 +1365,12 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
     if (ggml_backend_graph_compute(second.backend, second_graph) != GGML_STATUS_SUCCESS)
         throw std::runtime_error("Qwen output projection/FFN graph execution failed");
     ggml_backend_synchronize(second.backend);
+    const double ffn_down_graph_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - ffn_down_started).count();
+    std::printf("post_gate_up_graph_stage layer=%u ms=%.3f "
+        "includes_output_projection_residual_swiglu_down=YES\n", layer, ffn_down_graph_ms);
     const auto proj_values = get_f32(second, projected);
     const auto residual_values = get_f32(second, residual);
-    const auto fn_values = get_f32(second, ffn_norm);
     const auto gate_values = get_f32(second, gate_out);
     const auto up_values = get_f32(second, up_out);
     const auto swiglu_values = get_f32(second, swiglu);
@@ -1229,6 +1433,33 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
         compare("vbuf_actual_input_vs_quantized_dot_oracle", down_values, quantized_vbuf_oracle, positions);
         compare("simple_fp32_vs_fp64", reference_oracle.fp32, reference_oracle.fp64, positions);
     }
+    if (const char * export_intermediates = std::getenv("VBUF_QWEN_EXPORT_INTERMEDIATES")) {
+        if (std::string(export_intermediates) == "1" &&
+            (layer == 0 || layer == model.layer_count / 2 || layer + 1 == model.layer_count)) {
+            const char * export_dir = std::getenv("VBUF_QWEN_EXPORT_DIR");
+            if (export_dir == nullptr || *export_dir == '\0')
+                throw std::runtime_error("intermediate export requires VBUF_QWEN_EXPORT_DIR");
+            const std::filesystem::path directory(export_dir);
+            std::filesystem::create_directories(directory);
+            const auto export_values = [&](const char * name, const std::vector<float> & values) {
+                write_f32_export(directory / ("intermediate-layer-" + std::to_string(layer) + "-" + name + ".f32"), values);
+            };
+            export_values("q_projection", q_linear_values);
+            export_values("k_projection", k_linear_values);
+            export_values("v_projection", v_values);
+            export_values("q_rope", q_values);
+            export_values("k_rope", k_values);
+            export_values("attention_scores", score_matrix);
+            export_values("attention_probabilities", probability_matrix);
+            export_values("attention_context", context_values);
+            export_values("ffn_rmsnorm", fn_values);
+            export_values("ffn_gate", gate_values);
+            export_values("ffn_up", up_values);
+            export_values("ffn_swiglu", swiglu_values);
+            export_values("ffn_down", down_values);
+            export_values("block_output", output_values);
+        }
+    }
     if (diagnostics != nullptr) {
         diagnostics->layer_input = layer_input_values;
         diagnostics->attention_rmsnorm = attn_norm_values;
@@ -1283,7 +1514,8 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
         retained_cache != nullptr ? "PERSISTENT_APPEND_ONLY" :
         (replay_incremental ? "EPHEMERAL_REPLAY_VECTOR" : "EPHEMERAL_IN_BATCH"), positions);
     std::printf("qwen3_block_boundary layer=%u positions=%u all_finite=%s "
-        "numerical_equivalence=METRICS_RECORDED\n", layer, positions, pass ? "YES" : "NO");
+        "numerical_equivalence=METRICS_RECORDED wall_ms=%.3f\n", layer, positions, pass ? "YES" : "NO",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - block_started).count());
     return (pass || use_canonical_softmax_extent) ? output_values : std::vector<float>{};
 }
 
@@ -1303,7 +1535,7 @@ void analyze_attention_output_shape(Model & model, const LayerDiagnostics & full
     std::printf("attention_output_dispatch layer=%u op=GGML_OP_MUL_MAT weight_type=%s activation_type=F32 activation_vec_dot=%s vec_dot_rows=%lld full_shape=[%u,%u] single_shape=[%u,1] contiguous=YES llamafile_compile_flag=NO threads=%s\n",
         layer, ggml_type_name(geometry.type), ggml_type_name(cpu_traits->vec_dot_type),
         static_cast<long long>(cpu_traits->nrows), EMBED, query_positions, EMBED,
-        std::getenv("VBUF_QWEN_THREADS") == nullptr ? "8" : std::getenv("VBUF_QWEN_THREADS"));
+        std::to_string(g_execution_policy.total_cpu_threads).c_str());
     const auto full_row = std::vector<float>(full.attention_context.begin() +
         static_cast<size_t>(position) * EMBED, full.attention_context.begin() +
         static_cast<size_t>(position + 1) * EMBED);
@@ -1379,7 +1611,8 @@ void analyze_attention_output_shape(Model & model, const LayerDiagnostics & full
 }
 
 std::vector<float> run_final_head(Model & model, const std::string & reference_dir,
-    const std::vector<float> & final_hidden, bool persistent_kv = false) {
+    const std::vector<float> & final_hidden, bool persistent_kv = false,
+    std::vector<float> * normalized_output = nullptr) {
     if (final_hidden.empty() || final_hidden.size() % EMBED != 0)
         throw std::runtime_error("final hidden-state geometry mismatch");
     const uint32_t positions = static_cast<uint32_t>(final_hidden.size() / EMBED);
@@ -1415,6 +1648,7 @@ std::vector<float> run_final_head(Model & model, const std::string & reference_d
     ggml_backend_synchronize(context.backend);
     const auto norm_values = get_f32(context, normalized);
     const auto logit_values = get_f32(context, logits);
+    if (normalized_output != nullptr) *normalized_output = norm_values;
     const size_t vocab = static_cast<size_t>(output_weight->ne[1]);
     if (logit_values.size() != vocab * positions)
         throw std::runtime_error("final logits geometry mismatch");
@@ -1479,19 +1713,52 @@ std::string prefix_reference_dir(const std::string & root, uint32_t step) {
     return path.string();
 }
 
+void write_binary_export(const std::filesystem::path & path, const uint8_t * bytes, size_t size) {
+    std::ofstream output(path, std::ios::binary);
+    output.write(reinterpret_cast<const char *>(bytes), static_cast<std::streamsize>(size));
+    output.close();
+    if (!output) throw std::runtime_error("failed writing qualification export: " + path.string());
+}
+
+void write_f32_export(const std::filesystem::path & path, const std::vector<float> & values) {
+    write_binary_export(path, reinterpret_cast<const uint8_t *>(values.data()),
+        values.size() * sizeof(float));
+}
+
 void run_full_reference_logits(Model & model, const std::vector<int32_t> & tokens,
     const std::string & reference_root) {
     if (!internal_qualification_mode() || model.layer_count != 40 || tokens.empty() ||
         tokens.size() > 32 || reference_root.empty())
         throw std::runtime_error("full/reference logit qualification requires internal-only mode, 40 layers, and 1..32 tokens");
     const auto started = std::chrono::steady_clock::now();
+    const char * export_dir = std::getenv("VBUF_QWEN_EXPORT_DIR");
+    const std::filesystem::path export_path = export_dir == nullptr ? std::filesystem::path() : std::filesystem::path(export_dir);
+    if (export_dir != nullptr) std::filesystem::create_directories(export_path);
     std::vector<float> hidden;
-    for (uint32_t layer = 0; layer < model.layer_count; ++layer)
+    for (uint32_t layer = 0; layer < model.layer_count; ++layer) {
         hidden = run_positions(model, "", static_cast<uint32_t>(tokens.size()), layer,
             hidden, false, tokens, nullptr, 0, nullptr, nullptr, nullptr, true, true);
-    const auto logits = run_final_head(model, "", hidden, true);
+        if (export_dir != nullptr)
+            write_f32_export(export_path / ("l_out-" + std::to_string(layer) + ".f32"), hidden);
+    }
+    std::vector<float> normalized;
+    const auto logits = run_final_head(model, "", hidden, true, &normalized);
     const uint32_t positions = static_cast<uint32_t>(tokens.size());
     const size_t vocab = logits.size() / positions;
+    if (export_dir != nullptr) {
+        write_f32_export(export_path / "final_hidden.f32", hidden);
+        write_f32_export(export_path / "final_norm.f32", normalized);
+        write_f32_export(export_path / "logits.f32", logits);
+        std::ofstream metadata(export_path / "sequence.meta");
+        metadata << "architecture=qwen3\npositions=" << positions << "\nembedding=5120\nvocabulary=" << vocab << "\ntokens=";
+        for (size_t index = 0; index < tokens.size(); ++index)
+            metadata << (index == 0 ? "" : ",") << tokens[index];
+        metadata << "\nmode=canonical_full_sequence_teacher_forced\n";
+        if (!metadata) throw std::runtime_error("failed writing Qwen3 export metadata");
+        std::printf("qualification_exports=%s hidden_bytes=%zu norm_bytes=%zu logits_bytes=%zu\n",
+            export_path.c_str(), hidden.size() * sizeof(float), normalized.size() * sizeof(float),
+            logits.size() * sizeof(float));
+    }
     std::printf("canonical_full_reference_only=PASS positions=%u groups=%zu elapsed_seconds=%.3f\n",
         positions, qwen3_query_groups(positions, cpu_softmax_policy().granularity).size(),
         std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count());
@@ -2553,16 +2820,77 @@ void run_persistent_kv(Model & model, const std::string & reference_root,
 } // namespace
 
 int main(int argc, char ** argv) {
-    if (argc < 5 || argc > 8) {
-        std::fprintf(stderr, "usage: qwen3_block_qualification SEMANTIC_BOOTSTRAP SOURCE_HTTP_URL REFERENCE_DIR POSITIONS(1..32) [BLOCK_COUNT] [actual|reference_layer0|reference_input:LAYER|persistent_kv|long_persistent_kv|long_persistent_generate|full_reference_logits] [tokens:ID,...|seed:ID]\n");
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: qwen3_block_qualification SEMANTIC_BOOTSTRAP SOURCE_HTTP_URL REFERENCE_DIR POSITIONS(1..32) [BLOCK_COUNT] [MODE] [tokens:ID,...|seed:ID] [--serial | --execution serial|parallel] [--threads N]\n");
         return 2;
     }
     const uint32_t positions = static_cast<uint32_t>(std::stoul(argv[4]));
-    const uint32_t block_count = argc >= 6 ? static_cast<uint32_t>(std::stoul(argv[5])) : 1;
-    const std::string input_mode = argc >= 7 ? argv[6] : "actual";
+    std::vector<std::string> positional;
+    bool serial_convenience = false;
+    bool execution_specified = false;
+    bool execution_cli_serial = false;
+    bool threads_specified = false;
+    uint32_t cli_threads = 0;
+    uint32_t benchmark_repeats = 1;
+    for (int index = 5; index < argc; ++index) {
+        const std::string argument = argv[index];
+        if (argument == "--serial") {
+            serial_convenience = true;
+            execution_specified = true;
+            execution_cli_serial = true;
+        } else if (argument == "--execution") {
+            if (++index >= argc) return 2;
+            const std::string mode = argv[index];
+            if (mode != "serial" && mode != "parallel") return 2;
+            execution_specified = true;
+            execution_cli_serial = mode == "serial";
+        } else if (argument == "--threads") {
+            if (++index >= argc) return 2;
+            const long long value = std::stoll(argv[index]);
+            if (value < 1 || value > 128) return 2;
+            threads_specified = true;
+            cli_threads = static_cast<uint32_t>(value);
+        } else if (argument == "--benchmark-repeats") {
+            if (++index >= argc) return 2;
+            const long long value = std::stoll(argv[index]);
+            if (value < 1 || value > 5) return 2;
+            benchmark_repeats = static_cast<uint32_t>(value);
+        } else {
+            positional.push_back(argument);
+        }
+    }
+    if (positional.size() > 3 ||
+        (serial_convenience && execution_specified && !execution_cli_serial)) return 2;
+    const uint32_t block_count = positional.empty() ? 1 : static_cast<uint32_t>(std::stoul(positional[0]));
+    const std::string input_mode = positional.size() < 2 ? "actual" : positional[1];
+    const bool has_token_spec = positional.size() == 3;
+    const char * environment_threads = std::getenv("VBUF_QWEN_THREADS");
+    g_execution_policy.total_cpu_threads = 4;
+    if (!threads_specified && !serial_convenience && environment_threads != nullptr)
+        g_execution_policy.total_cpu_threads = static_cast<uint32_t>(std::stoul(environment_threads));
+    if (threads_specified) g_execution_policy.total_cpu_threads = cli_threads;
+    if (execution_specified)
+        g_execution_policy.mode = execution_cli_serial ? Qwen3ExecutionMode::Serial : Qwen3ExecutionMode::Parallel;
+    if (serial_convenience) {
+        if (threads_specified && cli_threads != 1) {
+            std::fprintf(stderr, "--serial fixes the kernel budget at one; use --execution serial --threads N for a serial graph with N kernel threads\n");
+            return 2;
+        }
+        g_execution_policy.total_cpu_threads = 1;
+    }
+    if (g_execution_policy.total_cpu_threads < 1 || g_execution_policy.total_cpu_threads > 128) {
+        std::fprintf(stderr, "effective Qwen CPU budget must be in 1..128\n");
+        return 2;
+    }
+    g_serial_convenience = serial_convenience;
+    const size_t executor_workers = g_execution_policy.mode == Qwen3ExecutionMode::Parallel ?
+        std::min<size_t>(3, g_execution_policy.total_cpu_threads) : 1;
+    g_qwen_executor = std::make_unique<BoundedExecutor>(executor_workers);
+    [[maybe_unused]] ExecutionMetricsReporter metrics_reporter;
+
     std::vector<int32_t> input_tokens;
-    if (argc == 8) {
-        const std::string token_spec = argv[7];
+    if (has_token_spec) {
+        const std::string token_spec = positional[2];
         if (input_mode == "long_persistent_generate") {
             if (token_spec.rfind("seed:", 0) != 0) return 2;
             const long long value = std::stoll(token_spec.substr(5));
@@ -2594,12 +2922,13 @@ int main(int argc, char ** argv) {
         reference_input_layer = static_cast<uint32_t>(std::stoul(input_mode.substr(16)));
     }
     if (positions == 0 || positions > 32 || block_count == 0 ||
-        (argc >= 7 && input_mode != "actual" && !use_reference_input && !persistent_kv && !long_persistent_kv && !long_persistent_generate && !full_reference_logits) ||
+        (positional.size() >= 2 && input_mode != "actual" && !use_reference_input && !persistent_kv && !long_persistent_kv && !long_persistent_generate && !full_reference_logits) ||
         (use_reference_input && block_count != 1) ||
-        (persistent_kv && (positions > 8 || argc != 8 || input_tokens.size() != positions || use_reference_input)) ||
-        (long_persistent_kv && (argc != 8 || input_tokens.size() != positions || use_reference_input)) ||
-        (long_persistent_generate && (argc != 8 || input_tokens.size() != 1 || use_reference_input)) ||
-        (full_reference_logits && (argc != 8 || input_tokens.size() != positions || use_reference_input))) return 2;
+        (persistent_kv && (positions > 8 || !has_token_spec || input_tokens.size() != positions || use_reference_input)) ||
+        (long_persistent_kv && (!has_token_spec || input_tokens.size() != positions || use_reference_input)) ||
+        (long_persistent_generate && (!has_token_spec || input_tokens.size() != 1 || use_reference_input)) ||
+        (full_reference_logits && (!has_token_spec || input_tokens.size() != positions || use_reference_input)) ||
+        (benchmark_repeats > 1 && !full_reference_logits)) return 2;
     try {
         Model model;
         open_model(argv[1], argv[2], &model);
@@ -2620,7 +2949,11 @@ int main(int argc, char ** argv) {
         if (full_reference_logits) {
             if (block_count != model.layer_count)
                 throw std::runtime_error("full/reference logits qualification requires all 40 layers");
-            run_full_reference_logits(model, input_tokens, reference_dir);
+            for (uint32_t repeat = 0; repeat < benchmark_repeats; ++repeat) {
+                std::printf("qualification_iteration=%u/%u warm_process=%s\n", repeat + 1,
+                    benchmark_repeats, repeat == 0 ? "NO" : "YES");
+                run_full_reference_logits(model, input_tokens, reference_dir);
+            }
             return 0;
         }
         if (long_persistent_kv || long_persistent_generate) {
