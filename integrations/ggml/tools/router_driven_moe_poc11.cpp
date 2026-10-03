@@ -389,7 +389,7 @@ bool parity(const std::vector<float> & actual, const std::vector<float> & refere
 std::vector<float> floats(const std::vector<uint8_t> & bytes) {
     if (bytes.size() % sizeof(float) != 0) return {};
     std::vector<float> result(bytes.size() / sizeof(float));
-    std::memcpy(result.data(), bytes.data(), bytes.size());
+    if (!bytes.empty()) std::memcpy(result.data(), bytes.data(), bytes.size());
     return result;
 }
 

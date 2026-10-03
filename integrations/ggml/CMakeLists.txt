@@ -19,6 +19,8 @@ set(VBUF_ML_LIBRARY "" CACHE FILEPATH
     "Existing libvbuf_ml.so to expose to native targets")
 set(VBUF_ML_INCLUDE_DIR "" CACHE PATH
     "Directory containing vBuf-ML native headers, if needed")
+set(VBUF_TEST_QWEN3_MODEL "" CACHE FILEPATH
+    "Optional exact Qwen3 semantic artifact for model-admission contract tests")
 set(VBUF_RUNTIME_LIBRARY "" CACHE FILEPATH
     "Existing libvbuf_runtime.so exposing the portable graph C ABI")
 option(VBUF_ENABLE_CUDA "Build the pinned ggml CUDA backend" OFF)
@@ -136,6 +138,11 @@ add_library(vbuf_model_architecture STATIC src/vbuf_model_architecture.cpp)
 target_compile_features(vbuf_model_architecture PUBLIC cxx_std_17)
 target_include_directories(vbuf_model_architecture PUBLIC include)
 
+add_library(vbuf_qwen3_model STATIC src/qwen3_model.cpp)
+target_compile_features(vbuf_qwen3_model PUBLIC cxx_std_17)
+target_include_directories(vbuf_qwen3_model PUBLIC include)
+target_link_libraries(vbuf_qwen3_model PUBLIC vbuf_region_executor vbuf_model_architecture)
+
 if(VBUF_BUILD_PROBES)
     add_executable(vbuf_agent_protocol_contract tests/agent_protocol_contract.cpp)
     target_compile_features(vbuf_agent_protocol_contract PRIVATE cxx_std_17)
@@ -151,6 +158,21 @@ if(VBUF_BUILD_PROBES)
     add_executable(vbuf_qwen3_execution_policy_contract tests/qwen3_execution_policy_contract.cpp)
     target_compile_features(vbuf_qwen3_execution_policy_contract PRIVATE cxx_std_17)
     target_include_directories(vbuf_qwen3_execution_policy_contract PRIVATE include)
+
+
+    add_executable(vbuf_qwen3_model_admission_contract tests/qwen3_model_admission_contract.cpp)
+    target_compile_features(vbuf_qwen3_model_admission_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_qwen3_model_admission_contract PRIVATE vbuf_qwen3_model)
+    if(VBUF_TEST_QWEN3_MODEL)
+        if(NOT EXISTS "${VBUF_TEST_QWEN3_MODEL}")
+            message(FATAL_ERROR "VBUF_TEST_QWEN3_MODEL does not exist: ${VBUF_TEST_QWEN3_MODEL}")
+        endif()
+        add_test(NAME vbuf_qwen3_model_admission_contract
+            COMMAND vbuf_qwen3_model_admission_contract "${VBUF_TEST_QWEN3_MODEL}")
+    else()
+        add_test(NAME vbuf_qwen3_model_admission_contract
+            COMMAND vbuf_qwen3_model_admission_contract)
+    endif()
     add_executable(vbuf_runtime_trace_contract tests/runtime_trace_contract.cpp)
     target_compile_features(vbuf_runtime_trace_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_runtime_trace_contract PRIVATE vbuf_region_executor)
@@ -408,7 +430,7 @@ if(VBUF_ML_LIBRARY)
 
     add_executable(vbuf_qwen3_block_qualification tools/qwen3_block_qualification.cpp)
     target_compile_features(vbuf_qwen3_block_qualification PRIVATE cxx_std_17)
-    target_link_libraries(vbuf_qwen3_block_qualification PRIVATE vbuf_region_executor vbuf_model_architecture)
+    target_link_libraries(vbuf_qwen3_block_qualification PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_qwen3_model)
 
     if(VBUF_BUILD_COMPAT_SERVER)
         add_executable(vbuf_compat_server tools/vbuf_compat_server.cpp)

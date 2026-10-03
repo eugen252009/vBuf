@@ -6,6 +6,7 @@
 #include "vbuf_range_source.h"
 #include "vbuf_materializer.h"
 #include "qwen3_kv_cache.h"
+#include "qwen3_model.h"
 #include "qwen3_query_groups.h"
 #include "softmax_compute_extent.h"
 #include "qwen3_execution_policy.h"
@@ -31,23 +32,11 @@
 #include <unordered_map>
 #include <vector>
 
-extern "C" {
-struct VbufMlConsumerHandle;
-struct VbufMlTensorView {
-    const char * name; uint64_t name_len; uint8_t representation; uint8_t rank;
-    const uint64_t * dimensions; const uint8_t * payload; uint64_t payload_len;
-};
-VbufMlConsumerHandle * vbuf_ml_consumer_open_metadata(const char *);
-void vbuf_ml_consumer_close(VbufMlConsumerHandle *);
-uint32_t vbuf_ml_consumer_architecture(const VbufMlConsumerHandle *, char *, size_t);
-uint32_t vbuf_ml_consumer_metadata(const VbufMlConsumerHandle *, VbufMlModelMetadataInfo *);
-uint32_t vbuf_ml_consumer_tensor_views(const VbufMlConsumerHandle *, const VbufMlTensorView **, uint64_t *);
-uint32_t vbuf_ml_consumer_tensor_source(const VbufMlConsumerHandle *, uint64_t, VbufMlTensorSourceInfo *);
-uint32_t vbuf_ml_consumer_source_identity(const VbufMlConsumerHandle *, uint64_t, VbufMlSourceIdentityInfo *);
-}
 
 namespace {
 using namespace vbuf_ggml;
+using Model = Qwen3Model;
+using Tensor = Qwen3Tensor;
 constexpr uint32_t EMBED = 5120;
 constexpr uint32_t HEADS = 40;
 constexpr uint32_t KV_HEADS = 8;
@@ -55,7 +44,6 @@ constexpr uint32_t HEAD_DIM = 128;
 constexpr uint32_t FFN = 17408;
 constexpr double ATOL = 1e-5;
 constexpr double RTOL = 0.0;
-const uint8_t DESCRIPTOR_SENTINEL = 0;
 
 struct CpuSoftmaxPolicy {
     uint32_t granularity;
@@ -76,26 +64,6 @@ CpuSoftmaxPolicy cpu_softmax_policy() {
     return {1, "scalar"};
 }
 
-struct Tensor {
-    uint64_t id = 0, offset = 0, length = 0;
-    std::string name;
-    VbufMlTensorView view{};
-    ggml_tensor * ggml = nullptr;
-    VbufTensorView generic{};
-    PersistentTensorRef persistent() const {
-        return { id, name, generic, offset };
-    }
-};
-struct Model {
-    VbufMlConsumerHandle * handle = nullptr;
-    const VbufMlTensorView * views = nullptr;
-    uint64_t count = 0, source_id = 0;
-    uint32_t layer_count = 0;
-    std::unordered_map<std::string, Tensor> tensors;
-    std::shared_ptr<HttpRangeSource> source;
-    std::unique_ptr<LocalVbufRangeMaterializer> materializer;
-    ~Model() { if (handle) vbuf_ml_consumer_close(handle); }
-};
 struct LayerDiagnostics {
     std::vector<float> layer_input;
     std::vector<float> attention_rmsnorm;
@@ -212,16 +180,8 @@ struct Context {
     }
 };
 
-std::string hex_sha(const uint8_t * value, size_t bytes) {
-    static constexpr char digits[] = "0123456789abcdef";
-    std::string result; result.reserve(bytes * 2);
-    for (size_t i = 0; i < bytes; ++i) { result += digits[value[i] >> 4]; result += digits[value[i] & 15]; }
-    return result;
-}
 Tensor & get(Model & model, const std::string & name) {
-    auto iter = model.tensors.find(name);
-    if (iter == model.tensors.end()) throw std::runtime_error("missing tensor: " + name);
-    return iter->second;
+    return qwen3_tensor(model, name);
 }
 uint64_t fnv1a64(const uint8_t * data, size_t size) {
     uint64_t hash = 1469598103934665603ULL;
@@ -230,92 +190,7 @@ uint64_t fnv1a64(const uint8_t * data, size_t size) {
 }
 
 void open_model(const std::string & bootstrap, const std::string & endpoint, Model * model) {
-    model->handle = vbuf_ml_consumer_open_metadata(bootstrap.c_str());
-    if (!model->handle || vbuf_ml_consumer_tensor_views(model->handle, &model->views, &model->count) != 0)
-        throw std::runtime_error("semantic bootstrap open failed");
-    char architecture[128]{};
-    VbufMlModelMetadataInfo ffi{};
-    if (vbuf_ml_consumer_architecture(model->handle, architecture, sizeof(architecture)) != 0 ||
-        vbuf_ml_consumer_metadata(model->handle, &ffi) != 0 || std::string(architecture) != "qwen3")
-        throw std::runtime_error("Qwen3 metadata lookup/architecture validation failed");
-    ModelMetadataDescriptor descriptor{};
-    descriptor.architecture = parse_model_architecture(architecture);
-    descriptor.source_name = architecture;
-    model->layer_count = ffi.layer_count;
-    descriptor.context_length = ffi.context_length; descriptor.embedding_length = ffi.embedding_length;
-    descriptor.layer_count = ffi.layer_count; descriptor.head_count = ffi.head_count;
-    descriptor.kv_head_count = ffi.kv_head_count; descriptor.key_head_dimension = ffi.key_head_dimension;
-    descriptor.value_head_dimension = ffi.value_head_dimension; descriptor.feed_forward_length = ffi.feed_forward_length;
-    descriptor.normalization_epsilon = ffi.normalization_epsilon; descriptor.rope_theta = ffi.rope_theta;
-    descriptor.rope_dimension = ffi.rope_dimension; descriptor.vocabulary_size = ffi.vocabulary_size;
-    std::string error;
-    if (!validate_model_metadata(descriptor, &error) || ffi.embedding_length != EMBED ||
-        ffi.head_count != HEADS || ffi.kv_head_count != KV_HEADS || ffi.key_head_dimension != HEAD_DIM ||
-        ffi.value_head_dimension != HEAD_DIM || ffi.feed_forward_length != FFN || ffi.rope_dimension != HEAD_DIM ||
-        !std::isfinite(ffi.normalization_epsilon) || std::abs(ffi.normalization_epsilon - 1e-6) > 1e-12 ||
-        !std::isfinite(ffi.rope_theta) || std::abs(ffi.rope_theta - 1e6) > 1e-3)
-        throw std::runtime_error("unsupported Qwen3 block geometry/metadata: " + error +
-            " embedding=" + std::to_string(ffi.embedding_length) +
-            " heads=" + std::to_string(ffi.head_count) + " kv_heads=" + std::to_string(ffi.kv_head_count) +
-            " key_dim=" + std::to_string(ffi.key_head_dimension) + " value_dim=" + std::to_string(ffi.value_head_dimension) +
-            " ffn=" + std::to_string(ffi.feed_forward_length) + " rope_dim=" + std::to_string(ffi.rope_dimension) +
-            " eps=" + std::to_string(ffi.normalization_epsilon) + " theta=" + std::to_string(ffi.rope_theta) +
-            " architecture=" + std::string(model_architecture_name(descriptor.architecture)) +
-            " metadata_validation=" + (validate_model_metadata(descriptor, &error) ? "true" : "false"));
-
-    std::vector<ModelTensorMetadata> inventory;
-    inventory.reserve(model->count);
-    for (uint64_t i = 0; i < model->count; ++i) {
-        VbufMlTensorSourceInfo binding{};
-        if (vbuf_ml_consumer_tensor_source(model->handle, i, &binding) != 0 || binding.source_id == 0)
-            throw std::runtime_error("invalid tensor source binding");
-        if (model->source_id == 0) model->source_id = binding.source_id;
-        if (model->source_id != binding.source_id) throw std::runtime_error("multiple payload source IDs unsupported");
-        const auto & view = model->views[i];
-        Tensor tensor; tensor.id = i; tensor.offset = binding.offset; tensor.length = binding.length;
-        tensor.view = view; tensor.name.assign(view.name, view.name_len);
-        if (view.rank == 0 || view.rank > GGML_MAX_DIMS || binding.length == 0)
-            throw std::runtime_error("invalid tensor geometry: " + tensor.name);
-        tensor.generic = { view.representation, view.rank, view.dimensions,
-            &DESCRIPTOR_SENTINEL, binding.length };
-        ModelTensorMetadata descriptor_tensor;
-        descriptor_tensor.name = tensor.name;
-        descriptor_tensor.dimensions.assign(view.dimensions, view.dimensions + view.rank);
-        descriptor_tensor.representation = view.representation;
-        descriptor_tensor.source_offset = binding.offset; descriptor_tensor.payload_length = binding.length;
-        inventory.push_back(std::move(descriptor_tensor));
-        model->tensors.emplace(tensor.name, std::move(tensor));
-    }
-    Qwen3DenseTensorCatalog catalog;
-    if (!discover_qwen3_dense_tensors(descriptor, inventory, &catalog, &error))
-        throw std::runtime_error("Qwen3 dense inventory rejected: " + error);
-    VbufMlSourceIdentityInfo identity{};
-    if (vbuf_ml_consumer_source_identity(model->handle, model->source_id, &identity) != 0 ||
-        identity.hash_algorithm != 1 || identity.hash_len != 32 || identity.declared_size == 0)
-        throw std::runtime_error("payload source identity is not qualified SHA-256");
-    const std::string digest = hex_sha(identity.full_source_hash, identity.hash_len);
-    std::printf("model=Qwen3 source_size=%llu source_sha256=%s tensors=%llu\n",
-        static_cast<unsigned long long>(identity.declared_size), digest.c_str(),
-        static_cast<unsigned long long>(model->count));
-    model->source = std::make_shared<HttpRangeSource>(endpoint, "", identity.declared_size, digest);
-    model->materializer = std::make_unique<LocalVbufRangeMaterializer>(model->source);
-    Tensor & down = get(*model, "blk.0.ffn_down.weight");
-    TensorGeometry down_geometry{};
-    if (derive_tensor_geometry(down.generic, &down_geometry) != AdapterError::None)
-        throw std::runtime_error("invalid block-0 FFN-down tensor geometry");
-    const auto * traits = ggml_get_type_traits(down_geometry.type);
-    uint64_t rows = 1;
-    for (uint8_t i = 1; i < down.view.rank; ++i) rows *= down.view.dimensions[i];
-    const size_t row_bytes = ggml_row_size(down_geometry.type, down_geometry.ne[0]);
-    const uint64_t blocks = rows * static_cast<uint64_t>(down_geometry.ne[0] / traits->blck_size);
-    std::printf("ffn_down_tensor name=%s shape=[%lld,%lld] representation=%u ggml_type=%s "
-        "payload_bytes=%llu row_bytes=%zu row_blocks=%lld total_blocks=%llu source_offset=%llu source_length=%llu\n",
-        down.name.c_str(), static_cast<long long>(down_geometry.ne[0]),
-        static_cast<long long>(down_geometry.ne[1]), down.view.representation,
-        ggml_type_name(down_geometry.type), static_cast<unsigned long long>(down.length), row_bytes,
-        static_cast<long long>(down_geometry.ne[0] / traits->blck_size),
-        static_cast<unsigned long long>(blocks), static_cast<unsigned long long>(down.offset),
-        static_cast<unsigned long long>(down.length));
+    open_qwen3_model(bootstrap, endpoint, model, false);
 }
 
 Context make_context(size_t arena = 32 * 1024 * 1024) {
