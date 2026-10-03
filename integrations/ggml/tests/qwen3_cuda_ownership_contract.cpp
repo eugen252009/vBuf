@@ -17,6 +17,12 @@ bool throws(const std::function<void()> & action) {
     return false;
 }
 
+void prepare_decode_scratch(const std::shared_ptr<QwenCudaSessionState> & session) {
+    require(ggml_new_tensor_1d(session->graph_context(), GGML_TYPE_F32, 32) != nullptr,
+        "session decode graph fixture tensor creation failed");
+    require(session->allocate_decode_scratch() != nullptr, "session decode scratch allocation failed");
+}
+
 QwenCudaRuntimeConfig test_config() {
     QwenCudaRuntimeConfig config;
     config.prefill_scratch_bytes = 4096;
@@ -37,8 +43,8 @@ void runtime_lifecycle_and_sessions() {
     require(first->current_length() == 0 && first->capacity() == 8, "new session logical state mismatch");
     require(first->key_cache(0) != nullptr && first->value_cache(0) != nullptr,
         "session KV tensors were not allocated");
-    require(first->prefill_scratch() != nullptr && first->decode_scratch() != nullptr,
-        "session scratch buffers were not allocated");
+    require(first->prefill_scratch() != nullptr, "session prefill scratch was not allocated");
+    prepare_decode_scratch(first);
 
     first->commit_tokens(3);
     require(first->current_length() == 3, "session length did not advance");
@@ -53,6 +59,7 @@ void runtime_lifecycle_and_sessions() {
         "reset unexpectedly replaced persistent session allocations");
 
     auto second = runtime->create_session(8);
+    prepare_decode_scratch(second);
     require(second->key_cache(0) != first->key_cache(0), "sessions alias their K cache");
     require(second->value_cache(0) != first->value_cache(0), "sessions alias their V cache");
     require(second->packed_value_scratch() != first->packed_value_scratch(), "sessions alias packed-V scratch");
@@ -81,6 +88,7 @@ void sequential_sessions_reuse_runtime() {
     require(runtime->backend() == backend && runtime->embedding() == embedding &&
         runtime->resident_tensor_count() == 1, "session A destruction changed runtime resources");
     auto b = runtime->create_session(4);
+    prepare_decode_scratch(b);
     require(b->runtime().get() == runtime.get(), "session B did not reuse runtime");
 }
 
@@ -95,8 +103,11 @@ void exact_artifact_cuda_smoke(const char * semantic_path, const char * source_u
     require(runtime->resident_tensor_count() == admitted.count,
         "real CUDA runtime did not retain every admitted tensor");
     auto session = runtime->create_session(40);
+    require(ggml_new_tensor_1d(session->graph_context(), GGML_TYPE_F32, 32) != nullptr,
+        "real CUDA decode-scratch smoke tensor creation failed");
+    require(session->allocate_decode_scratch() != nullptr, "real CUDA decode scratch allocation failed");
     require(session->key_cache(0) != nullptr && session->value_cache(39) != nullptr &&
-        session->prefill_scratch() != nullptr && session->decode_scratch() != nullptr,
+        session->prefill_scratch() != nullptr,
         "real CUDA session allocations are incomplete");
     std::printf("qwen3_cuda_real_smoke=PASS artifact=%s backend=%s resident_tensors=%zu resident_bytes=%llu "
         "embedding=RESIDENT capacity=%u kv=persistent scratch=ALLOCATED inference=NOT_RUN\n",
@@ -121,13 +132,18 @@ void partial_creation_failures() {
     }
     auto runtime = QwenCudaRuntimeState::create_for_testing(test_config());
     for (QwenCudaFailurePoint point : {QwenCudaFailurePoint::SessionAfterKvAllocation,
-             QwenCudaFailurePoint::SessionAfterPrefillScratch,
-             QwenCudaFailurePoint::SessionAfterDecodeScratch}) {
+             QwenCudaFailurePoint::SessionAfterPrefillScratch}) {
         require(throws([&] { (void)runtime->create_session(4, point); }),
             "session failure injection did not throw");
-        require(runtime->backend() != nullptr && runtime->resident_tensor_count() == 1,
-            "partial session failure damaged runtime resources");
     }
+    auto failing_session = runtime->create_session(4, QwenCudaFailurePoint::SessionAfterDecodeScratch);
+    require(ggml_new_tensor_1d(failing_session->graph_context(), GGML_TYPE_F32, 32) != nullptr,
+        "failure-injection decode graph fixture tensor creation failed");
+    require(throws([&] { (void)failing_session->allocate_decode_scratch(); }),
+        "decode scratch failure injection did not throw");
+    failing_session.reset();
+    require(runtime->backend() != nullptr && runtime->resident_tensor_count() == 1,
+        "partial session failure damaged runtime resources");
     require(throws([&] { (void)runtime->create_session(0); }), "zero-capacity session was accepted");
 }
 } // namespace

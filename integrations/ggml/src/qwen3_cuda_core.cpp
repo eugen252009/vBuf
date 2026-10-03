@@ -167,6 +167,8 @@ struct QwenCudaRuntimeState::Impl {
     std::unordered_map<std::string, ggml_tensor *> tensors;
     std::string backend_name;
     uint64_t resident_bytes = 0;
+    uint64_t uploaded_bytes = 0;
+    size_t uploaded_tensors = 0;
 
     ~Impl() {
         if (backend != nullptr) ggml_backend_synchronize(backend);
@@ -184,12 +186,15 @@ struct QwenCudaSessionState::Impl {
     uint32_t current_length = 0;
     uint64_t reset_generation = 0;
     ggml_context * context = nullptr;
+    ggml_context * graph_context = nullptr;
+    std::vector<ggml_context *> auxiliary_contexts;
     ggml_backend_buffer_t allocation = nullptr;
     ggml_backend_buffer_t prefill_scratch = nullptr;
     ggml_backend_buffer_t decode_scratch = nullptr;
     std::vector<ggml_tensor *> keys;
     std::vector<ggml_tensor *> values;
     ggml_tensor * packed_value = nullptr;
+    QwenCudaFailurePoint inject_failure = QwenCudaFailurePoint::None;
 
     ~Impl() {
         if (runtime && runtime->backend() != nullptr)
@@ -197,6 +202,8 @@ struct QwenCudaSessionState::Impl {
         if (prefill_scratch != nullptr) ggml_backend_buffer_free(prefill_scratch);
         if (decode_scratch != nullptr) ggml_backend_buffer_free(decode_scratch);
         if (allocation != nullptr) ggml_backend_buffer_free(allocation);
+        for (ggml_context * auxiliary : auxiliary_contexts) if (auxiliary != nullptr) ggml_free(auxiliary);
+        if (graph_context != nullptr) ggml_free(graph_context);
         if (context != nullptr) ggml_free(context);
     }
 };
@@ -274,6 +281,8 @@ std::shared_ptr<QwenCudaRuntimeState> QwenCudaRuntimeState::create(
             if (!lease || lease->payload == nullptr || lease->payload_len != tensor.length)
                 throw std::runtime_error("Qwen CUDA weight payload lease failed: " + tensor.name);
             ggml_backend_tensor_set_async(impl->backend, tensor.ggml, lease->payload, 0, tensor.length);
+            impl->uploaded_bytes += tensor.length;
+            ++impl->uploaded_tensors;
             leases.push_back(*lease);
         }
         ggml_backend_synchronize(impl->backend);
@@ -334,6 +343,7 @@ std::shared_ptr<QwenCudaSessionState> QwenCudaRuntimeState::create_session(
     auto state = std::make_unique<QwenCudaSessionState::Impl>();
     state->runtime = shared_from_this();
     state->capacity = capacity;
+    state->inject_failure = fail_at;
     ggml_init_params params{ 8 * 1024 * 1024, nullptr, true };
     state->context = ggml_init(params);
     if (state->context == nullptr) throw std::runtime_error("Qwen CUDA session context allocation failed");
@@ -358,9 +368,9 @@ std::shared_ptr<QwenCudaSessionState> QwenCudaRuntimeState::create_session(
     state->prefill_scratch = ggml_backend_buft_alloc_buffer(buft, impl_->config.prefill_scratch_bytes);
     if (state->prefill_scratch == nullptr) throw std::runtime_error("Qwen CUDA prefill scratch allocation failed");
     inject(fail_at, QwenCudaFailurePoint::SessionAfterPrefillScratch, "prefill scratch");
-    state->decode_scratch = ggml_backend_buft_alloc_buffer(buft, impl_->config.decode_scratch_bytes);
-    if (state->decode_scratch == nullptr) throw std::runtime_error("Qwen CUDA decode scratch allocation failed");
-    inject(fail_at, QwenCudaFailurePoint::SessionAfterDecodeScratch, "decode scratch");
+    ggml_init_params graph_params{ 256 * 1024 * 1024, nullptr, true };
+    state->graph_context = ggml_init(graph_params);
+    if (state->graph_context == nullptr) throw std::runtime_error("Qwen CUDA session graph context allocation failed");
     return std::shared_ptr<QwenCudaSessionState>(new QwenCudaSessionState(std::move(state)));
 }
 
@@ -369,6 +379,13 @@ std::shared_ptr<QwenCudaSessionState> QwenCudaRuntimeState::create_session(
 // contract is documented on QwenCudaRuntimeState::create.
 ggml_backend_t QwenCudaRuntimeState::backend() const noexcept { return impl_->backend; }
 ggml_backend_dev_t QwenCudaRuntimeState::device() const noexcept { return ggml_backend_get_device(impl_->backend); }
+void QwenCudaRuntimeState::device_memory(size_t * free_bytes, size_t * total_bytes) const noexcept {
+    if (impl_->backend != nullptr) ggml_backend_dev_memory(device(), free_bytes, total_bytes);
+}
+ggml_context * QwenCudaRuntimeState::model_context() const noexcept { return impl_->model_context; }
+ggml_backend_buffer_t QwenCudaRuntimeState::model_allocation() const noexcept {
+    return impl_->model_allocation ? static_cast<ggml_backend_buffer_t>(impl_->model_allocation.get()) : nullptr;
+}
 const std::string & QwenCudaRuntimeState::backend_name() const noexcept { return impl_->backend_name; }
 const std::string & QwenCudaRuntimeState::artifact_identity() const noexcept {
     static const std::string fixture{"test-qwen"};
@@ -387,6 +404,12 @@ ggml_tensor * QwenCudaRuntimeState::embedding() const noexcept {
 }
 std::shared_ptr<TensorResidencyStore> QwenCudaRuntimeState::residency() const noexcept { return impl_->residency; }
 uint64_t QwenCudaRuntimeState::resident_model_bytes() const noexcept { return impl_->resident_bytes; }
+uint64_t QwenCudaRuntimeState::uploaded_payload_bytes() const noexcept { return impl_->uploaded_bytes; }
+size_t QwenCudaRuntimeState::uploaded_tensor_count() const noexcept { return impl_->uploaded_tensors; }
+size_t QwenCudaRuntimeState::resident_allocation_bytes() const noexcept {
+    return impl_->model_allocation ? ggml_backend_buffer_get_size(
+        static_cast<ggml_backend_buffer_t>(impl_->model_allocation.get())) : 0;
+}
 size_t QwenCudaRuntimeState::resident_tensor_count() const noexcept {
     return impl_->residency ? impl_->residency->device_resident_count() : 0;
 }
@@ -408,7 +431,48 @@ uint32_t QwenCudaSessionState::capacity() const noexcept { return impl_->capacit
 uint64_t QwenCudaSessionState::reset_generation() const noexcept { return impl_->reset_generation; }
 const std::shared_ptr<QwenCudaRuntimeState> & QwenCudaSessionState::runtime() const noexcept { return impl_->runtime; }
 ggml_context * QwenCudaSessionState::context() const noexcept { return impl_->context; }
+ggml_context * QwenCudaSessionState::graph_context() const noexcept { return impl_->graph_context; }
+ggml_context * QwenCudaSessionState::create_auxiliary_context(size_t arena_bytes) {
+    if (arena_bytes == 0) throw std::invalid_argument("Qwen auxiliary graph arena must be nonzero");
+    ggml_init_params params{ arena_bytes, nullptr, true };
+    ggml_context * context = ggml_init(params);
+    if (context == nullptr) throw std::runtime_error("Qwen auxiliary graph context allocation failed");
+    try { impl_->auxiliary_contexts.push_back(context); }
+    catch (...) { ggml_free(context); throw; }
+    return context;
+}
 ggml_backend_buffer_t QwenCudaSessionState::allocation() const noexcept { return impl_->allocation; }
+ggml_backend_buffer_t QwenCudaSessionState::allocate_decode_scratch() {
+    if (impl_->decode_scratch != nullptr) return impl_->decode_scratch;
+    ggml_backend_t backend = impl_->runtime->backend();
+    ggml_backend_buffer_type_t buft = ggml_backend_get_default_buffer_type(backend);
+    const size_t required = ggml_backend_alloc_ctx_tensors_from_buft_size(impl_->graph_context, buft);
+    const size_t bytes = std::max(required, impl_->runtime->impl_->config.decode_scratch_bytes);
+    if (bytes == 0) throw std::runtime_error("Qwen CUDA decode graph has no scratch tensors");
+    impl_->decode_scratch = ggml_backend_buft_alloc_buffer(buft, bytes);
+    if (impl_->decode_scratch == nullptr) throw std::runtime_error("Qwen CUDA decode scratch allocation failed");
+    ggml_tallocr allocator = ggml_tallocr_new(impl_->decode_scratch);
+    for (ggml_tensor * tensor = ggml_get_first_tensor(impl_->graph_context); tensor != nullptr;
+        tensor = ggml_get_next_tensor(impl_->graph_context, tensor)) {
+        if (tensor->buffer != nullptr) continue;
+        ggml_status status = GGML_STATUS_SUCCESS;
+        if (tensor->view_src != nullptr) status = ggml_backend_view_init(tensor);
+        else if (tensor->data == nullptr) status = ggml_tallocr_alloc(&allocator, tensor);
+        if (status != GGML_STATUS_SUCCESS)
+            throw std::runtime_error(std::string("Qwen CUDA decode scratch binding failed at tensor ") + tensor->name);
+    }
+    inject(impl_->inject_failure, QwenCudaFailurePoint::SessionAfterDecodeScratch, "decode scratch");
+    return impl_->decode_scratch;
+}
+size_t QwenCudaSessionState::allocation_bytes() const noexcept {
+    return impl_->allocation == nullptr ? 0 : ggml_backend_buffer_get_size(impl_->allocation);
+}
+size_t QwenCudaSessionState::prefill_scratch_bytes() const noexcept {
+    return impl_->prefill_scratch == nullptr ? 0 : ggml_backend_buffer_get_size(impl_->prefill_scratch);
+}
+size_t QwenCudaSessionState::decode_scratch_bytes() const noexcept {
+    return impl_->decode_scratch == nullptr ? 0 : ggml_backend_buffer_get_size(impl_->decode_scratch);
+}
 ggml_backend_buffer_t QwenCudaSessionState::prefill_scratch() const noexcept { return impl_->prefill_scratch; }
 ggml_backend_buffer_t QwenCudaSessionState::decode_scratch() const noexcept { return impl_->decode_scratch; }
 ggml_tensor * QwenCudaSessionState::key_cache(uint32_t layer) const {

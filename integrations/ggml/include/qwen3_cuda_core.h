@@ -55,7 +55,7 @@ enum class QwenCudaFailurePoint : uint8_t {
 
 struct QwenCudaRuntimeConfig {
     uint32_t prefill_chunk_size = 32;
-    size_t prefill_scratch_bytes = 40'206'464;
+    size_t prefill_scratch_bytes = 64 * 1024 * 1024;
     size_t decode_scratch_bytes = 32 * 1024 * 1024;
     QwenCudaFailurePoint inject_failure = QwenCudaFailurePoint::None;
 };
@@ -82,6 +82,9 @@ public:
 
     ggml_backend_t backend() const noexcept;
     ggml_backend_dev_t device() const noexcept;
+    void device_memory(size_t * free_bytes, size_t * total_bytes) const noexcept;
+    ggml_context * model_context() const noexcept;
+    ggml_backend_buffer_t model_allocation() const noexcept;
     const std::string & backend_name() const noexcept;
     const std::string & artifact_identity() const noexcept;
     const ModelMetadataDescriptor * metadata() const noexcept;
@@ -89,6 +92,9 @@ public:
     ggml_tensor * embedding() const noexcept;
     std::shared_ptr<TensorResidencyStore> residency() const noexcept;
     uint64_t resident_model_bytes() const noexcept;
+    uint64_t uploaded_payload_bytes() const noexcept;
+    size_t uploaded_tensor_count() const noexcept;
+    size_t resident_allocation_bytes() const noexcept;
     size_t resident_tensor_count() const noexcept;
     uint32_t prefill_chunk_size() const noexcept;
 
@@ -114,8 +120,16 @@ public:
     uint64_t reset_generation() const noexcept;
 
     const std::shared_ptr<QwenCudaRuntimeState> & runtime() const noexcept;
+    // context() owns persistent K/V and packed-V tensors; graph_context() is
+    // session-owned storage for reusable decode graph tensors.
     ggml_context * context() const noexcept;
+    ggml_context * graph_context() const noexcept;
+    ggml_context * create_auxiliary_context(size_t arena_bytes);
     ggml_backend_buffer_t allocation() const noexcept;
+    ggml_backend_buffer_t allocate_decode_scratch();
+    size_t allocation_bytes() const noexcept;
+    size_t prefill_scratch_bytes() const noexcept;
+    size_t decode_scratch_bytes() const noexcept;
     ggml_backend_buffer_t prefill_scratch() const noexcept;
     ggml_backend_buffer_t decode_scratch() const noexcept;
     ggml_tensor * key_cache(uint32_t layer) const;

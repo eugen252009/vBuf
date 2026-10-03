@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -19,6 +21,30 @@ struct ResidentTensor {
     uint64_t bytes = 0;
     uint64_t last_use = 0;
     uint32_t active_leases = 0;
+};
+
+// Stable semantic/source identity for a backend allocation. Handles are opaque;
+// the shared owner controls backend allocation lifetime and is never an identity.
+struct DeviceResidencyKey {
+    std::string artifact_identity;
+    uint64_t tensor_id = 0;
+    uint64_t source_offset = 0;
+    uint64_t payload_length = 0;
+    uint8_t representation = 0;
+    std::vector<uint64_t> shape;
+    std::string backend;
+    uint32_t device_id = 0;
+    bool operator==(const DeviceResidencyKey & other) const;
+};
+
+struct DeviceResidentTensor {
+    std::shared_ptr<void> allocation_owner;
+    void * backend_handle = nullptr;
+    uint64_t bytes = 0;
+};
+
+struct DeviceResidencyKeyHash {
+    size_t operator()(const DeviceResidencyKey & key) const;
 };
 
 enum class ResidencyEventKind {
@@ -74,7 +100,8 @@ std::shared_ptr<const ResidencyReplacementPolicy> make_residency_replacement_pol
 class TensorResidencyStore final {
 public:
     explicit TensorResidencyStore(uint64_t max_resident_bytes,
-        ResidencyReplacementPolicyKind policy_kind = ResidencyReplacementPolicyKind::LRU);
+        ResidencyReplacementPolicyKind policy_kind = ResidencyReplacementPolicyKind::LRU,
+        uint64_t max_device_resident_bytes = 0);
     ~TensorResidencyStore();
 
     const ResidentTensor * lookup(uint32_t tensor_ref, const std::string & tensor_name = {});
@@ -92,6 +119,16 @@ public:
     bool release(uint32_t tensor_ref, const std::string & tensor_name = {});
     bool evict(uint32_t tensor_ref, const std::string & tensor_name = {});
     void clear();
+    std::optional<DeviceResidentTensor> acquire_device(const DeviceResidencyKey & key);
+    bool insert_device(const DeviceResidencyKey & key, const DeviceResidentTensor & tensor);
+    bool release_device(const DeviceResidencyKey & key);
+    bool evict_device(const DeviceResidencyKey & key);
+    void clear_device();
+    bool contains_device(const DeviceResidencyKey & key) const;
+    uint64_t device_resident_bytes() const;
+    size_t device_resident_count() const;
+    uint32_t active_device_lease_count() const;
+    uint64_t max_device_resident_bytes() const { return max_device_resident_bytes_; }
     void clear_trace();
     void set_trace_enabled(bool enabled);
 
@@ -116,13 +153,22 @@ private:
         ResidencyEventKind kind, uint64_t before, uint32_t leases,
         const std::string & source_id = {});
 
+    struct DeviceEntry {
+        DeviceResidentTensor tensor;
+        uint32_t active_leases = 0;
+        uint64_t last_use = 0;
+    };
     mutable std::mutex mutex_;
     uint64_t max_resident_bytes_ = 0;
+    uint64_t max_device_resident_bytes_ = 0;
+    uint64_t device_resident_bytes_ = 0;
+    uint64_t device_clock_ = 0;
     uint64_t resident_bytes_ = 0;
     uint64_t clock_ = 0;
     uint64_t request_ordinal_ = 0;
     std::unordered_map<uint32_t, ResidentTensor> entries_;
     std::unordered_map<uint32_t, std::string> names_;
+    std::unordered_map<DeviceResidencyKey, DeviceEntry, DeviceResidencyKeyHash> device_entries_;
     std::unordered_map<uint32_t, uint64_t> last_request_ordinal_;
     std::unordered_map<uint32_t, uint64_t> observed_request_count_;
     std::unordered_set<uint32_t> materialized_tensors_;

@@ -95,9 +95,32 @@ const char * residency_event_name(ResidencyEventKind kind) {
     return "UNKNOWN";
 }
 
+bool DeviceResidencyKey::operator==(const DeviceResidencyKey & other) const {
+    return artifact_identity == other.artifact_identity && tensor_id == other.tensor_id &&
+        source_offset == other.source_offset && payload_length == other.payload_length &&
+        representation == other.representation && shape == other.shape &&
+        backend == other.backend && device_id == other.device_id;
+}
+
+size_t DeviceResidencyKeyHash::operator()(const DeviceResidencyKey & key) const {
+    size_t result = std::hash<std::string>{}(key.artifact_identity);
+    const auto combine = [&result](size_t value) {
+        result ^= value + static_cast<size_t>(0x9e3779b97f4a7c15ULL) + (result << 6) + (result >> 2);
+    };
+    combine(std::hash<uint64_t>{}(key.tensor_id));
+    combine(std::hash<uint64_t>{}(key.source_offset));
+    combine(std::hash<uint64_t>{}(key.payload_length));
+    combine(std::hash<uint8_t>{}(key.representation));
+    for (const uint64_t dimension : key.shape) combine(std::hash<uint64_t>{}(dimension));
+    combine(std::hash<std::string>{}(key.backend));
+    combine(std::hash<uint32_t>{}(key.device_id));
+    return result;
+}
+
 TensorResidencyStore::TensorResidencyStore(uint64_t max_resident_bytes,
-    ResidencyReplacementPolicyKind policy_kind)
+    ResidencyReplacementPolicyKind policy_kind, uint64_t max_device_resident_bytes)
     : max_resident_bytes_(max_resident_bytes),
+      max_device_resident_bytes_(max_device_resident_bytes),
       replacement_policy_(make_residency_replacement_policy(policy_kind)) {}
 
 TensorResidencyStore::~TensorResidencyStore() {
@@ -270,6 +293,99 @@ void TensorResidencyStore::clear() {
         names_.erase(it->first);
         it = entries_.erase(it);
     }
+    for (auto it = device_entries_.begin(); it != device_entries_.end();) {
+        if (it->second.active_leases != 0) {
+            ++it;
+            continue;
+        }
+        device_resident_bytes_ -= it->second.tensor.bytes;
+        it = device_entries_.erase(it);
+    }
+}
+
+std::optional<DeviceResidentTensor> TensorResidencyStore::acquire_device(
+    const DeviceResidencyKey & key) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = device_entries_.find(key);
+    if (it == device_entries_.end()) return std::nullopt;
+    ++it->second.active_leases;
+    it->second.last_use = ++device_clock_;
+    return it->second.tensor;
+}
+
+bool TensorResidencyStore::insert_device(const DeviceResidencyKey & key,
+    const DeviceResidentTensor & tensor) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (key.artifact_identity.empty() || key.backend.empty() || key.payload_length == 0 ||
+        key.shape.empty() || !tensor.allocation_owner || tensor.backend_handle == nullptr ||
+        tensor.bytes == 0 || tensor.bytes != key.payload_length || max_device_resident_bytes_ == 0 ||
+        tensor.bytes > max_device_resident_bytes_ || device_entries_.count(key) != 0)
+        return false;
+    while (tensor.bytes > max_device_resident_bytes_ - device_resident_bytes_) {
+        auto victim = device_entries_.end();
+        for (auto it = device_entries_.begin(); it != device_entries_.end(); ++it) {
+            if (it->second.active_leases != 0) continue;
+            if (victim == device_entries_.end() || it->second.last_use < victim->second.last_use)
+                victim = it;
+        }
+        if (victim == device_entries_.end()) return false;
+        device_resident_bytes_ -= victim->second.tensor.bytes;
+        device_entries_.erase(victim);
+    }
+    device_entries_.emplace(key, DeviceEntry{ tensor, 0, ++device_clock_ });
+    device_resident_bytes_ += tensor.bytes;
+    return true;
+}
+
+bool TensorResidencyStore::release_device(const DeviceResidencyKey & key) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = device_entries_.find(key);
+    if (it == device_entries_.end() || it->second.active_leases == 0) return false;
+    --it->second.active_leases;
+    return true;
+}
+
+bool TensorResidencyStore::evict_device(const DeviceResidencyKey & key) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = device_entries_.find(key);
+    if (it == device_entries_.end() || it->second.active_leases != 0) return false;
+    device_resident_bytes_ -= it->second.tensor.bytes;
+    device_entries_.erase(it);
+    return true;
+}
+
+void TensorResidencyStore::clear_device() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto it = device_entries_.begin(); it != device_entries_.end();) {
+        if (it->second.active_leases != 0) {
+            ++it;
+            continue;
+        }
+        device_resident_bytes_ -= it->second.tensor.bytes;
+        it = device_entries_.erase(it);
+    }
+}
+
+bool TensorResidencyStore::contains_device(const DeviceResidencyKey & key) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return device_entries_.count(key) != 0;
+}
+
+uint64_t TensorResidencyStore::device_resident_bytes() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return device_resident_bytes_;
+}
+
+size_t TensorResidencyStore::device_resident_count() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return device_entries_.size();
+}
+
+uint32_t TensorResidencyStore::active_device_lease_count() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    uint32_t result = 0;
+    for (const auto & entry : device_entries_) result += entry.second.active_leases;
+    return result;
 }
 
 void TensorResidencyStore::clear_trace() {

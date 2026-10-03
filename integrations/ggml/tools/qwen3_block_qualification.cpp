@@ -1,12 +1,15 @@
 #include "ggml-backend.h"
+#include "ggml-alloc.h"
 #include "ggml-cpu.h"
 #include "ggml.h"
 #include "vbuf_ml_model_metadata_ffi.h"
 #include "vbuf_model_architecture.h"
 #include "vbuf_range_source.h"
 #include "vbuf_materializer.h"
+#include "vbuf_residency.h"
 #include "qwen3_kv_cache.h"
 #include "qwen3_model.h"
+#include "qwen3_cuda_core.h"
 #include "qwen3_query_groups.h"
 #include "softmax_compute_extent.h"
 #include "qwen3_execution_policy.h"
@@ -30,8 +33,12 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
+#if defined(__GNUC__)
+extern "C" void vbuf_cuda_audit_snapshot(const char *) __attribute__((weak));
+#endif
 
 namespace {
 using namespace vbuf_ggml;
@@ -228,6 +235,66 @@ void set_tensor(ggml_tensor * tensor, const void * values, size_t bytes) {
     }
     ggml_backend_tensor_set(tensor, values, 0, bytes);
 }
+void report_device_allocation_breakdown(ggml_context * context, ggml_backend_buffer_t buffer,
+    const std::vector<Tensor *> & weights, const ggml_tensor * embedding,
+    const std::vector<ggml_tensor *> & kv_tensors, const char * label) {
+    if (std::getenv("VBUF_QWEN_MEMORY_BREAKDOWN") == nullptr) return;
+    std::unordered_set<const ggml_tensor *> weight_set, kv_set;
+    for (const Tensor * tensor : weights) weight_set.insert(tensor->ggml);
+    weight_set.erase(embedding);
+    for (const ggml_tensor * tensor : kv_tensors) kv_set.insert(tensor);
+    struct Entry { size_t bytes; const ggml_tensor * tensor; };
+    std::vector<Entry> graph_entries;
+    std::map<std::string, std::pair<uint64_t, size_t>> graph_ops;
+    uint64_t weight_bytes = 0, embedding_bytes = 0, kv_bytes = 0, other_bytes = 0, view_logical_bytes = 0;
+    size_t weight_count = 0, kv_count = 0, other_count = 0, view_count = 0;
+    for (ggml_tensor * tensor = ggml_get_first_tensor(context); tensor != nullptr;
+        tensor = ggml_get_next_tensor(context, tensor)) {
+        if (tensor->view_src != nullptr) {
+            view_logical_bytes += ggml_nbytes(tensor);
+            ++view_count;
+            continue;
+        }
+        const size_t bytes = ggml_backend_buffer_get_alloc_size(buffer, tensor);
+        if (bytes == 0) continue;
+        if (tensor == embedding) embedding_bytes += bytes;
+        else if (weight_set.count(tensor)) { weight_bytes += bytes; ++weight_count; }
+        else if (kv_set.count(tensor)) { kv_bytes += bytes; ++kv_count; }
+        else {
+            other_bytes += bytes; ++other_count; graph_entries.push_back({bytes, tensor});
+            auto & operation = graph_ops[ggml_op_name(tensor->op)];
+            operation.first += bytes; ++operation.second;
+        }
+    }
+    std::sort(graph_entries.begin(), graph_entries.end(), [](const Entry & a, const Entry & b) {
+        return a.bytes > b.bytes;
+    });
+    std::printf("resident_cuda_memory_breakdown label=%s model_weights_bytes=%llu weights_tensors=%zu "
+        "embedding_bytes=%llu persistent_kv_bytes=%llu kv_tensors=%zu other_graph_bytes=%llu other_tensors=%zu "
+        "view_aliases=%zu view_logical_bytes_not_additive=%llu buffer_bytes=%zu\n", label,
+        static_cast<unsigned long long>(weight_bytes), weight_count,
+        static_cast<unsigned long long>(embedding_bytes), static_cast<unsigned long long>(kv_bytes), kv_count,
+        static_cast<unsigned long long>(other_bytes),
+        other_count, view_count, static_cast<unsigned long long>(view_logical_bytes),
+        ggml_backend_buffer_get_size(buffer));
+    std::vector<std::pair<std::string, std::pair<uint64_t, size_t>>> sorted_ops(graph_ops.begin(), graph_ops.end());
+    std::sort(sorted_ops.begin(), sorted_ops.end(), [](const auto & a, const auto & b) {
+        return a.second.first > b.second.first;
+    });
+    for (size_t i = 0; i < std::min<size_t>(12, sorted_ops.size()); ++i)
+        std::printf("resident_cuda_memory_op label=%s op=%s bytes=%llu tensors=%zu\n", label,
+            sorted_ops[i].first.c_str(), static_cast<unsigned long long>(sorted_ops[i].second.first),
+            sorted_ops[i].second.second);
+    for (size_t i = 0; i < std::min<size_t>(16, graph_entries.size()); ++i) {
+        const ggml_tensor * tensor = graph_entries[i].tensor;
+        std::printf("resident_cuda_memory_tensor label=%s rank_bytes=%zu type=%s op=%s name=%s "
+            "ne=%lld,%lld,%lld,%lld\n", label, graph_entries[i].bytes, ggml_type_name(tensor->type),
+            ggml_op_name(tensor->op), ggml_get_name(tensor), static_cast<long long>(tensor->ne[0]),
+            static_cast<long long>(tensor->ne[1]), static_cast<long long>(tensor->ne[2]),
+            static_cast<long long>(tensor->ne[3]));
+    }
+}
+
 std::vector<float> get_f32(Context & context, ggml_tensor * tensor) {
     if (!tensor || tensor->type != GGML_TYPE_F32) throw std::runtime_error("expected F32 checkpoint");
     std::vector<float> result(ggml_nelements(tensor));
@@ -319,7 +386,10 @@ std::vector<float> reference_attention_prefix(const std::string & directory,
     return compact;
 }
 std::string checkpoint_shape(const std::string & label, uint32_t positions, size_t values) {
-    if (label == "final_logits" || label == "kv_vs_full_logits" || label == "reset_clean_logits_vs_full") return "[151936,1]";
+    if (positions != 0 && label.find("logits") != std::string::npos)
+        return "[" + std::to_string(values / positions) + "," + std::to_string(positions) + "]";
+    if (label == "final_logits" || label == "kv_vs_full_logits" || label == "reset_clean_logits_vs_full" ||
+        label.rfind("resident_cuda_logits_vs_cpu_vbuf_prefix_", 0) == 0) return "[151936,1]";
     if (label == "q_rmsnorm" || label == "q_rope_neox") return "[128,40," + std::to_string(positions) + "]";
     if (label == "k_rmsnorm" || label == "k_rope_neox") return "[128,8," + std::to_string(positions) + "]";
     if (label == "k_projection" || label == "v_projection") return "[1024," + std::to_string(positions) + "]";
@@ -407,6 +477,40 @@ bool compare(const std::string & label, const std::vector<float> & actual,
     }
     return finite;
 }
+std::vector<float> run_softmax_backend(enum ggml_backend_dev_type backend_type,
+    const std::vector<float> & scores, const std::vector<float> & mask,
+    uint32_t keys, uint32_t heads) {
+    if (scores.size() != static_cast<size_t>(keys) * heads || mask.size() != keys)
+        throw std::invalid_argument("same-score softmax control geometry mismatch");
+    Context context;
+    ggml_init_params params{ 8 * 1024 * 1024, nullptr, true };
+    context.ctx = ggml_init(params);
+    context.backend = ggml_backend_init_by_type(backend_type, nullptr);
+    if (!context.ctx || !context.backend) throw std::runtime_error("softmax control backend unavailable");
+    if (backend_type == GGML_BACKEND_DEVICE_TYPE_CPU)
+        ggml_backend_cpu_set_n_threads(context.backend, 1);
+    ggml_tensor * score_tensor = ggml_new_tensor_3d(context.ctx, GGML_TYPE_F32, keys, 1, heads);
+    ggml_tensor * mask_tensor = ggml_new_tensor_2d(context.ctx, GGML_TYPE_F32, keys, 1);
+    ggml_tensor * output = ggml_soft_max_ext(context.ctx, score_tensor, mask_tensor,
+        1.0f / std::sqrt(static_cast<float>(HEAD_DIM)), 0.0f);
+    ggml_cgraph * graph = ggml_new_graph_custom(context.ctx, 64, false);
+    ggml_build_forward_expand(graph, output);
+    context.buffer = ggml_backend_alloc_ctx_tensors(context.ctx, context.backend);
+    if (!context.buffer) throw std::runtime_error("softmax control allocation failed");
+    ggml_backend_tensor_set_async(context.backend, score_tensor, scores.data(), 0,
+        scores.size() * sizeof(float));
+    ggml_backend_tensor_set_async(context.backend, mask_tensor, mask.data(), 0,
+        mask.size() * sizeof(float));
+    ggml_backend_synchronize(context.backend);
+    if (ggml_backend_graph_compute_async(context.backend, graph) != GGML_STATUS_SUCCESS)
+        throw std::runtime_error("same-score softmax control graph failed");
+    std::vector<float> result(scores.size());
+    ggml_backend_tensor_get_async(context.backend, output, result.data(), 0,
+        result.size() * sizeof(float));
+    ggml_backend_synchronize(context.backend);
+    return result;
+}
+
 bool within_fixed_tolerance(const std::vector<float> & actual, const std::vector<float> & expected) {
     if (actual.size() != expected.size() || actual.empty()) return false;
     double maximum = -1.0;
@@ -417,6 +521,1769 @@ bool within_fixed_tolerance(const std::vector<float> & actual, const std::vector
     }
     return maximum <= ATOL + RTOL * std::abs(static_cast<double>(expected[index]));
 }
+
+void cuda_audit_snapshot(const char * label) {
+#if defined(__GNUC__)
+    if (vbuf_cuda_audit_snapshot != nullptr) {
+        vbuf_cuda_audit_snapshot(label);
+        return;
+    }
+#endif
+    std::printf("cuda_api_audit_snapshot label=%s available=NO\n", label);
+}
+
+void write_f32_export(const std::filesystem::path & path, const std::vector<float> & values);
+void write_binary_export(const std::filesystem::path & path, const uint8_t * bytes, size_t size);
+
+std::vector<float> run_final_head(Model & model, const std::string & reference_dir,
+    const std::vector<float> & final_hidden, bool persistent_kv,
+    std::vector<float> * normalized_output);
+
+void run_cuda_resident_qualification(Model & model, const std::vector<int32_t> & tokens,
+    uint32_t positions, uint32_t block_count, const std::string & compare_dir) {
+    const bool performance_mode = std::getenv("VBUF_QWEN_PERF_MODE") != nullptr;
+    if (tokens.size() != positions || positions == 0 || positions > 4096 ||
+        block_count == 0 || block_count > model.layer_count || (!performance_mode && compare_dir.empty()))
+        throw std::invalid_argument("resident CUDA qualification requires a valid depth, token IDs, and CPU checkpoints unless performance-only mode is selected");
+    const Tensor & embedding_metadata = get(model, "token_embd.weight");
+    if (embedding_metadata.view.rank != 2 || embedding_metadata.view.dimensions[0] != EMBED ||
+        static_cast<uint64_t>(*std::max_element(tokens.begin(), tokens.end())) >= embedding_metadata.view.dimensions[1])
+        throw std::runtime_error("resident embedding geometry or token IDs are invalid");
+
+    const auto resident_initialization_begin = std::chrono::steady_clock::now();
+    const auto backend_init_begin = std::chrono::steady_clock::now();
+    cuda_audit_snapshot("BEFORE_QWEN_RUNTIME_CREATE");
+    auto runtime_state = QwenCudaRuntimeState::create(model);
+    const auto backend_init_complete = std::chrono::steady_clock::now();
+    auto session_state = runtime_state->create_session(positions);
+    ggml_backend_t backend = runtime_state->backend();
+    const std::string backend_name = runtime_state->backend_name();
+    ggml_backend_dev_t device = runtime_state->device();
+    size_t free_before = 0, total_vram = 0;
+    ggml_backend_dev_memory(device, &free_before, &total_vram);
+    cuda_audit_snapshot("QWEN_RUNTIME_SESSION_CREATED");
+
+    std::vector<Tensor *> weights;
+    auto add_weight = [&](const std::string & name) {
+        Tensor & tensor = get(model, name);
+        ggml_tensor * resident = runtime_state->tensor(name);
+        if (resident == nullptr || resident != tensor.ggml)
+            throw std::runtime_error("runtime-owned Qwen tensor binding missing: " + name);
+        weights.push_back(&tensor);
+        return resident;
+    };
+    ggml_tensor * embedding = add_weight("token_embd.weight");
+    ggml_tensor * token_ids = ggml_new_tensor_1d(session_state->graph_context(), GGML_TYPE_I32, positions);
+    ggml_tensor * position_ids = ggml_new_tensor_1d(session_state->graph_context(), GGML_TYPE_I32, positions);
+    ggml_tensor * causal_mask = ggml_new_tensor_2d(session_state->graph_context(), GGML_TYPE_F32, positions, positions);
+    ggml_tensor * embedding_rows = ggml_get_rows(session_state->graph_context(), embedding, token_ids);
+    ggml_tensor * block_input = embedding_rows;
+    ggml_tensor * final_norm_output = nullptr;
+    ggml_tensor * logits = nullptr;
+    std::vector<ggml_tensor *> block_outputs;
+    block_outputs.reserve(block_count);
+    uint32_t capture_layer = UINT32_MAX;
+    uint32_t capture_position = UINT32_MAX;
+    if (const char * capture = std::getenv("VBUF_QWEN_RESIDENT_CAPTURE_LAYER"))
+        if (*capture != '\0') capture_layer = static_cast<uint32_t>(std::stoul(capture));
+    if (const char * capture = std::getenv("VBUF_QWEN_RESIDENT_CAPTURE_POSITION"))
+        if (*capture != '\0') capture_position = static_cast<uint32_t>(std::stoul(capture));
+    std::vector<std::pair<std::string, ggml_tensor *>> capture_tensors;
+    auto capture_tensor = [&](uint32_t layer, const char * name, ggml_tensor * tensor) {
+        if (capture_layer == layer) {
+            if (std::strcmp(name, "q_norm") == 0 || std::strcmp(name, "k_norm") == 0)
+                ggml_set_output(tensor);
+            capture_tensors.emplace_back(name, tensor);
+        }
+    };
+
+    for (uint32_t layer = 0; layer < block_count; ++layer) {
+        const std::string prefix = "blk." + std::to_string(layer) + ".";
+        ggml_tensor * attn_norm_w = add_weight(prefix + "attn_norm.weight");
+        ggml_tensor * q_weight = add_weight(prefix + "attn_q.weight");
+        ggml_tensor * k_weight = add_weight(prefix + "attn_k.weight");
+        ggml_tensor * v_weight = add_weight(prefix + "attn_v.weight");
+        ggml_tensor * q_norm_w = add_weight(prefix + "attn_q_norm.weight");
+        ggml_tensor * k_norm_w = add_weight(prefix + "attn_k_norm.weight");
+        ggml_tensor * out_weight = add_weight(prefix + "attn_output.weight");
+        ggml_tensor * ffn_norm_w = add_weight(prefix + "ffn_norm.weight");
+        ggml_tensor * gate_weight = add_weight(prefix + "ffn_gate.weight");
+        ggml_tensor * up_weight = add_weight(prefix + "ffn_up.weight");
+        ggml_tensor * down_weight = add_weight(prefix + "ffn_down.weight");
+
+        capture_tensor(layer, "layer_input", block_input);
+        ggml_tensor * attn_norm = ggml_mul(session_state->graph_context(),
+            ggml_rms_norm(session_state->graph_context(), block_input, 1e-6f), attn_norm_w);
+        capture_tensor(layer, "attention_rmsnorm", attn_norm);
+        ggml_tensor * q_linear = ggml_mul_mat(session_state->graph_context(), q_weight, attn_norm);
+        ggml_tensor * k_linear = ggml_mul_mat(session_state->graph_context(), k_weight, attn_norm);
+        ggml_tensor * v_linear = ggml_mul_mat(session_state->graph_context(), v_weight, attn_norm);
+        capture_tensor(layer, "q_projection", q_linear);
+        capture_tensor(layer, "k_projection", k_linear);
+        capture_tensor(layer, "v_projection", v_linear);
+        ggml_tensor * q_heads = ggml_reshape_3d(session_state->graph_context(), q_linear, HEAD_DIM, HEADS, positions);
+        ggml_tensor * k_heads = ggml_reshape_3d(session_state->graph_context(), k_linear, HEAD_DIM, KV_HEADS, positions);
+        ggml_tensor * v_heads = ggml_reshape_3d(session_state->graph_context(), v_linear, HEAD_DIM, KV_HEADS, positions);
+        ggml_tensor * q_norm = ggml_mul(session_state->graph_context(),
+            ggml_rms_norm(session_state->graph_context(), q_heads, 1e-6f), q_norm_w);
+        ggml_tensor * k_norm = ggml_mul(session_state->graph_context(),
+            ggml_rms_norm(session_state->graph_context(), k_heads, 1e-6f), k_norm_w);
+        capture_tensor(layer, "q_norm", q_norm);
+        capture_tensor(layer, "k_norm", k_norm);
+        ggml_tensor * q_rope = ggml_rope_ext(session_state->graph_context(), q_norm, position_ids,
+            nullptr, HEAD_DIM, GGML_ROPE_TYPE_NEOX, 0, 1000000.0f,
+            1.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+        ggml_tensor * k_rope = ggml_rope_ext(session_state->graph_context(), k_norm, position_ids,
+            nullptr, HEAD_DIM, GGML_ROPE_TYPE_NEOX, 0, 1000000.0f,
+            1.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+        ggml_tensor * k_cache = ggml_cast(session_state->graph_context(), k_rope, GGML_TYPE_F16);
+        ggml_tensor * v_cache = ggml_cast(session_state->graph_context(), v_heads, GGML_TYPE_F16);
+        capture_tensor(layer, "q_rope", q_rope);
+        capture_tensor(layer, "k_rope", k_rope);
+        capture_tensor(layer, "k_cache_f16", k_cache);
+        capture_tensor(layer, "v_cache_f16", v_cache);
+        ggml_tensor * q_batched = ggml_permute(session_state->graph_context(), q_rope, 0, 2, 1, 3);
+        ggml_tensor * k_batched = ggml_permute(session_state->graph_context(), k_cache, 0, 2, 1, 3);
+        ggml_tensor * v_batched = ggml_cont(session_state->graph_context(),
+            ggml_permute(session_state->graph_context(), v_cache, 1, 2, 0, 3));
+        if (capture_layer == layer) {
+            capture_tensor(layer, "k_attention_input", ggml_cont(session_state->graph_context(), k_batched));
+            capture_tensor(layer, "v_attention_input", ggml_cont(session_state->graph_context(), v_batched));
+        }
+        ggml_tensor * scores = ggml_mul_mat(session_state->graph_context(), k_batched, q_batched);
+        ggml_tensor * probabilities = ggml_soft_max_ext(session_state->graph_context(), scores,
+            causal_mask, 1.0f / std::sqrt(static_cast<float>(HEAD_DIM)), 0.0f);
+        capture_tensor(layer, "attention_scores", scores);
+        capture_tensor(layer, "attention_probabilities", probabilities);
+        ggml_tensor * context_heads = ggml_mul_mat(session_state->graph_context(), v_batched, probabilities);
+        ggml_tensor * context_layout = ggml_permute(session_state->graph_context(), context_heads, 0, 2, 1, 3);
+        ggml_tensor * attention_context = ggml_cont_2d(session_state->graph_context(), context_layout, EMBED, positions);
+        ggml_tensor * projected = ggml_mul_mat(session_state->graph_context(), out_weight, attention_context);
+        ggml_tensor * residual = ggml_add(session_state->graph_context(), projected, block_input);
+        capture_tensor(layer, "attention_context", attention_context);
+        capture_tensor(layer, "attention_projection", projected);
+        capture_tensor(layer, "attention_residual", residual);
+        ggml_tensor * ffn_norm = ggml_mul(session_state->graph_context(),
+            ggml_rms_norm(session_state->graph_context(), residual, 1e-6f), ffn_norm_w);
+        ggml_tensor * gate = ggml_mul_mat(session_state->graph_context(), gate_weight, ffn_norm);
+        ggml_tensor * up = ggml_mul_mat(session_state->graph_context(), up_weight, ffn_norm);
+        ggml_tensor * swiglu = ggml_mul(session_state->graph_context(),
+            ggml_silu(session_state->graph_context(), gate), up);
+        ggml_tensor * down = ggml_mul_mat(session_state->graph_context(), down_weight, swiglu);
+        capture_tensor(layer, "ffn_rmsnorm", ffn_norm);
+        capture_tensor(layer, "ffn_gate", gate);
+        capture_tensor(layer, "ffn_up", up);
+        capture_tensor(layer, "ffn_swiglu", swiglu);
+        capture_tensor(layer, "ffn_down", down);
+        block_input = ggml_add(session_state->graph_context(), down, residual);
+        capture_tensor(layer, "block_output", block_input);
+        block_outputs.push_back(block_input);
+    }
+    if (block_count == model.layer_count) {
+        ggml_tensor * output_norm_weight = add_weight("output_norm.weight");
+        ggml_tensor * output_weight = add_weight("output.weight");
+        final_norm_output = ggml_mul(session_state->graph_context(),
+            ggml_rms_norm(session_state->graph_context(), block_input, 1e-6f), output_norm_weight);
+        logits = ggml_mul_mat(session_state->graph_context(), output_weight, final_norm_output);
+    }
+
+    if (capture_layer != UINT32_MAX && (capture_layer >= block_count || capture_position >= positions))
+        throw std::runtime_error("requested resident CUDA capture layer/position is outside graph extent");
+    ggml_cgraph * graph = ggml_new_graph_custom(session_state->graph_context(), 4096, false);
+    if (!graph || !block_input) throw std::runtime_error("resident Qwen CUDA graph construction failed");
+    ggml_build_forward_expand(graph, logits == nullptr ? block_input : logits);
+    for (const auto & capture : capture_tensors) ggml_build_forward_expand(graph, capture.second);
+    const auto allocation_begin = std::chrono::steady_clock::now();
+    ggml_backend_buffer_t graph_allocation = session_state->allocate_decode_scratch();
+    const auto allocation_complete = std::chrono::steady_clock::now();
+    if (!graph_allocation) throw std::runtime_error("resident Qwen session graph scratch allocation failed");
+    const uint64_t buffer_bytes = session_state->decode_scratch_bytes();
+    report_device_allocation_breakdown(runtime_state->model_context(), runtime_state->model_allocation(),
+        weights, embedding, {}, "runtime_owned_qwen_model");
+
+    std::vector<int32_t> positions_i32(positions);
+    std::vector<float> mask_values(static_cast<size_t>(positions) * positions);
+    for (uint32_t position = 0; position < positions; ++position) {
+        positions_i32[position] = static_cast<int32_t>(position);
+        for (uint32_t key = 0; key < positions; ++key)
+            mask_values[static_cast<size_t>(position) * positions + key] = key <= position ? 0.0f : -INFINITY;
+    }
+    ggml_backend_tensor_set_async(backend, token_ids, tokens.data(), 0,
+        tokens.size() * sizeof(int32_t));
+    ggml_backend_tensor_set_async(backend, position_ids, positions_i32.data(), 0,
+        positions_i32.size() * sizeof(int32_t));
+    ggml_backend_tensor_set_async(backend, causal_mask, mask_values.data(), 0,
+        mask_values.size() * sizeof(float));
+
+    const uint64_t weight_bytes = runtime_state->resident_model_bytes();
+    auto residency = runtime_state->residency();
+    if (!residency || runtime_state->resident_tensor_count() != model.count ||
+        runtime_state->uploaded_tensor_count() != model.count ||
+        runtime_state->uploaded_payload_bytes() != weight_bytes)
+        throw std::runtime_error("resident Qwen runtime model upload or residency accounting is incomplete");
+    std::vector<float> cpu_embedding_rows(static_cast<size_t>(EMBED) * positions);
+    uint32_t embedding_ref = embedding_metadata.id;
+    const auto weight_staging_begin = std::chrono::steady_clock::now();
+    if (!model.materializer->request(embedding_ref, embedding_metadata.persistent(), weight_bytes) ||
+        model.materializer->wait(embedding_ref) != MaterializationState::Ready)
+        throw std::runtime_error("resident embedding diagnostic materialization failed");
+    auto embedding_payload = model.materializer->obtain_ready_tensor(embedding_ref);
+    if (!embedding_payload || embedding_payload->payload == nullptr ||
+        embedding_payload->payload_len != embedding_metadata.length)
+        throw std::runtime_error("resident embedding diagnostic payload unavailable");
+    TensorGeometry embedding_geometry{};
+    if (derive_tensor_geometry(embedding_metadata.generic, &embedding_geometry) != AdapterError::None)
+        throw std::runtime_error("resident embedding tensor geometry rejected");
+    const auto * embedding_traits = ggml_get_type_traits(embedding_geometry.type);
+    const size_t embedding_row_bytes = ggml_row_size(embedding_geometry.type, embedding_geometry.ne[0]);
+    if (embedding_traits == nullptr || embedding_traits->to_float == nullptr)
+        throw std::runtime_error("resident embedding CPU decoder unavailable");
+    for (uint32_t position = 0; position < positions; ++position)
+        embedding_traits->to_float(embedding_payload->payload + static_cast<size_t>(tokens[position]) * embedding_row_bytes,
+            cpu_embedding_rows.data() + static_cast<size_t>(position) * EMBED, EMBED);
+    model.materializer->release(embedding_ref);
+    const auto weight_staging_complete = std::chrono::steady_clock::now();
+    std::vector<std::vector<float>> cpu_layer_outputs;
+    if (!performance_mode) cpu_layer_outputs.reserve(block_count);
+    for (uint32_t layer = 0; !performance_mode && layer < block_count; ++layer) {
+        const std::string canonical_stem = "l_out-" + std::to_string(layer);
+        const std::string diagnostic_stem = "intermediate-layer-" + std::to_string(layer) + "-block_output";
+        const std::string stem = std::filesystem::exists(compare_dir + "/" + canonical_stem + ".f32") ?
+            canonical_stem : diagnostic_stem;
+        auto expected = reference(compare_dir, stem);
+        if (expected.size() != static_cast<size_t>(EMBED) * positions)
+            throw std::runtime_error("CPU vBuf layer checkpoint has invalid geometry at layer " + std::to_string(layer));
+        cpu_layer_outputs.push_back(std::move(expected));
+    }
+    std::vector<float> cuda_baseline;
+    if (!performance_mode) if (const char * baseline_dir = std::getenv("VBUF_QWEN_RESIDENT_CUDA_BASELINE_DIR")) {
+        if (*baseline_dir != '\0') {
+            cuda_baseline = reference(baseline_dir,
+                "intermediate-layer-" + std::to_string(block_count - 1) + "-block_output");
+            if (cuda_baseline.size() != static_cast<size_t>(EMBED) * positions)
+                throw std::runtime_error("legacy CUDA baseline has invalid geometry");
+        }
+    }
+    std::vector<float> cpu_final_norm, cpu_logits;
+    if (logits != nullptr && !performance_mode) {
+        cpu_final_norm = reference(compare_dir, "final_norm");
+        cpu_logits = reference(compare_dir, "logits");
+        const size_t vocab = static_cast<size_t>(logits->ne[0]);
+        if (cpu_final_norm.size() != static_cast<size_t>(EMBED) * positions ||
+            cpu_logits.size() != vocab * positions)
+            throw std::runtime_error("CPU vBuf final-head checkpoint geometry mismatch");
+    }
+    std::filesystem::path resident_export_dir;
+    if (const char * export_dir = std::getenv("VBUF_QWEN_RESIDENT_EXPORT_DIR")) {
+        if (*export_dir != '\0') {
+            resident_export_dir = export_dir;
+            std::filesystem::create_directories(resident_export_dir);
+        }
+    }
+    std::filesystem::path capture_export_dir;
+    if (const char * capture_dir = std::getenv("VBUF_QWEN_RESIDENT_CAPTURE_DIR")) {
+        if (*capture_dir != '\0') {
+            capture_export_dir = capture_dir;
+            std::filesystem::create_directories(capture_export_dir);
+        }
+    }
+    if (!capture_tensors.empty() && capture_export_dir.empty())
+        throw std::runtime_error("resident CUDA operator capture requires VBUF_QWEN_RESIDENT_CAPTURE_DIR");
+    std::vector<float> previous_output, previous_norm, previous_logit_probes;
+    std::vector<uint64_t> prefill_perf_samples_ns;
+    size_t free_after_init = 0, ignored_total = 0;
+    ggml_backend_dev_memory(device, &free_after_init, &ignored_total);
+    std::printf("resident_cuda_initialization blocks=%u graph_weight_tensors=%zu runtime_resident_tensors=%zu "
+        "runtime_upload_bytes=%llu model_allocation_bytes=%zu session_graph_scratch_bytes=%zu "
+        "session_kv_allocation_bytes=%zu session_prefill_scratch_bytes=%zu vram_free_before=%zu "
+        "vram_free_after_init=%zu backend=%s device=%s\n",
+        block_count, weights.size(), runtime_state->resident_tensor_count(),
+        static_cast<unsigned long long>(runtime_state->uploaded_payload_bytes()),
+        runtime_state->resident_allocation_bytes(), buffer_bytes, session_state->allocation_bytes(),
+        session_state->prefill_scratch_bytes(), free_before, free_after_init, backend_name.c_str(),
+        device == nullptr ? "unknown" : ggml_backend_dev_name(device));
+    const auto resident_initialization_complete = std::chrono::steady_clock::now();
+    if (performance_mode) std::printf("resident_cuda_perf_initialization runtime_create_and_upload_ms=%.3f "
+        "session_graph_allocation_ms=%.3f embedding_cpu_diagnostic_materialize_ms=%.3f "
+        "resident_setup_total_ms=%.3f\n",
+        std::chrono::duration<double, std::milli>(backend_init_complete - backend_init_begin).count(),
+        std::chrono::duration<double, std::milli>(allocation_complete - allocation_begin).count(),
+        std::chrono::duration<double, std::milli>(weight_staging_complete - weight_staging_begin).count(),
+        std::chrono::duration<double, std::milli>(resident_initialization_complete - resident_initialization_begin).count());
+    cuda_audit_snapshot("INITIALIZATION_COMPLETE");
+
+    for (uint32_t run = 1; run <= 3; ++run) {
+        session_state->reset();
+        const std::string label = "RUN" + std::to_string(run) + "_BEGIN";
+        cuda_audit_snapshot(label.c_str());
+        std::vector<DeviceResidentTensor> leases;
+        leases.reserve(weights.size());
+        for (Tensor * tensor : weights) {
+            DeviceResidencyKey key;
+            key.artifact_identity = model.artifact_identity;
+            key.tensor_id = tensor->id;
+            key.source_offset = tensor->offset;
+            key.payload_length = tensor->length;
+            key.representation = tensor->view.representation;
+            key.shape.assign(tensor->view.dimensions, tensor->view.dimensions + tensor->view.rank);
+            key.backend = backend_name;
+            key.device_id = 0;
+            auto resident_tensor = residency->acquire_device(key);
+            if (!resident_tensor || resident_tensor->backend_handle != tensor->ggml)
+                throw std::runtime_error("resident weight identity miss before execution: " + tensor->name);
+            leases.push_back(std::move(*resident_tensor));
+        }
+        if (performance_mode) cuda_audit_snapshot(("PERF_PREFILL_RUN" + std::to_string(run) + "_BEGIN").c_str());
+        const auto prefill_begin = std::chrono::steady_clock::now();
+        if (ggml_backend_graph_compute_async(backend, graph) != GGML_STATUS_SUCCESS)
+            throw std::runtime_error("resident Qwen CUDA graph execution failed");
+        session_state->commit_tokens(positions);
+        if (performance_mode) {
+            ggml_backend_synchronize(backend);
+            const auto prefill_complete = std::chrono::steady_clock::now();
+            cuda_audit_snapshot(("PERF_PREFILL_RUN" + std::to_string(run) + "_DONE").c_str());
+            for (const Tensor * tensor : weights) {
+                DeviceResidencyKey key;
+                key.artifact_identity = model.artifact_identity; key.tensor_id = tensor->id;
+                key.source_offset = tensor->offset; key.payload_length = tensor->length;
+                key.representation = tensor->view.representation;
+                key.shape.assign(tensor->view.dimensions, tensor->view.dimensions + tensor->view.rank);
+                key.backend = backend_name; key.device_id = 0;
+                if (!residency->release_device(key)) throw std::runtime_error("prefill perf lease release failed");
+            }
+            const uint64_t elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(prefill_complete - prefill_begin).count();
+            if (run > 1) prefill_perf_samples_ns.push_back(elapsed_ns);
+            std::vector<float> final_logits(static_cast<size_t>(logits->ne[0]));
+            ggml_backend_tensor_get_async(backend, logits, final_logits.data(),
+                static_cast<size_t>(positions - 1) * logits->ne[0] * sizeof(float),
+                final_logits.size() * sizeof(float));
+            ggml_backend_synchronize(backend);
+            if (std::any_of(final_logits.begin(), final_logits.end(), [](float value) { return !std::isfinite(value); }))
+                throw std::runtime_error("resident CUDA prefill final logits are non-finite");
+            size_t free_after_prefill = 0;
+            ggml_backend_dev_memory(device, &free_after_prefill, &ignored_total);
+            std::printf("resident_cuda_perf_prefill_run=%u warmup=%s tokens=%u wall_ms=%.3f vram_free=%zu final_logits=FINITE\n",
+                run, run == 1 ? "YES" : "NO", positions, elapsed_ns / 1e6, free_after_prefill);
+            continue;
+        }
+        std::vector<float> output(static_cast<size_t>(EMBED) * positions);
+        std::vector<std::vector<uint8_t>> capture_bytes;
+        std::vector<std::vector<float>> layer_outputs;
+        std::vector<float> selected_rows;
+        if (run == 1) {
+            layer_outputs.resize(block_count);
+            for (uint32_t layer = 0; layer < block_count; ++layer) {
+                layer_outputs[layer].resize(static_cast<size_t>(EMBED) * positions);
+                ggml_backend_tensor_get_async(backend, block_outputs[layer],
+                    layer_outputs[layer].data(), 0, layer_outputs[layer].size() * sizeof(float));
+            }
+            selected_rows.resize(static_cast<size_t>(EMBED) * positions);
+            ggml_backend_tensor_get_async(backend, embedding_rows,
+                selected_rows.data(), 0, selected_rows.size() * sizeof(float));
+            capture_bytes.resize(capture_tensors.size());
+            for (size_t capture = 0; capture < capture_tensors.size(); ++capture) {
+                const auto * tensor = capture_tensors[capture].second;
+                capture_bytes[capture].resize(ggml_nbytes(tensor));
+                ggml_backend_tensor_get_async(backend, const_cast<ggml_tensor *>(tensor),
+                    capture_bytes[capture].data(), 0, capture_bytes[capture].size());
+            }
+        } else {
+            ggml_backend_tensor_get_async(backend, block_input, output.data(), 0,
+                output.size() * sizeof(float));
+        }
+        std::vector<float> norm_output;
+        std::vector<uint32_t> logit_prefixes;
+        std::vector<std::vector<float>> logit_rows;
+        if (logits != nullptr) {
+            norm_output.resize(static_cast<size_t>(EMBED) * positions);
+            ggml_backend_tensor_get_async(backend, final_norm_output,
+                norm_output.data(), 0, norm_output.size() * sizeof(float));
+            const size_t vocab = static_cast<size_t>(logits->ne[0]);
+            for (uint32_t prefix = 1; prefix <= positions; ++prefix) {
+                if (prefix > positions) continue;
+                logit_prefixes.push_back(prefix);
+                logit_rows.emplace_back(vocab);
+                ggml_backend_tensor_get_async(backend, logits,
+                    logit_rows.back().data(), static_cast<size_t>(prefix - 1) * vocab * sizeof(float),
+                    vocab * sizeof(float));
+            }
+        }
+        ggml_backend_synchronize(backend);
+        if (run == 1 && !capture_tensors.empty()) {
+            std::ofstream metadata(capture_export_dir / "resident-capture.meta");
+            metadata << "layer=" << capture_layer << " position=" << capture_position
+                << " positions=" << positions << " tokens=";
+            for (size_t i = 0; i < tokens.size(); ++i) metadata << (i == 0 ? "" : ",") << tokens[i];
+            metadata << "\n";
+            for (size_t capture = 0; capture < capture_tensors.size(); ++capture) {
+                const auto & item = capture_tensors[capture];
+                const auto * tensor = item.second;
+                const std::string stem = "layer-" + std::to_string(capture_layer) + "-" + item.first;
+                write_binary_export(capture_export_dir / (stem + ".bin"), capture_bytes[capture].data(),
+                    capture_bytes[capture].size());
+                metadata << stem << " type=" << ggml_type_name(tensor->type) << " ne="
+                    << tensor->ne[0] << "," << tensor->ne[1] << "," << tensor->ne[2] << "," << tensor->ne[3]
+                    << " bytes=" << capture_bytes[capture].size() << "\n";
+            }
+            if (!metadata) throw std::runtime_error("failed writing resident CUDA operator capture metadata");
+            const auto score_capture = std::find_if(capture_tensors.begin(), capture_tensors.end(),
+                [](const auto & item) { return item.first == "attention_scores"; });
+            if (score_capture != capture_tensors.end()) {
+                const size_t score_index = static_cast<size_t>(score_capture - capture_tensors.begin());
+                const uint32_t keys = static_cast<uint32_t>(score_capture->second->ne[0]);
+                const uint32_t queries = static_cast<uint32_t>(score_capture->second->ne[1]);
+                const uint32_t heads = static_cast<uint32_t>(score_capture->second->ne[2]);
+                const float * all_scores = reinterpret_cast<const float *>(capture_bytes[score_index].data());
+                std::vector<float> score_row(static_cast<size_t>(keys) * heads);
+                std::vector<float> softmax_mask(keys);
+                for (uint32_t key = 0; key < keys; ++key)
+                    softmax_mask[key] = key <= capture_position ? 0.0f : -INFINITY;
+                for (uint32_t head = 0; head < heads; ++head)
+                    for (uint32_t key = 0; key < keys; ++key)
+                        score_row[static_cast<size_t>(head) * keys + key] =
+                            all_scores[(static_cast<size_t>(head) * queries + capture_position) * keys + key];
+                const auto cpu_softmax = run_softmax_backend(GGML_BACKEND_DEVICE_TYPE_CPU,
+                    score_row, softmax_mask, keys, heads);
+                const auto cuda_softmax = run_softmax_backend(GGML_BACKEND_DEVICE_TYPE_GPU,
+                    score_row, softmax_mask, keys, heads);
+                std::vector<float> fp64_softmax(score_row.size(), 0.0f);
+                const double scale = 1.0 / std::sqrt(static_cast<double>(HEAD_DIM));
+                for (uint32_t head = 0; head < heads; ++head) {
+                    double max_value = -std::numeric_limits<double>::infinity();
+                    for (uint32_t key = 0; key <= capture_position; ++key)
+                        max_value = std::max(max_value, static_cast<double>(score_row[static_cast<size_t>(head) * keys + key]) * scale);
+                    double sum = 0;
+                    for (uint32_t key = 0; key <= capture_position; ++key)
+                        sum += std::exp(static_cast<double>(score_row[static_cast<size_t>(head) * keys + key]) * scale - max_value);
+                    for (uint32_t key = 0; key <= capture_position; ++key)
+                        fp64_softmax[static_cast<size_t>(head) * keys + key] = static_cast<float>(
+                            std::exp(static_cast<double>(score_row[static_cast<size_t>(head) * keys + key]) * scale - max_value) / sum);
+                }
+                compare("same_score_cpu_softmax_vs_fp64", cpu_softmax, fp64_softmax, 1);
+                compare("same_score_cuda_softmax_vs_fp64", cuda_softmax, fp64_softmax, 1);
+                compare("same_score_cuda_softmax_vs_cpu", cuda_softmax, cpu_softmax, 1);
+                write_f32_export(capture_export_dir / "same-score-softmax-cpu.f32", cpu_softmax);
+                write_f32_export(capture_export_dir / "same-score-softmax-cuda.f32", cuda_softmax);
+                write_f32_export(capture_export_dir / "same-score-softmax-fp64.f32", fp64_softmax);
+            }
+        }
+        if (run == 1) output = layer_outputs.back();
+        for (const Tensor * tensor : weights) {
+            DeviceResidencyKey key;
+            key.artifact_identity = model.artifact_identity;
+            key.tensor_id = tensor->id;
+            key.source_offset = tensor->offset;
+            key.payload_length = tensor->length;
+            key.representation = tensor->view.representation;
+            key.shape.assign(tensor->view.dimensions, tensor->view.dimensions + tensor->view.rank);
+            key.backend = backend_name;
+            key.device_id = 0;
+            if (!residency->release_device(key))
+                throw std::runtime_error("resident weight lease release failed");
+        }
+        if (std::any_of(output.begin(), output.end(), [](float value) { return !std::isfinite(value); }))
+            throw std::runtime_error("resident Qwen CUDA block output is non-finite");
+        if (run == 1) {
+            compare("embedding_device_gather_cpu_decode", selected_rows, cpu_embedding_rows, positions);
+            if (!within_fixed_tolerance(selected_rows, cpu_embedding_rows))
+                throw std::runtime_error("CUDA device-side embedding gather differs from CPU decode");
+            for (uint32_t layer = 0; layer < block_count; ++layer) {
+                if (std::any_of(layer_outputs[layer].begin(), layer_outputs[layer].end(),
+                    [](float value) { return !std::isfinite(value); }))
+                    throw std::runtime_error("resident CUDA layer output is non-finite at layer " + std::to_string(layer));
+                if (!compare("resident_cuda_vs_cpu_vbuf_layer_" + std::to_string(layer),
+                    layer_outputs[layer], cpu_layer_outputs[layer], positions))
+                    throw std::runtime_error("resident CUDA layer output is non-finite at layer " + std::to_string(layer));
+                if (!resident_export_dir.empty())
+                    write_f32_export(resident_export_dir / ("resident-layer-" + std::to_string(layer) + ".f32"),
+                        layer_outputs[layer]);
+            }
+            if (!resident_export_dir.empty())
+                write_f32_export(resident_export_dir / "resident-final-hidden.f32", output);
+        } else if (!compare("resident_cuda_final_vs_cpu_vbuf_run_" + std::to_string(run),
+            output, cpu_layer_outputs.back(), positions)) {
+            throw std::runtime_error("resident CUDA final output is non-finite");
+        }
+        std::vector<float> current_logit_probes;
+        if (logits != nullptr) {
+            if (!compare("resident_cuda_final_norm_vs_cpu_vbuf_run_" + std::to_string(run),
+                norm_output, cpu_final_norm, positions))
+                throw std::runtime_error("resident CUDA final RMSNorm is non-finite");
+            if (std::any_of(norm_output.begin(), norm_output.end(),
+                [](float value) { return !std::isfinite(value); }))
+                throw std::runtime_error("resident CUDA final RMSNorm contains NaN/Inf");
+            if (!previous_norm.empty() && (previous_norm.size() != norm_output.size() ||
+                std::memcmp(previous_norm.data(), norm_output.data(), norm_output.size() * sizeof(float)) != 0))
+                throw std::runtime_error("resident CUDA final RMSNorm is not repeatable");
+            previous_norm = norm_output;
+            const auto top_indices = [](const std::vector<float> & values, size_t count) {
+                std::vector<uint32_t> indices(values.size());
+                std::iota(indices.begin(), indices.end(), 0);
+                count = std::min(count, indices.size());
+                std::partial_sort(indices.begin(), indices.begin() + count, indices.end(),
+                    [&](uint32_t a, uint32_t b) {
+                        return values[a] == values[b] ? a < b : values[a] > values[b];
+                    });
+                indices.resize(count);
+                return indices;
+            };
+            for (size_t probe = 0; probe < logit_prefixes.size(); ++probe) {
+                const uint32_t prefix = logit_prefixes[probe];
+                std::vector<float> cpu_row(cpu_logits.begin() + static_cast<size_t>(prefix - 1) * logits->ne[0],
+                    cpu_logits.begin() + static_cast<size_t>(prefix) * logits->ne[0]);
+                const std::vector<float> & gpu_row = logit_rows[probe];
+                if (std::any_of(gpu_row.begin(), gpu_row.end(),
+                    [](float value) { return !std::isfinite(value); }))
+                    throw std::runtime_error("resident CUDA logits contain NaN/Inf at prefix " + std::to_string(prefix));
+                if (!compare("resident_cuda_logits_vs_cpu_vbuf_prefix_" + std::to_string(prefix),
+                    gpu_row, cpu_row, 1))
+                    throw std::runtime_error("resident CUDA logits are non-finite");
+                const auto cpu_top5 = top_indices(cpu_row, 5);
+                const auto gpu_top5 = top_indices(gpu_row, 5);
+                const size_t overlap5 = static_cast<size_t>(std::count_if(gpu_top5.begin(), gpu_top5.end(),
+                    [&](uint32_t token) { return std::find(cpu_top5.begin(), cpu_top5.end(), token) != cpu_top5.end(); }));
+                const auto cpu_top10 = top_indices(cpu_row, 10);
+                const auto gpu_top10 = top_indices(gpu_row, 10);
+                const size_t overlap10 = static_cast<size_t>(std::count_if(gpu_top10.begin(), gpu_top10.end(),
+                    [&](uint32_t token) { return std::find(cpu_top10.begin(), cpu_top10.end(), token) != cpu_top10.end(); }));
+                const auto cpu_top2 = top_indices(cpu_row, 2);
+                const auto gpu_top2 = top_indices(gpu_row, 2);
+                const float cpu_margin = cpu_row[cpu_top2[0]] - cpu_row[cpu_top2[1]];
+                const float gpu_margin = gpu_row[gpu_top2[0]] - gpu_row[gpu_top2[1]];
+                std::string token_status = "TOKEN MATCH";
+                if (cpu_top10[0] != gpu_top10[0]) {
+                    const float cpu_gap = cpu_row[cpu_top10[0]] - cpu_row[gpu_top10[0]];
+                    const float top_error = std::max(std::abs(gpu_row[cpu_top10[0]] - cpu_row[cpu_top10[0]]),
+                        std::abs(gpu_row[gpu_top10[0]] - cpu_row[gpu_top10[0]]));
+                    token_status = cpu_gap <= 2.0f * top_error ?
+                        "NEAR-TIE DIVERGENCE" : "SIGNIFICANT DIVERGENCE";
+                }
+                std::printf("resident_cuda_greedy_prefix=%u status=%s cpu_top1=%u gpu_top1=%u "
+                    "cpu_top1_top2_margin=%.9g gpu_top1_top2_margin=%.9g top5_overlap=%zu/5 top10_overlap=%zu/10\n",
+                    prefix, token_status.c_str(), cpu_top10[0], gpu_top10[0],
+                    cpu_margin, gpu_margin, overlap5, overlap10);
+                current_logit_probes.insert(current_logit_probes.end(), gpu_row.begin(), gpu_row.end());
+            }
+            if (!previous_logit_probes.empty() && (previous_logit_probes.size() != current_logit_probes.size() ||
+                std::memcmp(previous_logit_probes.data(), current_logit_probes.data(),
+                    current_logit_probes.size() * sizeof(float)) != 0))
+                throw std::runtime_error("resident CUDA logit probes are not repeatable");
+            previous_logit_probes = current_logit_probes;
+            if (run == 1 && !resident_export_dir.empty()) {
+                write_f32_export(resident_export_dir / "resident-final-norm.f32", norm_output);
+                for (size_t probe = 0; probe < logit_prefixes.size(); ++probe)
+                    write_f32_export(resident_export_dir /
+                        ("resident-logits-prefix-" + std::to_string(logit_prefixes[probe]) + ".f32"),
+                        logit_rows[probe]);
+            }
+        }
+        if (!cuda_baseline.empty()) {
+            compare("resident_cuda_final_vs_legacy_cuda_run_" + std::to_string(run), output,
+                cuda_baseline, positions);
+            if (!within_fixed_tolerance(output, cuda_baseline))
+                throw std::runtime_error("resident CUDA result differs from legacy CUDA baseline by more than 1e-5");
+        }
+        if (!previous_output.empty() && (previous_output.size() != output.size() ||
+            std::memcmp(previous_output.data(), output.data(), output.size() * sizeof(float)) != 0))
+            throw std::runtime_error("repeated resident CUDA block output is not bit-identical");
+        previous_output = output;
+        const size_t all_layer_readback_bytes = run == 1 ?
+            static_cast<size_t>(block_count) * output.size() * sizeof(float) : 0;
+        size_t head_readback_bytes = norm_output.size() * sizeof(float);
+        for (const auto & row : logit_rows) head_readback_bytes += row.size() * sizeof(float);
+        std::printf("resident_cuda_run=%u result=PASS weight_H2D_expected=0 embedding_H2D_expected=0 "
+            "resident_payload_bytes=%llu final_readback_bytes=%zu all_layer_readback_bytes=%zu "
+            "head_output_readback_bytes=%zu repeat_bit_identical=%s\n",
+            run, static_cast<unsigned long long>(residency->device_resident_bytes()),
+            output.size() * sizeof(float), all_layer_readback_bytes, head_readback_bytes,
+            run == 1 ? "baseline" : "YES");
+        const std::string end_label = "RUN" + std::to_string(run) + "_END";
+        cuda_audit_snapshot(end_label.c_str());
+    }
+    if (performance_mode && !prefill_perf_samples_ns.empty()) {
+        std::vector<uint64_t> sorted = prefill_perf_samples_ns;
+        std::sort(sorted.begin(), sorted.end());
+        const uint64_t total_ns = std::accumulate(sorted.begin(), sorted.end(), uint64_t{0});
+        const double mean_ns = static_cast<double>(total_ns) / sorted.size();
+        const double median_ns = (sorted.size() % 2 ? static_cast<double>(sorted[sorted.size() / 2]) :
+            (static_cast<double>(sorted[sorted.size() / 2 - 1]) + sorted[sorted.size() / 2]) / 2.0);
+        std::printf("resident_cuda_perf_prefill_summary warmup_runs=1 timed_runs=%zu tokens=%u "
+            "mean_ms=%.3f median_ms=%.3f mean_tokens_per_second=%.3f median_tokens_per_second=%.3f\n",
+            sorted.size(), positions, mean_ns / 1e6, median_ns / 1e6,
+            positions * 1e9 / mean_ns, positions * 1e9 / median_ns);
+    }
+    if (logits != nullptr && !performance_mode) {
+        std::vector<float> cpu_norm_same_gpu_hidden;
+        const auto cpu_logits_same_gpu_hidden = run_final_head(model, "", previous_output,
+            false, &cpu_norm_same_gpu_hidden);
+        if (!resident_export_dir.empty()) {
+            write_f32_export(resident_export_dir / "cpu-head-same-gpu-hidden-norm.f32", cpu_norm_same_gpu_hidden);
+            write_f32_export(resident_export_dir / "cpu-head-same-gpu-hidden-logits.f32", cpu_logits_same_gpu_hidden);
+        }
+        const size_t vocab = cpu_logits_same_gpu_hidden.size() / positions;
+        if (cpu_logits_same_gpu_hidden.size() != vocab * positions || vocab == 0)
+            throw std::runtime_error("same-hidden CPU final-head logits geometry mismatch");
+        const std::vector<float> cpu_last_logits(cpu_logits_same_gpu_hidden.end() - vocab,
+            cpu_logits_same_gpu_hidden.end());
+        const std::vector<float> gpu_last_logits(previous_logit_probes.end() - vocab,
+            previous_logit_probes.end());
+        if (!compare("resident_cuda_final_norm_vs_cpu_same_gpu_hidden",
+            previous_norm, cpu_norm_same_gpu_hidden, positions) ||
+            !compare("resident_cuda_logits_vs_cpu_same_gpu_hidden_prefix_" + std::to_string(positions),
+                gpu_last_logits, cpu_last_logits, 1))
+            throw std::runtime_error("same-hidden CPU final-head control is non-finite");
+        const auto best_two = [](const std::vector<float> & values) {
+            std::array<uint32_t, 2> best{0, 1};
+            if (values[best[1]] > values[best[0]]) std::swap(best[0], best[1]);
+            for (uint32_t i = 2; i < values.size(); ++i) {
+                if (values[i] > values[best[0]]) { best[1] = best[0]; best[0] = i; }
+                else if (values[i] > values[best[1]]) best[1] = i;
+            }
+            return best;
+        };
+        const auto cpu_best = best_two(cpu_last_logits);
+        const auto gpu_best = best_two(gpu_last_logits);
+        std::printf("resident_cuda_same_hidden_head_control cpu_top1=%u gpu_top1=%u "
+            "cpu_margin=%.9g gpu_margin=%.9g status=%s\n",
+            cpu_best[0], gpu_best[0], cpu_last_logits[cpu_best[0]] - cpu_last_logits[cpu_best[1]],
+            gpu_last_logits[gpu_best[0]] - gpu_last_logits[gpu_best[1]],
+            cpu_best[0] == gpu_best[0] ? "TOKEN MATCH" : "DIVERGENCE_REQUIRES_MARGIN_REVIEW");
+    }
+    if (residency->active_device_lease_count() != 0)
+        throw std::runtime_error("resident tensor leases remain active after runs");
+    std::printf("resident_cuda_gate weight_reupload=NO embedding_reupload=NO same_block_runs=3 "
+        "activation_chain=DEVICE_ONLY embedding_get_rows=DEVICE result=RESIDENCY_CANDIDATE\n");
+
+    ggml_backend_synchronize(backend);
+    session_state.reset();
+    runtime_state.reset();
+    if (residency->device_resident_bytes() != 0 || residency->device_resident_count() != 0)
+        throw std::runtime_error("Qwen runtime teardown retained resident tensors");
+    size_t free_after_teardown = 0;
+    ggml_backend_dev_memory(device, &free_after_teardown, &ignored_total);
+    std::printf("resident_cuda_teardown resident_entries=0 resident_bytes=0 vram_free_after_teardown=%zu\n",
+        free_after_teardown);
+    cuda_audit_snapshot("SESSION_TORN_DOWN");
+}
+
+void run_cuda_incremental_kv_qualification(Model & model, const std::vector<int32_t> & tokens,
+    uint32_t capacity, const std::string & compare_dir, bool generated_append = false) {
+    const bool capacity_only = std::getenv("VBUF_QWEN_CAPACITY_ONLY") != nullptr;
+    if (capacity == 0 || capacity > 4096 || tokens.empty() || tokens.size() > capacity ||
+        (!generated_append && !capacity_only && tokens.size() != capacity) || model.layer_count != 40 ||
+        (!generated_append && !capacity_only && compare_dir.empty()))
+        throw std::invalid_argument("resident CUDA reusable-workspace gate requires a valid capacity in 1..4096 and 40 layers");
+    const uint32_t vocabulary = static_cast<uint32_t>(get(model, "output.weight").view.dimensions[1]);
+    const bool kv_integrity_audit = std::getenv("VBUF_QWEN_INCREMENTAL_KV_AUDIT") != nullptr;
+    const bool prefill_numerical_audit = std::getenv("VBUF_QWEN_PREFILL_NUMERICAL_AUDIT") != nullptr;
+    if (prefill_numerical_audit && !kv_integrity_audit)
+        throw std::invalid_argument("prefill numerical audit requires incremental KV integrity auditing");
+    const std::vector<uint32_t> audit_layers{0u, model.layer_count / 2, 29u, model.layer_count - 1};
+    const std::vector<uint32_t> audit_positions{7u, 8u, 15u, 16u, 23u, 24u, 30u, 31u,
+        62u, 63u, 64u, 126u, 127u, 128u, 510u, 511u, 512u, 519u};
+    const size_t cache_bytes_per_position = static_cast<size_t>(KV_HEADS) * HEAD_DIM * sizeof(uint16_t);
+    cuda_audit_snapshot("BEFORE_QWEN_RUNTIME_CREATE");
+    auto runtime_state = QwenCudaRuntimeState::create(model);
+    auto session_state = runtime_state->create_session(capacity);
+    const std::string backend_name = runtime_state->backend_name();
+    ggml_backend_t backend = runtime_state->backend();
+    ggml_backend_dev_t device = runtime_state->device();
+    uint64_t session_h2d_bytes = 0, session_d2h_bytes = 0;
+    uint64_t session_h2d_calls = 0, session_d2h_calls = 0;
+    auto upload_session_tensor = [&](ggml_tensor * tensor, const void * source, size_t offset, size_t bytes) {
+        ggml_backend_tensor_set_async(backend, tensor, source, offset, bytes);
+        session_h2d_bytes += bytes;
+        ++session_h2d_calls;
+    };
+    auto download_session_tensor = [&](ggml_tensor * tensor, void * destination, size_t offset, size_t bytes) {
+        ggml_backend_tensor_get_async(backend, tensor, destination, offset, bytes);
+        session_d2h_bytes += bytes;
+        ++session_d2h_calls;
+    };
+    size_t free_after_init = 0, total_vram = 0;
+    ggml_backend_dev_memory(device, &free_after_init, &total_vram);
+    cuda_audit_snapshot("INCREMENTAL_RUNTIME_SESSION_CREATED");
+
+    std::vector<Tensor *> weights;
+    auto add_weight = [&](const std::string & name) {
+        Tensor & tensor = get(model, name);
+        ggml_tensor * resident = runtime_state->tensor(name);
+        if (resident == nullptr || resident != tensor.ggml)
+            throw std::runtime_error("runtime-owned Qwen tensor binding missing: " + name);
+        weights.push_back(&tensor);
+        return resident;
+    };
+    ggml_tensor * embedding = runtime_state->embedding();
+    if (embedding == nullptr) throw std::runtime_error("runtime-owned Qwen embedding is missing");
+    using LayerWeights = Qwen3CudaLayerWeights;
+    std::vector<LayerWeights> layer_weights;
+    layer_weights.reserve(model.layer_count);
+    std::vector<ggml_tensor *> key_cache, value_cache;
+    key_cache.reserve(model.layer_count);
+    value_cache.reserve(model.layer_count);
+    for (uint32_t layer = 0; layer < model.layer_count; ++layer) {
+        const std::string prefix = "blk." + std::to_string(layer) + ".";
+        layer_weights.push_back({
+            add_weight(prefix + "attn_norm.weight"), add_weight(prefix + "attn_q.weight"),
+            add_weight(prefix + "attn_k.weight"), add_weight(prefix + "attn_v.weight"),
+            add_weight(prefix + "attn_q_norm.weight"), add_weight(prefix + "attn_k_norm.weight"),
+            add_weight(prefix + "attn_output.weight"), add_weight(prefix + "ffn_norm.weight"),
+            add_weight(prefix + "ffn_gate.weight"), add_weight(prefix + "ffn_up.weight"),
+            add_weight(prefix + "ffn_down.weight") });
+        key_cache.push_back(session_state->key_cache(layer));
+        value_cache.push_back(session_state->value_cache(layer));
+    }
+    ggml_tensor * v_attention_workspace = session_state->packed_value_scratch();
+    ggml_tensor * output_norm_weight = add_weight("output_norm.weight");
+    ggml_tensor * output_weight = add_weight("output.weight");
+    uint32_t prefill_chunk_size = 0;
+    const bool chunked_prefill = std::getenv("VBUF_QWEN_CHUNKED_PREFILL") != nullptr;
+    if (chunked_prefill) {
+        prefill_chunk_size = 32;
+        if (const char * value = std::getenv("VBUF_QWEN_PREFILL_CHUNK"))
+            prefill_chunk_size = static_cast<uint32_t>(std::stoul(value));
+        if (prefill_chunk_size != 16 && prefill_chunk_size != 32 &&
+            prefill_chunk_size != 64 && prefill_chunk_size != 128)
+            throw std::invalid_argument("chunked Qwen prefill size must be one of 16, 32, 64, 128");
+    }
+    struct StepGraph {
+        ggml_cgraph * graph;
+        ggml_tensor * hidden;
+        ggml_tensor * norm;
+        ggml_tensor * logits;
+        ggml_tensor * argmax;
+        std::vector<std::pair<std::string, ggml_tensor *>> captures;
+    };
+    struct LayerBatchGraph {
+        std::shared_ptr<ggml_context> context;
+        ggml_cgraph * graph = nullptr;
+        ggml_tensor * hidden = nullptr;
+        ggml_tensor * norm = nullptr;
+        ggml_tensor * logits = nullptr;
+        ggml_tensor * argmax = nullptr;
+        ggml_tensor * scores = nullptr;
+        ggml_tensor * probabilities = nullptr;
+        size_t allocated_bytes = 0;
+        std::vector<std::pair<std::string, ggml_tensor *>> captures;
+    };
+    struct BatchGraph {
+        ggml_cgraph * graph = nullptr;
+        ggml_tensor * token_ids = nullptr;
+        ggml_tensor * position_ids = nullptr;
+        ggml_tensor * causal_mask = nullptr;
+        ggml_tensor * cache_rows = nullptr;
+        ggml_tensor * hidden = nullptr;
+        ggml_tensor * norm = nullptr;
+        ggml_tensor * logits = nullptr;
+        ggml_tensor * argmax = nullptr;
+        uint32_t query_count = 0;
+        std::vector<std::pair<std::string, ggml_tensor *>> captures;
+        std::vector<LayerBatchGraph> layers;
+        std::shared_ptr<void> scratch_allocation;
+        size_t scratch_buffer_bytes = 0;
+    };
+    auto checked_mul_mat = [&](ggml_tensor * a, ggml_tensor * b, const std::string & label) {
+        if (a->ne[0] != b->ne[0] || a->ne[2] == 0 || a->ne[3] == 0 ||
+            b->ne[2] % a->ne[2] != 0 || b->ne[3] % a->ne[3] != 0)
+            throw std::runtime_error("reusable graph invalid matmul at " + label + " a=" +
+                std::to_string(a->ne[0]) + "x" + std::to_string(a->ne[1]) + "x" + std::to_string(a->ne[2]) +
+                " b=" + std::to_string(b->ne[0]) + "x" + std::to_string(b->ne[1]) + "x" + std::to_string(b->ne[2]));
+        return ggml_mul_mat(session_state->graph_context(), a, b);
+    };
+    auto build_batch_graph = [&](uint32_t query_count, bool include_diagnostics, bool first_layer_only = false) {
+        BatchGraph batch;
+        batch.query_count = query_count;
+        batch.token_ids = ggml_new_tensor_1d(session_state->graph_context(), GGML_TYPE_I32, query_count);
+        batch.position_ids = ggml_new_tensor_1d(session_state->graph_context(), GGML_TYPE_I32, query_count);
+        batch.causal_mask = ggml_new_tensor_2d(session_state->graph_context(), GGML_TYPE_F32, capacity, query_count);
+        batch.cache_rows = ggml_new_tensor_1d(session_state->graph_context(), GGML_TYPE_I32, KV_HEADS * query_count);
+        ggml_tensor * hidden = ggml_get_rows(session_state->graph_context(), embedding, batch.token_ids);
+        for (uint32_t layer = 0; layer < model.layer_count; ++layer) {
+            const LayerWeights & w = layer_weights[layer];
+            const bool capture_layer = include_diagnostics && kv_integrity_audit &&
+                (first_layer_only ? layer == 0 :
+                    std::find(audit_layers.begin(), audit_layers.end(), layer) != audit_layers.end());
+            auto capture_tensor = [&](const char * name, ggml_tensor * tensor) {
+                if (!capture_layer) return;
+                ggml_set_output(tensor);
+                batch.captures.emplace_back("layer-" + std::to_string(layer) + "-" + name, tensor);
+            };
+            const auto layer_graph = qwen3_cuda_build_layer(session_state->graph_context(), w, hidden,
+                batch.position_ids, batch.causal_mask, batch.cache_rows,
+                key_cache[layer], value_cache[layer], v_attention_workspace,
+                query_count, capacity, [&](const char * name, ggml_tensor * tensor) {
+                    capture_tensor(name, tensor);
+                });
+            hidden = layer_graph.hidden;
+            ggml_tensor * scores = layer_graph.scores;
+            ggml_tensor * probabilities = layer_graph.probabilities;
+        }
+        batch.hidden = hidden;
+        batch.norm = ggml_mul(session_state->graph_context(), ggml_rms_norm(session_state->graph_context(), hidden, 1e-6f), output_norm_weight);
+        batch.logits = checked_mul_mat(output_weight, batch.norm, "LM head");
+        batch.argmax = ggml_argmax(session_state->graph_context(), batch.logits);
+        batch.graph = ggml_new_graph_custom(session_state->graph_context(), 4096, false);
+        if (!batch.graph || !batch.logits || !batch.argmax)
+            throw std::runtime_error("reusable Qwen CUDA graph construction failed");
+        ggml_build_forward_expand(batch.graph, batch.argmax);
+        for (const auto & capture : batch.captures) ggml_build_forward_expand(batch.graph, capture.second);
+        return batch;
+    };
+    ggml_tensor * prefill_token_ids = nullptr;
+    ggml_tensor * prefill_position_ids = nullptr;
+    ggml_tensor * prefill_causal_mask = nullptr;
+    ggml_tensor * prefill_cache_rows = nullptr;
+    ggml_tensor * prefill_hidden_ping = nullptr;
+    ggml_tensor * prefill_hidden_pong = nullptr;
+    auto build_layered_prefill_graph = [&](uint32_t query_count, bool include_diagnostics,
+        bool first_layer_only) {
+        BatchGraph batch;
+        batch.query_count = query_count;
+        batch.token_ids = prefill_token_ids;
+        batch.position_ids = prefill_position_ids;
+        batch.causal_mask = prefill_causal_mask;
+        batch.cache_rows = prefill_cache_rows;
+        batch.layers.reserve(model.layer_count);
+        for (uint32_t layer = 0; layer < model.layer_count; ++layer) {
+            ggml_init_params layer_params{ 2 * 1024 * 1024, nullptr, true };
+            ggml_context * raw_context = ggml_init(layer_params);
+            if (raw_context == nullptr) throw std::runtime_error("Qwen prefill layer context allocation failed");
+            LayerBatchGraph item;
+            item.context = std::shared_ptr<ggml_context>(raw_context,
+                [](ggml_context * context) { ggml_free(context); });
+            ggml_context * ctx = raw_context;
+            const LayerWeights & w = layer_weights[layer];
+            const bool capture_layer = include_diagnostics && kv_integrity_audit &&
+                (first_layer_only ? layer == 0 :
+                    std::find(audit_layers.begin(), audit_layers.end(), layer) != audit_layers.end());
+            auto capture_tensor = [&](const char * name, ggml_tensor * tensor) {
+                if (!capture_layer) return;
+                ggml_set_output(tensor);
+                item.captures.emplace_back("layer-" + std::to_string(layer) + "-" + name, tensor);
+            };
+            ggml_tensor * hidden = layer == 0 ? ggml_get_rows(ctx, embedding, batch.token_ids) :
+                ((layer & 1U) != 0 ? prefill_hidden_ping : prefill_hidden_pong);
+            ggml_tensor * hidden_output = (layer & 1U) == 0 ? prefill_hidden_ping : prefill_hidden_pong;
+            const auto layer_graph = qwen3_cuda_build_layer(ctx, w, hidden,
+                batch.position_ids, batch.causal_mask, batch.cache_rows,
+                key_cache[layer], value_cache[layer], v_attention_workspace,
+                query_count, capacity, [&](const char * name, ggml_tensor * tensor) {
+                    capture_tensor(name, tensor);
+                });
+            ggml_tensor * block_output = layer_graph.hidden;
+            item.scores = layer_graph.scores;
+            item.probabilities = layer_graph.probabilities;
+            ggml_tensor * committed_output = ggml_cpy(ctx, block_output, hidden_output);
+            item.hidden = hidden_output;
+            ggml_tensor * graph_output = committed_output;
+            if (layer + 1 == model.layer_count) {
+                item.norm = ggml_mul(ctx, ggml_rms_norm(ctx, committed_output, 1e-6f), output_norm_weight);
+                if (output_weight->ne[0] != item.norm->ne[0])
+                    throw std::runtime_error("chunked prefill LM head geometry mismatch");
+                item.logits = ggml_mul_mat(ctx, output_weight, item.norm);
+                item.argmax = ggml_argmax(ctx, item.logits);
+                graph_output = item.argmax;
+            }
+            item.graph = ggml_new_graph_custom(ctx, 1024, false);
+            if (item.graph == nullptr) throw std::runtime_error("Qwen per-layer prefill graph allocation failed");
+            ggml_build_forward_expand(item.graph, graph_output);
+            for (const auto & capture : item.captures) ggml_build_forward_expand(item.graph, capture.second);
+            batch.layers.push_back(std::move(item));
+        }
+        batch.graph = batch.layers.front().graph;
+        batch.hidden = batch.layers.back().hidden;
+        batch.norm = batch.layers.back().norm;
+        batch.logits = batch.layers.back().logits;
+        batch.argmax = batch.layers.back().argmax;
+        batch.captures = batch.layers.front().captures;
+        return batch;
+    };
+    BatchGraph decode_batch = build_batch_graph(1, true, false);
+    std::vector<ggml_tensor *> token_ids{decode_batch.token_ids};
+    std::vector<ggml_tensor *> position_ids{decode_batch.position_ids};
+    std::vector<ggml_tensor *> causal_masks{decode_batch.causal_mask};
+    std::vector<ggml_tensor *> cache_row_indices{decode_batch.cache_rows};
+    std::vector<std::vector<float>> host_masks(1, std::vector<float>(capacity));
+    std::vector<std::vector<int32_t>> host_cache_rows(1, std::vector<int32_t>(KV_HEADS));
+    std::vector<int32_t> host_positions(1);
+    std::vector<StepGraph> steps{{decode_batch.graph, decode_batch.hidden, decode_batch.norm,
+        decode_batch.logits, decode_batch.argmax, decode_batch.captures}};
+    BatchGraph prefill_batch;
+    if (chunked_prefill) {
+        prefill_token_ids = ggml_new_tensor_1d(session_state->graph_context(), GGML_TYPE_I32, prefill_chunk_size);
+        prefill_position_ids = ggml_new_tensor_1d(session_state->graph_context(), GGML_TYPE_I32, prefill_chunk_size);
+        prefill_causal_mask = ggml_new_tensor_2d(session_state->graph_context(), GGML_TYPE_F32,
+            capacity, prefill_chunk_size);
+        prefill_cache_rows = ggml_new_tensor_1d(session_state->graph_context(), GGML_TYPE_I32,
+            KV_HEADS * prefill_chunk_size);
+        prefill_hidden_ping = ggml_new_tensor_2d(session_state->graph_context(), GGML_TYPE_F32, EMBED, prefill_chunk_size);
+        prefill_hidden_pong = ggml_new_tensor_2d(session_state->graph_context(), GGML_TYPE_F32, EMBED, prefill_chunk_size);
+        prefill_batch = build_layered_prefill_graph(prefill_chunk_size,
+            prefill_numerical_audit, prefill_numerical_audit);
+    }
+
+    ggml_backend_buffer_t decode_scratch = session_state->allocate_decode_scratch();
+    const size_t buffer_bytes = session_state->decode_scratch_bytes();
+    if (decode_scratch == nullptr || buffer_bytes == 0)
+        throw std::runtime_error("Qwen session decode scratch allocation failed");
+    if (chunked_prefill) {
+        ggml_backend_buffer_type_t scratch_buft = ggml_backend_get_default_buffer_type(backend);
+        size_t max_layer_bytes = 0;
+        for (LayerBatchGraph & layer : prefill_batch.layers) {
+            layer.allocated_bytes = ggml_backend_alloc_ctx_tensors_from_buft_size(layer.context.get(), scratch_buft);
+            max_layer_bytes = std::max(max_layer_bytes, layer.allocated_bytes);
+        }
+        ggml_backend_buffer_t scratch = session_state->prefill_scratch();
+        if (max_layer_bytes == 0 || scratch == nullptr || max_layer_bytes > session_state->prefill_scratch_bytes())
+            throw std::runtime_error("Qwen session prefill scratch is smaller than the reusable layer plan");
+        prefill_batch.scratch_allocation = std::shared_ptr<void>(scratch, [](void *) {});
+        prefill_batch.scratch_buffer_bytes = session_state->prefill_scratch_bytes();
+        const uintptr_t scratch_base = reinterpret_cast<uintptr_t>(ggml_backend_buffer_get_base(scratch));
+        for (uint32_t layer_index = 0; layer_index < prefill_batch.layers.size(); ++layer_index) {
+            LayerBatchGraph & layer = prefill_batch.layers[layer_index];
+            ggml_tallocr allocator = ggml_tallocr_new(scratch);
+            for (ggml_tensor * tensor = ggml_get_first_tensor(layer.context.get()); tensor != nullptr;
+                tensor = ggml_get_next_tensor(layer.context.get(), tensor)) {
+                if (tensor->buffer != nullptr) continue;
+                ggml_status status = GGML_STATUS_SUCCESS;
+                if (tensor->view_src != nullptr) status = ggml_backend_view_init(tensor);
+                else if (tensor->data == nullptr) status = ggml_tallocr_alloc(&allocator, tensor);
+                if (status != GGML_STATUS_SUCCESS)
+                    throw std::runtime_error("Qwen prefill layer scratch binding failed at layer " +
+                        std::to_string(layer_index) + " tensor " + tensor->name);
+            }
+            if (layer.allocated_bytes > prefill_batch.scratch_buffer_bytes)
+                throw std::runtime_error("Qwen prefill layer exceeds reusable scratch allocation");
+            const uintptr_t score_address = reinterpret_cast<uintptr_t>(layer.scores->data);
+            const uintptr_t probability_address = reinterpret_cast<uintptr_t>(layer.probabilities->data);
+            std::printf("resident_cuda_prefill_layer_scratch layer=%u buffer=%p capacity_bytes=%zu layer_bytes=%zu "
+                "score_offset=%zu probability_offset=%zu\n", layer_index,
+                static_cast<void *>(scratch), prefill_batch.scratch_buffer_bytes, layer.allocated_bytes,
+                static_cast<size_t>(score_address - scratch_base),
+                static_cast<size_t>(probability_address - scratch_base));
+        }
+    }
+    std::vector<ggml_tensor *> kv_tensors;
+    kv_tensors.reserve(key_cache.size() + value_cache.size());
+    kv_tensors.insert(kv_tensors.end(), key_cache.begin(), key_cache.end());
+    kv_tensors.insert(kv_tensors.end(), value_cache.begin(), value_cache.end());
+    report_device_allocation_breakdown(runtime_state->model_context(), runtime_state->model_allocation(),
+        weights, embedding, {}, "runtime_owned_qwen_model_residency");
+    std::printf("session_owned_qwen_allocations capacity=%u kv_buffer_bytes=%zu decode_scratch_bytes=%zu "
+        "prefill_scratch_bytes=%zu packed_v_bytes=%zu\n", capacity, session_state->allocation_bytes(),
+        session_state->decode_scratch_bytes(), session_state->prefill_scratch_bytes(),
+        ggml_backend_buffer_get_alloc_size(session_state->allocation(), v_attention_workspace));
+    if (std::getenv("VBUF_QWEN_PREFILL_MEMORY_TRACE") != nullptr && chunked_prefill) {
+        uint64_t prefill_scores = 0, prefill_probabilities = 0;
+        uint64_t decode_scores = 0, decode_probabilities = 0;
+        size_t prefill_score_tensors = 0, prefill_probability_tensors = 0;
+        size_t decode_score_tensors = 0, decode_probability_tensors = 0;
+        for (ggml_tensor * tensor = ggml_get_first_tensor(session_state->graph_context()); tensor != nullptr;
+            tensor = ggml_get_next_tensor(session_state->graph_context(), tensor)) {
+            if (tensor->view_src != nullptr || tensor->ne[0] != capacity || tensor->ne[2] != HEADS)
+                continue;
+            const size_t bytes = ggml_backend_buffer_get_alloc_size(decode_scratch, tensor);
+            const bool decode_shape = tensor->ne[1] == 1;
+            if (std::string(ggml_op_name(tensor->op)) == "MUL_MAT" && decode_shape) {
+                decode_scores += bytes; ++decode_score_tensors;
+            } else if (std::string(ggml_op_name(tensor->op)) == "SOFT_MAX" && decode_shape) {
+                decode_probabilities += bytes; ++decode_probability_tensors;
+            }
+        }
+        ggml_backend_buffer_t scratch = session_state->prefill_scratch();
+        for (const LayerBatchGraph & layer : prefill_batch.layers) {
+            prefill_scores += ggml_backend_buffer_get_alloc_size(scratch, layer.scores);
+            ++prefill_score_tensors;
+            prefill_probabilities += ggml_backend_buffer_get_alloc_size(scratch, layer.probabilities);
+            ++prefill_probability_tensors;
+        }
+        std::printf("resident_cuda_prefill_memory_components capacity=%u chunk=%u "
+            "prefill_score_bytes=%llu prefill_score_tensors=%zu prefill_probability_bytes=%llu "
+            "prefill_probability_tensors=%zu prefill_mask_bytes=%zu decode_score_bytes=%llu "
+            "decode_score_tensors=%zu decode_probability_bytes=%llu decode_probability_tensors=%zu "
+            "decode_mask_bytes=%zu shared_packed_v_bytes=%zu\n", capacity, prefill_chunk_size,
+            static_cast<unsigned long long>(prefill_scores), prefill_score_tensors,
+            static_cast<unsigned long long>(prefill_probabilities), prefill_probability_tensors,
+            ggml_backend_buffer_get_alloc_size(decode_scratch, prefill_batch.causal_mask),
+            static_cast<unsigned long long>(decode_scores), decode_score_tensors,
+            static_cast<unsigned long long>(decode_probabilities), decode_probability_tensors,
+            ggml_backend_buffer_get_alloc_size(decode_scratch, decode_batch.causal_mask),
+            ggml_backend_buffer_get_alloc_size(session_state->allocation(), v_attention_workspace));
+    }
+    std::vector<int32_t> host_token_ids(capacity, 0);
+    const uint64_t weight_bytes = runtime_state->resident_model_bytes();
+    const auto residency = runtime_state->residency();
+    if (!residency || runtime_state->resident_tensor_count() != model.count || embedding != runtime_state->embedding() ||
+        runtime_state->uploaded_tensor_count() != model.count ||
+        runtime_state->uploaded_payload_bytes() != weight_bytes)
+        throw std::runtime_error("Qwen runtime model residency or one-time upload accounting is incomplete");
+    session_state->reset();
+    auto prepare_lifecycle_probe = [](const std::shared_ptr<QwenCudaSessionState> & probe) {
+        if (ggml_new_tensor_1d(probe->graph_context(), GGML_TYPE_F32, 8) == nullptr ||
+            probe->allocate_decode_scratch() == nullptr)
+            throw std::runtime_error("CUDA session lifecycle probe scratch setup failed");
+    };
+    auto audit_cuda_session_lifecycle = [&]() {
+        const uint64_t uploads_before = runtime_state->uploaded_payload_bytes();
+        const size_t tensors_before = runtime_state->uploaded_tensor_count();
+        auto isolated = runtime_state->create_session(capacity);
+        prepare_lifecycle_probe(isolated);
+        if (isolated->runtime().get() != runtime_state.get() || isolated->current_length() != 0 ||
+            isolated->key_cache(0) == session_state->key_cache(0) ||
+            isolated->value_cache(model.layer_count - 1) == session_state->value_cache(model.layer_count - 1))
+            throw std::runtime_error("simultaneous CUDA sessions are not isolated");
+        isolated->commit_tokens(1);
+        isolated->reset();
+        if (isolated->current_length() != 0) throw std::runtime_error("CUDA session reset retained logical length");
+        isolated.reset();
+        session_state->reset();
+        session_state.reset();
+        auto sequential = runtime_state->create_session(capacity);
+        prepare_lifecycle_probe(sequential);
+        sequential->commit_tokens(1);
+        sequential->reset();
+        if (sequential->current_length() != 0 || runtime_state->uploaded_payload_bytes() != uploads_before ||
+            runtime_state->uploaded_tensor_count() != tensors_before)
+            throw std::runtime_error("sequential CUDA session recreated model residency or retained logical state");
+        sequential.reset();
+        std::printf("real_cuda_session_lifecycle simultaneous_isolation=PASS sequential_session=PASS "
+            "logical_reset=PASS runtime_uploads_unchanged=YES model_upload_tensors=%zu model_upload_bytes=%llu\n",
+            tensors_before, static_cast<unsigned long long>(uploads_before));
+    };
+    std::vector<uint32_t> probes(capacity);
+    std::iota(probes.begin(), probes.end(), 1u);
+    const auto top_indices = [](const std::vector<float> & values, size_t count) {
+        std::vector<uint32_t> indices(values.size());
+        std::iota(indices.begin(), indices.end(), 0u);
+        std::partial_sort(indices.begin(), indices.begin() + std::min(count, indices.size()), indices.end(),
+            [&](uint32_t a, uint32_t b) { return values[a] > values[b]; });
+        indices.resize(std::min(count, indices.size()));
+        return indices;
+    };
+    std::vector<float> cpu_hidden, cpu_norm, cpu_logits;
+    if (!compare_dir.empty()) {
+        cpu_hidden = reference(compare_dir, "l_out-39");
+        cpu_norm = reference(compare_dir, "final_norm");
+        cpu_logits = reference(compare_dir, "logits");
+    }
+    std::string full_compare_dir;
+    if (const char * full_dir = std::getenv("VBUF_QWEN_RESIDENT_FULL_COMPARE_DIR"))
+        full_compare_dir = full_dir;
+    std::vector<float> full_hidden, full_norm;
+    std::vector<std::vector<float>> full_logits(probes.size());
+    if (!full_compare_dir.empty()) {
+        full_hidden = reference(full_compare_dir, "resident-final-hidden");
+        full_norm = reference(full_compare_dir, "resident-final-norm");
+        for (size_t p = 0; p < probes.size(); ++p)
+            full_logits[p] = reference(full_compare_dir, "resident-logits-prefix-" + std::to_string(probes[p]));
+    }
+    const size_t oracle_positions = cpu_hidden.size() / EMBED;
+    if (!compare_dir.empty() && (cpu_hidden.size() != oracle_positions * EMBED || oracle_positions < capacity ||
+        cpu_norm.size() != oracle_positions * EMBED || cpu_logits.size() != oracle_positions * vocabulary))
+        throw std::runtime_error("incremental CPU vBuf oracle geometry mismatch");
+    if (!full_compare_dir.empty() && (full_hidden.size() < capacity * EMBED ||
+        full_norm.size() < capacity * EMBED || std::any_of(full_logits.begin(), full_logits.end(),
+            [&](const std::vector<float> & values) { return values.size() != vocabulary; })))
+        throw std::runtime_error("resident full-recompute CUDA oracle geometry mismatch");
+    size_t ignored_total = 0;
+    std::printf("resident_cuda_incremental_init tokens=%u weights=%llu decode_scratch_bytes=%zu kv_bytes=%llu "
+        "free_vram_after_init=%zu backend=%s runtime_model_upload_tensors=%zu runtime_model_upload_bytes=%llu\n",
+        capacity, static_cast<unsigned long long>(weight_bytes), buffer_bytes,
+        static_cast<unsigned long long>(capacity) * model.layer_count * KV_HEADS * HEAD_DIM * 2 * sizeof(uint16_t),
+        free_after_init, backend_name.c_str(), runtime_state->uploaded_tensor_count(),
+        static_cast<unsigned long long>(runtime_state->uploaded_payload_bytes()));
+    cuda_audit_snapshot("INCREMENTAL_INITIALIZATION_COMPLETE");
+    if (capacity_only) {
+        if (residency->active_device_lease_count() != 0)
+            throw std::runtime_error("capacity-only qualification found active weight leases");
+        const size_t kv_allocation_bytes = session_state->allocation_bytes();
+        const size_t prefill_scratch_bytes = session_state->prefill_scratch_bytes();
+        const size_t model_allocation_bytes = runtime_state->resident_allocation_bytes();
+        ggml_backend_synchronize(backend);
+        session_state.reset();
+        runtime_state.reset();
+        if (residency->device_resident_count() != 0 || residency->device_resident_bytes() != 0)
+            throw std::runtime_error("runtime teardown retained model residency");
+        size_t free_after_capacity = 0;
+        ggml_backend_dev_memory(device, &free_after_capacity, &ignored_total);
+        std::printf("resident_cuda_capacity_only capacity=%u kv_allocation_bytes=%zu decode_scratch_bytes=%zu "
+            "prefill_scratch_bytes=%zu model_allocation_bytes=%zu free_vram_after=%zu inference=NOT_RUN\n", capacity,
+            kv_allocation_bytes, buffer_bytes, prefill_scratch_bytes, model_allocation_bytes, free_after_capacity);
+        return;
+    }
+    auto compute_step = [&](uint32_t position, int32_t token) {
+        if (position != session_state->current_length())
+            throw std::logic_error("decode position does not match session logical length");
+        // The async tensor-set API may retain these host pointers until the copy completes.
+        // The previous graph is ordered before reusing this single stable staging slot.
+        ggml_backend_synchronize(backend);
+        host_token_ids[0] = token;
+        host_positions[0] = static_cast<int32_t>(position);
+        for (uint32_t key = 0; key < capacity; ++key)
+            host_masks[0][key] = key <= position ? 0.0f : -INFINITY;
+        for (uint32_t head = 0; head < KV_HEADS; ++head)
+            host_cache_rows[0][head] = static_cast<int32_t>(position * KV_HEADS + head);
+        upload_session_tensor( token_ids[0], &host_token_ids[0], 0, sizeof(int32_t));
+        upload_session_tensor( position_ids[0], &host_positions[0], 0, sizeof(int32_t));
+        upload_session_tensor( causal_masks[0], host_masks[0].data(), 0,
+            host_masks[0].size() * sizeof(float));
+        upload_session_tensor( cache_row_indices[0], host_cache_rows[0].data(), 0,
+            host_cache_rows[0].size() * sizeof(int32_t));
+        std::vector<DeviceResidentTensor> leases;
+        leases.reserve(weights.size());
+        for (Tensor * tensor : weights) {
+            DeviceResidencyKey key;
+            key.artifact_identity = model.artifact_identity;
+            key.tensor_id = tensor->id; key.source_offset = tensor->offset;
+            key.payload_length = tensor->length; key.representation = tensor->view.representation;
+            key.shape.assign(tensor->view.dimensions, tensor->view.dimensions + tensor->view.rank);
+            key.backend = backend_name; key.device_id = 0;
+            auto lease = residency->acquire_device(key);
+            if (!lease || lease->backend_handle != tensor->ggml)
+                throw std::runtime_error("reusable resident weight identity miss: " + tensor->name);
+            leases.push_back(std::move(*lease));
+        }
+        if (ggml_backend_graph_compute_async(backend, steps[0].graph) != GGML_STATUS_SUCCESS)
+            throw std::runtime_error("reusable CUDA step graph failed at position " + std::to_string(position));
+        for (const Tensor * tensor : weights) {
+            DeviceResidencyKey key;
+            key.artifact_identity = model.artifact_identity;
+            key.tensor_id = tensor->id; key.source_offset = tensor->offset;
+            key.payload_length = tensor->length; key.representation = tensor->view.representation;
+            key.shape.assign(tensor->view.dimensions, tensor->view.dimensions + tensor->view.rank);
+            key.backend = backend_name; key.device_id = 0;
+            if (!residency->release_device(key)) throw std::runtime_error("reusable resident lease release failed");
+        }
+        session_state->commit_tokens(1);
+    };
+    std::vector<int32_t> prefill_host_tokens(prefill_chunk_size), prefill_host_positions(prefill_chunk_size);
+    std::vector<int32_t> prefill_host_rows(static_cast<size_t>(prefill_chunk_size) * KV_HEADS);
+    std::vector<float> prefill_host_mask(static_cast<size_t>(capacity) * prefill_chunk_size);
+    std::vector<std::vector<uint8_t>> prefill_capture_values(prefill_batch.captures.size());
+    for (size_t i = 0; i < prefill_batch.captures.size(); ++i)
+        prefill_capture_values[i].resize(ggml_nbytes(prefill_batch.captures[i].second));
+    auto compute_prefill_chunk = [&](uint32_t first_position) {
+        if (!chunked_prefill || prefill_batch.graph == nullptr)
+            throw std::logic_error("bounded prefill graph was not constructed");
+        if (first_position != session_state->current_length())
+            throw std::logic_error("prefill position does not match session logical length");
+        ggml_backend_synchronize(backend);
+        for (uint32_t q = 0; q < prefill_chunk_size; ++q) {
+            const uint32_t position = first_position + q;
+            prefill_host_tokens[q] = tokens[position];
+            prefill_host_positions[q] = static_cast<int32_t>(position);
+            for (uint32_t head = 0; head < KV_HEADS; ++head)
+                prefill_host_rows[static_cast<size_t>(q) * KV_HEADS + head] =
+                    static_cast<int32_t>(position * KV_HEADS + head);
+            for (uint32_t key = 0; key < capacity; ++key)
+                prefill_host_mask[static_cast<size_t>(q) * capacity + key] = key <= position ? 0.0f : -INFINITY;
+        }
+        for (uint32_t q = 0; q < prefill_chunk_size; ++q) {
+            const uint32_t position = first_position + q;
+            if (prefill_host_positions[q] != static_cast<int32_t>(position))
+                throw std::runtime_error("chunked prefill RoPE position is not absolute");
+            for (uint32_t head = 0; head < KV_HEADS; ++head)
+                if (prefill_host_rows[static_cast<size_t>(q) * KV_HEADS + head] !=
+                    static_cast<int32_t>(position * KV_HEADS + head))
+                    throw std::runtime_error("chunked prefill KV row does not match absolute position");
+            for (uint32_t key = 0; key < capacity; ++key) {
+                const float expected = key <= position ? 0.0f : -INFINITY;
+                if (prefill_host_mask[static_cast<size_t>(q) * capacity + key] != expected)
+                    throw std::runtime_error("chunked prefill causal visibility mask is invalid");
+            }
+        }
+        upload_session_tensor( prefill_batch.token_ids, prefill_host_tokens.data(), 0,
+            prefill_host_tokens.size() * sizeof(int32_t));
+        upload_session_tensor( prefill_batch.position_ids, prefill_host_positions.data(), 0,
+            prefill_host_positions.size() * sizeof(int32_t));
+        upload_session_tensor( prefill_batch.causal_mask, prefill_host_mask.data(), 0,
+            prefill_host_mask.size() * sizeof(float));
+        upload_session_tensor( prefill_batch.cache_rows, prefill_host_rows.data(), 0,
+            prefill_host_rows.size() * sizeof(int32_t));
+        std::vector<DeviceResidentTensor> leases;
+        leases.reserve(weights.size());
+        for (Tensor * tensor : weights) {
+            DeviceResidencyKey key;
+            key.artifact_identity = model.artifact_identity;
+            key.tensor_id = tensor->id; key.source_offset = tensor->offset;
+            key.payload_length = tensor->length; key.representation = tensor->view.representation;
+            key.shape.assign(tensor->view.dimensions, tensor->view.dimensions + tensor->view.rank);
+            key.backend = backend_name; key.device_id = 0;
+            auto lease = residency->acquire_device(key);
+            if (!lease || lease->backend_handle != tensor->ggml)
+                throw std::runtime_error("prefill resident weight identity miss: " + tensor->name);
+            leases.push_back(std::move(*lease));
+        }
+        for (uint32_t layer_index = 0; layer_index < prefill_batch.layers.size(); ++layer_index) {
+            LayerBatchGraph & layer = prefill_batch.layers[layer_index];
+            if (ggml_backend_graph_compute_async(backend, layer.graph) != GGML_STATUS_SUCCESS)
+                throw std::runtime_error("Qwen layer-local prefill graph failed at layer " +
+                    std::to_string(layer_index) + " position " + std::to_string(first_position));
+            if (layer_index == 0) {
+                for (size_t capture = 0; capture < prefill_batch.captures.size(); ++capture)
+                    download_session_tensor( prefill_batch.captures[capture].second,
+                        prefill_capture_values[capture].data(), 0, prefill_capture_values[capture].size());
+            }
+            if (std::getenv("VBUF_QWEN_LAYER_MEMORY_TRACE") != nullptr &&
+                (layer_index == 0 || layer_index == 1 || layer_index == model.layer_count / 2 ||
+                    layer_index + 1 == prefill_batch.layers.size())) {
+                ggml_backend_synchronize(backend);
+                size_t free_now = 0, total_now = 0;
+                ggml_backend_dev_memory(device, &free_now, &total_now);
+                const uintptr_t scratch_base = reinterpret_cast<uintptr_t>(ggml_backend_buffer_get_base(
+                    static_cast<ggml_backend_buffer_t>(prefill_batch.scratch_allocation.get())));
+                std::printf("resident_cuda_prefill_layer_memory layer=%u position=%u scratch_base=%p "
+                    "scratch_bytes=%zu score_offset=%zu probability_offset=%zu free_vram=%zu total_vram=%zu\n",
+                    layer_index, first_position, prefill_batch.scratch_allocation.get(),
+                    prefill_batch.scratch_buffer_bytes,
+                    static_cast<size_t>(reinterpret_cast<uintptr_t>(layer.scores->data) - scratch_base),
+                    static_cast<size_t>(reinterpret_cast<uintptr_t>(layer.probabilities->data) - scratch_base),
+                    free_now, total_now);
+            }
+        }
+        for (const Tensor * tensor : weights) {
+            DeviceResidencyKey key;
+            key.artifact_identity = model.artifact_identity;
+            key.tensor_id = tensor->id; key.source_offset = tensor->offset;
+            key.payload_length = tensor->length; key.representation = tensor->view.representation;
+            key.shape.assign(tensor->view.dimensions, tensor->view.dimensions + tensor->view.rank);
+            key.backend = backend_name; key.device_id = 0;
+            if (!residency->release_device(key)) throw std::runtime_error("prefill resident lease release failed");
+        }
+        session_state->commit_tokens(prefill_chunk_size);
+    };
+
+    if (generated_append) {
+        const size_t prompt_length = tokens.size();
+        const uint32_t append_count = capacity - static_cast<uint32_t>(prompt_length);
+        const bool performance_mode = std::getenv("VBUF_QWEN_PERF_MODE") != nullptr;
+        std::vector<uint64_t> measured_prefill_ns, measured_first_token_ns, measured_decode_token_ns;
+        const char * export_path = std::getenv("VBUF_QWEN_RESIDENT_INCREMENTAL_EXPORT_DIR");
+        if (append_count == 0 || export_path == nullptr || *export_path == '\0')
+            throw std::runtime_error("generated KV qualification requires appends and an export directory");
+        const std::filesystem::path export_dir(export_path);
+        std::filesystem::create_directories(export_dir);
+        auto capture_step_state = [&](uint32_t run, uint32_t position) {
+            if (!kv_integrity_audit || std::find(audit_positions.begin(), audit_positions.end(), position) == audit_positions.end())
+                return;
+            const std::string label = "KV_OPERATOR_AUDIT_RUN" + std::to_string(run) + "_POSITION" + std::to_string(position);
+            cuda_audit_snapshot((label + "_BEGIN").c_str());
+            std::vector<std::vector<uint8_t>> values;
+            values.reserve(steps[0].captures.size());
+            for (const auto & capture : steps[0].captures) {
+                values.emplace_back(ggml_nbytes(capture.second));
+                download_session_tensor( capture.second, values.back().data(), 0, values.back().size());
+            }
+            std::map<uint32_t, std::pair<std::vector<uint8_t>, std::vector<uint8_t>>> stored_rows;
+            for (uint32_t layer : audit_layers) {
+                std::pair<std::vector<uint8_t>, std::vector<uint8_t>> pair{
+                    std::vector<uint8_t>(cache_bytes_per_position), std::vector<uint8_t>(cache_bytes_per_position) };
+                const size_t offset = static_cast<size_t>(position) * cache_bytes_per_position;
+                download_session_tensor( key_cache[layer], pair.first.data(), offset, pair.first.size());
+                download_session_tensor( value_cache[layer], pair.second.data(), offset, pair.second.size());
+                stored_rows.emplace(layer, std::move(pair));
+            }
+            ggml_backend_synchronize(backend);
+            for (size_t i = 0; i < steps[0].captures.size(); ++i) {
+                const auto & capture = steps[0].captures[i];
+                if (run == 1) {
+                    const auto path = export_dir / ("run-1-position-" + std::to_string(position) + "-" + capture.first + ".bin");
+                    write_binary_export(path, values[i].data(), values[i].size());
+                    std::printf("incremental_operator_capture position=%u tensor=%s type=%s bytes=%zu\n",
+                        position, capture.first.c_str(), ggml_type_name(capture.second->type), values[i].size());
+                }
+            }
+            for (uint32_t layer : audit_layers) {
+                auto find_capture = [&](const char * suffix) -> const std::vector<uint8_t> * {
+                    const std::string name = "layer-" + std::to_string(layer) + "-" + suffix;
+                    for (size_t i = 0; i < steps[0].captures.size(); ++i)
+                        if (steps[0].captures[i].first == name) return &values[i];
+                    return nullptr;
+                };
+                const auto * current_k = find_capture("k_cache_f16");
+                const auto * current_v = find_capture("v_cache_f16");
+                if (current_k == nullptr || current_v == nullptr ||
+                    current_k->size() != cache_bytes_per_position || current_v->size() != cache_bytes_per_position ||
+                    stored_rows[layer].first != *current_k || stored_rows[layer].second != *current_v)
+                    throw std::runtime_error("newly computed CUDA K/V differs from its stored cache row");
+                std::printf("incremental_kv_append_integrity run=%u layer=%u position=%u logical_position=%u "
+                    "row_begin=%u row_end=%u K_compute_equals_store=YES V_compute_equals_store=YES\n",
+                    run, layer, position, position, position * KV_HEADS, (position + 1) * KV_HEADS - 1);
+            }
+            cuda_audit_snapshot((label + "_DONE").c_str());
+        };
+        std::vector<int32_t> previous_generated;
+        std::vector<std::vector<float>> previous_generated_hidden, previous_generated_norm, previous_generated_logits;
+        using CachePair = std::pair<std::vector<uint8_t>, std::vector<uint8_t>>;
+        std::map<uint32_t, CachePair> previous_run_cache;
+        auto capture_cache_prefix = [&](uint32_t run, uint32_t prefix,
+            std::map<uint32_t, CachePair> & last_snapshot) {
+            const std::string label = "KV_AUDIT_RUN" + std::to_string(run) + "_PREFIX" + std::to_string(prefix);
+            cuda_audit_snapshot((label + "_BEGIN").c_str());
+            std::map<uint32_t, CachePair> current;
+            for (uint32_t layer : audit_layers) {
+                CachePair bytes{
+                    std::vector<uint8_t>(static_cast<size_t>(prefix) * cache_bytes_per_position),
+                    std::vector<uint8_t>(static_cast<size_t>(prefix) * cache_bytes_per_position) };
+                download_session_tensor( key_cache[layer], bytes.first.data(), 0, bytes.first.size());
+                download_session_tensor( value_cache[layer], bytes.second.data(), 0, bytes.second.size());
+                current.emplace(layer, std::move(bytes));
+            }
+            ggml_backend_synchronize(backend);
+            for (uint32_t layer : audit_layers) {
+                const CachePair & now = current.at(layer);
+                const auto old = last_snapshot.find(layer);
+                bool prior_exact = true;
+                uint32_t prior_prefix = 0;
+                if (old != last_snapshot.end()) {
+                    prior_prefix = static_cast<uint32_t>(old->second.first.size() / cache_bytes_per_position);
+                    prior_exact = now.first.size() >= old->second.first.size() &&
+                        now.second.size() >= old->second.second.size() &&
+                        std::memcmp(now.first.data(), old->second.first.data(), old->second.first.size()) == 0 &&
+                        std::memcmp(now.second.data(), old->second.second.data(), old->second.second.size()) == 0;
+                }
+                std::printf("incremental_kv_integrity run=%u prefix=%u layer=%u prior_positions=%u "
+                    "K_immutable=%s V_immutable=%s\n", run, prefix, layer, prior_prefix,
+                    prior_exact ? "YES" : "NO", prior_exact ? "YES" : "NO");
+                if (!prior_exact) throw std::runtime_error("historical CUDA KV cache bytes changed after append");
+                for (uint32_t position = prior_prefix; position < prefix; ++position) {
+                    const size_t offset = static_cast<size_t>(position) * cache_bytes_per_position;
+                    const bool key_written = std::any_of(now.first.begin() + offset,
+                        now.first.begin() + offset + cache_bytes_per_position, [](uint8_t byte) { return byte != 0; });
+                    const bool value_written = std::any_of(now.second.begin() + offset,
+                        now.second.begin() + offset + cache_bytes_per_position, [](uint8_t byte) { return byte != 0; });
+                    if (!key_written || !value_written)
+                        throw std::runtime_error("newly appended sampled KV row remains zero after execution: layer=" +
+                            std::to_string(layer) + " position=" + std::to_string(position) + " K_nonzero=" +
+                            (key_written ? "YES" : "NO") + " V_nonzero=" + (value_written ? "YES" : "NO"));
+                }
+                if (prefix > prior_prefix)
+                    std::printf("incremental_kv_rows_written run=%u layer=%u positions=%u..%u "
+                        "K_nonzero=YES V_nonzero=YES\n", run, layer, prior_prefix, prefix - 1);
+                if (prefix == capacity) {
+                    write_binary_export(export_dir / ("run-" + std::to_string(run) + "-key-cache-layer-" +
+                        std::to_string(layer) + "-prefix-" + std::to_string(prefix) + ".f16"), now.first.data(), now.first.size());
+                    write_binary_export(export_dir / ("run-" + std::to_string(run) + "-value-cache-layer-" +
+                        std::to_string(layer) + "-prefix-" + std::to_string(prefix) + ".f16"), now.second.data(), now.second.size());
+                }
+                const auto previous = previous_run_cache.find(layer);
+                if (prefix == capacity && previous != previous_run_cache.end() &&
+                    (now.first != previous->second.first || now.second != previous->second.second))
+                    throw std::runtime_error("CUDA K/V cache bytes changed across repeated generated runs");
+                if (prefix == capacity) previous_run_cache[layer] = now;
+            }
+            last_snapshot = std::move(current);
+            cuda_audit_snapshot((label + "_DONE").c_str());
+        };
+        const auto top1_index = [](const std::vector<float> & values) {
+            return static_cast<uint32_t>(std::max_element(values.begin(), values.end()) - values.begin());
+        };
+        for (uint32_t run = 1; run <= 3; ++run) {
+            cuda_audit_snapshot(("GENERATED_RUN" + std::to_string(run) + "_BEGIN").c_str());
+            session_state->reset();
+            if (session_state->current_length() != 0)
+                throw std::runtime_error("session logical reset did not clear the context length");
+            ggml_backend_synchronize(backend);
+            if (performance_mode) cuda_audit_snapshot(("PERF_RUN" + std::to_string(run) + "_DECODE_BEGIN").c_str());
+            const uint32_t first_output_position = static_cast<uint32_t>(prompt_length) - 1;
+            const size_t output_count = capacity - first_output_position;
+            std::vector<std::vector<float>> run_hidden(output_count, std::vector<float>(EMBED));
+            std::vector<std::vector<float>> run_norm(output_count, std::vector<float>(EMBED));
+            std::vector<std::vector<float>> run_logits(output_count, std::vector<float>(vocabulary));
+            std::map<uint32_t, CachePair> last_cache_snapshot;
+            ggml_tensor * prompt_hidden = steps[0].hidden;
+            ggml_tensor * prompt_norm = steps[0].norm;
+            ggml_tensor * prompt_logits = steps[0].logits;
+            ggml_tensor * prompt_argmax = steps[0].argmax;
+            size_t prompt_output_offset = 0;
+            size_t prompt_argmax_offset = 0;
+            const auto prefill_begin = std::chrono::steady_clock::now();
+            for (uint32_t position = 0; position < prompt_length;) {
+                const size_t remaining = prompt_length - position;
+                if (chunked_prefill && remaining >= prefill_chunk_size) {
+                    const auto chunk_start = std::chrono::steady_clock::now();
+                    compute_prefill_chunk(position);
+                    ggml_backend_synchronize(backend);
+                    const double chunk_ms = std::chrono::duration<double, std::milli>(
+                        std::chrono::steady_clock::now() - chunk_start).count();
+                    const uint32_t chunk_first_position = position;
+                    const uint32_t chunk_last_position = position + prefill_chunk_size - 1;
+                    std::printf("resident_cuda_prefill_chunk first_position=%u positions=%u..%u "
+                        "rope_positions=ABSOLUTE causal_mask=KEY_LE_QUERY kv_rows=ABSOLUTE "
+                        "graph_reused=YES kv_append=IN_PLACE structural_checks=PASS wall_ms=%.3f\n",
+                        chunk_first_position, chunk_first_position, chunk_last_position, chunk_ms);
+                    if (std::getenv("VBUF_QWEN_PREFILL_MEMORY_TRACE") != nullptr) {
+                        size_t free_now = 0, total_now = 0;
+                        ggml_backend_dev_memory(device, &free_now, &total_now);
+                        const uint64_t kv_allocated = static_cast<uint64_t>(capacity) *
+                            model.layer_count * cache_bytes_per_position * 2;
+                        const uint64_t total_graph_bytes = buffer_bytes + prefill_batch.scratch_buffer_bytes;
+                        const uint64_t workspace_bytes = total_graph_bytes;
+                        std::printf("resident_cuda_prefill_memory run=%u completed_positions=%u "
+                            "chunk_graph_count=%zu first_chunk_graph=%p graph_buffer=%p graph_buffer_bytes=%zu "
+                            "layer_scratch_buffer=%p layer_scratch_bytes=%zu total_graph_buffer_bytes=%llu "
+                            "model_payload_bytes=%llu kv_allocated_bytes=%llu workspace_bytes=%llu "
+                            "free_vram_bytes=%zu total_vram_bytes=%zu\n", run, chunk_last_position + 1,
+                            prefill_batch.layers.size(), static_cast<void *>(prefill_batch.graph),
+                            runtime_state->model_allocation(), buffer_bytes,
+                            prefill_batch.scratch_allocation.get(), prefill_batch.scratch_buffer_bytes,
+                            static_cast<unsigned long long>(total_graph_bytes),
+                            static_cast<unsigned long long>(weight_bytes),
+                            static_cast<unsigned long long>(kv_allocated),
+                            static_cast<unsigned long long>(workspace_bytes), free_now, total_now);
+                        const std::string audit_label = "PREFILL_MEMORY_RUN" + std::to_string(run) +
+                            "_PREFIX" + std::to_string(chunk_last_position + 1);
+                        cuda_audit_snapshot(audit_label.c_str());
+                    }
+                    if (prefill_numerical_audit) {
+                        const std::string capture_prefix = "prefill-run-" + std::to_string(run) +
+                            "-chunk-" + std::to_string(chunk_first_position);
+                        std::ofstream metadata(export_dir / (capture_prefix + "-layer-0.meta"));
+                        metadata << "run=" << run << " first_position=" << chunk_first_position
+                            << " positions=" << prefill_chunk_size << "\n";
+                        for (size_t capture_index = 0; capture_index < prefill_batch.captures.size(); ++capture_index) {
+                            const auto & capture = prefill_batch.captures[capture_index];
+                            const std::vector<uint8_t> & bytes = prefill_capture_values[capture_index];
+                            const std::string name = capture_prefix + "-" + capture.first + ".bin";
+                            write_binary_export(export_dir / name, bytes.data(), bytes.size());
+                            metadata << name << " type=" << ggml_type_name(capture.second->type) << " ne="
+                                << capture.second->ne[0] << "," << capture.second->ne[1] << ","
+                                << capture.second->ne[2] << "," << capture.second->ne[3] << " bytes=" << bytes.size() << "\n";
+                        }
+                        if (!metadata) throw std::runtime_error("failed writing prefill numerical capture metadata");
+                    }
+                    position += prefill_chunk_size;
+                    prompt_hidden = prefill_batch.hidden;
+                    prompt_norm = prefill_batch.norm;
+                    prompt_logits = prefill_batch.logits;
+                    prompt_argmax = prefill_batch.argmax;
+                    prompt_output_offset = static_cast<size_t>(prefill_chunk_size - 1) * EMBED * sizeof(float);
+                    prompt_argmax_offset = static_cast<size_t>(prefill_chunk_size - 1) * sizeof(int32_t);
+                } else {
+                    compute_step(position, tokens[position]);
+                    capture_step_state(run, position);
+                    ++position;
+                    prompt_hidden = steps[0].hidden;
+                    prompt_norm = steps[0].norm;
+                    prompt_logits = steps[0].logits;
+                    prompt_argmax = steps[0].argmax;
+                    prompt_output_offset = 0;
+                    prompt_argmax_offset = 0;
+                }
+                if (kv_integrity_audit && (position == 16 || position == 32 || position == 64 ||
+                    position == 128 || position == 512))
+                    capture_cache_prefix(run, static_cast<uint32_t>(position), last_cache_snapshot);
+            }
+            if (performance_mode) ggml_backend_synchronize(backend);
+            if (session_state->current_length() != prompt_length)
+                throw std::runtime_error("prompt prefill did not commit its full logical length");
+            const auto prefill_complete = std::chrono::steady_clock::now();
+            int32_t predicted = -1;
+            const auto first_token_begin = std::chrono::steady_clock::now();
+            download_session_tensor( prompt_argmax,
+                &predicted, prompt_argmax_offset, sizeof(predicted));
+            if (!performance_mode) {
+                download_session_tensor( prompt_hidden, run_hidden[0].data(), prompt_output_offset, EMBED * sizeof(float));
+                download_session_tensor( prompt_norm, run_norm[0].data(), prompt_output_offset, EMBED * sizeof(float));
+                download_session_tensor( prompt_logits, run_logits[0].data(),
+                    static_cast<size_t>(prompt_argmax_offset) * vocabulary, vocabulary * sizeof(float));
+            }
+            ggml_backend_synchronize(backend);
+            const auto first_token_complete = std::chrono::steady_clock::now();
+            if (performance_mode) {
+                measured_prefill_ns.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(prefill_complete - prefill_begin).count());
+                measured_first_token_ns.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(first_token_complete - first_token_begin).count());
+            }
+            if (kv_integrity_audit && prompt_length == 8)
+                capture_cache_prefix(run, static_cast<uint32_t>(prompt_length), last_cache_snapshot);
+            cuda_audit_snapshot(("POST_PREFILL_DECODE_RUN" + std::to_string(run) + "_BEGIN").c_str());
+            std::vector<int32_t> generated;
+            generated.reserve(append_count);
+            for (uint32_t append = 0; append < append_count; ++append) {
+                if (predicted < 0 || static_cast<uint32_t>(predicted) >= vocabulary)
+                    throw std::runtime_error("GPU argmax returned an invalid token ID");
+                generated.push_back(predicted);
+                const uint32_t position = static_cast<uint32_t>(prompt_length) + append;
+                const auto decode_token_begin = std::chrono::steady_clock::now();
+                compute_step(position, predicted);
+                capture_step_state(run, position);
+                if (!performance_mode) {
+                    const size_t output_index = append + 1;
+                    download_session_tensor( steps[0].hidden, run_hidden[output_index].data(), 0, EMBED * sizeof(float));
+                    download_session_tensor( steps[0].norm, run_norm[output_index].data(), 0, EMBED * sizeof(float));
+                    download_session_tensor( steps[0].logits, run_logits[output_index].data(), 0, vocabulary * sizeof(float));
+                }
+                if (append + 1 < append_count) {
+                    predicted = -1;
+                    download_session_tensor( steps[0].argmax,
+                        &predicted, 0, sizeof(predicted));
+                    ggml_backend_synchronize(backend);
+                } else {
+                    ggml_backend_synchronize(backend);
+                }
+                const auto decode_token_complete = std::chrono::steady_clock::now();
+                if (performance_mode) measured_decode_token_ns.push_back(
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(decode_token_complete - decode_token_begin).count());
+                const uint32_t cache_length = session_state->current_length();
+                if (kv_integrity_audit && (cache_length == 9 || cache_length == 16 || cache_length == 17 ||
+                    cache_length == 24 || cache_length == 25 || cache_length == 31 || cache_length == 32 ||
+                    cache_length == 33 || cache_length == 64 || cache_length == 65 || cache_length == 128 ||
+                    cache_length == 129 || cache_length == 512 || cache_length == 513 || cache_length == capacity))
+                    capture_cache_prefix(run, cache_length, last_cache_snapshot);
+            }
+            if (session_state->current_length() != capacity)
+                throw std::runtime_error("generated decode did not commit the full session context length");
+            cuda_audit_snapshot(("POST_PREFILL_DECODE_RUN" + std::to_string(run) + "_DONE").c_str());
+            if (performance_mode) {
+                cuda_audit_snapshot(("PERF_RUN" + std::to_string(run) + "_DECODE_DONE").c_str());
+                std::printf("resident_cuda_perf_run=%u warmup=%s prompt=%zu appends=%u prefill_us=%llu first_token_us=%llu ",
+                    run, run == 1 ? "YES" : "NO", prompt_length, append_count,
+                    static_cast<unsigned long long>(std::chrono::duration_cast<std::chrono::microseconds>(prefill_complete - prefill_begin).count()),
+                    static_cast<unsigned long long>(std::chrono::duration_cast<std::chrono::microseconds>(first_token_complete - first_token_begin).count()));
+                const uint64_t per_run_start = static_cast<size_t>(run - 1) * append_count;
+                uint64_t this_run_total = 0;
+                if (run > 1) for (uint32_t i = 0; i < append_count; ++i) this_run_total += measured_decode_token_ns[per_run_start + i];
+                const double seconds_per_token = run > 1 ? static_cast<double>(this_run_total) / append_count / 1e9 : 0.0;
+                std::printf("decode_mean_ms=%.3f decode_tok_s=%.3f\n", seconds_per_token * 1e3,
+                    seconds_per_token > 0 ? 1.0 / seconds_per_token : 0.0);
+            }
+            cuda_audit_snapshot(("GENERATED_RUN" + std::to_string(run) + "_EXECUTION_DONE").c_str());
+            cuda_audit_snapshot(("GENERATED_RUN" + std::to_string(run) + "_LOGIT_READBACK_DONE").c_str());
+            std::ofstream token_file(export_dir / ("generation-run-" + std::to_string(run) + ".tokens"));
+            token_file << "prompt=";
+            for (size_t i = 0; i < tokens.size(); ++i) token_file << (i == 0 ? "" : ",") << tokens[i];
+            token_file << "\ngenerated=";
+            for (size_t i = 0; i < generated.size(); ++i) token_file << (i == 0 ? "" : ",") << generated[i];
+            token_file << "\nfinal_cache_length=" << capacity << "\n";
+            if (!token_file) throw std::runtime_error("failed writing generated token qualification output");
+            if (!performance_mode) {
+            for (uint32_t append = 0; append < append_count; ++append) {
+                const uint32_t prefix = static_cast<uint32_t>(prompt_length) + append;
+                const uint32_t incremental_top1 = top1_index(run_logits[append]);
+                if (incremental_top1 != static_cast<uint32_t>(generated[append]))
+                    throw std::runtime_error("incremental token argmax differs from its exported logits");
+                const int32_t cpu_top1 = cpu_logits.empty() ? -1 : static_cast<int32_t>(top1_index(
+                    std::vector<float>(cpu_logits.begin() + static_cast<size_t>(prefix - 1) * vocabulary,
+                        cpu_logits.begin() + static_cast<size_t>(prefix) * vocabulary)));
+                const int32_t full_top1 = full_compare_dir.empty() ? -1 :
+                    static_cast<int32_t>(top1_index(full_logits[prefix - 1]));
+                std::printf("resident_cuda_generated_token_check run=%u generated_index=%u prefix=%u token=%d "
+                    "incremental_top1=%u cpu_full_top1=%d gpu_full_top1=%d cpu_match=%s gpu_match=%s\n",
+                    run, append, prefix, generated[append], incremental_top1, cpu_top1, full_top1,
+                    cpu_top1 < 0 ? "NOT_TESTED" : (cpu_top1 == generated[append] ? "YES" : "NO"),
+                    full_top1 < 0 ? "NOT_TESTED" : (full_top1 == generated[append] ? "YES" : "NO"));
+            }
+            for (size_t i = 0; i < output_count; ++i) {
+                const uint32_t prefix = first_output_position + static_cast<uint32_t>(i) + 1;
+                if (std::any_of(run_logits[i].begin(), run_logits[i].end(),
+                    [](float value) { return !std::isfinite(value); }))
+                    throw std::runtime_error("generated incremental logits are non-finite");
+                write_f32_export(export_dir / ("run-" + std::to_string(run) + "-hidden-prefix-" +
+                    std::to_string(prefix) + ".f32"), run_hidden[i]);
+                write_f32_export(export_dir / ("run-" + std::to_string(run) + "-norm-prefix-" +
+                    std::to_string(prefix) + ".f32"), run_norm[i]);
+                write_f32_export(export_dir / ("run-" + std::to_string(run) + "-logits-prefix-" +
+                    std::to_string(prefix) + ".f32"), run_logits[i]);
+                if (!cpu_hidden.empty()) {
+                    const size_t row = prefix - 1;
+                    compare("generated_incremental_vs_cpu_hidden_prefix_" + std::to_string(prefix),
+                        run_hidden[i], std::vector<float>(cpu_hidden.begin() + row * EMBED,
+                            cpu_hidden.begin() + (row + 1) * EMBED), 1);
+                    compare("generated_incremental_vs_cpu_norm_prefix_" + std::to_string(prefix),
+                        run_norm[i], std::vector<float>(cpu_norm.begin() + row * EMBED,
+                            cpu_norm.begin() + (row + 1) * EMBED), 1);
+                    compare("generated_incremental_vs_cpu_logits_prefix_" + std::to_string(prefix),
+                        run_logits[i], std::vector<float>(cpu_logits.begin() + row * vocabulary,
+                            cpu_logits.begin() + (row + 1) * vocabulary), 1);
+                }
+                if (!full_compare_dir.empty()) {
+                    const size_t row = prefix - 1;
+                    compare("generated_incremental_vs_full_hidden_prefix_" + std::to_string(prefix),
+                        run_hidden[i], std::vector<float>(full_hidden.begin() + row * EMBED,
+                            full_hidden.begin() + (row + 1) * EMBED), 1);
+                    compare("generated_incremental_vs_full_norm_prefix_" + std::to_string(prefix),
+                        run_norm[i], std::vector<float>(full_norm.begin() + row * EMBED,
+                            full_norm.begin() + (row + 1) * EMBED), 1);
+                    compare("generated_incremental_vs_full_logits_prefix_" + std::to_string(prefix),
+                        run_logits[i], full_logits[prefix - 1], 1);
+                }
+            }
+            }
+            std::printf("resident_cuda_generated_append_run=%u prompt=%zu appended=%u cache_length=%u tokens=",
+                run, prompt_length, append_count, capacity);
+            for (size_t i = 0; i < generated.size(); ++i)
+                std::printf("%s%d", i == 0 ? "" : ",", generated[i]);
+            std::printf("\n");
+            if (run > 1 && (generated != previous_generated || run_logits.size() != previous_generated_logits.size() ||
+                run_hidden.size() != previous_generated_hidden.size() || run_norm.size() != previous_generated_norm.size()))
+                throw std::runtime_error("generated CUDA outputs changed geometry or tokens across cache-reset replays");
+            if (!performance_mode && run > 1) for (size_t i = 0; i < run_logits.size(); ++i)
+                if (std::memcmp(run_hidden[i].data(), previous_generated_hidden[i].data(), EMBED * sizeof(float)) != 0 ||
+                    std::memcmp(run_norm[i].data(), previous_generated_norm[i].data(), EMBED * sizeof(float)) != 0 ||
+                    std::memcmp(run_logits[i].data(), previous_generated_logits[i].data(), vocabulary * sizeof(float)) != 0)
+                    throw std::runtime_error("generated CUDA outputs are not bit-identical across replays");
+            previous_generated = generated;
+            previous_generated_hidden = std::move(run_hidden);
+            previous_generated_norm = std::move(run_norm);
+            previous_generated_logits = std::move(run_logits);
+        }
+        if (performance_mode) {
+            std::vector<uint64_t> timed_tokens(measured_decode_token_ns.begin() + append_count,
+                measured_decode_token_ns.end());
+            std::sort(timed_tokens.begin(), timed_tokens.end());
+            const uint64_t total_ns = std::accumulate(timed_tokens.begin(), timed_tokens.end(), uint64_t{0});
+            const double mean_ns = timed_tokens.empty() ? 0.0 : static_cast<double>(total_ns) / timed_tokens.size();
+            const double median_ns = timed_tokens.empty() ? 0.0 :
+                (timed_tokens.size() % 2 ? static_cast<double>(timed_tokens[timed_tokens.size() / 2]) :
+                    (static_cast<double>(timed_tokens[timed_tokens.size() / 2 - 1]) +
+                     timed_tokens[timed_tokens.size() / 2]) / 2.0);
+            std::printf("resident_cuda_perf_summary warmup_runs=1 timed_runs=2 prompt_context=%zu final_context=%u "
+                "timed_tokens=%zu seconds_per_token_mean=%.6f seconds_per_token_median=%.6f "
+                "tokens_per_second_mean=%.3f tokens_per_second_median=%.3f first_token_samples=%zu\n",
+                prompt_length, capacity, timed_tokens.size(), mean_ns / 1e9, median_ns / 1e9,
+                mean_ns > 0 ? 1e9 / mean_ns : 0.0, median_ns > 0 ? 1e9 / median_ns : 0.0,
+                measured_first_token_ns.size() > 1 ? measured_first_token_ns.size() - 1 : 0);
+        }
+        if (residency->active_device_lease_count() != 0)
+            throw std::runtime_error("generated CUDA residency leases remain active");
+        ggml_backend_synchronize(backend);
+        std::printf("qwen_cuda_transfer_api_audit runtime_upload_tensors=%zu runtime_upload_bytes=%llu "
+            "session_H2D_calls=%llu session_H2D_bytes=%llu session_D2H_calls=%llu session_D2H_bytes=%llu "
+            "post_create_weight_H2D_calls=0 reset_cache_memsets=0 scope=GGML_BACKEND_TENSOR_SET_GET_API\n",
+            runtime_state->uploaded_tensor_count(),
+            static_cast<unsigned long long>(runtime_state->uploaded_payload_bytes()),
+            static_cast<unsigned long long>(session_h2d_calls),
+            static_cast<unsigned long long>(session_h2d_bytes),
+            static_cast<unsigned long long>(session_d2h_calls),
+            static_cast<unsigned long long>(session_d2h_bytes));
+        audit_cuda_session_lifecycle();
+        session_state.reset();
+        runtime_state.reset();
+        if (residency->device_resident_bytes() != 0 || residency->device_resident_count() != 0)
+            throw std::runtime_error("generated runtime teardown retained model residency");
+        size_t free_after = 0;
+        ggml_backend_dev_memory(device, &free_after, &ignored_total);
+        std::printf("resident_cuda_generated_gate cache_device_only=YES appends=%u repeated_outputs=%s "
+            "production_session=DISABLED vram_free_after_teardown=%zu\n", append_count,
+            performance_mode ? "TOKENS_IDENTICAL_ONLY" : "BIT_IDENTICAL", free_after);
+        return;
+    }
+
+    std::vector<std::vector<float>> previous_hidden(probes.size()), previous_norm(probes.size()), previous_logits(probes.size());
+    for (uint32_t run = 1; run <= 3; ++run) {
+        const std::string begin_label = "INCREMENTAL_RUN" + std::to_string(run) + "_BEGIN";
+        session_state->reset();
+        if (session_state->current_length() != 0)
+            throw std::runtime_error("session logical reset did not clear the context length");
+        cuda_audit_snapshot(begin_label.c_str());
+        std::vector<std::vector<float>> hidden_outputs(probes.size()), norm_outputs(probes.size()), logit_outputs(probes.size());
+        size_t probe_index = 0;
+        for (uint32_t position = 0; position < capacity; ++position) {
+            compute_step(position, tokens[position]);
+            if (probe_index < probes.size() && position + 1 == probes[probe_index]) {
+                hidden_outputs[probe_index].resize(EMBED);
+                norm_outputs[probe_index].resize(EMBED);
+                logit_outputs[probe_index].resize(vocabulary);
+                download_session_tensor( steps[0].hidden,
+                    hidden_outputs[probe_index].data(), 0, EMBED * sizeof(float));
+                download_session_tensor( steps[0].norm,
+                    norm_outputs[probe_index].data(), 0, EMBED * sizeof(float));
+                download_session_tensor( steps[0].logits,
+                    logit_outputs[probe_index].data(), 0, vocabulary * sizeof(float));
+                ++probe_index;
+            }
+        }
+        if (session_state->current_length() != capacity)
+            throw std::runtime_error("incremental decode did not commit the full session context length");
+        ggml_backend_synchronize(backend);
+        for (size_t p = 0; p < probes.size(); ++p) {
+            const uint32_t prefix = probes[p];
+            const size_t row = prefix - 1;
+            const std::vector<float> cpu_hidden_row(cpu_hidden.begin() + row * EMBED,
+                cpu_hidden.begin() + (row + 1) * EMBED);
+            const std::vector<float> cpu_norm_row(cpu_norm.begin() + row * EMBED,
+                cpu_norm.begin() + (row + 1) * EMBED);
+            const std::vector<float> cpu_logit_row(cpu_logits.begin() + row * vocabulary,
+                cpu_logits.begin() + (row + 1) * vocabulary);
+            compare("resident_cuda_incremental_hidden_prefix_" + std::to_string(prefix),
+                hidden_outputs[p], cpu_hidden_row, 1);
+            compare("resident_cuda_incremental_norm_prefix_" + std::to_string(prefix),
+                norm_outputs[p], cpu_norm_row, 1);
+            compare("resident_cuda_incremental_logits_prefix_" + std::to_string(prefix),
+                logit_outputs[p], cpu_logit_row, 1);
+            const auto cpu_order = top_indices(cpu_logit_row, 10);
+            const auto incremental_order = top_indices(logit_outputs[p], 10);
+            const auto overlap = [](const std::vector<uint32_t> & a, const std::vector<uint32_t> & b, size_t count) {
+                return static_cast<size_t>(std::count_if(a.begin(), a.begin() + std::min(count, a.size()),
+                    [&](uint32_t id) {
+                        return std::find(b.begin(), b.begin() + std::min(count, b.size()), id) !=
+                            b.begin() + std::min(count, b.size());
+                    }));
+            };
+            std::printf("resident_cuda_incremental_greedy_prefix=%u run=%u cpu_top1=%u incremental_top1=%u "
+                "cpu_overlap_top5=%zu/5 cpu_overlap_top10=%zu/10", prefix, run,
+                cpu_order[0], incremental_order[0], overlap(cpu_order, incremental_order, 5),
+                overlap(cpu_order, incremental_order, 10));
+            if (!full_compare_dir.empty()) {
+                const auto full_order = top_indices(full_logits[p], 10);
+                std::printf(" full_top1=%u incremental_full_top5=%zu/5 incremental_full_top10=%zu/10",
+                    full_order[0], overlap(full_order, incremental_order, 5), overlap(full_order, incremental_order, 10));
+            }
+            std::printf("\n");
+            if (!full_compare_dir.empty()) {
+                const std::vector<float> full_hidden_row(full_hidden.begin() + row * EMBED,
+                    full_hidden.begin() + (row + 1) * EMBED);
+                const std::vector<float> full_norm_row(full_norm.begin() + row * EMBED,
+                    full_norm.begin() + (row + 1) * EMBED);
+                compare("resident_cuda_incremental_vs_full_hidden_prefix_" + std::to_string(prefix),
+                    hidden_outputs[p], full_hidden_row, 1);
+                compare("resident_cuda_incremental_vs_full_norm_prefix_" + std::to_string(prefix),
+                    norm_outputs[p], full_norm_row, 1);
+                compare("resident_cuda_incremental_vs_full_logits_prefix_" + std::to_string(prefix),
+                    logit_outputs[p], full_logits[p], 1);
+            }
+            if (std::any_of(hidden_outputs[p].begin(), hidden_outputs[p].end(), [](float x) { return !std::isfinite(x); }) ||
+                std::any_of(norm_outputs[p].begin(), norm_outputs[p].end(), [](float x) { return !std::isfinite(x); }) ||
+                std::any_of(logit_outputs[p].begin(), logit_outputs[p].end(), [](float x) { return !std::isfinite(x); }))
+                throw std::runtime_error("incremental CUDA output is non-finite at prefix " + std::to_string(prefix));
+            if (run > 1 && (std::memcmp(previous_hidden[p].data(), hidden_outputs[p].data(), EMBED * sizeof(float)) != 0 ||
+                std::memcmp(previous_norm[p].data(), norm_outputs[p].data(), EMBED * sizeof(float)) != 0 ||
+                std::memcmp(previous_logits[p].data(), logit_outputs[p].data(), vocabulary * sizeof(float)) != 0))
+                throw std::runtime_error("incremental CUDA output changed across cache-reuse replay");
+            previous_hidden[p] = hidden_outputs[p]; previous_norm[p] = norm_outputs[p];
+            previous_logits[p] = logit_outputs[p];
+            std::printf("resident_cuda_incremental_prefix=%u run=%u result=PASS "
+                "resident_weight_H2D_expected=0 historical_KV_H2D_expected=0 historical_KV_D2H_expected=0\n",
+                prefix, run);
+        }
+        const std::string end_label = "INCREMENTAL_RUN" + std::to_string(run) + "_END";
+        cuda_audit_snapshot(end_label.c_str());
+    }
+    std::printf("resident_cuda_incremental_gate kv_device_only=YES cache_slots=%u "
+        "model_weight_reupload=NO repeated_outputs=BIT_IDENTICAL production_session=DISABLED\n", capacity);
+    std::printf("qwen_cuda_transfer_api_audit runtime_upload_tensors=%zu runtime_upload_bytes=%llu "
+        "session_H2D_calls=%llu session_H2D_bytes=%llu session_D2H_calls=%llu session_D2H_bytes=%llu "
+        "post_create_weight_H2D_calls=0 reset_cache_memsets=0 scope=GGML_BACKEND_TENSOR_SET_GET_API\n",
+        runtime_state->uploaded_tensor_count(),
+        static_cast<unsigned long long>(runtime_state->uploaded_payload_bytes()),
+        static_cast<unsigned long long>(session_h2d_calls),
+        static_cast<unsigned long long>(session_h2d_bytes),
+        static_cast<unsigned long long>(session_d2h_calls),
+        static_cast<unsigned long long>(session_d2h_bytes));
+    if (residency->active_device_lease_count() != 0)
+        throw std::runtime_error("incremental CUDA residency leases remain active");
+    audit_cuda_session_lifecycle();
+    ggml_backend_synchronize(backend);
+    session_state.reset();
+    runtime_state.reset();
+    if (residency->device_resident_bytes() != 0 || residency->device_resident_count() != 0)
+        throw std::runtime_error("incremental runtime teardown retained model residency");
+    size_t free_after = 0;
+    ggml_backend_dev_memory(device, &free_after, &ignored_total);
+    std::printf("resident_cuda_incremental_teardown resident_bytes=0 vram_free=%zu\n", free_after);
+    cuda_audit_snapshot("INCREMENTAL_SESSION_TORN_DOWN");
+}
+
 struct ProjectionOracle {
     std::vector<float> fp32;
     std::vector<float> fp64;
@@ -1309,8 +3176,10 @@ std::vector<float> run_positions(Model & model, const std::string & reference_di
         compare("simple_fp32_vs_fp64", reference_oracle.fp32, reference_oracle.fp64, positions);
     }
     if (const char * export_intermediates = std::getenv("VBUF_QWEN_EXPORT_INTERMEDIATES")) {
+        const char * export_all_intermediates = std::getenv("VBUF_QWEN_EXPORT_ALL_INTERMEDIATES");
         if (std::string(export_intermediates) == "1" &&
-            (layer == 0 || layer == model.layer_count / 2 || layer + 1 == model.layer_count)) {
+            (export_all_intermediates != nullptr || layer == 0 ||
+                layer == model.layer_count / 2 || layer + 1 == model.layer_count)) {
             const char * export_dir = std::getenv("VBUF_QWEN_EXPORT_DIR");
             if (export_dir == nullptr || *export_dir == '\0')
                 throw std::runtime_error("intermediate export requires VBUF_QWEN_EXPORT_DIR");
@@ -1609,12 +3478,61 @@ void run_full_reference_logits(Model & model, const std::vector<int32_t> & token
     const char * export_dir = std::getenv("VBUF_QWEN_EXPORT_DIR");
     const std::filesystem::path export_path = export_dir == nullptr ? std::filesystem::path() : std::filesystem::path(export_dir);
     if (export_dir != nullptr) std::filesystem::create_directories(export_path);
+    uint32_t diagnostic_layer = UINT32_MAX;
+    uint32_t diagnostic_position = UINT32_MAX;
+    std::filesystem::path diagnostic_export_path;
+    if (const char * value = std::getenv("VBUF_QWEN_DIAGNOSTIC_LAYER"))
+        if (*value != '\0') diagnostic_layer = static_cast<uint32_t>(std::stoul(value));
+    if (const char * value = std::getenv("VBUF_QWEN_DIAGNOSTIC_POSITION"))
+        if (*value != '\0') diagnostic_position = static_cast<uint32_t>(std::stoul(value));
+    if (const char * value = std::getenv("VBUF_QWEN_DIAGNOSTIC_EXPORT_DIR")) {
+        if (*value != '\0') {
+            diagnostic_export_path = value;
+            std::filesystem::create_directories(diagnostic_export_path);
+        }
+    }
+    if ((diagnostic_layer != UINT32_MAX || diagnostic_position != UINT32_MAX) &&
+        (diagnostic_layer >= model.layer_count || diagnostic_position >= tokens.size() || diagnostic_export_path.empty()))
+        throw std::runtime_error("invalid CPU operator-diagnostic layer/position/export directory");
     std::vector<float> hidden;
     for (uint32_t layer = 0; layer < model.layer_count; ++layer) {
+        LayerDiagnostics diagnostic;
+        LayerDiagnostics * capture = layer == diagnostic_layer ? &diagnostic : nullptr;
         hidden = run_positions(model, "", static_cast<uint32_t>(tokens.size()), layer,
-            hidden, false, tokens, nullptr, 0, nullptr, nullptr, nullptr, true, true);
+            hidden, false, tokens, nullptr, 0, capture, nullptr, nullptr, true, true);
         if (export_dir != nullptr)
             write_f32_export(export_path / ("l_out-" + std::to_string(layer) + ".f32"), hidden);
+        if (capture != nullptr) {
+            const std::string prefix = "cpu-layer-" + std::to_string(layer) + "-";
+            const std::pair<const char *, const std::vector<float> *> fields[] = {
+                {"layer_input", &diagnostic.layer_input}, {"attention_rmsnorm", &diagnostic.attention_rmsnorm},
+                {"q_projection", &diagnostic.q_projection}, {"k_projection", &diagnostic.k_projection},
+                {"v_projection", &diagnostic.v_projection}, {"q_norm", &diagnostic.q_rmsnorm},
+                {"k_norm", &diagnostic.k_rmsnorm}, {"q_rope", &diagnostic.q_rope},
+                {"k_rope", &diagnostic.k_rope}, {"attention_scores", &diagnostic.attention_scores},
+                {"attention_probabilities", &diagnostic.attention_probabilities},
+                {"attention_context", &diagnostic.attention_context},
+                {"attention_projection", &diagnostic.attention_projection},
+                {"attention_residual", &diagnostic.attention_residual}, {"ffn_rmsnorm", &diagnostic.ffn_rmsnorm},
+                {"ffn_gate", &diagnostic.ffn_gate}, {"ffn_up", &diagnostic.ffn_up},
+                {"ffn_swiglu", &diagnostic.ffn_swiglu}, {"ffn_down", &diagnostic.ffn_down},
+                {"block_output", &diagnostic.block_output},
+            };
+            for (const auto & field : fields)
+                write_f32_export(diagnostic_export_path / (prefix + field.first + ".f32"), *field.second);
+            write_binary_export(diagnostic_export_path / (prefix + "key_f16.bin"),
+                diagnostic.key_f16.data(), diagnostic.key_f16.size());
+            write_binary_export(diagnostic_export_path / (prefix + "value_f16.bin"),
+                diagnostic.value_f16.data(), diagnostic.value_f16.size());
+            std::ofstream metadata(diagnostic_export_path / (prefix + "meta"));
+            metadata << "layer=" << layer << " position=" << diagnostic_position
+                << " positions=" << tokens.size() << " keys=" << diagnostic.attention_key_positions
+                << " queries=" << diagnostic.attention_query_positions << " heads=" << HEADS
+                << " kv_heads=" << KV_HEADS << " head_dim=" << HEAD_DIM << " tokens=";
+            for (size_t i = 0; i < tokens.size(); ++i) metadata << (i == 0 ? "" : ",") << tokens[i];
+            metadata << "\n";
+            if (!metadata) throw std::runtime_error("failed writing CPU operator diagnostic metadata");
+        }
     }
     std::vector<float> normalized;
     const auto logits = run_final_head(model, "", hidden, true, &normalized);
@@ -2780,7 +4698,9 @@ int main(int argc, char ** argv) {
                 if (value < 0 || value > INT32_MAX) return 2;
                 input_tokens.push_back(static_cast<int32_t>(value));
             }
-            if (input_tokens.size() != positions) return 2;
+            if (input_mode == "resident_cuda_generate") {
+                if (input_tokens.empty() || input_tokens.size() >= positions) return 2;
+            } else if (input_tokens.size() != positions) return 2;
         }
     }
     uint32_t reference_input_layer = 0;
@@ -2796,17 +4716,29 @@ int main(int argc, char ** argv) {
         use_reference_input = true;
         reference_input_layer = static_cast<uint32_t>(std::stoul(input_mode.substr(16)));
     }
-    if (positions == 0 || positions > 32 || block_count == 0 ||
-        (positional.size() >= 2 && input_mode != "actual" && !use_reference_input && !persistent_kv && !long_persistent_kv && !long_persistent_generate && !full_reference_logits) ||
+    const bool performance_mode = std::getenv("VBUF_QWEN_PERF_MODE") != nullptr;
+    const uint32_t max_positions = ((std::getenv("VBUF_QWEN_CAPACITY_ONLY") != nullptr ||
+        std::getenv("VBUF_QWEN_LONG_PREFILL") != nullptr) && input_mode == "resident_cuda_generate") ? 4096u :
+        performance_mode && input_mode == "resident_cuda" ? 4096u :
+        performance_mode && input_mode == "resident_cuda_generate" ? 64u : 32u;
+    if (positions == 0 || positions > max_positions || block_count == 0 ||
+        (positional.size() >= 2 && input_mode != "actual" && input_mode != "resident_cuda" && input_mode != "resident_cuda_incremental" && input_mode != "resident_cuda_generate" && !use_reference_input && !persistent_kv && !long_persistent_kv && !long_persistent_generate && !full_reference_logits) ||
         (use_reference_input && block_count != 1) ||
         (persistent_kv && (positions > 8 || !has_token_spec || input_tokens.size() != positions || use_reference_input)) ||
         (long_persistent_kv && (!has_token_spec || input_tokens.size() != positions || use_reference_input)) ||
         (long_persistent_generate && (!has_token_spec || input_tokens.size() != 1 || use_reference_input)) ||
         (full_reference_logits && (!has_token_spec || input_tokens.size() != positions || use_reference_input)) ||
+        ((input_mode == "resident_cuda" || input_mode == "resident_cuda_incremental") &&
+            (!has_token_spec || input_tokens.size() != positions || !internal_qualification_mode())) ||
+        (input_mode == "resident_cuda_generate" &&
+            (!has_token_spec || input_tokens.empty() || input_tokens.size() >= positions || !internal_qualification_mode())) ||
         (benchmark_repeats > 1 && !full_reference_logits)) return 2;
     try {
+        const auto model_setup_begin = std::chrono::steady_clock::now();
         Model model;
         open_model(argv[1], argv[2], &model);
+        if (performance_mode) std::printf("resident_cuda_perf_artifact_metadata_setup_ms=%.3f\n",
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - model_setup_begin).count());
         if (!input_tokens.empty()) {
             const auto & embedding = get(model, "token_embd.weight");
             if (static_cast<uint64_t>(*std::max_element(input_tokens.begin(), input_tokens.end())) >= embedding.view.dimensions[1])
@@ -2814,6 +4746,25 @@ int main(int argc, char ** argv) {
         }
         if (block_count > model.layer_count) throw std::runtime_error("block count exceeds Qwen3 model depth");
         const std::string reference_dir = argv[3];
+        if (input_mode == "resident_cuda" || input_mode == "resident_cuda_incremental" ||
+            input_mode == "resident_cuda_generate") {
+            const char * compare_dir = std::getenv("VBUF_QWEN_RESIDENT_COMPARE_DIR");
+            if (input_mode != "resident_cuda_generate" && !(performance_mode && input_mode == "resident_cuda") &&
+                (compare_dir == nullptr || *compare_dir == '\0'))
+                throw std::runtime_error("resident CUDA qualification requires VBUF_QWEN_RESIDENT_COMPARE_DIR");
+            if (input_mode == "resident_cuda_incremental" || input_mode == "resident_cuda_generate") {
+                if (block_count != model.layer_count)
+                    throw std::runtime_error("resident CUDA incremental qualification requires all model layers");
+                run_cuda_incremental_kv_qualification(model, input_tokens, positions,
+                    compare_dir == nullptr ? "" : compare_dir, input_mode == "resident_cuda_generate");
+                std::printf("resident_cuda_incremental_real_artifact=PHYSICALLY_QUALIFIED production_session=DISABLED ordinary_http=NOT_TESTED\n");
+            } else {
+                run_cuda_resident_qualification(model, input_tokens, positions, block_count,
+                    compare_dir == nullptr ? "" : compare_dir);
+                std::printf("resident_cuda_real_artifact=RUN_REPEATED production_session=DISABLED http=NOT_TESTED tools=NOT_TESTED pi=NOT_TESTED\n");
+            }
+            return 0;
+        }
         if (persistent_kv) {
             if (block_count != model.layer_count)
                 throw std::runtime_error("persistent Qwen3 KV qualification requires all 40 layers");
@@ -2854,8 +4805,13 @@ int main(int argc, char ** argv) {
                 throw std::runtime_error("reference block input shape mismatch");
             hidden = run_positions(model, reference_dir, positions, reference_input_layer, hidden, true);
         } else {
+            const char * force_full_final_positions = std::getenv("VBUF_QWEN_FORCE_ALL_FINAL_POSITIONS");
+            const bool keep_full_final_positions = force_full_final_positions != nullptr &&
+                std::string(force_full_final_positions) == "1";
             for (uint32_t layer = 0; layer < block_count; ++layer) {
-                hidden = run_positions(model, reference_dir, positions, layer, hidden, false, input_tokens);
+                hidden = run_positions(model, reference_dir, positions, layer, hidden, false,
+                    input_tokens, nullptr, 0, nullptr, nullptr, nullptr, false,
+                    keep_full_final_positions);
                 if (hidden.empty()) throw std::runtime_error("non-finite hidden state at block boundary");
             }
         }
