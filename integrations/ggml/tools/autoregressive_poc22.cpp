@@ -278,7 +278,7 @@ private:
     std::atomic<bool> failure_injected_{false};
 };
 
-struct VbufGenerationSession::Impl {
+struct VbufModelRuntime::Impl {
     Metadata metadata;
     std::vector<LayerPlan> plans;
     mutable std::string source_endpoint;
@@ -297,17 +297,23 @@ struct VbufGenerationSession::Impl {
     mutable std::optional<uint64_t> source_failure_after_successful_requests;
 };
 
-VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
-    uint32_t block_count) : impl_(std::make_unique<Impl>()) {
+struct VbufGenerationSession::SessionState {
+    std::vector<RuntimeStateSlot> key_state;
+    std::vector<RuntimeStateSlot> value_state;
+    uint32_t current_context_length = 0;
+};
+
+VbufModelRuntime::VbufModelRuntime(const std::string & semantic_model, uint32_t block_count)
+    : impl_(std::make_shared<Impl>()) {
     if (block_count == 0) throw std::runtime_error("block count must be positive");
     load_metadata(semantic_model, &impl_->metadata);
     for (uint32_t block = 0; block < block_count; ++block)
         impl_->plans.push_back(make_plan(impl_->metadata, block, (block + 1) * 10000));
 }
 
-VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
-    uint32_t block_count, std::shared_ptr<TensorResidencyStore> shared_residency)
-    : impl_(std::make_unique<Impl>()) {
+VbufModelRuntime::VbufModelRuntime(const std::string & semantic_model, uint32_t block_count,
+    std::shared_ptr<TensorResidencyStore> shared_residency)
+    : impl_(std::make_shared<Impl>()) {
     if (block_count == 0) throw std::runtime_error("block count must be positive");
     if (!shared_residency) throw std::runtime_error("shared residency must not be null");
     load_metadata(semantic_model, &impl_->metadata);
@@ -316,12 +322,71 @@ VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
     impl_->shared_residency = std::move(shared_residency);
 }
 
+VbufModelRuntime::~VbufModelRuntime() = default;
+
+std::unique_ptr<VbufGenerationSession> VbufModelRuntime::create_session() {
+    std::shared_ptr<VbufModelRuntime> owner = weak_from_this().lock();
+    if (!owner) throw std::runtime_error("model runtime must be shared-owned before creating sessions");
+    return std::make_unique<VbufGenerationSession>(std::move(owner));
+}
+
+VbufGenerationResult VbufModelRuntime::run(const VbufGenerationConfig & config) {
+    std::unique_ptr<VbufGenerationSession> session = create_session();
+    return session->run(config);
+}
+
+VbufGenerationSnapshot VbufModelRuntime::snapshot() const {
+    VbufGenerationSnapshot snapshot;
+    snapshot.request_count = impl_->request_count;
+    snapshot.active_generations = impl_->active_generations;
+    if (!impl_->source || !impl_->residency || !impl_->materializer) return snapshot;
+    const auto source = impl_->http_source->metrics();
+    snapshot.resident_bytes = impl_->residency->resident_bytes();
+    snapshot.resident_count = impl_->residency->resident_count();
+    snapshot.active_lease_count = impl_->residency->active_lease_count();
+    snapshot.active_lease_bytes = impl_->residency->active_lease_bytes();
+    snapshot.active_inflight_bytes = impl_->materializer->active_inflight_bytes();
+    snapshot.source_requests = source.requests;
+    snapshot.source_bytes = source.bytes;
+    snapshot.source_unique_bytes = source.unique_bytes;
+    snapshot.source_connections = source.connections;
+    snapshot.materializations = impl_->residency->materialization_count();
+    snapshot.reacquisitions = impl_->residency->reacquisition_count();
+    snapshot.eviction_events = impl_->residency->eviction_count();
+    return snapshot;
+}
+
+VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
+    uint32_t block_count)
+    : VbufGenerationSession(std::make_shared<VbufModelRuntime>(semantic_model, block_count)) {}
+
+VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
+    uint32_t block_count, std::shared_ptr<TensorResidencyStore> shared_residency)
+    : VbufGenerationSession(std::make_shared<VbufModelRuntime>(semantic_model, block_count,
+        std::move(shared_residency))) {}
+
+VbufGenerationSession::VbufGenerationSession(std::shared_ptr<VbufModelRuntime> runtime)
+    : runtime_(std::move(runtime)), session_state_(std::make_unique<SessionState>()) {
+    if (!runtime_) throw std::runtime_error("model runtime must not be null");
+    impl_ = runtime_->impl_;
+}
+
 VbufGenerationSession::~VbufGenerationSession() = default;
+
+void VbufGenerationSession::reset() const noexcept {
+    session_state_->key_state.clear();
+    session_state_->value_state.clear();
+    session_state_->current_context_length = 0;
+}
+
+uint32_t VbufGenerationSession::current_context_length() const noexcept {
+    return session_state_->current_context_length;
+}
 
 bool validate_vbuf_generation_model(const std::string & semantic_model,
     uint32_t block_count, std::string * error) {
     try {
-        VbufGenerationSession session(semantic_model, block_count);
+        VbufModelRuntime runtime(semantic_model, block_count);
         return true;
     } catch (const std::exception & exception) {
         if (error != nullptr) *error = exception.what();
@@ -330,12 +395,13 @@ bool validate_vbuf_generation_model(const std::string & semantic_model,
 }
 
 VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & config) const {
+    reset();
     VbufGenerationResult result;
     const auto start = std::chrono::steady_clock::now();
     ++impl_->request_count;
     ++impl_->active_generations;
     struct ActiveGenerationGuard {
-        VbufGenerationSession::Impl * impl;
+        VbufModelRuntime::Impl * impl;
         ~ActiveGenerationGuard() { --impl->active_generations; }
     } active_generation{ impl_.get() };
     const auto clear_diagnostics = [&] {
@@ -417,7 +483,9 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         const Meta embedding = lookup(all, "token_embd.weight");
         const Meta output_norm = lookup(all, "output_norm.weight");
         const Meta output = lookup(all, "output.weight");
-        std::vector<RuntimeStateSlot> actual_k, actual_v, reference_k, reference_v;
+        auto & actual_k = session_state_->key_state;
+        auto & actual_v = session_state_->value_state;
+        std::vector<RuntimeStateSlot> reference_k, reference_v;
         for (size_t index = 0; index < plans.size(); ++index) {
             actual_k.emplace_back(16 * 192, total_positions);
             actual_v.emplace_back(16 * 128, total_positions);
@@ -477,6 +545,7 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
                 source, "server_generation", false, nullptr, 2, config.mode, nullptr,
                 &completed_layers, impl_->expert_execution.get());
             if (!sequence.ok) throw std::runtime_error("autoregressive transformer failure");
+            session_state_->current_context_length = static_cast<uint32_t>(position + 1);
             add_trace(trace_begin);
             peak_resident = std::max(peak_resident, residency->resident_bytes());
             peak_active = std::max(peak_active, sequence.peak_active_persistent);
@@ -545,6 +614,7 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         clear_diagnostics();
     } catch (const std::exception & exception) {
         result.error = exception.what();
+        reset();
         result.completed_layers = completed_layers;
         result.completed_positions = completed_positions;
         result.source_successful_requests = impl_->controlled_source
@@ -574,29 +644,12 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
 }
 
 VbufGenerationSnapshot VbufGenerationSession::snapshot() const {
-    VbufGenerationSnapshot snapshot;
-    snapshot.request_count = impl_->request_count;
-    snapshot.active_generations = impl_->active_generations;
-    if (!impl_->source || !impl_->residency || !impl_->materializer) return snapshot;
-    const auto source = impl_->http_source->metrics();
-    snapshot.resident_bytes = impl_->residency->resident_bytes();
-    snapshot.resident_count = impl_->residency->resident_count();
-    snapshot.active_lease_count = impl_->residency->active_lease_count();
-    snapshot.active_lease_bytes = impl_->residency->active_lease_bytes();
-    snapshot.active_inflight_bytes = impl_->materializer->active_inflight_bytes();
-    snapshot.source_requests = source.requests;
-    snapshot.source_bytes = source.bytes;
-    snapshot.source_unique_bytes = source.unique_bytes;
-    snapshot.source_connections = source.connections;
-    snapshot.materializations = impl_->residency->materialization_count();
-    snapshot.reacquisitions = impl_->residency->reacquisition_count();
-    snapshot.eviction_events = impl_->residency->eviction_count();
-    return snapshot;
+    return runtime_->snapshot();
 }
 
 VbufGenerationResult run_vbuf_generation(const VbufGenerationConfig & config) {
-    VbufGenerationSession session(config.semantic_model, config.block_count);
-    return session.run(config);
+    auto runtime = std::make_shared<VbufModelRuntime>(config.semantic_model, config.block_count);
+    return runtime->run(config);
 }
 
 } // namespace vbuf_ggml

@@ -84,21 +84,56 @@ struct VbufGenerationSnapshot {
 bool validate_vbuf_generation_model(const std::string & semantic_model,
     uint32_t block_count, std::string * error = nullptr);
 
+class VbufGenerationSession;
+
+// Owns immutable parsed model state and reusable model-scoped source,
+// materializer, residency, and execution resources. A runtime must be managed
+// by shared_ptr before create_session(); executions sharing one runtime are
+// currently serialized and are not thread-safe for concurrent run()/snapshot().
+class VbufModelRuntime : public std::enable_shared_from_this<VbufModelRuntime> {
+public:
+    VbufModelRuntime(const std::string & semantic_model, uint32_t block_count);
+    VbufModelRuntime(const std::string & semantic_model, uint32_t block_count,
+        std::shared_ptr<TensorResidencyStore> shared_residency);
+    ~VbufModelRuntime();
+    VbufModelRuntime(const VbufModelRuntime &) = delete;
+    VbufModelRuntime & operator=(const VbufModelRuntime &) = delete;
+
+    std::unique_ptr<VbufGenerationSession> create_session();
+    // Compatibility convenience: create a session, run one request, destroy it.
+    VbufGenerationResult run(const VbufGenerationConfig & config);
+    VbufGenerationSnapshot snapshot() const;
+
+private:
+    struct Impl;
+    std::shared_ptr<Impl> impl_;
+    friend class VbufGenerationSession;
+};
+
+// Owns mutable generation/KV state and retains the model runtime. Its run()
+// remains a whole-request operation; it resets at request start and leaves
+// successfully processed state inspectable until reset(), the next run, or
+// destruction. One session must not be used concurrently.
 class VbufGenerationSession {
 public:
     VbufGenerationSession(const std::string & semantic_model, uint32_t block_count);
     VbufGenerationSession(const std::string & semantic_model, uint32_t block_count,
         std::shared_ptr<TensorResidencyStore> shared_residency);
+    explicit VbufGenerationSession(std::shared_ptr<VbufModelRuntime> runtime);
     ~VbufGenerationSession();
     VbufGenerationSession(const VbufGenerationSession &) = delete;
     VbufGenerationSession & operator=(const VbufGenerationSession &) = delete;
 
     VbufGenerationResult run(const VbufGenerationConfig & config) const;
     VbufGenerationSnapshot snapshot() const;
+    void reset() const noexcept;
+    uint32_t current_context_length() const noexcept;
 
 private:
-    struct Impl;
-    std::unique_ptr<Impl> impl_;
+    struct SessionState;
+    std::shared_ptr<VbufModelRuntime> runtime_;
+    std::shared_ptr<VbufModelRuntime::Impl> impl_;
+    mutable std::unique_ptr<SessionState> session_state_;
 };
 
 VbufGenerationResult run_vbuf_generation(const VbufGenerationConfig & config);

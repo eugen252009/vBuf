@@ -19,6 +19,10 @@ set(VBUF_ML_LIBRARY "" CACHE FILEPATH
     "Existing libvbuf_ml.so to expose to native targets")
 set(VBUF_ML_INCLUDE_DIR "" CACHE PATH
     "Directory containing vBuf-ML native headers, if needed")
+set(VBUF_TEST_SEMANTIC_MODEL "" CACHE FILEPATH
+    "Optional semantic-model artifact for generation lifecycle contracts")
+set(VBUF_TEST_SOURCE_URL "" CACHE STRING
+    "Optional range-source endpoint for a generation lifecycle regression run")
 set(VBUF_TEST_QWEN3_MODEL "" CACHE FILEPATH
     "Optional exact Qwen3 semantic artifact for model-admission contract tests")
 set(VBUF_RUNTIME_LIBRARY "" CACHE FILEPATH
@@ -427,6 +431,27 @@ if(VBUF_ML_LIBRARY)
     add_executable(vbuf_autoregressive_poc22 tools/autoregressive_poc22.cpp)
     target_compile_features(vbuf_autoregressive_poc22 PRIVATE cxx_std_17)
     target_link_libraries(vbuf_autoregressive_poc22 PRIVATE vbuf_region_executor vbuf_model_architecture)
+
+    add_executable(vbuf_generation_lifecycle_contract
+        tests/generation_lifecycle_contract.cpp
+        tools/autoregressive_poc22.cpp)
+    target_compile_features(vbuf_generation_lifecycle_contract PRIVATE cxx_std_17)
+    target_compile_definitions(vbuf_generation_lifecycle_contract PRIVATE VBUF_POC22_LIBRARY_ONLY)
+    target_link_libraries(vbuf_generation_lifecycle_contract
+        PRIVATE vbuf_region_executor vbuf_model_architecture)
+    if(VBUF_TEST_SEMANTIC_MODEL)
+        if(NOT EXISTS "${VBUF_TEST_SEMANTIC_MODEL}")
+            message(FATAL_ERROR "VBUF_TEST_SEMANTIC_MODEL does not exist: ${VBUF_TEST_SEMANTIC_MODEL}")
+        endif()
+        if(VBUF_TEST_SOURCE_URL)
+            add_test(NAME vbuf_generation_lifecycle_contract
+                COMMAND vbuf_generation_lifecycle_contract
+                    "${VBUF_TEST_SEMANTIC_MODEL}" "${VBUF_TEST_SOURCE_URL}")
+        else()
+            add_test(NAME vbuf_generation_lifecycle_contract
+                COMMAND vbuf_generation_lifecycle_contract "${VBUF_TEST_SEMANTIC_MODEL}")
+        endif()
+    endif()
 
     add_executable(vbuf_qwen3_block_qualification tools/qwen3_block_qualification.cpp)
     target_compile_features(vbuf_qwen3_block_qualification PRIVATE cxx_std_17)
