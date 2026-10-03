@@ -147,6 +147,11 @@ target_compile_features(vbuf_qwen3_model PUBLIC cxx_std_17)
 target_include_directories(vbuf_qwen3_model PUBLIC include)
 target_link_libraries(vbuf_qwen3_model PUBLIC vbuf_region_executor vbuf_model_architecture)
 
+add_library(vbuf_qwen3_cuda_core STATIC src/qwen3_cuda_core.cpp)
+target_compile_features(vbuf_qwen3_cuda_core PUBLIC cxx_std_17)
+target_include_directories(vbuf_qwen3_cuda_core PUBLIC include)
+target_link_libraries(vbuf_qwen3_cuda_core PUBLIC ggml vbuf_qwen3_model)
+
 if(VBUF_BUILD_PROBES)
     add_executable(vbuf_agent_protocol_contract tests/agent_protocol_contract.cpp)
     target_compile_features(vbuf_agent_protocol_contract PRIVATE cxx_std_17)
@@ -163,6 +168,9 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_qwen3_execution_policy_contract PRIVATE cxx_std_17)
     target_include_directories(vbuf_qwen3_execution_policy_contract PRIVATE include)
 
+    add_executable(vbuf_qwen3_cuda_ownership_contract tests/qwen3_cuda_ownership_contract.cpp)
+    target_compile_features(vbuf_qwen3_cuda_ownership_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_qwen3_cuda_ownership_contract PRIVATE vbuf_qwen3_cuda_core)
 
     add_executable(vbuf_qwen3_model_admission_contract tests/qwen3_model_admission_contract.cpp)
     target_compile_features(vbuf_qwen3_model_admission_contract PRIVATE cxx_std_17)
@@ -328,6 +336,7 @@ if(VBUF_BUILD_PROBES)
     add_test(NAME vbuf_materializer_contract
         COMMAND vbuf_materializer_contract)
     add_test(NAME vbuf_materializer_page_lifetime_contract COMMAND vbuf_materializer_page_lifetime_contract)
+    add_test(NAME vbuf_qwen3_cuda_ownership_contract COMMAND vbuf_qwen3_cuda_ownership_contract)
     add_test(NAME vbuf_range_source_contract
         COMMAND vbuf_range_source_contract)
     add_test(NAME vbuf_progressive_range_source_contract
@@ -455,7 +464,7 @@ if(VBUF_ML_LIBRARY)
 
     add_executable(vbuf_qwen3_block_qualification tools/qwen3_block_qualification.cpp)
     target_compile_features(vbuf_qwen3_block_qualification PRIVATE cxx_std_17)
-    target_link_libraries(vbuf_qwen3_block_qualification PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_qwen3_model)
+    target_link_libraries(vbuf_qwen3_block_qualification PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_qwen3_model vbuf_qwen3_cuda_core)
 
     if(VBUF_BUILD_COMPAT_SERVER)
         add_executable(vbuf_compat_server tools/vbuf_compat_server.cpp)
