@@ -16,6 +16,7 @@ struct VbufGenerationConfig {
     std::string semantic_model;
     std::string source_endpoint;
     uint32_t block_count = 2;
+    uint32_t context_capacity = 1032;
     uint64_t residency_capacity = 268435456;
     uint32_t max_new_tokens = 4;
     // Qualification-only source fault injection. Zero leaves the source unchanged.
@@ -41,6 +42,7 @@ struct VbufGenerationResult {
     bool cancelled = false;
     std::string error;
     std::vector<uint32_t> tokens;
+    std::vector<float> final_logits;
     uint64_t prompt_tokens = 0;
     uint64_t source_bytes = 0;
     uint64_t materialized_bytes = 0;
@@ -52,10 +54,17 @@ struct VbufGenerationResult {
     uint32_t active_lease_count_after = 0;
     uint64_t active_lease_bytes_after = 0;
     uint64_t active_inflight_bytes_after = 0;
+    uint64_t peak_vram_bytes = 0;
+    uint64_t post_run_free_vram_bytes = 0;
     uint64_t evictions = 0;
     uint64_t reacquisitions = 0;
     uint64_t prefill_ns = 0;
     uint64_t decode_ns = 0;
+    uint64_t qwen_model_upload_bytes = 0;
+    uint64_t qwen_session_h2d_calls = 0;
+    uint64_t qwen_session_h2d_bytes = 0;
+    uint64_t qwen_session_d2h_calls = 0;
+    uint64_t qwen_session_d2h_bytes = 0;
     uint64_t source_successful_requests = 0;
     uint64_t source_successful_requests_before_failure = 0;
     uint32_t completed_layers = 0;
@@ -79,6 +88,8 @@ struct VbufGenerationSnapshot {
     uint64_t materializations = 0;
     uint64_t reacquisitions = 0;
     uint64_t eviction_events = 0;
+    uint64_t qwen_model_upload_tensors = 0;
+    uint64_t qwen_model_upload_bytes = 0;
 };
 
 bool validate_vbuf_generation_model(const std::string & semantic_model,
@@ -99,7 +110,9 @@ public:
     VbufModelRuntime(const VbufModelRuntime &) = delete;
     VbufModelRuntime & operator=(const VbufModelRuntime &) = delete;
 
-    std::unique_ptr<VbufGenerationSession> create_session();
+    std::unique_ptr<VbufGenerationSession> create_session(uint32_t context_capacity = 1032);
+    // Eagerly initialize exact-admitted Qwen CUDA model residency for long-lived servers.
+    void prepare_qwen3_cuda(const std::string & source_endpoint);
     // Compatibility convenience: create a session, run one request, destroy it.
     VbufGenerationResult run(const VbufGenerationConfig & config);
     VbufGenerationSnapshot snapshot() const;
@@ -119,7 +132,8 @@ public:
     VbufGenerationSession(const std::string & semantic_model, uint32_t block_count);
     VbufGenerationSession(const std::string & semantic_model, uint32_t block_count,
         std::shared_ptr<TensorResidencyStore> shared_residency);
-    explicit VbufGenerationSession(std::shared_ptr<VbufModelRuntime> runtime);
+    explicit VbufGenerationSession(std::shared_ptr<VbufModelRuntime> runtime,
+        uint32_t context_capacity = 1032);
     ~VbufGenerationSession();
     VbufGenerationSession(const VbufGenerationSession &) = delete;
     VbufGenerationSession & operator=(const VbufGenerationSession &) = delete;

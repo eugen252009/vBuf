@@ -25,6 +25,10 @@ set(VBUF_TEST_SOURCE_URL "" CACHE STRING
     "Optional range-source endpoint for a generation lifecycle regression run")
 set(VBUF_TEST_QWEN3_MODEL "" CACHE FILEPATH
     "Optional exact Qwen3 semantic artifact for model-admission contract tests")
+set(VBUF_TEST_QWEN3_SOURCE_URL "" CACHE STRING
+    "Optional source URL for opt-in exact-artifact Qwen qualifications")
+set(VBUF_TEST_QWEN3_PAYLOAD "" CACHE FILEPATH
+    "Optional exact Qwen3 payload file used by the OpenAI HTTP qualification")
 set(VBUF_RUNTIME_LIBRARY "" CACHE FILEPATH
     "Existing libvbuf_runtime.so exposing the portable graph C ABI")
 option(VBUF_ENABLE_CUDA "Build the pinned ggml CUDA backend" OFF)
@@ -147,7 +151,9 @@ target_compile_features(vbuf_qwen3_model PUBLIC cxx_std_17)
 target_include_directories(vbuf_qwen3_model PUBLIC include)
 target_link_libraries(vbuf_qwen3_model PUBLIC vbuf_region_executor vbuf_model_architecture)
 
-add_library(vbuf_qwen3_cuda_core STATIC src/qwen3_cuda_core.cpp)
+add_library(vbuf_qwen3_cuda_core STATIC
+    src/qwen3_cuda_core.cpp
+    src/qwen3_generation.cpp)
 target_compile_features(vbuf_qwen3_cuda_core PUBLIC cxx_std_17)
 target_include_directories(vbuf_qwen3_cuda_core PUBLIC include)
 target_link_libraries(vbuf_qwen3_cuda_core PUBLIC ggml vbuf_qwen3_model)
@@ -175,12 +181,34 @@ if(VBUF_BUILD_PROBES)
     add_executable(vbuf_qwen3_model_admission_contract tests/qwen3_model_admission_contract.cpp)
     target_compile_features(vbuf_qwen3_model_admission_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_qwen3_model_admission_contract PRIVATE vbuf_qwen3_model)
+    add_executable(vbuf_qwen3_runtime_admission_contract
+        tests/qwen3_runtime_admission_contract.cpp
+        tools/autoregressive_poc22.cpp)
+    target_compile_features(vbuf_qwen3_runtime_admission_contract PRIVATE cxx_std_17)
+    target_compile_definitions(vbuf_qwen3_runtime_admission_contract PRIVATE VBUF_POC22_LIBRARY_ONLY)
+    target_link_libraries(vbuf_qwen3_runtime_admission_contract
+        PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_qwen3_model vbuf_qwen3_cuda_core)
+    add_executable(vbuf_qwen3_production_session_qualification
+        tests/qwen3_production_session_qualification.cpp
+        tools/autoregressive_poc22.cpp)
+    target_compile_features(vbuf_qwen3_production_session_qualification PRIVATE cxx_std_17)
+    target_compile_definitions(vbuf_qwen3_production_session_qualification PRIVATE VBUF_POC22_LIBRARY_ONLY)
+    target_link_libraries(vbuf_qwen3_production_session_qualification
+        PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_qwen3_model vbuf_qwen3_cuda_core)
     if(VBUF_TEST_QWEN3_MODEL)
         if(NOT EXISTS "${VBUF_TEST_QWEN3_MODEL}")
             message(FATAL_ERROR "VBUF_TEST_QWEN3_MODEL does not exist: ${VBUF_TEST_QWEN3_MODEL}")
         endif()
         add_test(NAME vbuf_qwen3_model_admission_contract
             COMMAND vbuf_qwen3_model_admission_contract "${VBUF_TEST_QWEN3_MODEL}")
+        add_test(NAME vbuf_qwen3_runtime_admission_contract
+            COMMAND vbuf_qwen3_runtime_admission_contract "${VBUF_TEST_QWEN3_MODEL}")
+        if(VBUF_TEST_QWEN3_SOURCE_URL AND VBUF_ENABLE_CUDA)
+            add_test(NAME vbuf_qwen3_production_session_qualification
+                COMMAND vbuf_qwen3_production_session_qualification
+                    "${VBUF_TEST_QWEN3_MODEL}" "${VBUF_TEST_QWEN3_SOURCE_URL}"
+                    "${CMAKE_CURRENT_BINARY_DIR}/qwen3-production-final-logits.f32")
+        endif()
     else()
         add_test(NAME vbuf_qwen3_model_admission_contract
             COMMAND vbuf_qwen3_model_admission_contract)
@@ -444,7 +472,7 @@ if(VBUF_ML_LIBRARY)
 
     add_executable(vbuf_autoregressive_poc22 tools/autoregressive_poc22.cpp)
     target_compile_features(vbuf_autoregressive_poc22 PRIVATE cxx_std_17)
-    target_link_libraries(vbuf_autoregressive_poc22 PRIVATE vbuf_region_executor vbuf_model_architecture)
+    target_link_libraries(vbuf_autoregressive_poc22 PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_qwen3_model vbuf_qwen3_cuda_core)
 
     add_executable(vbuf_generation_lifecycle_contract
         tests/generation_lifecycle_contract.cpp
@@ -452,7 +480,7 @@ if(VBUF_ML_LIBRARY)
     target_compile_features(vbuf_generation_lifecycle_contract PRIVATE cxx_std_17)
     target_compile_definitions(vbuf_generation_lifecycle_contract PRIVATE VBUF_POC22_LIBRARY_ONLY)
     target_link_libraries(vbuf_generation_lifecycle_contract
-        PRIVATE vbuf_region_executor vbuf_model_architecture)
+        PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_qwen3_model vbuf_qwen3_cuda_core)
     if(VBUF_TEST_SEMANTIC_MODEL)
         if(NOT EXISTS "${VBUF_TEST_SEMANTIC_MODEL}")
             message(FATAL_ERROR "VBUF_TEST_SEMANTIC_MODEL does not exist: ${VBUF_TEST_SEMANTIC_MODEL}")

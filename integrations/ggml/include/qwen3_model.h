@@ -49,6 +49,8 @@ struct Qwen3Model {
     const VbufMlTensorView * views = nullptr;
     uint64_t count = 0;
     uint64_t source_id = 0;
+    uint64_t source_size = 0;
+    std::string source_endpoint;
     uint32_t layer_count = 0;
     std::string artifact_identity;
     ModelMetadataDescriptor metadata;
@@ -75,5 +77,6 @@ bool qwen3_artifact_identity_is_qualified(const std::string & source_sha256) noe
 bool is_qwen3_semantic_artifact(const std::string & semantic_artifact);
 void open_qwen3_model(const std::string & semantic_artifact, const std::string & source_endpoint,
     Qwen3Model * model, bool require_exact_qualified_artifact = false);
+void configure_qwen3_model_source(Qwen3Model & model, const std::string & source_endpoint);
 
 } // namespace vbuf_ggml

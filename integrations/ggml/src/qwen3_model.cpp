@@ -98,6 +98,21 @@ const Qwen3Tensor & qwen3_tensor(const Qwen3Model & model, const std::string & n
     return found->second;
 }
 
+void configure_qwen3_model_source(Qwen3Model & model, const std::string & source_endpoint) {
+    if (source_endpoint.empty()) throw std::invalid_argument("Qwen3 source endpoint must not be empty");
+    if (model.source || model.materializer) {
+        if (model.source_endpoint != source_endpoint)
+            throw std::runtime_error("Qwen3 model runtime cannot change its payload source");
+        return;
+    }
+    if (model.source_size == 0 || model.artifact_identity.rfind("sha256:", 0) != 0)
+        throw std::runtime_error("Qwen3 model source identity was not admitted");
+    model.source_endpoint = source_endpoint;
+    model.source = std::make_shared<HttpRangeSource>(source_endpoint, "", model.source_size,
+        model.artifact_identity.substr(7));
+    model.materializer = std::make_unique<LocalVbufRangeMaterializer>(model.source);
+}
+
 void open_qwen3_model(const std::string & semantic_artifact, const std::string & source_endpoint,
     Qwen3Model * model, bool require_exact_qualified_artifact) {
     if (model == nullptr) throw std::invalid_argument("Qwen3 model output is null");
@@ -162,6 +177,7 @@ void open_qwen3_model(const std::string & semantic_artifact, const std::string &
         identity.hash_algorithm != 1 || identity.hash_len != 32 || identity.declared_size == 0)
         throw std::runtime_error("Qwen3 payload source identity is not qualified SHA-256");
     const std::string source_sha256 = hex_sha(identity.full_source_hash, identity.hash_len);
+    model->source_size = identity.declared_size;
     model->artifact_identity = "sha256:" + source_sha256;
     if (require_exact_qualified_artifact && !qwen3_artifact_identity_is_qualified(source_sha256))
         throw std::runtime_error("Qwen3 production supports only the qualified Qwen3-14B Q4_K_M artifact");
@@ -181,11 +197,7 @@ void open_qwen3_model(const std::string & semantic_artifact, const std::string &
     if (model->add_bos && !model->special_token_present[0])
         throw std::runtime_error("Qwen3 tokenizer requires BOS but has no BOS token");
 
-    if (!source_endpoint.empty()) {
-        model->source = std::make_shared<HttpRangeSource>(source_endpoint, "",
-            identity.declared_size, source_sha256);
-        model->materializer = std::make_unique<LocalVbufRangeMaterializer>(model->source);
-    }
+    if (!source_endpoint.empty()) configure_qwen3_model_source(*model, source_endpoint);
 
     const Qwen3Tensor & down = qwen3_tensor(*model, "blk.0.ffn_down.weight");
     TensorGeometry geometry{};

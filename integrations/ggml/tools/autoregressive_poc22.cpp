@@ -3,6 +3,9 @@
 #undef VBUF_POC16_LIBRARY_ONLY
 
 #include "vbuf_generation.h"
+#include "qwen3_model.h"
+#include "qwen3_cuda_core.h"
+#include "qwen3_generation.h"
 
 #include <atomic>
 #include <chrono>
@@ -280,6 +283,9 @@ private:
 
 struct VbufModelRuntime::Impl {
     Metadata metadata;
+    std::shared_ptr<Qwen3Model> qwen3_model;
+    std::shared_ptr<QwenCudaRuntimeState> qwen_cuda_runtime;
+    std::string semantic_model_path;
     std::vector<LayerPlan> plans;
     mutable std::string source_endpoint;
     mutable uint64_t residency_capacity = 0;
@@ -301,11 +307,22 @@ struct VbufGenerationSession::SessionState {
     std::vector<RuntimeStateSlot> key_state;
     std::vector<RuntimeStateSlot> value_state;
     uint32_t current_context_length = 0;
+    uint32_t configured_context_capacity = 1032;
+    std::shared_ptr<QwenCudaSessionState> qwen_cuda_session;
+    std::unique_ptr<Qwen3GenerationExecutor> qwen_executor;
 };
 
 VbufModelRuntime::VbufModelRuntime(const std::string & semantic_model, uint32_t block_count)
     : impl_(std::make_shared<Impl>()) {
     if (block_count == 0) throw std::runtime_error("block count must be positive");
+    impl_->semantic_model_path = semantic_model;
+    if (is_qwen3_semantic_artifact(semantic_model)) {
+        impl_->qwen3_model = std::make_shared<Qwen3Model>();
+        open_qwen3_model(semantic_model, "", impl_->qwen3_model.get(), true);
+        if (block_count != impl_->qwen3_model->layer_count)
+            throw std::runtime_error("qualified Qwen3 runtime requires all model layers");
+        return;
+    }
     load_metadata(semantic_model, &impl_->metadata);
     for (uint32_t block = 0; block < block_count; ++block)
         impl_->plans.push_back(make_plan(impl_->metadata, block, (block + 1) * 10000));
@@ -315,7 +332,16 @@ VbufModelRuntime::VbufModelRuntime(const std::string & semantic_model, uint32_t 
     std::shared_ptr<TensorResidencyStore> shared_residency)
     : impl_(std::make_shared<Impl>()) {
     if (block_count == 0) throw std::runtime_error("block count must be positive");
+    impl_->semantic_model_path = semantic_model;
     if (!shared_residency) throw std::runtime_error("shared residency must not be null");
+    if (is_qwen3_semantic_artifact(semantic_model)) {
+        impl_->qwen3_model = std::make_shared<Qwen3Model>();
+        open_qwen3_model(semantic_model, "", impl_->qwen3_model.get(), true);
+        if (block_count != impl_->qwen3_model->layer_count)
+            throw std::runtime_error("qualified Qwen3 runtime requires all model layers");
+        impl_->shared_residency = std::move(shared_residency);
+        return;
+    }
     load_metadata(semantic_model, &impl_->metadata);
     for (uint32_t block = 0; block < block_count; ++block)
         impl_->plans.push_back(make_plan(impl_->metadata, block, (block + 1) * 10000));
@@ -324,14 +350,28 @@ VbufModelRuntime::VbufModelRuntime(const std::string & semantic_model, uint32_t 
 
 VbufModelRuntime::~VbufModelRuntime() = default;
 
-std::unique_ptr<VbufGenerationSession> VbufModelRuntime::create_session() {
+std::unique_ptr<VbufGenerationSession> VbufModelRuntime::create_session(uint32_t context_capacity) {
     std::shared_ptr<VbufModelRuntime> owner = weak_from_this().lock();
     if (!owner) throw std::runtime_error("model runtime must be shared-owned before creating sessions");
-    return std::make_unique<VbufGenerationSession>(std::move(owner));
+    if (context_capacity == 0 || context_capacity > 4096)
+        throw std::invalid_argument("generation session capacity must be in 1..4096");
+    return std::make_unique<VbufGenerationSession>(std::move(owner), context_capacity);
+}
+
+void VbufModelRuntime::prepare_qwen3_cuda(const std::string & source_endpoint) {
+    if (!impl_->qwen3_model) throw std::runtime_error("Qwen CUDA preparation requires an admitted Qwen3 model");
+    if (source_endpoint.empty()) throw std::runtime_error("Qwen CUDA preparation requires a payload source endpoint");
+    if (!impl_->qwen3_model->materializer) {
+        configure_qwen3_model_source(*impl_->qwen3_model, source_endpoint);
+    } else if (impl_->qwen3_model->source_endpoint != source_endpoint) {
+        throw std::runtime_error("Qwen model runtime source endpoint cannot change after initialization");
+    }
+    if (!impl_->qwen_cuda_runtime)
+        impl_->qwen_cuda_runtime = QwenCudaRuntimeState::create(*impl_->qwen3_model);
 }
 
 VbufGenerationResult VbufModelRuntime::run(const VbufGenerationConfig & config) {
-    std::unique_ptr<VbufGenerationSession> session = create_session();
+    std::unique_ptr<VbufGenerationSession> session = create_session(config.context_capacity);
     return session->run(config);
 }
 
@@ -339,6 +379,18 @@ VbufGenerationSnapshot VbufModelRuntime::snapshot() const {
     VbufGenerationSnapshot snapshot;
     snapshot.request_count = impl_->request_count;
     snapshot.active_generations = impl_->active_generations;
+    if (impl_->qwen_cuda_runtime) {
+        const auto residency = impl_->qwen_cuda_runtime->residency();
+        snapshot.resident_bytes = residency->device_resident_bytes();
+        snapshot.resident_count = residency->device_resident_count();
+        snapshot.active_lease_count = residency->active_device_lease_count();
+        snapshot.active_lease_bytes = 0;
+        snapshot.qwen_model_upload_tensors = impl_->qwen_cuda_runtime->uploaded_tensor_count();
+        snapshot.qwen_model_upload_bytes = impl_->qwen_cuda_runtime->uploaded_payload_bytes();
+        if (impl_->qwen3_model && impl_->qwen3_model->source)
+            snapshot.source_requests = impl_->qwen3_model->source->metrics().requests;
+        return snapshot;
+    }
     if (!impl_->source || !impl_->residency || !impl_->materializer) return snapshot;
     const auto source = impl_->http_source->metrics();
     snapshot.resident_bytes = impl_->residency->resident_bytes();
@@ -358,16 +410,20 @@ VbufGenerationSnapshot VbufModelRuntime::snapshot() const {
 
 VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
     uint32_t block_count)
-    : VbufGenerationSession(std::make_shared<VbufModelRuntime>(semantic_model, block_count)) {}
+    : VbufGenerationSession(std::make_shared<VbufModelRuntime>(semantic_model, block_count), 1032) {}
 
 VbufGenerationSession::VbufGenerationSession(const std::string & semantic_model,
     uint32_t block_count, std::shared_ptr<TensorResidencyStore> shared_residency)
     : VbufGenerationSession(std::make_shared<VbufModelRuntime>(semantic_model, block_count,
-        std::move(shared_residency))) {}
+        std::move(shared_residency)), 1032) {}
 
-VbufGenerationSession::VbufGenerationSession(std::shared_ptr<VbufModelRuntime> runtime)
+VbufGenerationSession::VbufGenerationSession(std::shared_ptr<VbufModelRuntime> runtime,
+    uint32_t context_capacity)
     : runtime_(std::move(runtime)), session_state_(std::make_unique<SessionState>()) {
     if (!runtime_) throw std::runtime_error("model runtime must not be null");
+    if (context_capacity == 0 || context_capacity > 4096)
+        throw std::invalid_argument("generation session capacity must be in 1..4096");
+    session_state_->configured_context_capacity = context_capacity;
     impl_ = runtime_->impl_;
 }
 
@@ -377,10 +433,12 @@ void VbufGenerationSession::reset() const noexcept {
     session_state_->key_state.clear();
     session_state_->value_state.clear();
     session_state_->current_context_length = 0;
+    if (session_state_->qwen_cuda_session) session_state_->qwen_cuda_session->reset();
 }
 
 uint32_t VbufGenerationSession::current_context_length() const noexcept {
-    return session_state_->current_context_length;
+    return session_state_->qwen_cuda_session ? session_state_->qwen_cuda_session->current_length() :
+        session_state_->current_context_length;
 }
 
 bool validate_vbuf_generation_model(const std::string & semantic_model,
@@ -428,14 +486,73 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
             throw std::runtime_error("prompt tokenization produced no tokens");
         if (config.block_count == 0 || config.max_new_tokens == 0)
             throw std::runtime_error("generation bounds must be positive");
+        if (impl_->qwen3_model) {
+            if (config.block_count != impl_->qwen3_model->layer_count || config.block_count != 40)
+                throw std::runtime_error("canonical Qwen CUDA execution requires the admitted 40-layer model");
+            if (config.expert_workers != 1 || config.expert_threads != 1)
+                throw std::runtime_error("Qwen CUDA session currently requires serial generation scheduling");
+            if (config.source_endpoint.empty())
+                throw std::runtime_error("canonical Qwen execution requires a payload source endpoint");
+            if (config.context_capacity != session_state_->configured_context_capacity ||
+                config.context_capacity == 0 || config.context_capacity > 1032)
+                throw std::runtime_error("Qwen executable context capacity must match the session and be in 1..1032");
+            const uint64_t requested_positions = static_cast<uint64_t>(config.prompt_tokens.size()) +
+                config.max_new_tokens;
+            if (requested_positions > config.context_capacity)
+                throw std::runtime_error("Qwen request exceeds configured executable session capacity");
+            runtime_->prepare_qwen3_cuda(config.source_endpoint);
+            if (!session_state_->qwen_cuda_session || !session_state_->qwen_executor ||
+                session_state_->qwen_cuda_session->capacity() != config.context_capacity) {
+                session_state_->qwen_executor.reset();
+                session_state_->qwen_cuda_session.reset();
+                auto qwen_session = impl_->qwen_cuda_runtime->create_session(config.context_capacity);
+                auto executor = std::make_unique<Qwen3GenerationExecutor>(*impl_->qwen3_model,
+                    impl_->qwen_cuda_runtime, qwen_session);
+                session_state_->qwen_cuda_session = std::move(qwen_session);
+                session_state_->qwen_executor = std::move(executor);
+            }
+            const auto resident_before = impl_->qwen_cuda_runtime->residency()->device_resident_bytes();
+            const Qwen3GenerationExecution execution = session_state_->qwen_executor->run(
+                config.prompt_tokens, config.max_new_tokens, config.stop_token,
+                config.on_token, config.should_cancel);
+            result.tokens = execution.tokens;
+            result.final_logits = execution.final_logits;
+            result.completed = execution.completed;
+            result.cancelled = execution.cancelled;
+            result.prompt_tokens = config.prompt_tokens.size();
+            result.completed_positions = execution.completed_positions;
+            result.completed_layers = execution.completed_positions == 0 ? 0 : 40;
+            result.prefill_ns = execution.prefill_ns;
+            result.decode_ns = execution.decode_ns;
+            result.peak_vram_bytes = execution.peak_vram_bytes;
+            result.post_run_free_vram_bytes = execution.post_run_free_vram_bytes;
+            result.qwen_model_upload_bytes = impl_->qwen_cuda_runtime->uploaded_payload_bytes();
+            result.qwen_session_h2d_calls = execution.h2d_calls;
+            result.qwen_session_h2d_bytes = execution.h2d_bytes;
+            result.qwen_session_d2h_calls = execution.d2h_calls;
+            result.qwen_session_d2h_bytes = execution.d2h_bytes;
+            const auto residency = impl_->qwen_cuda_runtime->residency();
+            result.resident_bytes_before = resident_before;
+            result.resident_bytes_after = residency->device_resident_bytes();
+            result.peak_resident_bytes = result.resident_bytes_after;
+            result.active_lease_count_after = residency->active_device_lease_count();
+            result.active_lease_bytes_after = 0;
+            result.materialized_bytes = impl_->qwen_cuda_runtime->uploaded_payload_bytes();
+            const auto source_metrics = impl_->qwen3_model->source->metrics();
+            result.source_successful_requests = source_metrics.requests;
+            result.source_successful_requests_before_failure = source_metrics.requests;
+            result.source_bytes = source_metrics.bytes;
+            result.materialized_bytes = source_metrics.bytes;
+            result.elapsed_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now() - start).count());
+            return result;
+        }
         if (config.block_count != impl_->plans.size())
             throw std::runtime_error("generation block count differs from prepared session");
         const uint64_t total_positions = static_cast<uint64_t>(config.prompt_tokens.size()) +
             config.max_new_tokens;
         if (total_positions > 4096)
             throw std::runtime_error("generation request exceeds bounded position limit");
-        if (impl_->metadata.model.architecture == ModelArchitecture::Qwen3)
-            throw std::runtime_error("Qwen3 metadata and tensors are recognized, but its direct graph builder is not implemented");
         if (impl_->metadata.model.architecture != ModelArchitecture::DeepSeekV2)
             throw std::runtime_error("direct generation does not support this model architecture");
 
