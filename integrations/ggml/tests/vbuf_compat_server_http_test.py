@@ -59,6 +59,18 @@ def main():
     assert status == 200 and completion["object"] == "text_completion"
     assert completion["choices"][0]["finish_reason"] == "length"
 
+    status, headers, body = request(args.url, "POST", "/v1/completions", {
+        "model": args.model, "prompt": "Say hi", "max_tokens": 1, "stream": True,
+    })
+    completion_stream = body.decode()
+    assert status == 200 and headers["Content-Type"].startswith("text/event-stream")
+    completion_events = [line[6:] for line in completion_stream.splitlines() if line.startswith("data: ")]
+    assert completion_events[-1] == "[DONE]"
+    completion_chunks = [json.loads(event) for event in completion_events[:-1]]
+    assert all(chunk["object"] == "text_completion" for chunk in completion_chunks)
+    assert completion_chunks[-1]["choices"][0]["finish_reason"] == "length"
+    assert "".join(chunk["choices"][0]["text"] for chunk in completion_chunks) == completion["choices"][0]["text"]
+
     status, _, body = request(args.url, "POST", "/v1/chat/completions", {
         **chat, "temperature": 0,
     })

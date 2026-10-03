@@ -60,6 +60,10 @@ uint32_t vbuf_ml_consumer_chat_template(const VbufMlConsumerHandle *, char * buf
 uint32_t vbuf_ml_consumer_runtime_indexes(const VbufMlConsumerHandle *);
 uint32_t vbuf_ml_consumer_token_id(const VbufMlConsumerHandle *, const uint8_t *, size_t,
     uint32_t * token_id);
+uint32_t vbuf_ml_consumer_encode_text(const VbufMlConsumerHandle *, const uint8_t *, size_t,
+    uint32_t *, size_t, size_t *);
+uint32_t vbuf_ml_consumer_decode_tokens(const VbufMlConsumerHandle *, const uint32_t *, size_t,
+    uint8_t *, size_t, size_t *);
 }
 
 namespace {
@@ -685,12 +689,19 @@ public:
         char template_buffer[1 << 20]{};
         if (vbuf_ml_consumer_chat_template(handle_, template_buffer, sizeof(template_buffer)) == OK)
             chat_template_ = template_buffer;
+        qwen3_text_template_ = vbuf_ggml::is_qwen3_semantic_artifact(path) &&
+            chat_template_.find("multi_step_tool") != std::string::npos &&
+            chat_template_.find("<|im_start|>") != std::string::npos;
     }
 
     ~VbufTokenizer() { if (handle_ != nullptr) vbuf_ml_consumer_close(handle_); }
     VbufTokenizer(const VbufTokenizer &) = delete;
 
     std::vector<uint32_t> encode_text(const std::string & text, bool include_bos) const {
+        if (qwen3_text_template_) {
+            (void)include_bos;
+            return encode_canonical_text(text);
+        }
         std::vector<PromptPart> parts;
         if (include_bos && special_[0]) parts.push_back({ {}, static_cast<uint32_t>(*special_[0]) });
         parts.push_back({ text, std::nullopt });
@@ -699,6 +710,7 @@ public:
 
     std::vector<uint32_t> encode_chat(const std::vector<Message> & messages) const {
         if (chat_template_.empty()) fail("vBuf model has no chat template");
+        if (qwen3_text_template_) return encode_qwen3_text_chat(messages);
         const uint32_t bos = static_cast<uint32_t>(special_[0].value_or(0));
         const uint32_t eos = static_cast<uint32_t>(special_[1].value_or(0));
         std::vector<PromptPart> parts = render_chat_template(chat_template_, messages,
@@ -707,6 +719,18 @@ public:
     }
 
     std::string decode(const std::vector<uint32_t> & tokens) const {
+        if (qwen3_text_template_) {
+            size_t length = 0;
+            const uint32_t query = vbuf_ml_consumer_decode_tokens(handle_, tokens.data(), tokens.size(),
+                nullptr, 0, &length);
+            if (query != BUFFER_TOO_SMALL && query != OK) fail("canonical tokenizer decode failed");
+            std::string output(length, '\0');
+            const uint32_t status = vbuf_ml_consumer_decode_tokens(handle_, tokens.data(), tokens.size(),
+                reinterpret_cast<uint8_t *>(output.data()), output.size(), &length);
+            if (status != OK) fail("canonical tokenizer decode failed");
+            output.resize(length);
+            return output;
+        }
         std::string bytes;
         for (uint32_t token : tokens) {
             if (token >= token_texts_.size()) continue;
@@ -728,6 +752,78 @@ public:
     bool add_bos() const { return add_bos_; }
 
 private:
+    std::vector<uint32_t> encode_canonical_text(const std::string & text) const {
+        size_t count = 0;
+        const uint32_t query = vbuf_ml_consumer_encode_text(handle_,
+            reinterpret_cast<const uint8_t *>(text.data()), text.size(), nullptr, 0, &count);
+        if (query != BUFFER_TOO_SMALL && query != OK) fail("canonical tokenizer encode failed");
+        std::vector<uint32_t> output(count);
+        const uint32_t status = vbuf_ml_consumer_encode_text(handle_,
+            reinterpret_cast<const uint8_t *>(text.data()), text.size(), output.data(), output.size(), &count);
+        if (status != OK) fail("canonical tokenizer encode failed");
+        output.resize(count);
+        return output;
+    }
+
+    std::vector<uint32_t> encode_qwen3_text_chat(const std::vector<Message> & messages) const {
+        if (messages.empty()) fail("messages must contain at least one message");
+        const auto token_for_marker = [&](const char * marker) {
+            uint32_t token = 0;
+            if (vbuf_ml_consumer_token_id(handle_, reinterpret_cast<const uint8_t *>(marker),
+                    std::strlen(marker), &token) != OK)
+                fail(std::string("Qwen3 chat template marker is absent from tokenizer: ") + marker);
+            return token;
+        };
+        const uint32_t im_start = token_for_marker("<|im_start|>");
+        const uint32_t im_end = token_for_marker("<|im_end|>");
+        std::vector<uint32_t> output;
+        std::string plain;
+        const auto flush_plain = [&] {
+            if (plain.empty()) return;
+            const auto encoded = encode_canonical_text(plain);
+            output.insert(output.end(), encoded.begin(), encoded.end());
+            plain.clear();
+        };
+        const auto marker = [&](uint32_t token) {
+            flush_plain();
+            output.push_back(token);
+        };
+        size_t last_user = messages.size();
+        for (size_t index = 0; index < messages.size(); ++index)
+            if (messages[index].role == "user") last_user = index;
+        for (size_t index = 0; index < messages.size(); ++index) {
+            const Message & message = messages[index];
+            if (message.role != "system" && message.role != "user" && message.role != "assistant")
+                fail("unsupported Qwen3 text chat role");
+            if (message.content.find("<|tool_response>") != std::string::npos ||
+                message.content.find("<tool_call>") != std::string::npos ||
+                message.content.find("</think>") != std::string::npos ||
+                message.content.find("<think>") != std::string::npos)
+                fail("Qwen3 chat history contains unsupported control markup");
+            if (index == 0 && message.role == "system") {
+                marker(im_start);
+                plain += "system\n" + message.content;
+                marker(im_end);
+                plain += '\n';
+                continue;
+            }
+            marker(im_start);
+            if (message.role == "assistant" && index > last_user && index + 1 == messages.size()) {
+                std::string content = message.content;
+                while (!content.empty() && content.front() == '\n') content.erase(content.begin());
+                plain += "assistant\n<think>\n\n</think>\n\n" + content;
+            } else {
+                plain += message.role + "\n" + message.content;
+            }
+            marker(im_end);
+            plain += '\n';
+        }
+        marker(im_start);
+        plain += "assistant\n";
+        flush_plain();
+        return output;
+    }
+
     std::vector<uint32_t> encode_parts(const std::vector<PromptPart> & parts) const {
         std::vector<uint32_t> output;
         for (const PromptPart & part : parts) {
@@ -775,6 +871,7 @@ private:
     std::unordered_map<uint32_t, uint8_t> reverse_byte_;
     std::string chat_template_;
     bool add_bos_ = false;
+    bool qwen3_text_template_ = false;
 };
 
 static void init_byte_reverse(std::unordered_map<uint32_t, uint8_t> * reverse) {
@@ -798,10 +895,18 @@ struct TokenizerInitializer {
 
 struct ServerRuntime {
     explicit ServerRuntime(const ServerConfig & config) : config(config), tokenizer(config.semantic_model),
-        session(std::make_unique<vbuf_ggml::VbufGenerationSession>(config.semantic_model, config.blocks)) {}
+        model_runtime(std::make_shared<vbuf_ggml::VbufModelRuntime>(config.semantic_model, config.blocks)),
+        qwen3(vbuf_ggml::is_qwen3_semantic_artifact(config.semantic_model)),
+        context_capacity(qwen3 ? 1032u : 4096u) {
+        if (qwen3 && config.blocks != 40)
+            fail("the admitted Qwen3 HTTP runtime requires all 40 layers");
+        if (qwen3) model_runtime->prepare_qwen3_cuda(config.source_url);
+    }
     ServerConfig config;
     VbufTokenizer tokenizer;
-    std::unique_ptr<vbuf_ggml::VbufGenerationSession> session;
+    std::shared_ptr<vbuf_ggml::VbufModelRuntime> model_runtime;
+    bool qwen3 = false;
+    uint32_t context_capacity = 4096;
     InferenceGate inference_gate;
     std::atomic<uint64_t> active_requests{0};
     std::atomic<uint64_t> active_streams{0};
@@ -925,6 +1030,41 @@ static bool send_chunk(int fd, const std::string & data) {
     return send_all(fd, size.str() + "\r\n" + data + "\r\n");
 }
 
+static size_t complete_utf8_prefix(const std::string & bytes) {
+    size_t cursor = 0;
+    while (cursor < bytes.size()) {
+        const uint8_t lead = static_cast<uint8_t>(bytes[cursor]);
+        const size_t length = lead < 0x80 ? 1 : lead >= 0xc2 && lead <= 0xdf ? 2 :
+            lead >= 0xe0 && lead <= 0xef ? 3 : lead >= 0xf0 && lead <= 0xf4 ? 4 : 0;
+        if (length == 0) return cursor;
+        if (cursor + length > bytes.size()) return cursor;
+        for (size_t index = 1; index < length; ++index)
+            if ((static_cast<uint8_t>(bytes[cursor + index]) & 0xc0) != 0x80) return cursor;
+        if (length == 3 && ((lead == 0xe0 && static_cast<uint8_t>(bytes[cursor + 1]) < 0xa0) ||
+            (lead == 0xed && static_cast<uint8_t>(bytes[cursor + 1]) >= 0xa0))) return cursor;
+        if (length == 4 && ((lead == 0xf0 && static_cast<uint8_t>(bytes[cursor + 1]) < 0x90) ||
+            (lead == 0xf4 && static_cast<uint8_t>(bytes[cursor + 1]) >= 0x90))) return cursor;
+        cursor += length;
+    }
+    return cursor;
+}
+
+static std::string replace_invalid_utf8(const std::string & bytes) {
+    std::string output;
+    size_t cursor = 0;
+    while (cursor < bytes.size()) {
+        const size_t end = complete_utf8_prefix(bytes.substr(cursor));
+        if (end != 0) {
+            output.append(bytes, cursor, end);
+            cursor += end;
+            continue;
+        }
+        output.append("\xef\xbf\xbd");
+        ++cursor;
+    }
+    return output;
+}
+
 static void log_admission(const RequestLifecycle & lifecycle, const RequestCancellation & cancellation,
     uint64_t accepted_ns, uint64_t dispatch_start_ns, uint64_t wait_ns, ServerRuntime * runtime,
     const char * event = "terminal") {
@@ -1034,6 +1174,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
     std::optional<RequestLifecycle> lifecycle;
     RequestCancellation cancellation;
     InferenceAdmissionScope admission(&runtime->inference_gate, connection_order);
+    std::unique_ptr<vbuf_ggml::VbufGenerationSession> request_session;
     try {
         HttpRequest request;
         const uint64_t parse_start_ns = steady_now_ns();
@@ -1071,10 +1212,20 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         }
         if (request.body.empty() || request.body.front() != '{') fail("request body must be a JSON object");
         reject_unsupported(request.body);
+        if (request.path == "/v1/completions") {
+            const vbuf_agent::JsonValue root = vbuf_agent::parse_json(request.body);
+            static const std::set<std::string> supported_completion_fields{
+                "model", "prompt", "max_tokens", "max_completion_tokens", "stream", "tools", "tool_choice"};
+            for (const auto & field : root.object)
+                if (supported_completion_fields.find(field.first) == supported_completion_fields.end())
+                    fail("unsupported completion request field: " + field.first);
+        }
         const std::string model = top_level_string(request.body, "model");
         if (model != runtime->config.model_alias) fail("model '" + model + "' not found");
+        std::optional<vbuf_agent::ChatRequest> parsed_chat;
         if (request.path == "/v1/chat/completions") {
-            const vbuf_agent::ChatRequest protocol = vbuf_agent::parse_chat_request(request.body);
+            parsed_chat = vbuf_agent::parse_chat_request(request.body);
+            const auto & protocol = *parsed_chat;
             const bool contains_tool_history = std::any_of(protocol.messages.begin(), protocol.messages.end(),
                 [](const vbuf_agent::ChatMessage & message) {
                     return message.role == vbuf_agent::ChatMessage::Role::Tool || !message.tool_calls.empty();
@@ -1098,7 +1249,10 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         std::vector<uint32_t> prompt_tokens;
         if (request.path == "/v1/chat/completions") {
             const uint64_t prompt_start_ns = steady_now_ns();
-            const std::vector<Message> messages = parse_messages(request.body);
+            std::vector<Message> messages;
+            messages.reserve(parsed_chat->messages.size());
+            for (const auto & message : parsed_chat->messages)
+                messages.push_back({vbuf_agent::role_name(message.role), message.content});
             prompt_build_ns = steady_now_ns() - prompt_start_ns;
             const uint64_t tokenize_start_ns = steady_now_ns();
             prompt_tokens = runtime->tokenizer.encode_chat(messages);
@@ -1111,7 +1265,9 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             tokenize_ns = steady_now_ns() - tokenize_start_ns;
         }
         if (prompt_tokens.empty()) fail("prompt tokenization produced no tokens");
-        if (prompt_tokens.size() + max_tokens > 4096) fail("prompt exceeds the bounded context limit");
+        if (prompt_tokens.size() + max_tokens > runtime->context_capacity)
+            fail("prompt plus requested generation exceeds the executable context capacity of " +
+                std::to_string(runtime->context_capacity));
 
         admission.classify_generation(&*lifecycle);
         log_admission(*lifecycle, cancellation, accepted_ns, request_start_ns, 0, runtime, "waiting");
@@ -1127,10 +1283,35 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
 
         std::string output;
         bool first_stream_chunk = true;
+        std::string pending_stream_bytes;
+        const auto send_stream_text = [&](const std::string & piece) {
+            if (piece.empty()) return true;
+            std::ostringstream chunk;
+            if (request.path == "/v1/chat/completions") {
+                if (first_stream_chunk) {
+                    chunk << "data: {\"id\":\"" << id << "\",\"object\":\"chat.completion.chunk\",\"created\":" << now_seconds()
+                        << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}\n\n";
+                    first_stream_chunk = false;
+                }
+                chunk << "data: {\"id\":\"" << id << "\",\"object\":\"chat.completion.chunk\",\"created\":" << now_seconds()
+                    << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\""
+                    << json_escape(piece) << "\"},\"finish_reason\":null}]}\n\n";
+            } else {
+                chunk << "data: {\"id\":\"" << id << "\",\"object\":\"text_completion\",\"created\":" << now_seconds()
+                    << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"text\":\""
+                    << json_escape(piece) << "\",\"finish_reason\":null}]}\n\n";
+            }
+            if (!send_chunk(fd, chunk.str())) {
+                cancellation.cancel(CancellationReason::ClientDisconnected);
+                return false;
+            }
+            return true;
+        };
         vbuf_ggml::VbufGenerationConfig generation;
         generation.semantic_model = runtime->config.semantic_model;
         generation.source_endpoint = runtime->config.source_url;
         generation.block_count = runtime->config.blocks;
+        generation.context_capacity = runtime->context_capacity;
         generation.residency_capacity = runtime->config.capacity;
         generation.max_new_tokens = max_tokens;
         generation.source_failure_requests = runtime->config.source_failure_requests;
@@ -1149,25 +1330,18 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             if (shutdown_requested != 0) cancellation.cancel(CancellationReason::ServerShutdown);
             return cancellation.requested();
         };
+        request_session = runtime->model_runtime->create_session(runtime->context_capacity);
         generation.on_token = [&](uint32_t token, uint32_t) {
             if (first_token_ns == 0) first_token_ns = steady_now_ns();
             const std::string piece = runtime->tokenizer.decode_token(token);
             output += piece;
             if (!stream) return true;
-            std::ostringstream chunk;
-            if (first_stream_chunk) {
-                chunk << "data: {\"id\":\"" << id << "\",\"object\":\"chat.completion.chunk\",\"created\":" << now_seconds()
-                    << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}\n\n";
-                first_stream_chunk = false;
-            }
-            chunk << "data: {\"id\":\"" << id << "\",\"object\":\"chat.completion.chunk\",\"created\":" << now_seconds()
-                << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\""
-                << json_escape(piece) << "\"},\"finish_reason\":null}]}\n\n";
-            if (!send_chunk(fd, chunk.str())) {
-                cancellation.cancel(CancellationReason::ClientDisconnected);
-                return false;
-            }
-            return true;
+            pending_stream_bytes += piece;
+            const size_t valid_length = complete_utf8_prefix(pending_stream_bytes);
+            if (valid_length == 0) return true;
+            const std::string valid = pending_stream_bytes.substr(0, valid_length);
+            pending_stream_bytes.erase(0, valid_length);
+            return send_stream_text(valid);
         };
         const bool headers_sent = !stream || send_sse_headers(fd);
         if (!headers_sent) {
@@ -1189,16 +1363,29 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                     CounterScope cancellation_scope(&runtime->active_cancellations);
                     StdoutSilencer silence;
                     runtime_start_ns = steady_now_ns();
-                    result = runtime->session->run(generation);
+                    result = request_session->run(generation);
                     runtime_end_ns = steady_now_ns();
                 }
+                if (!result.cancelled && result.error.empty() && !pending_stream_bytes.empty()) {
+                    const std::string repaired = replace_invalid_utf8(pending_stream_bytes);
+                    pending_stream_bytes.clear();
+                    if (!send_stream_text(repaired)) result.cancelled = true;
+                }
+                output = replace_invalid_utf8(output);
                 finish = result.tokens.size() >= max_tokens ? "length" : "stop";
-                if (!result.cancelled && result.error.empty()) {
+                if (!result.cancelled && cancellation.reason() != CancellationReason::ClientDisconnected) {
                     const uint64_t response_start_ns = steady_now_ns();
                     std::ostringstream terminal;
-                    terminal << "data: {\"id\":\"" << id << "\",\"object\":\"chat.completion.chunk\",\"created\":" << now_seconds()
-                        << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"" << finish << "\"}]}\n\n"
-                        << "data: [DONE]\n\n";
+                    if (!result.error.empty()) {
+                        terminal << "event: error\ndata: " << error_body(result.error, "server_error") << "\n\n";
+                    } else if (request.path == "/v1/chat/completions") {
+                        terminal << "data: {\"id\":\"" << id << "\",\"object\":\"chat.completion.chunk\",\"created\":" << now_seconds()
+                            << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"" << finish << "\"}]}\n\n";
+                    } else {
+                        terminal << "data: {\"id\":\"" << id << "\",\"object\":\"text_completion\",\"created\":" << now_seconds()
+                            << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"text\":\"\",\"finish_reason\":\"" << finish << "\"}]}\n\n";
+                    }
+                    terminal << "data: [DONE]\n\n";
                     response_serialization_ns = steady_now_ns() - response_start_ns;
                     (void)send_chunk(fd, terminal.str());
                     (void)send_all(fd, "0\r\n\r\n");
@@ -1208,7 +1395,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                 result.cancelled ? AdmissionState::Cancelled :
                 result.error.empty() ? AdmissionState::Completed : AdmissionState::Failed);
             request_scope.release();
-            const auto snapshot = runtime->session->snapshot();
+            const auto snapshot = runtime->model_runtime->snapshot();
             log_admission(*lifecycle, cancellation, accepted_ns, request_start_ns, inference_wait_ns, runtime);
             std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
             std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
@@ -1219,7 +1406,17 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                 << " parallel_expert_waves=" << result.parallel_expert_waves
                 << " peak_expert_wave_bytes=" << result.peak_expert_wave_bytes
                 << " expert_serial_fallbacks=" << result.expert_serial_fallbacks
-                << " generated_tokens=" << result.tokens.size() << " source_bytes=" << result.source_bytes
+                << " generated_tokens=" << result.tokens.size()
+                << " generated_token_hash=" << std::hex << token_hash(result.tokens) << std::dec
+                << " runtime_creation_count=1 qwen_model_upload_tensors=" << snapshot.qwen_model_upload_tensors
+                << " qwen_model_upload_bytes=" << snapshot.qwen_model_upload_bytes
+                << " peak_vram_bytes=" << result.peak_vram_bytes
+                << " post_run_free_vram_bytes=" << result.post_run_free_vram_bytes
+                << " qwen_session_h2d_calls=" << result.qwen_session_h2d_calls
+                << " qwen_session_h2d_bytes=" << result.qwen_session_h2d_bytes
+                << " qwen_session_d2h_calls=" << result.qwen_session_d2h_calls
+                << " qwen_session_d2h_bytes=" << result.qwen_session_d2h_bytes
+                << " source_bytes=" << result.source_bytes
                 << " materialized_bytes=" << result.materialized_bytes << " resident_bytes_before=" << result.resident_bytes_before
                 << " resident_bytes_after=" << result.resident_bytes_after << " peak_residency_bytes=" << result.peak_resident_bytes
                 << " active_leases_after=" << snapshot.active_lease_count << " active_lease_bytes_after=" << snapshot.active_lease_bytes
@@ -1251,9 +1448,10 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             CounterScope cancellation_scope(&runtime->active_cancellations);
             StdoutSilencer silence;
             runtime_start_ns = steady_now_ns();
-            result = runtime->session->run(generation);
+            result = request_session->run(generation);
             runtime_end_ns = steady_now_ns();
         }
+        output = replace_invalid_utf8(output);
         lifecycle->transition(AdmissionState::Active,
             result.cancelled ? AdmissionState::Cancelled :
             result.error.empty() ? AdmissionState::Completed : AdmissionState::Failed);
@@ -1269,7 +1467,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         request_scope.release();
         const bool sent = send_response(fd, status, status == 200 ? "OK" : "Internal Server Error",
             "application/json", body);
-        const auto snapshot = runtime->session->snapshot();
+        const auto snapshot = runtime->model_runtime->snapshot();
         log_admission(*lifecycle, cancellation, accepted_ns, request_start_ns, inference_wait_ns, runtime);
         std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
         std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
@@ -1280,7 +1478,17 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             << " parallel_expert_waves=" << result.parallel_expert_waves
             << " peak_expert_wave_bytes=" << result.peak_expert_wave_bytes
             << " expert_serial_fallbacks=" << result.expert_serial_fallbacks
-            << " generated_tokens=" << result.tokens.size() << " source_bytes=" << result.source_bytes
+            << " generated_tokens=" << result.tokens.size()
+            << " generated_token_hash=" << std::hex << token_hash(result.tokens) << std::dec
+            << " runtime_creation_count=1 qwen_model_upload_tensors=" << snapshot.qwen_model_upload_tensors
+            << " qwen_model_upload_bytes=" << snapshot.qwen_model_upload_bytes
+            << " peak_vram_bytes=" << result.peak_vram_bytes
+            << " post_run_free_vram_bytes=" << result.post_run_free_vram_bytes
+            << " qwen_session_h2d_calls=" << result.qwen_session_h2d_calls
+            << " qwen_session_h2d_bytes=" << result.qwen_session_h2d_bytes
+            << " qwen_session_d2h_calls=" << result.qwen_session_d2h_calls
+            << " qwen_session_d2h_bytes=" << result.qwen_session_d2h_bytes
+            << " source_bytes=" << result.source_bytes
             << " materialized_bytes=" << result.materialized_bytes << " resident_bytes_before=" << result.resident_bytes_before
             << " resident_bytes_after=" << result.resident_bytes_after << " peak_residency_bytes=" << result.peak_resident_bytes
             << " active_leases_after=" << snapshot.active_lease_count << " active_lease_bytes_after=" << snapshot.active_lease_bytes
@@ -1323,6 +1531,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
 
 static ServerConfig parse_args(int argc, char ** argv) {
     ServerConfig config;
+    bool blocks_were_specified = false;
     for (int index = 1; index < argc; ++index) {
         const std::string arg = argv[index];
         if (arg == "--help") {
@@ -1347,7 +1556,10 @@ static ServerConfig parse_args(int argc, char ** argv) {
         else if (arg == "--model-alias") config.model_alias = value();
         else if (arg == "--host") config.host = value();
         else if (arg == "--port") config.port = static_cast<uint16_t>(std::stoul(value()));
-        else if (arg == "--blocks") config.blocks = static_cast<uint32_t>(std::stoul(value()));
+        else if (arg == "--blocks") {
+            config.blocks = static_cast<uint32_t>(std::stoul(value()));
+            blocks_were_specified = true;
+        }
         else if (arg == "--capacity") config.capacity = std::stoull(value());
         else if (arg == "--max-new-tokens") config.max_new_tokens = static_cast<uint32_t>(std::stoul(value()));
         else if (arg == "--source-failure-requests")
@@ -1371,6 +1583,11 @@ static ServerConfig parse_args(int argc, char ** argv) {
     }
     if (config.semantic_model.empty() || config.source_url.empty())
         fail("usage: --semantic-model PATH --source-url URL [--model-alias ID --host HOST --port PORT --blocks N --capacity BYTES --max-new-tokens N --expert-workers N --expert-threads N --runtime-trace --source-failure-requests N --enable-qualification-faults]; see --help");
+    if (vbuf_ggml::is_qwen3_semantic_artifact(config.semantic_model)) {
+        if (blocks_were_specified && config.blocks != 40)
+            fail("the admitted Qwen3 HTTP runtime requires --blocks 40");
+        config.blocks = 40;
+    }
     if (config.max_new_tokens == 0 || config.blocks == 0) fail("generation bounds must be positive");
     if (config.expert_workers * config.expert_threads > 32) fail("expert compute thread budget exceeds 32");
     if (config.expert_workers == 1 && config.expert_threads != 1)
@@ -1402,8 +1619,11 @@ int main(int argc, char ** argv) {
         if (::bind(server, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0 ||
             ::listen(server, 8) < 0) fail(std::string("bind/listen failed: ") + std::strerror(errno));
         listening_socket = server;
+        const auto model_snapshot = runtime.model_runtime->snapshot();
         std::cerr << "vbuf-compat-server listening on " << config.host << ':' << config.port
             << " model=" << config.model_alias << " blocks=" << config.blocks
+            << " model_runtime_creations=1 qwen_model_upload_tensors=" << model_snapshot.qwen_model_upload_tensors
+            << " qwen_model_upload_bytes=" << model_snapshot.qwen_model_upload_bytes
             << " runtime_mode=" << (config.mode == vbuf_ggml::RuntimeMode::NormalInference ? "normal" : "qualification") << "\n";
         std::vector<std::unique_ptr<ConnectionWorker>> workers;
         auto reap_workers = [&] {

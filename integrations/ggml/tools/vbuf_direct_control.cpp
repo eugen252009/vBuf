@@ -18,6 +18,7 @@ struct DirectConfig {
     uint32_t max_new_tokens = 1;
     uint32_t warmup = 1;
     uint32_t requests = 3;
+    bool completion_prompt = false;
 };
 
 static std::string required_value(int * index, int argc, char ** argv) {
@@ -38,6 +39,7 @@ static DirectConfig parse_direct_args(int argc, char ** argv) {
         else if (arg == "--max-new-tokens") config.max_new_tokens = static_cast<uint32_t>(std::stoul(required_value(&index, argc, argv)));
         else if (arg == "--warmup") config.warmup = static_cast<uint32_t>(std::stoul(required_value(&index, argc, argv)));
         else if (arg == "--requests") config.requests = static_cast<uint32_t>(std::stoul(required_value(&index, argc, argv)));
+        else if (arg == "--completion") config.completion_prompt = true;
         else throw std::runtime_error("unknown direct-control option: " + arg);
     }
     if (config.semantic_model.empty() || config.source_url.empty() || config.blocks == 0 ||
@@ -78,36 +80,42 @@ int main(int argc, char ** argv) {
             const bool warmup = index < direct.warmup;
             const uint64_t total_start = steady_now_ns();
             const uint64_t tokenize_start = steady_now_ns();
-            const std::vector<uint32_t> prompt_tokens = runtime.tokenizer.encode_chat(messages);
+            const std::vector<uint32_t> prompt_tokens = direct.completion_prompt
+                ? runtime.tokenizer.encode_text(direct.prompt, runtime.tokenizer.add_bos())
+                : runtime.tokenizer.encode_chat(messages);
             const uint64_t tokenize_ns = steady_now_ns() - tokenize_start;
             vbuf_ggml::VbufGenerationConfig generation;
             generation.semantic_model = server.semantic_model;
             generation.source_endpoint = server.source_url;
             generation.block_count = server.blocks;
+            generation.context_capacity = runtime.context_capacity;
             generation.residency_capacity = server.capacity;
             generation.max_new_tokens = server.max_new_tokens;
             generation.mode = server.mode;
             generation.prompt_tokens = prompt_tokens;
             generation.stop_token = runtime.tokenizer.eos();
+            auto session = runtime.model_runtime->create_session(runtime.context_capacity);
             vbuf_ggml::VbufGenerationResult result;
             std::fflush(stdout);
             {
                 StdoutSilencer silence;
-                result = runtime.session->run(generation);
+                result = session->run(generation);
             }
             if (!result.error.empty() || !result.completed)
                 throw std::runtime_error("direct generation failed: " + result.error);
             const std::string output = runtime.tokenizer.decode(result.tokens);
             const uint64_t total_ns = steady_now_ns() - total_start;
-            std::printf("vbuf_direct_request request_index=%u phase=%s model=%s prompt_tokens=%llu "
-                "prompt_token_hash=%016llx generated_tokens=%zu output=%s source_bytes=%llu "
+            std::printf("vbuf_direct_request request_index=%u phase=%s mode=%s model=%s prompt_tokens=%llu "
+                "prompt_token_hash=%016llx generated_tokens=%zu generated_token_hash=%016llx output=%s source_bytes=%llu "
                 "materialized_bytes=%llu peak_residency_bytes=%llu resident_bytes_after=%llu "
                 "active_leases_after=%u active_inflight_bytes_after=%llu source_successful_requests=%llu "
                 "prefill_ns=%llu decode_ns=%llu runtime_ns=%llu tokenize_ns=%llu total_ns=%llu\n",
-                index + 1, warmup ? "warmup" : "measure", server.model_alias.c_str(),
+                index + 1, warmup ? "warmup" : "measure", direct.completion_prompt ? "completion" : "chat",
+                server.model_alias.c_str(),
                 static_cast<unsigned long long>(prompt_tokens.size()),
                 static_cast<unsigned long long>(token_hash(prompt_tokens)), result.tokens.size(),
-                hex_text(output).c_str(), static_cast<unsigned long long>(result.source_bytes),
+                static_cast<unsigned long long>(token_hash(result.tokens)), hex_text(output).c_str(),
+                static_cast<unsigned long long>(result.source_bytes),
                 static_cast<unsigned long long>(result.materialized_bytes),
                 static_cast<unsigned long long>(result.peak_resident_bytes),
                 static_cast<unsigned long long>(result.resident_bytes_after),

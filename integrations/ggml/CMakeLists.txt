@@ -502,17 +502,30 @@ if(VBUF_ML_LIBRARY)
     if(VBUF_BUILD_COMPAT_SERVER)
         add_executable(vbuf_compat_server tools/vbuf_compat_server.cpp)
         target_compile_features(vbuf_compat_server PRIVATE cxx_std_17)
-        target_link_libraries(vbuf_compat_server PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_agent_protocol Threads::Threads)
+        target_link_libraries(vbuf_compat_server PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_qwen3_model vbuf_qwen3_cuda_core vbuf_agent_protocol Threads::Threads)
 
         add_executable(vbuf_direct_control tools/vbuf_direct_control.cpp)
         target_compile_features(vbuf_direct_control PRIVATE cxx_std_17)
-        target_link_libraries(vbuf_direct_control PRIVATE vbuf_region_executor vbuf_model_architecture Threads::Threads)
+        target_link_libraries(vbuf_direct_control PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_qwen3_model vbuf_qwen3_cuda_core Threads::Threads)
 
         add_executable(vbuf_step31y_backend_concurrency
             tools/vbuf_step31y_backend_concurrency.cpp)
         target_compile_features(vbuf_step31y_backend_concurrency PRIVATE cxx_std_17)
         target_link_libraries(vbuf_step31y_backend_concurrency
-            PRIVATE vbuf_region_executor vbuf_model_architecture Threads::Threads)
+            PRIVATE vbuf_region_executor vbuf_model_architecture vbuf_qwen3_model vbuf_qwen3_cuda_core Threads::Threads)
+        if(VBUF_TEST_QWEN3_MODEL AND VBUF_TEST_QWEN3_SOURCE_URL AND VBUF_TEST_QWEN3_PAYLOAD AND
+            VBUF_ENABLE_CUDA AND Python3_Interpreter_FOUND)
+            add_test(NAME vbuf_qwen3_openai_text_http_qualification
+                COMMAND "${Python3_EXECUTABLE}"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tests/qwen3_compat_server_http_qualification.py"
+                    --server "$<TARGET_FILE:vbuf_compat_server>"
+                    --direct "$<TARGET_FILE:vbuf_direct_control>"
+                    --semantic "${VBUF_TEST_QWEN3_MODEL}"
+                    --payload "${VBUF_TEST_QWEN3_PAYLOAD}"
+                    --source-url "${VBUF_TEST_QWEN3_SOURCE_URL}")
+            set_tests_properties(vbuf_qwen3_openai_text_http_qualification PROPERTIES
+                TIMEOUT 3600 ENVIRONMENT "CUDA_VISIBLE_DEVICES=0")
+        endif()
     endif()
 
     if(VBUF_BUILD_REAL_GATE2B AND VBUF_RUNTIME_LIBRARY)

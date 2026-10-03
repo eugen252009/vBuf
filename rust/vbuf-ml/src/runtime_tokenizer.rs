@@ -137,10 +137,12 @@ pub struct Gpt2ByteLevelTokenizer<'a> {
 
 impl<'a> Gpt2ByteLevelTokenizer<'a> {
     pub fn build(metadata: &'a TokenizerMetadata<'a>) -> Result<Self, MlError> {
-        if metadata.kind != TokenizerKind::Gpt2BpeByteLevel
-            || metadata.model().is_none()
-            || metadata.pre_tokenizer() != Some(PreTokenizer::Gpt2ByteLevel)
-        {
+        let supported_profile = matches!(
+            (metadata.kind, metadata.pre_tokenizer()),
+            (TokenizerKind::Gpt2BpeByteLevel, Some(PreTokenizer::Gpt2ByteLevel))
+                | (TokenizerKind::Gpt2BpeQwen2, Some(PreTokenizer::Qwen2))
+        );
+        if !supported_profile || metadata.model().is_none() {
             return Err(MlError::new(
                 MlErrorCode::UnsupportedTokenizerKind,
                 "tokenizer is not the persistent GPT-2 byte-level profile",
@@ -215,7 +217,7 @@ impl<'a> Gpt2ByteLevelTokenizer<'a> {
         Ok(output)
     }
 
-    pub fn decode(&self, tokens: &[u32]) -> Result<String, MlError> {
+    pub fn decode_bytes(&self, tokens: &[u32]) -> Result<Vec<u8>, MlError> {
         let mut bytes = Vec::new();
         let special_ids = self.metadata.special_ids().unwrap_or_default();
         for token in tokens {
@@ -239,7 +241,11 @@ impl<'a> Gpt2ByteLevelTokenizer<'a> {
                 }
             }
         }
-        String::from_utf8(bytes)
+        Ok(bytes)
+    }
+
+    pub fn decode(&self, tokens: &[u32]) -> Result<String, MlError> {
+        String::from_utf8(self.decode_bytes(tokens)?)
             .map_err(|_| MlError::new(MlErrorCode::InvalidTokenText, "decoded bytes are not UTF-8"))
     }
 

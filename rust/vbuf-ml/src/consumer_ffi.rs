@@ -1,12 +1,13 @@
 //! Minimal C ABI for the pinned-consumer adapter boundary.
 //! No llama.cpp or GGML headers are used here.
 
-use crate::{BorrowedModel, ConsumerTensorType, RuntimeTokenizerIndexes};
+use crate::{BorrowedModel, ConsumerTensorType, Gpt2ByteLevelTokenizer, RuntimeTokenizerIndexes};
 use std::ffi::{CStr, c_char};
 
 pub struct VbufMlConsumerHandle {
     // Borrowed tables/indexes are declared before the owner so they drop first.
     runtime_indexes: std::sync::OnceLock<RuntimeTokenizerIndexes<'static>>,
+    runtime_tokenizer: std::sync::OnceLock<Gpt2ByteLevelTokenizer<'static>>,
     token_views: std::sync::OnceLock<Vec<VbufMlTokenView>>,
     merge_views: std::sync::OnceLock<Vec<VbufMlMergeView>>,
     tensor_views: std::sync::OnceLock<Vec<VbufMlTensorView>>,
@@ -133,6 +134,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_open(path: *const c_char) -> *mut Vbuf
             merge_views: std::sync::OnceLock::new(),
             tensor_views: std::sync::OnceLock::new(),
             runtime_indexes: std::sync::OnceLock::new(),
+            runtime_tokenizer: std::sync::OnceLock::new(),
         }))
     }))
     .unwrap_or(std::ptr::null_mut())
@@ -160,6 +162,7 @@ pub unsafe extern "C" fn vbuf_ml_consumer_open_metadata(
             merge_views: std::sync::OnceLock::new(),
             tensor_views: std::sync::OnceLock::new(),
             runtime_indexes: std::sync::OnceLock::new(),
+            runtime_tokenizer: std::sync::OnceLock::new(),
         }))
     }))
     .unwrap_or(std::ptr::null_mut())
@@ -717,6 +720,80 @@ pub unsafe extern "C" fn vbuf_ml_consumer_token_id(
             }
             None => VALIDATION_ERROR,
         }
+    }))
+    .unwrap_or(VALIDATION_ERROR)
+}
+
+/// Encode UTF-8 text using the validated model tokenizer. A null output with
+/// zero capacity queries the required token count; insufficient capacity
+/// returns BUFFER_TOO_SMALL and still reports that count.
+/// # Safety
+/// `handle`, `input`, `output_count`, and any non-null output slice must be valid.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_encode_text(
+    handle: *const VbufMlConsumerHandle,
+    input: *const u8,
+    input_len: usize,
+    output: *mut u32,
+    output_capacity: usize,
+    output_count: *mut usize,
+) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || output_count.is_null() || (input.is_null() && input_len != 0) {
+            return INVALID_ARGUMENT;
+        }
+        let handle = &*handle;
+        let text = if input_len == 0 { &[][..] } else { std::slice::from_raw_parts(input, input_len) };
+        let Ok(text) = std::str::from_utf8(text) else { return INVALID_ARGUMENT; };
+        let tokenizer = handle.runtime_tokenizer.get_or_init(|| {
+            Gpt2ByteLevelTokenizer::build(&handle.model.view().tokenizer)
+                .expect("validated runtime tokenizer profile")
+        });
+        let Ok(tokens) = tokenizer.encode(text) else { return VALIDATION_ERROR; };
+        *output_count = tokens.len();
+        if output_capacity < tokens.len() || (output.is_null() && !tokens.is_empty()) {
+            return BUFFER_TOO_SMALL;
+        }
+        if !tokens.is_empty() {
+            std::ptr::copy_nonoverlapping(tokens.as_ptr(), output, tokens.len());
+        }
+        OK
+    }))
+    .unwrap_or(VALIDATION_ERROR)
+}
+
+/// Decode token IDs using the validated model tokenizer. A null output with
+/// zero capacity queries the required UTF-8 byte count.
+/// # Safety
+/// `handle`, `tokens`, `output_len`, and any non-null output slice must be valid.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vbuf_ml_consumer_decode_tokens(
+    handle: *const VbufMlConsumerHandle,
+    tokens: *const u32,
+    token_count: usize,
+    output: *mut u8,
+    output_capacity: usize,
+    output_len: *mut usize,
+) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+        if handle.is_null() || output_len.is_null() || (tokens.is_null() && token_count != 0) {
+            return INVALID_ARGUMENT;
+        }
+        let handle = &*handle;
+        let tokens = if token_count == 0 { &[][..] } else { std::slice::from_raw_parts(tokens, token_count) };
+        let tokenizer = handle.runtime_tokenizer.get_or_init(|| {
+            Gpt2ByteLevelTokenizer::build(&handle.model.view().tokenizer)
+                .expect("validated runtime tokenizer profile")
+        });
+        let Ok(bytes) = tokenizer.decode_bytes(tokens) else { return VALIDATION_ERROR; };
+        *output_len = bytes.len();
+        if output_capacity < bytes.len() || (output.is_null() && !bytes.is_empty()) {
+            return BUFFER_TOO_SMALL;
+        }
+        if !bytes.is_empty() {
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), output, bytes.len());
+        }
+        OK
     }))
     .unwrap_or(VALIDATION_ERROR)
 }
