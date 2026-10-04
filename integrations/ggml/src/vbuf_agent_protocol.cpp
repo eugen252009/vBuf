@@ -488,18 +488,43 @@ std::vector<std::string> stream_chat_response(const std::string & id, const std:
         const char * finish = output.finish_reason == AssistantOutput::FinishReason::Length ? "length" : "stop";
         events.push_back(event_json(id, model, object({}), str(finish)));
     } else {
-        for (size_t i=0;i<output.tool_calls.size();++i) {
-            const auto & c=output.tool_calls[i];
-            // OpenAI deltas may fragment all string fields. The index is stable for reconstruction.
-            events.push_back(event_json(id,model,object({{"tool_calls", [&](){ JsonValue a; a.kind=JsonValue::Kind::Array; a.array.push_back(object({{"index",number(i)},{"id",str(c.id.substr(0, c.id.size()/2))},{"type",str("function")}})); return a;}()}}),JsonValue{}));
-            if(c.id.size()>c.id.size()/2) events.push_back(event_json(id,model,object({{"tool_calls", [&](){ JsonValue a; a.kind=JsonValue::Kind::Array; a.array.push_back(object({{"index",number(i)},{"id",str(c.id.substr(c.id.size()/2))}})); return a;}()}}),JsonValue{}));
-            for(size_t n=0;n<c.name.size();n+=2) events.push_back(event_json(id,model,object({{"tool_calls", [&](){ JsonValue a; a.kind=JsonValue::Kind::Array; a.array.push_back(object({{"index",number(i)},{"function",object({{"name",str(c.name.substr(n,2))}})}})); return a;}()}}),JsonValue{}));
-            for(size_t n=0;n<c.arguments.size();n+=256) events.push_back(event_json(id,model,object({{"tool_calls", [&](){ JsonValue a; a.kind=JsonValue::Kind::Array; a.array.push_back(object({{"index",number(i)},{"function",object({{"arguments",str(c.arguments.substr(n,256))}})}})); return a;}()}}),JsonValue{}));
+        for (size_t i = 0; i < output.tool_calls.size(); ++i) {
+            const auto & call = output.tool_calls[i];
+            JsonValue initial_calls; initial_calls.kind = JsonValue::Kind::Array;
+            initial_calls.array.push_back(object({{"index", number(i)}, {"id", str(call.id)},
+                {"type", str("function")}, {"function", object({{"name", str(call.name)}})}}));
+            events.push_back(event_json(id, model, object({{"tool_calls", std::move(initial_calls)}}), JsonValue{}));
+            for (size_t begin = 0; begin < call.arguments.size();) {
+                size_t end = std::min(begin + 256, call.arguments.size());
+                while (end < call.arguments.size() &&
+                    (static_cast<unsigned char>(call.arguments[end]) & 0xc0) == 0x80) --end;
+                if (end == begin) end = std::min(begin + 4, call.arguments.size());
+                JsonValue argument_calls; argument_calls.kind = JsonValue::Kind::Array;
+                argument_calls.array.push_back(object({{"index", number(i)}, {"function",
+                    object({{"arguments", str(call.arguments.substr(begin, end - begin))}})}}));
+                events.push_back(event_json(id, model,
+                    object({{"tool_calls", std::move(argument_calls)}}), JsonValue{}));
+                begin = end;
+            }
         }
         events.push_back(event_json(id, model, object({}), str("tool_calls")));
     }
     if (events.size() + 1 > limits.max_stream_events) throw ProtocolError(ProtocolError::Category::Internal, "serialized stream exceeds event limit");
     events.push_back("[DONE]"); return events;
+}
+
+bool deliver_stream_records(const std::vector<std::string> & data_records,
+    const std::function<bool(const std::string &)> & writer, const Limits & limits) {
+    if (data_records.empty() || data_records.size() > limits.max_stream_events || data_records.back() != "[DONE]")
+        throw ProtocolError(ProtocolError::Category::Internal, "invalid serialized SSE record sequence");
+    for (size_t i = 0; i < data_records.size(); ++i) {
+        const std::string & record = data_records[i];
+        if ((record == "[DONE]") != (i + 1 == data_records.size()))
+            throw ProtocolError(ProtocolError::Category::Internal, "misplaced SSE [DONE] record");
+        const std::string framed = record == "[DONE]" ? "data: [DONE]\n\n" : "data: " + record + "\n\n";
+        if (!writer(framed)) return false;
+    }
+    return true;
 }
 
 AssistantOutput reconstruct_stream(const std::vector<std::string> & records, const Limits & limits) {

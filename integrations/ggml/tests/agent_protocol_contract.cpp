@@ -69,6 +69,13 @@ int main() {
     for (const auto & invalid : bad_native) {
         try { (void)parse_qwen3_native_tool_output(invalid, one, "bad"); assert(false); }
         catch (const ProtocolError & e) { assert(e.category == ProtocolError::Category::Internal); }
+        bool emitted = false;
+        try {
+            const auto parsed = parse_qwen3_native_tool_output(invalid, one, "bad_stream");
+            (void)stream_chat_response("bad_stream", "model", parsed);
+            emitted = true;
+        } catch (const ProtocolError &) {}
+        assert(!emitted);
     }
     ChatRequest empty = parse_chat_request(R"({"model":"test","messages":[{"role":"user","content":"hi"}],"tools":[]})");
     assert(empty.tools_were_supplied && empty.tools.empty());
@@ -119,12 +126,45 @@ int main() {
     assert(decoded.get("choices")->array[0].get("finish_reason")->scalar == "tool_calls");
     assert(decoded.get("choices")->array[0].get("message")->get("tool_calls")->array.size() == 2);
     const auto events = stream_chat_response("id", "model", tools);
+    const JsonValue first_tool_delta = parse_json(events[1]);
+    const JsonValue & first_call_delta = first_tool_delta.get("choices")->array[0].get("delta")->get("tool_calls")->array[0];
+    assert(first_call_delta.get("index")->scalar == "0");
+    assert(first_call_delta.get("id")->scalar == tools.tool_calls[0].id);
+    assert(first_call_delta.get("type")->scalar == "function");
+    assert(first_call_delta.get("function")->get("name")->scalar == tools.tool_calls[0].name);
     AssistantOutput reconstructed = reconstruct_stream(events);
     assert(!reconstructed.has_content && reconstructed.tool_calls.size() == 2);
     assert(reconstructed.tool_calls[0].id == tools.tool_calls[0].id);
     assert(reconstructed.tool_calls[0].name == tools.tool_calls[0].name);
     assert(reconstructed.tool_calls[0].arguments == tools.tool_calls[0].arguments);
     assert(reconstructed.tool_calls[1].arguments == tools.tool_calls[1].arguments);
+    std::vector<std::string> wire_records;
+    assert(deliver_stream_records(events, [&](const std::string & frame) {
+        wire_records.push_back(frame); return true;
+    }));
+    std::vector<std::string> delivered_records;
+    for (const auto & frame : wire_records) {
+        assert(frame.rfind("data: ", 0) == 0 && frame.size() >= 8 && frame.substr(frame.size() - 2) == "\n\n");
+        delivered_records.push_back(frame.substr(6, frame.size() - 8));
+    }
+    assert(reconstruct_stream(delivered_records).tool_calls[0].arguments == tools.tool_calls[0].arguments);
+    size_t write_attempts = 0;
+    assert(!deliver_stream_records(events, [&](const std::string &) { return ++write_attempts < 3; }));
+    assert(write_attempts == 3);
+    AssistantOutput unicode_call; unicode_call.has_content = false;
+    unicode_call.finish_reason = AssistantOutput::FinishReason::ToolCalls;
+    unicode_call.tool_calls = {{"call_unicode", "echo", R"({"x":")" + std::string(249, 'a') + "π\"}"}};
+    const auto unicode_events = stream_chat_response("id", "model", unicode_call);
+    std::vector<std::string> argument_fragments;
+    for (const auto & event : unicode_events) {
+        if (event == "[DONE]") continue;
+        const auto parsed = parse_json(event);
+        const auto * calls = parsed.get("choices")->array[0].get("delta")->get("tool_calls");
+        if (calls && calls->array[0].get("function") && calls->array[0].get("function")->get("arguments"))
+            argument_fragments.push_back(calls->array[0].get("function")->get("arguments")->scalar);
+    }
+    assert(argument_fragments.size() == 2 && argument_fragments[1].rfind("π", 0) == 0);
+    assert(reconstruct_stream(unicode_events).tool_calls[0].arguments == unicode_call.tool_calls[0].arguments);
     auto terminal_delta = events;
     const std::string last_call_delta = terminal_delta[terminal_delta.size() - 3];
     terminal_delta.erase(terminal_delta.end() - 3);

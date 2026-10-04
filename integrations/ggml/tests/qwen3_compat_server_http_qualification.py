@@ -282,22 +282,31 @@ def main():
         def overlap(text):
             barrier.wait()
             return http(base, "POST", "/v1/chat/completions", chat_request([
-                {"role": "user", "content": text}], 8))[0]
+                {"role": "user", "content": text}], 8))
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-            statuses = list(pool.map(overlap, ["Concurrent request A", "Concurrent request B"]))
-        assert statuses == [200, 200]
+            overlap_responses = list(pool.map(overlap, ["Concurrent request A", "Concurrent request B"]))
+        assert [response[0] for response in overlap_responses] == [200, 200]
+        overlap_ids = {json.loads(response[2])["id"] for response in overlap_responses}
         admission_deadline = time.monotonic() + 15
         admission_log = ""
+        overlap_records = []
+        terminal_lines = []
         while time.monotonic() < admission_deadline:
             admission_log = log_path.read_text(errors="replace")
-            if "queued_generations=2" in admission_log and re.search(
-                r"event=terminal .*admission_wait_ns=[1-9][0-9]*", admission_log):
+            overlap_records = [line for line in records(log_path)
+                               if field(line, "id") in overlap_ids]
+            terminal_lines = [line for line in admission_log.splitlines()
+                              if line.startswith("vbuf_admission event=terminal ") and
+                              any(f"id={request_id} " in line for request_id in overlap_ids)]
+            if len(overlap_records) == 2 and len(terminal_lines) == 2:
                 break
             time.sleep(0.01)
-        assert "queued_generations=2" in admission_log
-        waits = [int(value) for value in re.findall(
-            r"event=terminal .*admission_wait_ns=([0-9]+)", admission_log)]
-        assert waits and max(waits) > 100_000_000
+        assert len(overlap_records) == 2 and len(terminal_lines) == 2, admission_log
+        runtime_ranges = [(int(field(line, "runtime_start_ns")), int(field(line, "runtime_end_ns")))
+                          for line in overlap_records]
+        assert runtime_ranges[0][1] <= runtime_ranges[1][0] or runtime_ranges[1][1] <= runtime_ranges[0][0]
+        waits = [int(field(line, "admission_wait_ns")) for line in terminal_lines]
+        assert max(waits) > 0
         metrics["concurrent"] = True
 
         # Drop an active SSE client, require cancellation cleanup, then prove

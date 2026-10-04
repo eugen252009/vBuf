@@ -228,14 +228,13 @@ def main():
                     assert code == 400, (code, invalid_body[:500])
                 assert b"executable context capacity" in invalid_body
                 stream_status, stream_body = request(base, "/v1/chat/completions", {**tool_request, "stream": True})
-                assert stream_status == 400 and b"streaming Qwen tool calls are not implemented" in stream_body
+                assert stream_status == 200 and b'"tool_calls"' in stream_body
+                assert b'"finish_reason":"tool_calls"' in stream_body and b"data: [DONE]" in stream_body
                 good_status, good_body = request(base, "/v1/chat/completions", {
                     "model": MODEL, "messages": [{"role": "user", "content": "Say hi"}], "max_tokens": 1,
                 })
                 assert good_status == 200 and json.loads(good_body)["choices"][0]["message"]["content"] is not None
 
-                before_overlap = len([line for line in log.read_text(errors="replace").splitlines()
-                                      if line.startswith("vbuf_request ")])
                 barrier = threading.Barrier(2)
                 def overlap(payload):
                     barrier.wait()
@@ -244,25 +243,30 @@ def main():
                 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
                     overlap_results = list(pool.map(overlap, [tool_request, text_request]))
                 assert all(status == 200 for status, _ in overlap_results)
+                overlap_ids = {json.loads(body)["id"] for _, body in overlap_results}
                 admission_deadline = time.monotonic() + 30
                 overlap_records = []
+                terminal_lines = []
                 admission_log = ""
                 while time.monotonic() < admission_deadline:
                     admission_log = log.read_text(errors="replace")
-                    request_records = [line for line in admission_log.splitlines()
-                                       if line.startswith("vbuf_request ")]
-                    overlap_records = request_records[before_overlap:]
-                    if len(overlap_records) >= 2:
+                    overlap_records = [line for line in admission_log.splitlines()
+                                       if line.startswith("vbuf_request ") and
+                                       any(f"id={request_id} " in line for request_id in overlap_ids)]
+                    terminal_lines = [line for line in admission_log.splitlines()
+                                      if line.startswith("vbuf_admission event=terminal ") and
+                                      any(f"id={request_id} " in line for request_id in overlap_ids)]
+                    if len(overlap_records) == 2 and len(terminal_lines) == 2:
                         break
                     time.sleep(.05)
-                assert len(overlap_records) == 2, admission_log
+                assert len(overlap_records) == 2 and len(terminal_lines) == 2, admission_log
                 runtime_ranges = [(int(re.search(r"runtime_start_ns=(\d+)", line).group(1)),
                                    int(re.search(r"runtime_end_ns=(\d+)", line).group(1)))
                                   for line in overlap_records]
                 assert runtime_ranges[0][1] <= runtime_ranges[1][0] or runtime_ranges[1][1] <= runtime_ranges[0][0]
-                terminal_waits = [int(value) for value in re.findall(
-                    r"vbuf_admission event=terminal .*admission_wait_ns=([0-9]+)", admission_log)]
-                assert len(terminal_waits) >= 2 and max(terminal_waits) > 0
+                terminal_waits = [int(re.search(r"admission_wait_ns=(\d+)", line).group(1))
+                                  for line in terminal_lines]
+                assert max(terminal_waits) > 0
                 all_request_records = [line for line in log.read_text(errors="replace").splitlines()
                                        if line.startswith("vbuf_request ")]
                 for request_record in all_request_records:

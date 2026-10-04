@@ -4,6 +4,7 @@
 // This layer validates and transports tool calls; it never executes them.
 
 #include <cstddef>
+#include <functional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -122,6 +123,9 @@ std::vector<std::string> stream_chat_response(const std::string & id, const std:
     const AssistantOutput & output, const Limits & limits = {});
 AssistantOutput reconstruct_stream(const std::vector<std::string> & data_records,
     const Limits & limits = {});
+// Writes valid SSE data payloads in order and stops immediately on writer failure.
+bool deliver_stream_records(const std::vector<std::string> & data_records,
+    const std::function<bool(const std::string &)> & writer, const Limits & limits = {});
 
 // Model adapter boundary. Production model-specific adapters are intentionally absent.
 class ModelConversationAdapter {

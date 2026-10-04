@@ -76,6 +76,7 @@ struct HttpRequest {
     std::string method;
     std::string path;
     std::string body;
+    std::optional<size_t> qualification_sse_write_fail_after;
 };
 
 struct Message {
@@ -1026,8 +1027,24 @@ static bool read_request(int fd, HttpRequest * request) {
     std::istringstream first(line);
     first >> request->method >> request->path;
     while (std::getline(headers, line)) {
-        if (line.size() >= 15 && strncasecmp(line.c_str(), "Content-Length:", 15) == 0)
+        if (line.size() >= 15 && strncasecmp(line.c_str(), "Content-Length:", 15) == 0) {
             content_length = std::strtoull(line.c_str() + line.find(':') + 1, nullptr, 10);
+        } else {
+            constexpr const char * fault_header = "X-VBuf-Qualification-SSE-Write-Fail-After:";
+            constexpr size_t fault_header_length = sizeof("X-VBuf-Qualification-SSE-Write-Fail-After:") - 1;
+            if (line.size() >= fault_header_length && strncasecmp(line.c_str(), fault_header, fault_header_length) == 0) {
+                if (request->qualification_sse_write_fail_after)
+                    fail("duplicate SSE write-failure qualification header");
+                size_t begin = line.find(':') + 1;
+                begin = line.find_first_not_of(" \\t", begin);
+                if (begin == std::string::npos) fail("invalid SSE write-failure qualification header");
+                const std::string value = line.substr(begin);
+                if (value.find_first_not_of("0123456789") != std::string::npos)
+                    fail("invalid SSE write-failure qualification header");
+                try { request->qualification_sse_write_fail_after = static_cast<size_t>(std::stoull(value)); }
+                catch (...) { fail("invalid SSE write-failure qualification header"); }
+            }
+        }
     }
     if (content_length > MAX_REQUEST_BYTES) fail("HTTP request body too large");
     request->body = data.substr(header_end + 4);
@@ -1231,6 +1248,8 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         if (!read_request(fd, &request)) return;
         http_parse_ns = steady_now_ns() - parse_start_ns;
         RequestScope request_scope(runtime);
+        if (request.qualification_sse_write_fail_after && !runtime->config.qualification_faults)
+            fail("SSE write-failure qualification injection is disabled");
         if (request.method == "OPTIONS") {
             admission.classify_control();
             (void)send_response(fd, 200, "OK", "application/json", "{}");
@@ -1286,9 +1305,6 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                     "Qwen native template cannot enforce a named tool_choice");
             native_tool_request = contains_tool_history ||
                 (!protocol.tools.empty() && protocol.tool_choice.kind != vbuf_agent::ToolChoice::Kind::None);
-            if (top_level_bool(request.body, "stream", false) && native_tool_request)
-                throw vbuf_agent::ProtocolError(vbuf_agent::ProtocolError::Category::UnsupportedFeature,
-                    "streaming Qwen tool calls are not implemented");
         } else if (has_top_level_key(request.body, "tools") || has_top_level_key(request.body, "tool_choice")) {
             fail("tool-calling fields are supported only by /v1/chat/completions");
         }
@@ -1297,6 +1313,9 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         if (max_tokens == 0 || max_tokens > runtime->config.max_new_tokens)
             fail("max_tokens exceeds the configured bounded generation limit");
         const bool stream = top_level_bool(request.body, "stream", false);
+        if (request.qualification_sse_write_fail_after && (!stream || !native_tool_request))
+            fail("SSE write-failure qualification injection requires a streamed tool request");
+        const bool buffer_native_tool_stream = stream && native_tool_request;
         const std::string id = request_id();
         lifecycle.emplace();
         lifecycle->id = id;
@@ -1393,6 +1412,10 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             const std::string piece = runtime->tokenizer.decode_token(token);
             output += piece;
             if (!stream) return true;
+            if (buffer_native_tool_stream) {
+                if (peer_disconnected(fd)) cancellation.cancel(CancellationReason::ClientDisconnected);
+                return !cancellation.requested();
+            }
             pending_stream_bytes += piece;
             const size_t valid_length = complete_utf8_prefix(pending_stream_bytes);
             if (valid_length == 0) return true;
@@ -1400,7 +1423,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             pending_stream_bytes.erase(0, valid_length);
             return send_stream_text(valid);
         };
-        const bool headers_sent = !stream || send_sse_headers(fd);
+        const bool headers_sent = !stream || buffer_native_tool_stream || send_sse_headers(fd);
         if (!headers_sent) {
             cancellation.cancel(CancellationReason::ClientDisconnected);
             lifecycle->transition(AdmissionState::Admitted, AdmissionState::Cancelled);
@@ -1423,29 +1446,66 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                     result = request_session->run(generation);
                     runtime_end_ns = steady_now_ns();
                 }
-                if (!result.cancelled && result.error.empty() && !pending_stream_bytes.empty()) {
-                    const std::string repaired = replace_invalid_utf8(pending_stream_bytes);
-                    pending_stream_bytes.clear();
-                    if (!send_stream_text(repaired)) result.cancelled = true;
-                }
                 output = replace_invalid_utf8(output);
-                finish = result.tokens.size() >= max_tokens ? "length" : "stop";
-                if (!result.cancelled && cancellation.reason() != CancellationReason::ClientDisconnected) {
-                    const uint64_t response_start_ns = steady_now_ns();
-                    std::ostringstream terminal;
-                    if (!result.error.empty()) {
-                        terminal << "event: error\ndata: " << error_body(result.error, "server_error") << "\n\n";
-                    } else if (request.path == "/v1/chat/completions") {
-                        terminal << "data: {\"id\":\"" << id << "\",\"object\":\"chat.completion.chunk\",\"created\":" << now_seconds()
-                            << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"" << finish << "\"}]}\n\n";
-                    } else {
-                        terminal << "data: {\"id\":\"" << id << "\",\"object\":\"text_completion\",\"created\":" << now_seconds()
-                            << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"text\":\"\",\"finish_reason\":\"" << finish << "\"}]}\n\n";
+                if (buffer_native_tool_stream) {
+                    if (!result.cancelled && result.error.empty()) {
+                        auto assistant = vbuf_agent::parse_qwen3_native_tool_output(output, *parsed_chat, id);
+                        if (assistant.tool_calls.empty() && result.tokens.size() >= max_tokens)
+                            assistant.finish_reason = vbuf_agent::AssistantOutput::FinishReason::Length;
+                        finish = assistant.finish_reason == vbuf_agent::AssistantOutput::FinishReason::ToolCalls
+                            ? "tool_calls" : assistant.finish_reason == vbuf_agent::AssistantOutput::FinishReason::Length
+                                ? "length" : "stop";
+                        const uint64_t response_start_ns = steady_now_ns();
+                        const auto records = vbuf_agent::stream_chat_response(id,
+                            runtime->config.model_alias, assistant);
+                        response_serialization_ns = steady_now_ns() - response_start_ns;
+                        if (!send_sse_headers(fd)) {
+                            cancellation.cancel(CancellationReason::ClientDisconnected);
+                            result.cancelled = true;
+                        } else {
+                            size_t written_records = 0;
+                            const bool delivered = vbuf_agent::deliver_stream_records(records,
+                                [&](const std::string & frame) {
+                                    if (request.qualification_sse_write_fail_after &&
+                                        written_records >= *request.qualification_sse_write_fail_after) return false;
+                                    if (!send_chunk(fd, frame)) return false;
+                                    ++written_records;
+                                    return true;
+                                });
+                            if (!delivered || !send_all(fd, "0\r\n\r\n")) {
+                                cancellation.cancel(CancellationReason::ClientDisconnected);
+                                result.cancelled = true;
+                            }
+                        }
+                    } else if (!result.cancelled && !result.error.empty()) {
+                        finish = "error";
+                        (void)send_response(fd, 500, "Internal Server Error", "application/json",
+                            error_body(result.error, "server_error"));
                     }
-                    terminal << "data: [DONE]\n\n";
-                    response_serialization_ns = steady_now_ns() - response_start_ns;
-                    (void)send_chunk(fd, terminal.str());
-                    (void)send_all(fd, "0\r\n\r\n");
+                } else {
+                    if (!result.cancelled && result.error.empty() && !pending_stream_bytes.empty()) {
+                        const std::string repaired = replace_invalid_utf8(pending_stream_bytes);
+                        pending_stream_bytes.clear();
+                        if (!send_stream_text(repaired)) result.cancelled = true;
+                    }
+                    finish = result.tokens.size() >= max_tokens ? "length" : "stop";
+                    if (!result.cancelled && cancellation.reason() != CancellationReason::ClientDisconnected) {
+                        const uint64_t response_start_ns = steady_now_ns();
+                        std::ostringstream terminal;
+                        if (!result.error.empty()) {
+                            terminal << "event: error\ndata: " << error_body(result.error, "server_error") << "\n\n";
+                        } else if (request.path == "/v1/chat/completions") {
+                            terminal << "data: {\"id\":\"" << id << "\",\"object\":\"chat.completion.chunk\",\"created\":" << now_seconds()
+                                << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"" << finish << "\"}]}\n\n";
+                        } else {
+                            terminal << "data: {\"id\":\"" << id << "\",\"object\":\"text_completion\",\"created\":" << now_seconds()
+                                << ",\"model\":\"" << json_escape(runtime->config.model_alias) << "\",\"choices\":[{\"index\":0,\"text\":\"\",\"finish_reason\":\"" << finish << "\"}]}\n\n";
+                        }
+                        terminal << "data: [DONE]\n\n";
+                        response_serialization_ns = steady_now_ns() - response_start_ns;
+                        (void)send_chunk(fd, terminal.str());
+                        (void)send_all(fd, "0\r\n\r\n");
+                    }
                 }
             }
             lifecycle->transition(AdmissionState::Active,
