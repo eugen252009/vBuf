@@ -5,6 +5,8 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <iterator>
 
 namespace {
 
@@ -19,6 +21,7 @@ struct DirectConfig {
     uint32_t warmup = 1;
     uint32_t requests = 3;
     bool completion_prompt = false;
+    std::string native_tool_request_file;
 };
 
 static std::string required_value(int * index, int argc, char ** argv) {
@@ -40,6 +43,7 @@ static DirectConfig parse_direct_args(int argc, char ** argv) {
         else if (arg == "--warmup") config.warmup = static_cast<uint32_t>(std::stoul(required_value(&index, argc, argv)));
         else if (arg == "--requests") config.requests = static_cast<uint32_t>(std::stoul(required_value(&index, argc, argv)));
         else if (arg == "--completion") config.completion_prompt = true;
+        else if (arg == "--native-tool-request") config.native_tool_request_file = required_value(&index, argc, argv);
         else throw std::runtime_error("unknown direct-control option: " + arg);
     }
     if (config.semantic_model.empty() || config.source_url.empty() || config.blocks == 0 ||
@@ -75,14 +79,23 @@ int main(int argc, char ** argv) {
         server.mode = vbuf_ggml::RuntimeMode::NormalInference;
         ServerRuntime runtime(server);
         const std::vector<Message> messages = {{"user", direct.prompt}};
+        std::optional<vbuf_agent::ChatRequest> native_tool_request;
+        if (!direct.native_tool_request_file.empty()) {
+            std::ifstream input(direct.native_tool_request_file, std::ios::binary);
+            if (!input) throw std::runtime_error("cannot open native tool request fixture");
+            const std::string body((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+            native_tool_request = vbuf_agent::parse_chat_request(body);
+        }
 
         for (uint32_t index = 0; index < direct.warmup + direct.requests; ++index) {
             const bool warmup = index < direct.warmup;
             const uint64_t total_start = steady_now_ns();
             const uint64_t tokenize_start = steady_now_ns();
-            const std::vector<uint32_t> prompt_tokens = direct.completion_prompt
-                ? runtime.tokenizer.encode_text(direct.prompt, runtime.tokenizer.add_bos())
-                : runtime.tokenizer.encode_chat(messages);
+            const std::vector<uint32_t> prompt_tokens = native_tool_request
+                ? runtime.tokenizer.encode_qwen3_native_tool_chat(*native_tool_request)
+                : direct.completion_prompt
+                    ? runtime.tokenizer.encode_text(direct.prompt, runtime.tokenizer.add_bos())
+                    : runtime.tokenizer.encode_chat(messages);
             const uint64_t tokenize_ns = steady_now_ns() - tokenize_start;
             vbuf_ggml::VbufGenerationConfig generation;
             generation.semantic_model = server.semantic_model;
@@ -106,15 +119,15 @@ int main(int argc, char ** argv) {
             const std::string output = runtime.tokenizer.decode(result.tokens);
             const uint64_t total_ns = steady_now_ns() - total_start;
             std::printf("vbuf_direct_request request_index=%u phase=%s mode=%s model=%s prompt_tokens=%llu "
-                "prompt_token_hash=%016llx generated_tokens=%zu generated_token_hash=%016llx output=%s source_bytes=%llu "
+                "prompt_token_hash=%016llx prompt_token_ids=%s generated_tokens=%zu generated_token_hash=%016llx generated_token_ids=%s output=%s source_bytes=%llu "
                 "materialized_bytes=%llu peak_residency_bytes=%llu resident_bytes_after=%llu "
                 "active_leases_after=%u active_inflight_bytes_after=%llu source_successful_requests=%llu "
                 "prefill_ns=%llu decode_ns=%llu runtime_ns=%llu tokenize_ns=%llu total_ns=%llu\n",
                 index + 1, warmup ? "warmup" : "measure", direct.completion_prompt ? "completion" : "chat",
                 server.model_alias.c_str(),
                 static_cast<unsigned long long>(prompt_tokens.size()),
-                static_cast<unsigned long long>(token_hash(prompt_tokens)), result.tokens.size(),
-                static_cast<unsigned long long>(token_hash(result.tokens)), hex_text(output).c_str(),
+                static_cast<unsigned long long>(token_hash(prompt_tokens)), token_list(prompt_tokens).c_str(), result.tokens.size(),
+                static_cast<unsigned long long>(token_hash(result.tokens)), token_list(result.tokens).c_str(), hex_text(output).c_str(),
                 static_cast<unsigned long long>(result.source_bytes),
                 static_cast<unsigned long long>(result.materialized_bytes),
                 static_cast<unsigned long long>(result.peak_resident_bytes),

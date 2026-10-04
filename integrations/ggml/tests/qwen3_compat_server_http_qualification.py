@@ -162,14 +162,19 @@ def main():
         assert completion["choices"][0]["text"] == direct_completion["text"]
 
         # Explicit empty tools are text-only; non-empty tools remain rejected.
+        empty_tools_before = len(records(log_path))
         status, _, body = http(base, "POST", "/v1/chat/completions", {
             **first_chat, "tools": [], "tool_choice": "none"})
         assert status == 200 and json.loads(body)["choices"][0]["message"]["role"] == "assistant"
+        empty_tools_line = wait_records(log_path, empty_tools_before + 1)[-1]
+        assert field(empty_tools_line, "prompt_token_hash") == direct_chat["prompt_hash"]
+        assert field(empty_tools_line, "generated_token_hash") == direct_chat["token_hash"]
         status, _, body = http(base, "POST", "/v1/chat/completions", {
             **first_chat, "tools": [{"type": "function", "function": {
-                "name": "x", "parameters": {"type": "object"}}}], "tool_choice": "auto"})
+                "name": "x", "parameters": {"type": "object"}}}],
+            "tool_choice": {"type": "function", "function": {"name": "x"}}})
         assert status == 400 and b"unsupported_feature" in body
-        assert b"assistant.tool_calls" not in body
+        assert b"cannot enforce a named tool_choice" in body
 
         # Both SSE endpoint forms use valid OpenAI frames and reconstruct text.
         status, headers, body = http(base, "POST", "/v1/chat/completions", {

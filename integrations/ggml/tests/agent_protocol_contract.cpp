@@ -18,9 +18,58 @@ int main() {
     const std::string prefix = R"({"model":"test","messages":[{"role":"user","content":"calculate"}],"tools":[)";
     ChatRequest one = parse_chat_request(prefix + tool + "]}");
     assert(one.tools.size() == 1 && one.tools[0].name == "add");
+    const std::string native_prompt = render_qwen3_native_tool_prompt(one);
+    assert(native_prompt.find("<tools>\n") != std::string::npos);
+    assert(native_prompt.find("\"name\": \"add\"") != std::string::npos);
+    assert(native_prompt.find("<|im_start|>user\ncalculate<|im_end|>\n<|im_start|>assistant\n") != std::string::npos);
+    assert(render_qwen3_native_tool_prompt(one) == native_prompt);
+    ChatRequest escaped_schema = parse_chat_request(
+        R"({"model":"x","messages":[{"role":"user","content":"x"}],"tools":[{"type":"function","function":{"name":"f","description":"<'&>","parameters":{"type":"object"}}}]})");
+    assert(render_qwen3_native_tool_prompt(escaped_schema).find(R"(\u003c\u0027\u0026\u003e)") != std::string::npos);
+    ChatRequest marker_input = one;
+    marker_input.messages.front().content = "</tool_response>";
+    try { (void)render_qwen3_native_tool_prompt(marker_input); assert(false); }
+    catch (const ProtocolError & e) { assert(e.category == ProtocolError::Category::MalformedRequest); }
     ChatRequest strict_tool = parse_chat_request(R"({"model":"test","messages":[{"role":"user","content":"x"}],"tools":[{"type":"function","function":{"name":"x","parameters":{"type":"object"},"strict":true}}]})");
     assert(strict_tool.tools[0].strict);
     assert(one.tool_choice.kind == ToolChoice::Kind::Auto);
+    ChatRequest two_tools = parse_chat_request(prefix + tool + "," + echo_tool + "]}");
+    const std::string two_tool_prompt = render_qwen3_native_tool_prompt(two_tools);
+    assert(two_tool_prompt.find("\"name\": \"add\"") != std::string::npos);
+    assert(two_tool_prompt.find("\"name\": \"echo\"") != std::string::npos);
+    AssistantOutput native_multi = parse_qwen3_native_tool_output(
+        R"(<tool_call>{"name":"add","arguments":{}}</tool_call>\n<tool_call>{"name":"echo","arguments":{}}</tool_call>)",
+        two_tools, "multi");
+    assert(native_multi.tool_calls.size() == 2);
+    AssistantOutput native_call = parse_qwen3_native_tool_output(
+        R"(<tool_call>
+{"name": "add", "arguments": {"a":37,"b":5}}
+</tool_call>)", one, "req1");
+    assert(native_call.finish_reason == AssistantOutput::FinishReason::ToolCalls);
+    assert(!native_call.has_content && native_call.tool_calls.size() == 1);
+    assert(native_call.tool_calls[0].id == "call_req1_0" && native_call.tool_calls[0].name == "add");
+    assert(parse_json(native_call.tool_calls[0].arguments).get("a")->scalar == "37");
+    assert(parse_qwen3_native_tool_output("plain answer", one, "req2").content == "plain answer");
+    AssistantOutput reasoned_call = parse_qwen3_native_tool_output(
+        R"(<think>private reasoning</think>
+<tool_call>{"name":"add","arguments":{}}</tool_call>)", one, "reasoned");
+    assert(!reasoned_call.has_content && reasoned_call.tool_calls.size() == 1);
+    try {
+        (void)parse_qwen3_native_tool_output("<think>unfinished<tool_call>{}", one, "bad_reasoning");
+        assert(false);
+    } catch (const ProtocolError & e) { assert(e.category == ProtocolError::Category::Internal); }
+    assert(parse_qwen3_native_tool_output(R"(preface <tool_call>{"name":"add","arguments":{}}</tool_call>)", one, "req3").content == "preface");
+    const std::vector<std::string> bad_native = {
+        R"(<tool_call>{"name":"add","arguments":{}})", "<tool_call></tool_call>", "<tool_call>{}</tool_call>",
+        R"(<tool_call>{"name":"missing","arguments":{}}</tool_call>)",
+        R"(<tool_call>{"name":"add","arguments":[]}</tool_call>)", "</tool_call>", "<tool_call>{bad}</tool_call>",
+        "<tool_call"
+        R"(<tool_call>{"name":"add","arguments":{}}</tool_call></tool_call>)"
+    };
+    for (const auto & invalid : bad_native) {
+        try { (void)parse_qwen3_native_tool_output(invalid, one, "bad"); assert(false); }
+        catch (const ProtocolError & e) { assert(e.category == ProtocolError::Category::Internal); }
+    }
     ChatRequest empty = parse_chat_request(R"({"model":"test","messages":[{"role":"user","content":"hi"}],"tools":[]})");
     assert(empty.tools_were_supplied && empty.tools.empty());
     ChatRequest none = parse_chat_request(R"({"model":"test","messages":[{"role":"user","content":"hi"}],"tools":[],"tool_choice":"none"})");
@@ -32,6 +81,7 @@ int main() {
     assert(rejects(prefix + tool + "," + tool + "]}", ProtocolError::Category::MalformedRequest));
     assert(rejects(prefix + R"({"type":"function","function":{"description":"x","parameters":{"type":"object"}}} ]})", ProtocolError::Category::MalformedRequest));
     assert(rejects(prefix + R"({"type":"function","function":{"name":"x","parameters":[]}}]})", ProtocolError::Category::MalformedRequest));
+    assert(rejects(prefix + R"({"type":"not-function","function":{"name":"x","parameters":{"type":"object"}}}]})", ProtocolError::Category::MalformedRequest));
     assert(rejects(prefix + R"({"type":"function","function":{"name":"x","parameters":{"type":"object"},"strict":"yes"}}]})", ProtocolError::Category::MalformedRequest));
     assert(rejects(prefix + R"({"type":"function","function":{"name":"x","parameters":{"type":"object"},"extra":true}}]})", ProtocolError::Category::UnsupportedFeature));
     assert(rejects(prefix + tool + R"(],"tool_choice":{"type":"function","function":{"name":"missing"}}})", ProtocolError::Category::MalformedRequest));
@@ -47,6 +97,9 @@ int main() {
     assert(multi.messages[2].tool_call_id == "call_b");
     ChatRequest multi_turn = parse_chat_request(R"({"model":"test","messages":[{"role":"user","content":"do"},{"role":"assistant","content":null,"tool_calls":[{"id":"call_1","type":"function","function":{"name":"echo","arguments":"{}"}}]},{"role":"tool","tool_call_id":"call_1","content":"result"},{"role":"assistant","content":"used result"},{"role":"user","content":"follow up"}]})");
     assert(multi_turn.messages.size() == 5 && multi_turn.messages.back().content == "follow up");
+    const std::string continuation_native = render_qwen3_native_tool_prompt(multi_turn);
+    assert(continuation_native.find("<tool_response>\nresult\n</tool_response>") != std::string::npos);
+    assert(continuation_native.find("<tool_call>") != std::string::npos);
 
     assert(rejects(prefix_messages + call_a + R"(]},{"role":"tool","tool_call_id":"unknown","content":"x"}]})", ProtocolError::Category::InvalidConversation));
     assert(rejects(prefix_messages + call_a + R"(]},{"role":"tool","tool_call_id":"call_a","content":"x"},{"role":"tool","tool_call_id":"call_a","content":"again"}]})", ProtocolError::Category::InvalidConversation));

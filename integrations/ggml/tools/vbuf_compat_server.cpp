@@ -708,6 +708,42 @@ public:
         return encode_parts(parts);
     }
 
+    std::vector<uint32_t> encode_qwen3_native_tool_chat(const vbuf_agent::ChatRequest & request) const {
+        if (!qwen3_text_template_) fail("native Qwen tools require the admitted Qwen3 tokenizer profile");
+        const std::string rendered = vbuf_agent::render_qwen3_native_tool_prompt(request);
+        const std::array<const char *, 6> marker_texts{{
+            "<|im_start|>", "<|im_end|>", "<tool_call>", "</tool_call>",
+            "<tool_response>", "</tool_response>"}};
+        std::array<uint32_t, marker_texts.size()> marker_ids{};
+        for (size_t i = 0; i < marker_texts.size(); ++i) {
+            if (vbuf_ml_consumer_token_id(handle_, reinterpret_cast<const uint8_t *>(marker_texts[i]),
+                    std::strlen(marker_texts[i]), &marker_ids[i]) != OK)
+                fail(std::string("Qwen3 native tool marker is absent from tokenizer: ") + marker_texts[i]);
+        }
+        std::vector<uint32_t> output;
+        size_t cursor = 0;
+        while (cursor < rendered.size()) {
+            size_t next = std::string::npos;
+            size_t marker_index = marker_texts.size();
+            for (size_t i = 0; i < marker_texts.size(); ++i) {
+                const size_t found = rendered.find(marker_texts[i], cursor);
+                if (found < next) { next = found; marker_index = i; }
+            }
+            if (next == std::string::npos) {
+                const auto plain = encode_canonical_text(rendered.substr(cursor));
+                output.insert(output.end(), plain.begin(), plain.end());
+                break;
+            }
+            if (next > cursor) {
+                const auto plain = encode_canonical_text(rendered.substr(cursor, next - cursor));
+                output.insert(output.end(), plain.begin(), plain.end());
+            }
+            output.push_back(marker_ids[marker_index]);
+            cursor = next + std::strlen(marker_texts[marker_index]);
+        }
+        return output;
+    }
+
     std::vector<uint32_t> encode_chat(const std::vector<Message> & messages) const {
         if (chat_template_.empty()) fail("vBuf model has no chat template");
         if (qwen3_text_template_) return encode_qwen3_text_chat(messages);
@@ -1136,6 +1172,20 @@ static uint64_t token_hash(const std::vector<uint32_t> & tokens) {
     return hash;
 }
 
+static std::string token_list(const std::vector<uint32_t> & tokens) {
+    std::ostringstream output;
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (i != 0) output << ',';
+        output << tokens[i];
+    }
+    return output.str();
+}
+
+static bool qualification_token_ids_enabled() {
+    const char * value = std::getenv("VBUF_QUALIFICATION_DUMP_TOKEN_IDS");
+    return value != nullptr && std::strcmp(value, "1") == 0;
+}
+
 static void reject_unsupported(const std::string & body) {
     for (const char * key : {"temperature", "top_p", "stop", "seed", "response_format", "stream_options"})
         if (has_top_level_key(body, key)) fail(std::string("unsupported generation option: ") + key);
@@ -1223,6 +1273,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         const std::string model = top_level_string(request.body, "model");
         if (model != runtime->config.model_alias) fail("model '" + model + "' not found");
         std::optional<vbuf_agent::ChatRequest> parsed_chat;
+        bool native_tool_request = false;
         if (request.path == "/v1/chat/completions") {
             parsed_chat = vbuf_agent::parse_chat_request(request.body);
             const auto & protocol = *parsed_chat;
@@ -1230,10 +1281,14 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                 [](const vbuf_agent::ChatMessage & message) {
                     return message.role == vbuf_agent::ChatMessage::Role::Tool || !message.tool_calls.empty();
                 });
-            if (!protocol.tools.empty() || contains_tool_history ||
-                protocol.tool_choice.kind == vbuf_agent::ToolChoice::Kind::ForcedFunction)
+            if (protocol.tool_choice.kind == vbuf_agent::ToolChoice::Kind::ForcedFunction)
                 throw vbuf_agent::ProtocolError(vbuf_agent::ProtocolError::Category::UnsupportedFeature,
-                    "tool protocol is valid but this model has no qualified native tool-call adapter");
+                    "Qwen native template cannot enforce a named tool_choice");
+            native_tool_request = contains_tool_history ||
+                (!protocol.tools.empty() && protocol.tool_choice.kind != vbuf_agent::ToolChoice::Kind::None);
+            if (top_level_bool(request.body, "stream", false) && native_tool_request)
+                throw vbuf_agent::ProtocolError(vbuf_agent::ProtocolError::Category::UnsupportedFeature,
+                    "streaming Qwen tool calls are not implemented");
         } else if (has_top_level_key(request.body, "tools") || has_top_level_key(request.body, "tool_choice")) {
             fail("tool-calling fields are supported only by /v1/chat/completions");
         }
@@ -1255,7 +1310,9 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                 messages.push_back({vbuf_agent::role_name(message.role), message.content});
             prompt_build_ns = steady_now_ns() - prompt_start_ns;
             const uint64_t tokenize_start_ns = steady_now_ns();
-            prompt_tokens = runtime->tokenizer.encode_chat(messages);
+            prompt_tokens = native_tool_request
+                ? runtime->tokenizer.encode_qwen3_native_tool_chat(*parsed_chat)
+                : runtime->tokenizer.encode_chat(messages);
             tokenize_ns = steady_now_ns() - tokenize_start_ns;
         } else {
             const std::string prompt = top_level_string(request.body, "prompt");
@@ -1400,8 +1457,10 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
             std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
                 << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
-                << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec
-                << " parallel_expert_jobs=" << result.parallel_expert_jobs
+                << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec;
+            if (qualification_token_ids_enabled()) std::cerr << " prompt_token_ids=" << token_list(prompt_tokens)
+                << " generated_token_ids=" << token_list(result.tokens);
+            std::cerr << " parallel_expert_jobs=" << result.parallel_expert_jobs
                 << " peak_expert_workers=" << result.peak_expert_workers
                 << " parallel_expert_waves=" << result.parallel_expert_waves
                 << " peak_expert_wave_bytes=" << result.peak_expert_wave_bytes
@@ -1458,11 +1517,17 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         const char * finish = result.tokens.size() >= max_tokens ? "length" : "stop";
         const int status = result.error.empty() || result.cancelled ? 200 : 500;
         const uint64_t response_start_ns = steady_now_ns();
-        const std::string body = status == 200
-            ? (request.path == "/v1/chat/completions"
-                ? make_chat_response(id, runtime->config, output, prompt_tokens.size(), result.tokens.size(), finish)
-                : make_completion_response(id, runtime->config, output, prompt_tokens.size(), result.tokens.size(), finish))
-            : error_body(result.error, "server_error");
+        std::string body;
+        if (status != 200) body = error_body(result.error, "server_error");
+        else if (request.path == "/v1/chat/completions" && native_tool_request) {
+            auto assistant = vbuf_agent::parse_qwen3_native_tool_output(output, *parsed_chat, id);
+            if (assistant.tool_calls.empty() && result.tokens.size() >= max_tokens)
+                assistant.finish_reason = vbuf_agent::AssistantOutput::FinishReason::Length;
+            body = vbuf_agent::serialize_chat_response(id, runtime->config.model_alias, assistant,
+                prompt_tokens.size(), result.tokens.size());
+        } else if (request.path == "/v1/chat/completions")
+            body = make_chat_response(id, runtime->config, output, prompt_tokens.size(), result.tokens.size(), finish);
+        else body = make_completion_response(id, runtime->config, output, prompt_tokens.size(), result.tokens.size(), finish);
         response_serialization_ns = steady_now_ns() - response_start_ns;
         request_scope.release();
         const bool sent = send_response(fd, status, status == 200 ? "OK" : "Internal Server Error",
@@ -1472,8 +1537,10 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         std::lock_guard<std::mutex> diagnostics_lock(diagnostics_mutex);
         std::cerr << "vbuf_request id=" << id << " request_index=" << snapshot.request_count
             << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
-            << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec
-            << " parallel_expert_jobs=" << result.parallel_expert_jobs
+            << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec;
+        if (qualification_token_ids_enabled()) std::cerr << " prompt_token_ids=" << token_list(prompt_tokens)
+            << " generated_token_ids=" << token_list(result.tokens);
+        std::cerr << " parallel_expert_jobs=" << result.parallel_expert_jobs
             << " peak_expert_workers=" << result.peak_expert_workers
             << " parallel_expert_waves=" << result.parallel_expert_waves
             << " peak_expert_wave_bytes=" << result.peak_expert_wave_bytes

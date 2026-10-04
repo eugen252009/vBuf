@@ -207,7 +207,7 @@ ToolDefinition parse_definition(const JsonValue & value, const Limits & limits) 
     for (const auto & field : fn->object)
         if (field.first != "name" && field.first != "description" && field.first != "parameters" && field.first != "strict")
             unsupported("unsupported function-definition field: " + field.first);
-    ToolDefinition result; result.name = string_field(*fn, "name");
+    ToolDefinition result; result.native_definition = value; result.name = string_field(*fn, "name");
     if (!valid_tool_name(result.name) || result.name.size() > limits.max_tool_name_bytes) bad("tool name is invalid or exceeds limit");
     result.description = string_field(*fn, "description", false);
     if (result.description.size() > limits.max_tool_description_bytes) bad("tool description exceeds configured limit");
@@ -281,6 +281,43 @@ const JsonValue * JsonValue::get(const std::string & key) const {
 ProtocolError::ProtocolError(Category c, const std::string & message) : std::runtime_error(message), category(c) {}
 JsonValue parse_json(const std::string & input, size_t max_depth) { return Parser(input, max_depth).parse(); }
 std::string serialize_json(const JsonValue & value) { return serialize(value); }
+static std::string qwen_template_quote(const std::string & value) {
+    std::string encoded = quote(value);
+    for (const auto & escape : {std::pair<const char *, const char *>{"&", "\\u0026"},
+             {"<", "\\u003c"}, {">", "\\u003e"}, {"'", "\\u0027"}}) {
+        size_t cursor = 1;
+        while ((cursor = encoded.find(escape.first, cursor)) != std::string::npos) {
+            encoded.replace(cursor, 1, escape.second);
+            cursor += std::char_traits<char>::length(escape.second);
+        }
+    }
+    return encoded;
+}
+static std::string serialize_qwen_template_json(const JsonValue & value) {
+    switch (value.kind) {
+    case JsonValue::Kind::Null: return "null";
+    case JsonValue::Kind::Boolean: return value.boolean ? "true" : "false";
+    case JsonValue::Kind::Number: return value.scalar;
+    case JsonValue::Kind::String: return qwen_template_quote(value.scalar);
+    case JsonValue::Kind::Array: {
+        std::string out = "[";
+        for (size_t i = 0; i < value.array.size(); ++i) {
+            if (i) out += ", ";
+            out += serialize_qwen_template_json(value.array[i]);
+        }
+        return out + "]";
+    }
+    case JsonValue::Kind::Object: {
+        std::string out = "{";
+        for (size_t i = 0; i < value.object.size(); ++i) {
+            if (i) out += ", ";
+            out += qwen_template_quote(value.object[i].first) + ": " + serialize_qwen_template_json(value.object[i].second);
+        }
+        return out + "}";
+    }
+    }
+    return "null";
+}
 const char * role_name(ChatMessage::Role role) { switch(role) { case ChatMessage::Role::System:return "system"; case ChatMessage::Role::User:return "user"; case ChatMessage::Role::Assistant:return "assistant"; case ChatMessage::Role::Tool:return "tool"; } return "user"; }
 const char * tool_choice_name(ToolChoice::Kind kind) { switch(kind) { case ToolChoice::Kind::Auto:return "auto"; case ToolChoice::Kind::None:return "none"; case ToolChoice::Kind::ForcedFunction:return "function"; } return "auto"; }
 
@@ -570,5 +607,127 @@ AssistantOutput DeterministicFakeAdapter::parse_generation(const std::string &, 
     auto result=outputs_[next_++]; validate_assistant_output_for_request(request, result); return result;
 }
 size_t DeterministicFakeAdapter::remaining() const {return outputs_.size()-next_;}
+
+std::string render_qwen3_native_tool_prompt(const ChatRequest & request) {
+    const auto reject_native_markers = [](const std::string & value) {
+        for (const char * marker : {"<|im_start|>", "<|im_end|>", "<tool_call>", "</tool_call>",
+                "<tool_response>", "</tool_response>", "<think>", "</think>"})
+            if (value.find(marker) != std::string::npos)
+                bad("Qwen tool prompt content contains reserved native control markup");
+    };
+    for (const auto & message : request.messages) {
+        reject_native_markers(message.content);
+        for (const auto & call : message.tool_calls) reject_native_markers(call.arguments);
+    }
+    for (const auto & tool : request.tools) {
+        reject_native_markers(tool.description);
+        reject_native_markers(serialize_json(tool.parameters));
+    }
+    auto native_json = [](const JsonValue & value) { return serialize_qwen_template_json(value); };
+    std::ostringstream out;
+    if (!request.tools.empty() && request.tool_choice.kind != ToolChoice::Kind::None) {
+        out << "<|im_start|>system\n";
+        if (!request.messages.empty() && request.messages.front().role == ChatMessage::Role::System)
+            out << request.messages.front().content << "\n\n";
+        out << "# Tools\n\nYou may call one or more functions to assist with the user query.\n\n"
+            << "You are provided with function signatures within <tools></tools> XML tags:\n<tools>";
+        for (const auto & tool : request.tools)
+            out << "\n" << native_json(tool.native_definition);
+        out << "\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n"
+            << "<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call><|im_end|>\n";
+    } else if (!request.messages.empty() && request.messages.front().role == ChatMessage::Role::System) {
+        out << "<|im_start|>system\n" << request.messages.front().content << "<|im_end|>\n";
+    }
+
+    for (size_t i = 0; i < request.messages.size(); ++i) {
+        const auto & message = request.messages[i];
+        if (i == 0 && message.role == ChatMessage::Role::System) continue;
+        if (message.role == ChatMessage::Role::System || message.role == ChatMessage::Role::User) {
+            out << "<|im_start|>" << role_name(message.role) << "\n" << message.content << "<|im_end|>\n";
+        } else if (message.role == ChatMessage::Role::Assistant) {
+            out << "<|im_start|>assistant\n";
+            if (message.has_content) out << message.content;
+            for (size_t j = 0; j < message.tool_calls.size(); ++j) {
+                const auto & call = message.tool_calls[j];
+                if ((j == 0 && message.has_content && !message.content.empty()) || j != 0) out << '\n';
+                out << "<tool_call>\n{\"name\": \"" << call.name
+                    << "\", \"arguments\": " << call.arguments << "}\n</tool_call>";
+            }
+            out << "<|im_end|>\n";
+        } else {
+            if (i == 0 || request.messages[i - 1].role != ChatMessage::Role::Tool)
+                out << "<|im_start|>user";
+            out << "\n<tool_response>\n" << message.content << "\n</tool_response>";
+            if (i + 1 == request.messages.size() || request.messages[i + 1].role != ChatMessage::Role::Tool)
+                out << "<|im_end|>\n";
+        }
+    }
+    out << "<|im_start|>assistant\n";
+    return out.str();
+}
+
+AssistantOutput parse_qwen3_native_tool_output(const std::string & output,
+    const ChatRequest & request, const std::string & request_id, const Limits & limits) {
+    constexpr const char * open = "<tool_call>";
+    constexpr const char * close = "</tool_call>";
+    AssistantOutput result;
+    std::string text;
+    size_t cursor = 0;
+    while (cursor < output.size()) {
+        const size_t partial_open = output.find("<tool_call", cursor);
+        const size_t partial_close = output.find("</tool_call", cursor);
+        const size_t begin = output.find(open, cursor);
+        if ((partial_open != std::string::npos && partial_open != begin) ||
+            (partial_close != std::string::npos && output.compare(partial_close, std::char_traits<char>::length(close), close) != 0))
+            throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen tool output: partial marker");
+        const size_t stray_close = output.find(close, cursor);
+        if (stray_close != std::string::npos && (begin == std::string::npos || stray_close < begin))
+            throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen tool output: unexpected close marker");
+        if (begin == std::string::npos) { text.append(output, cursor, std::string::npos); break; }
+        text.append(output, cursor, begin - cursor);
+        const size_t payload = begin + std::char_traits<char>::length(open);
+        const size_t end = output.find(close, payload);
+        if (end == std::string::npos)
+            throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen tool output: unterminated tool_call block");
+        if (output.find(open, payload) < end)
+            throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen tool output: nested tool_call block");
+        JsonValue call;
+        try { call = parse_json(output.substr(payload, end - payload), limits.max_json_depth); }
+        catch (const ProtocolError &) { throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen tool output: invalid tool-call JSON"); }
+        if (!call.is_object()) throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen tool output: call must be an object");
+        for (const auto & field : call.object)
+            if (field.first != "name" && field.first != "arguments")
+                throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen tool output: unexpected call field");
+        const auto * name = call.get("name"); const auto * args = call.get("arguments");
+        if (!name || !name->is_string() || !valid_tool_name(name->scalar) || !args || !args->is_object())
+            throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen tool output: expected function name and argument object");
+        if (std::none_of(request.tools.begin(), request.tools.end(), [&](const ToolDefinition & t) { return t.name == name->scalar; }))
+            throw ProtocolError(ProtocolError::Category::Internal, "Qwen emitted undeclared tool: " + name->scalar);
+        const std::string id = "call_" + request_id + "_" + std::to_string(result.tool_calls.size());
+        result.tool_calls.push_back({id, name->scalar, serialize_json(*args)});
+        cursor = end + std::char_traits<char>::length(close);
+    }
+    size_t reasoning_start = 0;
+    while (reasoning_start < text.size() && std::isspace(static_cast<unsigned char>(text[reasoning_start]))) ++reasoning_start;
+    if (text.compare(reasoning_start, std::char_traits<char>::length("<think>"), "<think>") == 0) {
+        const size_t reasoning_end = text.find("</think>", reasoning_start + std::char_traits<char>::length("<think>"));
+        if (reasoning_end == std::string::npos)
+            throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen output: unterminated reasoning block");
+        text.erase(0, reasoning_end + std::char_traits<char>::length("</think>"));
+    }
+    if (result.tool_calls.empty()) {
+        result.has_content = true;
+        result.content = std::move(text);
+        result.finish_reason = AssistantOutput::FinishReason::Stop;
+    } else {
+        while (!text.empty() && std::isspace(static_cast<unsigned char>(text.front()))) text.erase(text.begin());
+        while (!text.empty() && std::isspace(static_cast<unsigned char>(text.back()))) text.pop_back();
+        result.has_content = !text.empty();
+        result.content = std::move(text);
+        result.finish_reason = AssistantOutput::FinishReason::ToolCalls;
+    }
+    validate_assistant_output_for_request(request, result, limits);
+    return result;
+}
 
 } // namespace vbuf_agent

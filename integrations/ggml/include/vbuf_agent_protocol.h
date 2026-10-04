@@ -45,6 +45,8 @@ struct ToolDefinition {
     std::string description;
     JsonValue parameters;
     bool strict = false;
+    // Original supported OpenAI definition retained for template-faithful serialization.
+    JsonValue native_definition;
 };
 
 struct ToolChoice {
@@ -104,6 +106,13 @@ void validate_conversation(const std::vector<ChatMessage> & messages, const Limi
 void validate_assistant_output(const AssistantOutput & output, const Limits & limits = {});
 void validate_assistant_output_for_request(const ChatRequest & request,
     const AssistantOutput & output, const Limits & limits = {});
+
+// Exact Qwen3-14B artifact-native, non-streaming tool conversation adapter.
+// The caller must first admit the exact artifact; this does not execute tools.
+std::string render_qwen3_native_tool_prompt(const ChatRequest & request);
+AssistantOutput parse_qwen3_native_tool_output(const std::string & output,
+    const ChatRequest & request, const std::string & request_id,
+    const Limits & limits = {});
 std::string serialize_chat_response(const std::string & id, const std::string & model,
     const AssistantOutput & output, size_t prompt_tokens, size_t completion_tokens,
     const Limits & limits = {});
