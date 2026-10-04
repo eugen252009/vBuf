@@ -173,6 +173,26 @@ std::string string_field(const JsonValue & object, const std::string & key, bool
 }
 void require_object(const JsonValue & v, const std::string & name) { if (!v.is_object()) bad(name + " must be an object"); }
 void require_array(const JsonValue & v, const std::string & name) { if (!v.is_array()) bad(name + " must be an array"); }
+std::string normalize_message_text_content(const JsonValue & content) {
+    if (content.is_string()) return content.scalar;
+    require_array(content, "message content");
+    std::string normalized;
+    for (const auto & part : content.array) {
+        require_object(part, "message content part");
+        const auto * type = part.get("type");
+        if (!type) bad("message content part is missing type");
+        if (!type->is_string()) bad("message content part type must be a string");
+        if (type->scalar != "text") unsupported("unsupported message content part type: " + type->scalar);
+        for (const auto & field : part.object)
+            if (field.first != "type" && field.first != "text")
+                unsupported("unsupported text content-part field: " + field.first);
+        const auto * text = part.get("text");
+        if (!text) bad("text content part is missing text");
+        if (!text->is_string()) bad("text content part text must be a string");
+        normalized += text->scalar;
+    }
+    return normalized;
+}
 JsonValue str(const std::string & s) { JsonValue v; v.kind = JsonValue::Kind::String; v.scalar = s; return v; }
 JsonValue number(size_t n) { JsonValue v; v.kind = JsonValue::Kind::Number; v.scalar = std::to_string(n); return v; }
 JsonValue object(std::initializer_list<std::pair<std::string, JsonValue>> fields) { JsonValue v; v.kind = JsonValue::Kind::Object; v.object.assign(fields); return v; }
@@ -249,8 +269,10 @@ ChatMessage parse_message(const JsonValue & value, const Limits & limits) {
     const auto * content = value.get("content");
     if (!content) { if (m.role == ChatMessage::Role::Assistant && value.get("tool_calls")) m.has_content = false; else bad("message content is required"); }
     else if (content->kind == JsonValue::Kind::Null && m.role == ChatMessage::Role::Assistant) m.has_content = false;
-    else if (content->is_string()) { m.has_content = true; m.content = content->scalar; }
-    else bad("only string content (or null assistant content with tool calls) is supported");
+    else if (content->is_string() || content->is_array()) {
+        m.has_content = true;
+        m.content = normalize_message_text_content(*content);
+    } else bad("message content must be a string or text-only content-part array");
     if (m.role != ChatMessage::Role::Assistant && value.get("tool_calls")) bad("tool_calls are valid only on assistant messages");
     if (const auto * calls = value.get("tool_calls")) {
         require_array(*calls, "assistant tool_calls"); if (calls->array.empty()) bad("assistant tool_calls must not be empty when present");

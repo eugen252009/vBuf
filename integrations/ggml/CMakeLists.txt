@@ -545,6 +545,16 @@ if(VBUF_ML_LIBRARY)
                     --source-url "${VBUF_TEST_QWEN3_SOURCE_URL}")
             set_tests_properties(vbuf_qwen3_native_tools_sse_qualification PROPERTIES
                 TIMEOUT 3600 ENVIRONMENT "CUDA_VISIBLE_DEVICES=0")
+            add_test(NAME vbuf_qwen3_openai_content_parts_qualification
+                COMMAND "${Python3_EXECUTABLE}"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tests/qwen3_compat_server_content_parts_qualification.py"
+                    --server "$<TARGET_FILE:vbuf_compat_server>"
+                    --direct "$<TARGET_FILE:vbuf_direct_control>"
+                    --semantic "${VBUF_TEST_QWEN3_MODEL}"
+                    --payload "${VBUF_TEST_QWEN3_PAYLOAD}"
+                    --source-url "${VBUF_TEST_QWEN3_SOURCE_URL}")
+            set_tests_properties(vbuf_qwen3_openai_content_parts_qualification PROPERTIES
+                TIMEOUT 3600 ENVIRONMENT "CUDA_VISIBLE_DEVICES=0")
         endif()
     endif()
 

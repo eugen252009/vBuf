@@ -18,6 +18,35 @@ int main() {
     const std::string prefix = R"({"model":"test","messages":[{"role":"user","content":"calculate"}],"tools":[)";
     ChatRequest one = parse_chat_request(prefix + tool + "]}");
     assert(one.tools.size() == 1 && one.tools[0].name == "add");
+    const ChatRequest string_content = parse_chat_request(
+        R"({"model":"test","messages":[{"role":"user","content":"Reply with exactly: PI_VBUF_OK"}]})");
+    const ChatRequest text_part_content = parse_chat_request(
+        R"({"model":"test","messages":[{"role":"user","content":[{"type":"text","text":"Reply with exactly: PI_VBUF_OK"}]}]})");
+    assert(string_content.messages[0].content == "Reply with exactly: PI_VBUF_OK");
+    assert(text_part_content.messages[0].content == string_content.messages[0].content);
+    const ChatRequest multiple_text_parts = parse_chat_request(
+        R"({"model":"test","messages":[{"role":"user","content":[{"type":"text","text":"foo"},{"type":"text","text":"bar"}]}]})");
+    const ChatRequest joined_text = parse_chat_request(
+        R"({"model":"test","messages":[{"role":"user","content":"foobar"}]})");
+    assert(multiple_text_parts.messages[0].content == "foobar");
+    assert(multiple_text_parts.messages[0].content == joined_text.messages[0].content);
+    const ChatRequest text_roles = parse_chat_request(
+        R"({"model":"test","messages":[{"role":"system","content":[{"type":"text","text":"rules"}]},{"role":"user","content":"hi"},{"role":"assistant","content":[{"type":"text","text":"hello"}]}]})");
+    assert(text_roles.messages[0].content == "rules" && text_roles.messages[2].content == "hello");
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"data:image/png;base64,AA=="}}]}]})", ProtocolError::Category::UnsupportedFeature));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":[{"type":"unknown_future_type"}]}]})", ProtocolError::Category::UnsupportedFeature));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"AA=="}}]}]})", ProtocolError::Category::UnsupportedFeature));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":[{"type":"file","file":{"file_id":"file_1"}}]}]})", ProtocolError::Category::UnsupportedFeature));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":[{"type":"video","video_url":"https://invalid.example/video.mp4"}]}]})", ProtocolError::Category::UnsupportedFeature));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":[{"type":"text","text":"hello"},{"type":"image_url","image_url":{"url":"x"}}]}]})", ProtocolError::Category::UnsupportedFeature));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":[{"type":"text"}]}]})", ProtocolError::Category::MalformedRequest));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":[{"type":42,"text":"hello"}]}]})", ProtocolError::Category::MalformedRequest));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":[{"type":"text","text":42}]}]})", ProtocolError::Category::MalformedRequest));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":[{"type":"text","text":"hello","unexpected":true}]}]})", ProtocolError::Category::UnsupportedFeature));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":[{"text":"hello"}]}]})", ProtocolError::Category::MalformedRequest));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":["hello"]}]})", ProtocolError::Category::MalformedRequest));
+    assert(rejects(R"({"model":"test","messages":[{"role":"user","content":42}]})", ProtocolError::Category::MalformedRequest));
+    assert(rejects(R"({"model":"test","messages":[{"role":"tool","tool_call_id":"call_1","content":[{"type":"text","text":"result"}]}]})", ProtocolError::Category::MalformedRequest));
     const std::string native_prompt = render_qwen3_native_tool_prompt(one);
     assert(native_prompt.find("<tools>\n") != std::string::npos);
     assert(native_prompt.find("\"name\": \"add\"") != std::string::npos);

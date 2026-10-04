@@ -119,14 +119,15 @@ int main(int argc, char ** argv) {
             const std::string output = runtime.tokenizer.decode(result.tokens);
             const uint64_t total_ns = steady_now_ns() - total_start;
             std::printf("vbuf_direct_request request_index=%u phase=%s mode=%s model=%s prompt_tokens=%llu "
-                "prompt_token_hash=%016llx prompt_token_ids=%s generated_tokens=%zu generated_token_hash=%016llx generated_token_ids=%s output=%s source_bytes=%llu "
+                "prompt_token_hash=%016llx prompt_token_ids=%s prompt_serialized_hex=%s generated_tokens=%zu generated_token_hash=%016llx generated_token_ids=%s output=%s source_bytes=%llu "
                 "materialized_bytes=%llu peak_residency_bytes=%llu resident_bytes_after=%llu "
                 "active_leases_after=%u active_inflight_bytes_after=%llu source_successful_requests=%llu "
                 "prefill_ns=%llu decode_ns=%llu runtime_ns=%llu tokenize_ns=%llu total_ns=%llu\n",
                 index + 1, warmup ? "warmup" : "measure", direct.completion_prompt ? "completion" : "chat",
                 server.model_alias.c_str(),
                 static_cast<unsigned long long>(prompt_tokens.size()),
-                static_cast<unsigned long long>(token_hash(prompt_tokens)), token_list(prompt_tokens).c_str(), result.tokens.size(),
+                static_cast<unsigned long long>(token_hash(prompt_tokens)), token_list(prompt_tokens).c_str(),
+                hex_text(runtime.tokenizer.decode(prompt_tokens)).c_str(), result.tokens.size(),
                 static_cast<unsigned long long>(token_hash(result.tokens)), token_list(result.tokens).c_str(), hex_text(output).c_str(),
                 static_cast<unsigned long long>(result.source_bytes),
                 static_cast<unsigned long long>(result.materialized_bytes),

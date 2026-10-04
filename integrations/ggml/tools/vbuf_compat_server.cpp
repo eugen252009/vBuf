@@ -1198,6 +1198,17 @@ static std::string token_list(const std::vector<uint32_t> & tokens) {
     return output.str();
 }
 
+static std::string hex_bytes(const std::string & value) {
+    static constexpr char digits[] = "0123456789abcdef";
+    std::string output;
+    output.reserve(value.size() * 2);
+    for (const unsigned char byte : value) {
+        output.push_back(digits[byte >> 4]);
+        output.push_back(digits[byte & 0x0f]);
+    }
+    return output;
+}
+
 static bool qualification_token_ids_enabled() {
     const char * value = std::getenv("VBUF_QUALIFICATION_DUMP_TOKEN_IDS");
     return value != nullptr && std::strcmp(value, "1") == 0;
@@ -1519,6 +1530,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                 << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
                 << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec;
             if (qualification_token_ids_enabled()) std::cerr << " prompt_token_ids=" << token_list(prompt_tokens)
+                << " prompt_serialized_hex=" << hex_bytes(runtime->tokenizer.decode(prompt_tokens))
                 << " generated_token_ids=" << token_list(result.tokens);
             std::cerr << " parallel_expert_jobs=" << result.parallel_expert_jobs
                 << " peak_expert_workers=" << result.peak_expert_workers
@@ -1599,6 +1611,7 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
             << " model=" << runtime->config.model_alias << " prompt_tokens=" << prompt_tokens.size()
             << " prompt_token_hash=" << std::hex << token_hash(prompt_tokens) << std::dec;
         if (qualification_token_ids_enabled()) std::cerr << " prompt_token_ids=" << token_list(prompt_tokens)
+            << " prompt_serialized_hex=" << hex_bytes(runtime->tokenizer.decode(prompt_tokens))
             << " generated_token_ids=" << token_list(result.tokens);
         std::cerr << " parallel_expert_jobs=" << result.parallel_expert_jobs
             << " peak_expert_workers=" << result.peak_expert_workers
