@@ -355,6 +355,7 @@ if(VBUF_BUILD_PROBES)
     add_test(NAME vbuf_model_architecture_contract COMMAND vbuf_model_architecture_contract)
     add_test(NAME vbuf_parallel_executor_contract COMMAND vbuf_parallel_executor_contract)
     add_test(NAME vbuf_qwen3_execution_policy_contract COMMAND vbuf_qwen3_execution_policy_contract)
+    add_test(NAME vbuf_qwen3_cuda_ownership_contract COMMAND vbuf_qwen3_cuda_ownership_contract)
     add_test(NAME vbuf_runtime_trace_contract COMMAND vbuf_runtime_trace_contract)
     add_test(NAME vbuf_ggml_smoke COMMAND vbuf_ggml_smoke)
     add_test(NAME vbuf_borrowed_cpu_buffer_probe
@@ -368,7 +369,6 @@ if(VBUF_BUILD_PROBES)
     add_test(NAME vbuf_materializer_contract
         COMMAND vbuf_materializer_contract)
     add_test(NAME vbuf_materializer_page_lifetime_contract COMMAND vbuf_materializer_page_lifetime_contract)
-    add_test(NAME vbuf_qwen3_cuda_ownership_contract COMMAND vbuf_qwen3_cuda_ownership_contract)
     add_test(NAME vbuf_range_source_contract
         COMMAND vbuf_range_source_contract)
     add_test(NAME vbuf_progressive_range_source_contract

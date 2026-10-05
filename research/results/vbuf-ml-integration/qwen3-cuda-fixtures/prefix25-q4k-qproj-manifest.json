@@ -1,0 +1,134 @@
+{
+  "baseline_status": "REPRODUCED",
+  "purpose": "Durable real-artifact fixture and activation-path classification for the historical Sequence-A prefix-25 block-0 Q projection CPU/CUDA mismatch.",
+  "model_artifact": {
+    "name": "Qwen_Qwen3-14B-Q4_K_M.vbuf",
+    "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-14b-full/Qwen_Qwen3-14B-Q4_K_M.vbuf",
+    "size_bytes": 9000232144,
+    "sha256": "f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+    "exact_expected_artifact_match": true,
+    "source_gguf": {
+      "name": "Qwen_Qwen3-14B-Q4_K_M.gguf",
+      "size_bytes": 9001753632,
+      "sha256": "915913e22399475dbe6c968ac014d9f1fbe08975e489279aede9d5c7b2c98eb6"
+    },
+    "semantic_sidecar": {
+      "name": "Qwen_Qwen3-14B-Q4_K_M.semantic.vbuf",
+      "size_bytes": 4450377,
+      "sha256": "cc20b816a4cfdd192d4870b853354c51dd1b1402b83d01fac1e8ea98f2a9fea7"
+    }
+  },
+  "sequence": {
+    "source": "research/results/vbuf-ml-integration/qwen3-higher-precision/sequence-A32.json",
+    "sequence": "A",
+    "prefix_length": 25,
+    "token_ids": [0, 25, 220, 16, 13, 15, 13, 15, 198, 262, 549, 0, 220, 16, 13, 15, 13, 15, 198, 262, 549, 0, 220, 16, 13],
+    "positions": "0..24",
+    "rope_positions": "0..24",
+    "causal_key_visibility": "causal prefix"
+  },
+  "tensor": {
+    "name": "blk.0.attn_q.weight",
+    "type": "Q4_K",
+    "vbuf_representation_id": 6,
+    "shape": [5120, 5120],
+    "payload_offset_bytes": 442028624,
+    "payload_length_bytes": 14745600,
+    "row_size_bytes": 2880,
+    "q4_k_block_size_elements": 256,
+    "blocks_per_row": 20,
+    "total_blocks": 102400,
+    "payload_sha256": "3c4dd39531acff6eb56af4dfb0e39fed24ec3a71e6efe958a96c944596845bf9",
+    "payload_hash_verified_against_vbuf_slice": true,
+    "cpu_materialized_sha256": "3c4dd39531acff6eb56af4dfb0e39fed24ec3a71e6efe958a96c944596845bf9",
+    "cpu_backend_readback_sha256": "3c4dd39531acff6eb56af4dfb0e39fed24ec3a71e6efe958a96c944596845bf9",
+    "cuda_upload_source_sha256": "3c4dd39531acff6eb56af4dfb0e39fed24ec3a71e6efe958a96c944596845bf9",
+    "cuda_backend_readback_sha256": "3c4dd39531acff6eb56af4dfb0e39fed24ec3a71e6efe958a96c944596845bf9"
+  },
+  "shared_projection_input": {
+    "local_path": "~/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/fixture/prefix25-q-input.f32.bin",
+    "origin": "Q4_K llama.cpp reference attn_norm-0-0 checkpoint, pinned llama.cpp/GGML revision a97123e497968f3440264c0464a7adc7c999c027; also byte-identical to the vBuf CPU-computed attention RMSNorm input",
+    "dtype": "F32",
+    "shape": [5120, 25],
+    "element_count": 128000,
+    "strides_bytes": [4, 20480],
+    "size_bytes": 512000,
+    "sha256": "d1cc5ba95059d9ea136b6967e1a57df56d3a276f9873f9e463e4bfc71d6883df",
+    "persisted_outside_tmp": true,
+    "cpu_and_cuda_capture_hashes_match": true
+  },
+  "baseline": {
+    "projection": "blk.0.attn_q.weight x prefix25-q-input",
+    "input_override_used_for_both_backends": true,
+    "cpu_backend": "pinned GGML 2d191b5dee1a591c41ee8a653ce42bfcd9c8716d CPU, 1 thread",
+    "cuda_backend": "pinned GGML 2d191b5dee1a591c41ee8a653ce42bfcd9c8716d CUDA0, RTX 3060 SM 8.6, CUDA 12.4.131, 1 thread",
+    "cpu_output": {
+      "local_path": "~/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/fixture/cpu-q-output.f32.bin",
+      "sha256": "1e40f747a6fd949cb0f43bdc3ff727f90b1f5619234347330c6baa90b623851d"
+    },
+    "cuda_output": {
+      "local_path": "~/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/fixture/cuda-q-output.f32.bin",
+      "sha256": "f9bacc3242e0b1e600c3d7f1acafb337c5ba7ed5779c3fba87ad9a2120fe7c63"
+    },
+    "max_abs_difference": 0.006845235824584961,
+    "rms_difference": 0.001094109493901036,
+    "relative_rms_cpu_denominator": 0.016083851517437638,
+    "relative_rms_cuda_denominator": 0.016071454816788733,
+    "cosine_similarity": 0.99987105181388,
+    "norm_ratio_cpu_over_cuda": 0.99922924551775,
+    "historical_approximately_1_608_percent_mismatch_reproduced": true,
+    "cpu_output_matches_llama_q4_reference_qcur_byte_for_byte": true
+  },
+  "activation_path_classification": {
+    "result": "EXPECTED_BACKEND_SPECIFIC_ACTIVATION_QUANTIZATION_DIFFERENCE",
+    "independent_q4_k_decoder_matches_pinned_ggml_bitwise": true,
+    "decoded_weight_elements": 26214400,
+    "cpu_q4_k_activation_type": "Q8_K",
+    "cpu_q8k_oracle_relative_rms": 8.452375146738e-8,
+    "cuda_q4_k_mmq_activation_layout": "Q8_1_DS4",
+    "cuda_dispatch_evidence": {
+      "cuda_backend": "CUDA0, RTX 3060 SM 8.6",
+      "input_columns": 25,
+      "mmvq_max_batch_size": 8,
+      "GGML_CUDA_FORCE_CUBLAS": false,
+      "GGML_CUDA_FORCE_MMQ": false,
+      "pinned_dispatch_result": "MMQ",
+      "validation": "actual CUDA output matches the Q4_K MMQ DS4 affine oracle at 0.01587% relative RMS",
+      "kernel_name_instrumentation": false
+    },
+    "cuda_q8_1_plain_q_times_scale_oracle_relative_rms": 0.01532898190095681,
+    "cuda_ds4_mmq_affine_oracle_relative_rms": 0.00015871795431929132,
+    "cuda_ds4_oracle_max_abs": 9.357371078522192e-5,
+    "oracle_results_local_path": "~/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/fixture/q4k-activation-oracle-results.json",
+    "cpu_q8k_packed_sha256": "bb5e0ea36662e34d698a752cd425968183118464630e9bebe5c69857e6cc2ac8",
+    "cpu_q8k_effective_f32_sha256": "5c2e270be27f67af8f91f3fc68d7aadf313587b7bc0e910569ed3815be166389",
+    "cuda_q8_1_ds4_reconstruction_sha256": "7465e6e695268a87f24abb98ff71eb567336c69bfb7f3e5e4ba03e0d813e82ba",
+    "q4_k_ggml_f32_decode_sha256": "a2af332d38bdc287b0a68781ef1850ff35ba36dea354d4a4cc05d84761673f15",
+    "oracle_files_sha256": {
+      "oracle_a_original_f32.f64": "210ac7046292bf2a59210549407ace33a379e6f10dfded5c8be5c8e3757e3932",
+      "oracle_b_cpu_q8k.f64": "66efc598f79e97f0014fb2a1d5865988163b6513c73775576b088b430bb16abb",
+      "oracle_b_cuda_q8_1_vector.f64": "9587ce9e6a9d447540952a6e743774cfb217c8f07d44a416133b47b1842a5c63",
+      "oracle_c_cuda_ds4_mmq.f64": "459a1659655a69908caac17a31e7f3603bdf9bdc05acf4ff60cf25bcef7b5ea5"
+    }
+  },
+  "reproduction": {
+    "script": "research/results/vbuf-ml-integration/qwen3-cuda-fixtures/reproduce-prefix25-q4k.sh",
+    "diagnostic_patch": "research/results/vbuf-ml-integration/qwen3-cuda-fixtures/qwen3-q4k-capture.patch",
+    "diagnostic_patch_sha256": "0e8815518ad691a17106e6f98786a5badb4fa912367ed605ffbad00f1d800d02",
+    "oracle_script": "research/results/vbuf-ml-integration/qwen3-cuda-fixtures/run-prefix25-q4k-oracles.sh",
+    "oracle_analysis": "research/results/vbuf-ml-integration/qwen3-cuda-fixtures/analyze-q4k-activation-oracles.py",
+    "git_tracked_oracle_summary": "research/results/vbuf-ml-integration/qwen3-cuda-fixtures/prefix25-q4k-activation-oracle-results.json",
+    "persistent_local_build": "~/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/build-cuda/vbuf_qwen3_block_qualification",
+    "persistent_source_copy": "~/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/source/ggml",
+    "transport": "temporary localhost byte-range source only; no model-serving or generation endpoint",
+    "depth": "one block only; no depth scaling"
+  },
+  "qualification_status": {
+    "fixture_restoration": "RESTORED",
+    "baseline_reproduction": "REPRODUCED",
+    "q4_k_oracle_diagnosis": "CLASSIFIED_EXPECTED_BACKEND_ACTIVATION_QUANTIZATION_DIFFERENCE",
+    "production_qwen3": "DISABLED",
+    "gpu_depth_scaling": "BLOCKED",
+    "external_llama_cpp_1e5_gate": "FAIL; unchanged"
+  }
+}

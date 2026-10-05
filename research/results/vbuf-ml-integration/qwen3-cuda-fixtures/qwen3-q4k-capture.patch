@@ -1,0 +1,135 @@
+--- a/tools/qwen3_block_qualification.cpp
++++ b/tools/qwen3_block_qualification.cpp
+@@ -56,6 +56,7 @@
+ constexpr double ATOL = 1e-5;
+ constexpr double RTOL = 0.0;
+ const uint8_t DESCRIPTOR_SENTINEL = 0;
++bool g_qwen_diagnostic_cuda_backend = false;
+ 
+ struct CpuSoftmaxPolicy {
+     uint32_t granularity;
+@@ -322,14 +323,20 @@
+     Context result;
+     ggml_init_params params{ arena, nullptr, true };
+     result.ctx = ggml_init(params);
+-    result.backend = ggml_backend_init_by_type(GGML_BACKEND_DEVICE_TYPE_CPU, nullptr);
+-    if (!result.ctx || !result.backend) throw std::runtime_error("GGML CPU context/backend unavailable");
++    result.backend = ggml_backend_init_by_type(g_qwen_diagnostic_cuda_backend ?
++        GGML_BACKEND_DEVICE_TYPE_GPU : GGML_BACKEND_DEVICE_TYPE_CPU, nullptr);
++    if (!result.ctx || !result.backend)
++        throw std::runtime_error(g_qwen_diagnostic_cuda_backend ?
++            "GGML GPU context/backend unavailable" : "GGML CPU context/backend unavailable");
+     const int scoped_threads = cpu_execution_threads();
+     const int threads = scoped_threads > 0 ? scoped_threads :
+         static_cast<int>(g_execution_policy.total_cpu_threads);
+     if (threads < 1 || threads > 128) throw std::runtime_error("Qwen kernel thread budget must be in 1..128");
+-    ggml_backend_cpu_set_n_threads(result.backend, threads);
+-    if (scoped_threads == 0) std::printf("cpu_backend=GGML_CPU threads=%d\n", threads);
++    if (!g_qwen_diagnostic_cuda_backend)
++        ggml_backend_cpu_set_n_threads(result.backend, threads);
++    std::printf("diagnostic_backend=%s name=%s threads=%d\n",
++        g_qwen_diagnostic_cuda_backend ? "GGML_GPU" : "GGML_CPU",
++        ggml_backend_name(result.backend), threads);
+     return result;
+ }
+ ggml_tensor * make_tensor(Context & context, Tensor & tensor) {
+@@ -378,9 +385,12 @@
+     return result;
+ }
+ 
++void write_binary_export(const std::filesystem::path & path, const uint8_t * bytes, size_t size);
++
+ std::vector<float> execute_projection_kernel(const VbufTensorView & descriptor,
+     const std::vector<uint8_t> & weight_bytes, const std::vector<float> & input_values,
+-    uint32_t input_width, uint32_t output_width, uint32_t positions, int threads) {
++    uint32_t input_width, uint32_t output_width, uint32_t positions, int threads,
++    bool capture_backend_weight = false) {
+     ScopedCpuExecutionThreads thread_scope(threads);
+     Context context = make_context();
+     TensorGeometry geometry{};
+@@ -399,6 +409,15 @@
+     if (!context.buffer) throw std::runtime_error("independent projection allocation failed");
+     set_tensor(weight, weight_bytes.data(), weight_bytes.size());
+     set_tensor(input, input_values.data(), input_values.size() * sizeof(float));
++    if (capture_backend_weight) {
++        const char * capture_env = std::getenv("VBUF_QWEN_Q_CAPTURE_DIR");
++        if (capture_env == nullptr) throw std::runtime_error("Q weight readback requires capture directory");
++        std::vector<uint8_t> readback(weight_bytes.size());
++        ggml_backend_tensor_get(weight, readback.data(), 0, readback.size());
++        ggml_backend_synchronize(context.backend);
++        write_binary_export(std::filesystem::path(capture_env) / "q-weight-backend-readback.bin",
++            readback.data(), readback.size());
++    }
+     if (ggml_backend_graph_compute(context.backend, graph) != GGML_STATUS_SUCCESS)
+         throw std::runtime_error("independent projection execution failed");
+     ggml_backend_synchronize(context.backend);
+@@ -1035,18 +1054,52 @@
+     if (ggml_backend_graph_compute(first.backend, norm_graph) != GGML_STATUS_SUCCESS)
+         throw std::runtime_error("Qwen embedding/attention-normalization graph execution failed");
+     ggml_backend_synchronize(first.backend);
+-    const auto attn_norm_values = get_f32(first, attn_norm);
++    auto attn_norm_values = get_f32(first, attn_norm);
++    const char * q_capture_env = std::getenv("VBUF_QWEN_Q_CAPTURE_DIR");
++    if (const char * override_path = std::getenv("VBUF_QWEN_Q_INPUT_OVERRIDE")) {
++        const size_t expected_bytes = attn_norm_values.size() * sizeof(float);
++        std::ifstream override_file(override_path, std::ios::binary | std::ios::ate);
++        if (!override_file || override_file.tellg() != static_cast<std::streamoff>(expected_bytes))
++            throw std::runtime_error("Q projection input override has the wrong byte length");
++        override_file.seekg(0);
++        override_file.read(reinterpret_cast<char *>(attn_norm_values.data()),
++            static_cast<std::streamsize>(expected_bytes));
++        if (!override_file) throw std::runtime_error("failed reading Q projection input override");
++    }
++    if (layer == 0 && q_capture_env != nullptr) {
++        const std::filesystem::path q_capture_dir(q_capture_env);
++        std::filesystem::create_directories(q_capture_dir);
++        write_binary_export(q_capture_dir / "q-input-attn-norm.f32",
++            reinterpret_cast<const uint8_t *>(attn_norm_values.data()),
++            attn_norm_values.size() * sizeof(float));
++        write_binary_export(q_capture_dir / "q-weight-q4k.bin",
++            q_weight_bytes.data(), q_weight_bytes.size());
++        const Tensor & q_tensor = get(model, prefix + "attn_q.weight");
++        std::ofstream q_meta(q_capture_dir / "q-capture.meta");
++        q_meta << "tensor=" << q_tensor.name << "\nrepresentation="
++            << static_cast<unsigned>(q_tensor.view.representation) << "\nsource_offset=" << q_tensor.offset
++            << "\npayload_length=" << q_tensor.length << "\nshape=";
++        for (uint8_t d = 0; d < q_tensor.view.rank; ++d)
++            q_meta << (d == 0 ? "" : ",") << q_tensor.view.dimensions[d];
++        q_meta << "\ninput_dtype=F32\ninput_shape=" << EMBED << "," << positions
++            << "\ninput_strides=4," << static_cast<size_t>(EMBED) * sizeof(float)
++            << "\nbackend=" << (g_qwen_diagnostic_cuda_backend ? "CUDA" : "CPU") << "\n";
++        if (!q_meta) throw std::runtime_error("failed writing Q projection capture metadata");
++    }
+     std::vector<float> q_projection, k_projection, v_projection;
+     const auto qkv_started = std::chrono::steady_clock::now();
+     const std::vector<int> projection_budgets = qwen3_qkv_kernel_budgets(g_execution_policy);
+     execute_independent({
+         [&](int threads) { q_projection = execute_projection_kernel(get(model, prefix + "attn_q.weight").generic, q_weight_bytes,
+-            attn_norm_values, EMBED, EMBED, positions, threads); },
++            attn_norm_values, EMBED, EMBED, positions, threads, q_capture_env != nullptr); },
+         [&](int threads) { k_projection = execute_projection_kernel(get(model, prefix + "attn_k.weight").generic, k_weight_bytes,
+             attn_norm_values, EMBED, KV_HEADS * HEAD_DIM, positions, threads); },
+         [&](int threads) { v_projection = execute_projection_kernel(get(model, prefix + "attn_v.weight").generic, v_weight_bytes,
+             attn_norm_values, EMBED, KV_HEADS * HEAD_DIM, positions, threads); },
+     }, projection_budgets);
++    if (layer == 0 && q_capture_env != nullptr)
++        write_binary_export(std::filesystem::path(q_capture_env) / "q-output.f32",
++            reinterpret_cast<const uint8_t *>(q_projection.data()), q_projection.size() * sizeof(float));
+     set_tensor(q_linear, q_projection.data(), q_projection.size() * sizeof(float));
+     set_tensor(k_linear, k_projection.data(), k_projection.size() * sizeof(float));
+     set_tensor(v_linear, v_projection.data(), v_projection.size() * sizeof(float));
+@@ -2820,6 +2873,14 @@
+ } // namespace
+ 
+ int main(int argc, char ** argv) {
++    const char * requested_backend = std::getenv("VBUF_QWEN_BACKEND");
++    if (requested_backend != nullptr && std::strcmp(requested_backend, "CUDA") == 0) {
++        g_qwen_diagnostic_cuda_backend = true;
++        ggml_backend_load_all();
++    } else if (requested_backend != nullptr && std::strcmp(requested_backend, "CPU") != 0) {
++        std::fprintf(stderr, "VBUF_QWEN_BACKEND must be CPU or CUDA\n");
++        return 2;
++    }
+     if (argc < 5) {
+         std::fprintf(stderr, "usage: qwen3_block_qualification SEMANTIC_BOOTSTRAP SOURCE_HTTP_URL REFERENCE_DIR POSITIONS(1..32) [BLOCK_COUNT] [MODE] [tokens:ID,...|seed:ID] [--serial | --execution serial|parallel] [--threads N]\n");
+         return 2;

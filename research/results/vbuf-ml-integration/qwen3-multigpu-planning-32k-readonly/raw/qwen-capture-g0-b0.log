@@ -1,0 +1,6 @@
+ggml_cuda_init: found 2 CUDA devices (Total VRAM: 19996 MiB):
+  Device 0: NVIDIA GeForce RTX 3060, compute capability 8.6, VMM: yes, VRAM: 12037 MiB
+  Device 1: NVIDIA GeForce RTX 2080 SUPER, compute capability 7.5, VMM: yes, VRAM: 7959 MiB
+model=Qwen3 layers=40 hidden=5120 heads=40 kv_heads=8 head_dim=128 vocabulary=151936 tensors=443 source_size=9000232144 source_sha256=sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31 tokenizer_eos=151645 add_bos=NO
+ffn_down_tensor name=blk.0.ffn_down.weight shape=[17408,5120] representation=14 ggml_type=q6_K payload_bytes=73113600 row_bytes=14280 total_blocks=348160 source_offset=579061448 source_length=73113600
+final_only gpu=CUDA0 block=0 rows=1 finite=YES repeatable=YES\n

@@ -1,0 +1,12 @@
+src=0 dst=1 rows=1 bytes=20480 d2h_median_us=13.17 p95_us=13.50 h2d_median_us=7.62 p95_us=8.32 combined_median_us=20.84 p95_us=21.71 effective_GBps=0.9827
+src=0 dst=1 rows=16 bytes=327680 d2h_median_us=103.51 p95_us=103.93 h2d_median_us=29.80 p95_us=30.30 combined_median_us=133.33 p95_us=134.20 effective_GBps=2.4577
+src=0 dst=1 rows=32 bytes=655360 d2h_median_us=200.26 p95_us=200.77 h2d_median_us=54.73 p95_us=55.27 combined_median_us=255.04 p95_us=255.89 effective_GBps=2.5696
+src=0 dst=1 rows=64 bytes=1310720 d2h_median_us=394.27 p95_us=395.22 h2d_median_us=104.86 p95_us=107.42 combined_median_us=499.21 p95_us=502.77 effective_GBps=2.6256
+src=0 dst=1 rows=128 bytes=2621440 d2h_median_us=781.66 p95_us=782.17 h2d_median_us=204.70 p95_us=206.64 combined_median_us=986.30 p95_us=988.22 effective_GBps=2.6578
+src=0 dst=1 rows=256 bytes=5242880 d2h_median_us=1555.93 p95_us=1557.31 h2d_median_us=404.25 p95_us=407.15 combined_median_us=1960.27 p95_us=1964.30 effective_GBps=2.6746
+src=1 dst=0 rows=1 bytes=20480 d2h_median_us=5.69 p95_us=6.03 h2d_median_us=15.01 p95_us=15.62 combined_median_us=20.77 p95_us=21.37 effective_GBps=0.9860
+src=1 dst=0 rows=16 bytes=327680 d2h_median_us=28.34 p95_us=28.78 h2d_median_us=121.72 p95_us=122.27 combined_median_us=150.08 p95_us=150.94 effective_GBps=2.1834
+src=1 dst=0 rows=32 bytes=655360 d2h_median_us=52.54 p95_us=53.19 h2d_median_us=236.04 p95_us=236.74 combined_median_us=288.64 p95_us=289.56 effective_GBps=2.2705
+src=1 dst=0 rows=64 bytes=1310720 d2h_median_us=101.17 p95_us=103.75 h2d_median_us=465.09 p95_us=465.99 combined_median_us=566.26 p95_us=570.55 effective_GBps=2.3147
+src=1 dst=0 rows=128 bytes=2621440 d2h_median_us=197.91 p95_us=198.61 h2d_median_us=922.49 p95_us=923.23 combined_median_us=1120.41 p95_us=1121.64 effective_GBps=2.3397
+src=1 dst=0 rows=256 bytes=5242880 d2h_median_us=391.66 p95_us=393.94 h2d_median_us=1837.01 p95_us=1838.06 combined_median_us=2228.70 p95_us=2231.94 effective_GBps=2.3524

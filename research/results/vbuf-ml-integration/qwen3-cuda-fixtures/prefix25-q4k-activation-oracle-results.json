@@ -1,0 +1,73 @@
+{
+  "classification": "EXPECTED_BACKEND_SPECIFIC_ACTIVATION_QUANTIZATION_DIFFERENCE",
+  "evidence_scope": "Sequence-A prefix 25, block 0 Q projection, exact Qwen3 Q4_K_M vBuf artifact, fixed common input, pinned GGML CPU/CUDA outputs.",
+  "limitations": [
+    "The CUDA Q8_1 DS4 temporary was reconstructed from the pinned kernel implementation, not directly copied back from device memory.",
+    "The CUDA MMQ selection is established from the pinned deterministic dispatch conditions and close output-oracle agreement; a separate kernel-name instrumentation log was not collected.",
+    "FP64 oracles are diagnostic comparisons, not a claim that an unquantized projection is mathematical ground truth.",
+    "CPU/CUDA numerical parity still fails; this classification does not qualify deeper CUDA execution or production Qwen3."
+  ],
+  "weight_decoder": {
+    "manual_vs_pinned_ggml_bitwise_equal": true,
+    "manual_vs_pinned_max_abs": 0.0,
+    "manual_vs_pinned_mismatch_elements": 0,
+    "decoded_elements": 26214400
+  },
+  "activation_reconstruction": {
+    "cpu_q8k_effective_rel_rms_vs_f32": 0.020289960932816407,
+    "cuda_q8_1_effective_rel_rms_vs_f32": 0.009261266181065576,
+    "cpu_q8k_vs_cuda_q8_1_effective_rel_rms_cpu_denominator": 0.01998081218000045,
+    "cuda_q8_1_scale_groups": 4000,
+    "cuda_q8_1_ds4_partial_sums_fp16": true
+  },
+  "oracles_vs_actual": {
+    "oracle_a_original_f32_vs_cpu": {
+      "rms": 0.00031799141633716727,
+      "relative_rms_actual_denominator": 0.004674602270336674,
+      "relative_rms_reference_denominator": 0.004672767500771779,
+      "max_abs": 0.0018634555635403563,
+      "cosine": 0.9999891553925929,
+      "norm_ratio_reference_over_actual": 1.0003926515848673
+    },
+    "oracle_a_original_f32_vs_cuda": {
+      "rms": 0.001049912178402556,
+      "relative_rms_actual_denominator": 0.015422237199158386,
+      "relative_rms_reference_denominator": 0.015428075268239706,
+      "max_abs": 0.0070963048822699215,
+      "cosine": 0.9998811039043204,
+      "norm_ratio_reference_over_actual": 0.9996215944646485
+    },
+    "oracle_b_cpu_q8k_vs_cpu": {
+      "rms": 5.749757067847206e-09,
+      "relative_rms_actual_denominator": 8.452375146738e-08,
+      "relative_rms_reference_denominator": 8.452375150761956e-08,
+      "max_abs": 6.071254504691481e-08,
+      "cosine": 0.9999999999999963,
+      "norm_ratio_reference_over_actual": 0.999999999523926
+    },
+    "oracle_b_cuda_q8_1_vector_vs_cuda": {
+      "rms": 0.001043563561660509,
+      "relative_rms_actual_denominator": 0.01532898190095681,
+      "relative_rms_reference_denominator": 0.015334542851473216,
+      "max_abs": 0.0073273834883735844,
+      "cosine": 0.9998825343135782,
+      "norm_ratio_reference_over_actual": 0.9996373579199412
+    },
+    "oracle_c_cuda_ds4_mmq_vs_cuda": {
+      "rms": 1.0805171196566625e-05,
+      "relative_rms_actual_denominator": 0.00015871795431929132,
+      "relative_rms_reference_denominator": 0.00015871868975356093,
+      "max_abs": 9.357371078522192e-05,
+      "cosine": 0.999999987414982,
+      "norm_ratio_reference_over_actual": 0.9999953664293052
+    }
+  },
+  "cpu_actual_vs_cuda_actual": {
+    "rms": 0.001094109493901036,
+    "relative_rms_actual_denominator": 0.016071454816788733,
+    "relative_rms_reference_denominator": 0.016083851517437638,
+    "max_abs": 0.006845235824584961,
+    "cosine": 0.9998710518138794,
+    "norm_ratio_reference_over_actual": 0.9992292455177502
+  }
+}
