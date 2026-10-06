@@ -93,6 +93,10 @@ Built the CUDA qualification targets in `/tmp/vbuf-qwen-multigpu-cuda-build`. Th
 
 No reset, clean, or stash operation was performed; the existing worktree content and protected stashes were preserved. The capacity-32,768 full run does **not** change or supersede the production-qualified capacity of 1,032.
 
+## Post-commit baseline revalidation
+
+After baseline commit `598c1f6e177557bdfdcb2a7762cc8cceb373b0e2`, the targeted build had no pending work; `vbuf_qwen3_cuda_ownership_contract` and `vbuf_qwen3_model_admission_contract` passed under CTest, and the runtime-admission executable passed its fail-closed contract. The 64-capacity small-context test passed again. The full 32K run was repeated with the committed source: prefix 32,736 + 32 decode reached 32,768; 41 boundary audits passed; historical/device-local KV checks, exact fit, overflow rejection and recovery passed. Final-run minimum free VRAM was 2,568 MiB (3060) / 1,486 MiB (2080S). Raw outputs are `raw/stage1-committed-baseline-small-context-rerun.log` (SHA-256 `a0a14d46ed97744e9bc2f2d88113acab9a49c9603a5a7790c0a510a7d335a7df`) and `raw/stage1-committed-baseline-32k-rerun.log` (SHA-256 `bac1866728846f6c52c3191ce270525c70b69ecd7083d334b61521348724426b`). This is a repeat of the already committed baseline, not an optimizer change.
+
 ## Raw evidence
 
 All run logs, the exact prompt/token input, and tokenizer output are in `raw/`. The final-source 32K full-run log is `raw/capacity-32768-prefix32736-append32-final.log` (SHA-256 `d9cbfe2e61bf2eb8959239f9d047a68ae0099d26c2c3397c7ef817c2fad28f0b`). The earlier full repeat is kept separately to show VRAM variability. The initial 16-row scratch-sizing miss is explicitly labeled diagnostic and is not included as a passed run.
