@@ -1,3 +1,4 @@
+#include "qwen3_execution_plan.h"
 #include "qwen3_generation.h"
 #include "qwen3_model.h"
 
@@ -261,6 +262,26 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
                 finite_half(kv_row(*session, layer, false, position)),
                 "appended device-local K/V row is non-finite");
     require(execution.boundary_bytes_equal, "one or more selected boundary audits failed");
+    const auto optimizer_state = runtime->execution_optimizer().snapshot();
+    require(runtime->execution_optimizer().mode() == QwenOptimizerMode::Shadow &&
+        optimizer_state.last_decision.canonical_selected,
+        "execution-plan optimizer did not remain in canonical shadow mode");
+    if (gate.capacity == 32768 && gate.prefix == 8192)
+        require(optimizer_state.last_decision.candidate_eligible,
+            "guarded 8K decode candidate was not observed as eligible in shadow mode");
+    if (gate.capacity == 32768 && gate.prefix >= 16384)
+        require(optimizer_state.last_decision.candidate_found &&
+            optimizer_state.last_decision.fallback == QwenOptimizerFallback::GuardFailed,
+            "candidate did not fail closed at the 32K context guard");
+    std::printf("optimizer_shadow label=%s mode=SHADOW candidate_found=%s cache_hit=%s guards_passed=%s "
+        "eligible=%s canonical_selected=%s fallback=%u observations=%llu\n", gate.label,
+        optimizer_state.last_decision.candidate_found ? "YES" : "NO",
+        optimizer_state.last_decision.cache_hit ? "YES" : "NO",
+        optimizer_state.last_decision.guards_passed ? "YES" : "NO",
+        optimizer_state.last_decision.candidate_eligible ? "YES" : "NO",
+        optimizer_state.last_decision.canonical_selected ? "YES" : "NO",
+        static_cast<unsigned>(optimizer_state.last_decision.fallback),
+        static_cast<unsigned long long>(optimizer_state.observations));
     if (gate.boundary_audit_ends.empty())
         require(execution.boundary_audits == execution.boundary_handoffs,
             "all-handoff audit mode missed a boundary transfer");

@@ -72,6 +72,9 @@ endif()
 if(NOT EXISTS "${GGML_SOURCE_DIR}/CMakeLists.txt")
     message(FATAL_ERROR "ggml source is missing: ${GGML_SOURCE_DIR}")
 endif()
+if(VBUF_ENABLE_CUDA)
+    find_package(CUDAToolkit REQUIRED)
+endif()
 
 # Keep ownership explicit: CMake consumes an already-built Rust library and
 # never invokes Cargo.
@@ -153,10 +156,15 @@ target_link_libraries(vbuf_qwen3_model PUBLIC vbuf_region_executor vbuf_model_ar
 
 add_library(vbuf_qwen3_cuda_core STATIC
     src/qwen3_cuda_core.cpp
+    src/qwen3_execution_plan.cpp
     src/qwen3_generation.cpp)
 target_compile_features(vbuf_qwen3_cuda_core PUBLIC cxx_std_17)
 target_include_directories(vbuf_qwen3_cuda_core PUBLIC include)
 target_link_libraries(vbuf_qwen3_cuda_core PUBLIC ggml vbuf_qwen3_model)
+if(VBUF_ENABLE_CUDA)
+    target_link_libraries(vbuf_qwen3_cuda_core PUBLIC CUDA::cudart)
+    target_compile_definitions(vbuf_qwen3_cuda_core PRIVATE VBUF_QWEN3_HAS_CUDA_RUNTIME=1)
+endif()
 
 if(VBUF_BUILD_PROBES)
     add_executable(vbuf_agent_protocol_contract tests/agent_protocol_contract.cpp)
@@ -177,6 +185,10 @@ if(VBUF_BUILD_PROBES)
     add_executable(vbuf_qwen3_cuda_ownership_contract tests/qwen3_cuda_ownership_contract.cpp)
     target_compile_features(vbuf_qwen3_cuda_ownership_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_qwen3_cuda_ownership_contract PRIVATE vbuf_qwen3_cuda_core)
+
+    add_executable(vbuf_qwen3_execution_plan_contract tests/qwen3_execution_plan_contract.cpp)
+    target_compile_features(vbuf_qwen3_execution_plan_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_qwen3_execution_plan_contract PRIVATE vbuf_qwen3_cuda_core)
 
     add_executable(vbuf_qwen3_multigpu_qualification qualification/qwen3_multigpu_qualification.cpp)
     target_compile_features(vbuf_qwen3_multigpu_qualification PRIVATE cxx_std_17)
@@ -364,6 +376,7 @@ if(VBUF_BUILD_PROBES)
     add_test(NAME vbuf_parallel_executor_contract COMMAND vbuf_parallel_executor_contract)
     add_test(NAME vbuf_qwen3_execution_policy_contract COMMAND vbuf_qwen3_execution_policy_contract)
     add_test(NAME vbuf_qwen3_cuda_ownership_contract COMMAND vbuf_qwen3_cuda_ownership_contract)
+    add_test(NAME vbuf_qwen3_execution_plan_contract COMMAND vbuf_qwen3_execution_plan_contract)
     add_test(NAME vbuf_runtime_trace_contract COMMAND vbuf_runtime_trace_contract)
     add_test(NAME vbuf_ggml_smoke COMMAND vbuf_ggml_smoke)
     add_test(NAME vbuf_borrowed_cpu_buffer_probe

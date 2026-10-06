@@ -1,7 +1,9 @@
+#include "qwen3_execution_plan.h"
 #include "qwen3_generation.h"
 #include "qwen3_model.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -180,7 +182,33 @@ int run(const char * semantic, const char * source, const char * token_text, uin
             callback_called = true;
             return true;
         };
+        Qwen3GenerationExecution disabled_reference;
+        std::array<std::vector<uint8_t>, 8> disabled_kv;
+        if (prefix == 32) {
+            runtime->execution_optimizer().set_mode(QwenOptimizerMode::Disabled);
+            disabled_reference = executor.run(prompt, 1);
+            for (uint32_t i = 0; i < 4; ++i) {
+                const uint32_t layer = i < 2 ? 25 : 26;
+                const bool key = (i % 2) == 0;
+                disabled_kv[i] = cache_row(*runtime, *session, layer, key, prefix - 1);
+                disabled_kv[i + 4] = cache_row(*runtime, *session, layer, key, 0);
+            }
+            runtime->execution_optimizer().set_mode(QwenOptimizerMode::Shadow);
+        }
         auto actual = executor.run(prompt, 1, std::nullopt, on_token);
+        if (prefix == 32) {
+            require(disabled_reference.tokens == actual.tokens && same(disabled_reference.final_logits, actual.final_logits) &&
+                same(disabled_reference.final_hidden, actual.final_hidden),
+                "optimizer-disabled and shadow executions differ in tokens/logits/hidden");
+            for (uint32_t i = 0; i < 4; ++i) {
+                const uint32_t layer = i < 2 ? 25 : 26;
+                const bool key = (i % 2) == 0;
+                require(disabled_kv[i] == cache_row(*runtime, *session, layer, key, prefix - 1) &&
+                    disabled_kv[i + 4] == cache_row(*runtime, *session, layer, key, 0),
+                    "optimizer-disabled and shadow KV state differs");
+            }
+            std::puts("optimizer_mode_equivalence prefix=32 tensors=tokens+hidden+logits+KV bitwise=PASS");
+        }
         require(actual.completed && actual.tokens.size() == 1 && callback_called,
             "two-device run failed to complete/capture KV");
         const uint64_t expected_handoffs = prefix == 32 ? 2 : static_cast<uint64_t>(prefix) + 1;
@@ -271,6 +299,18 @@ int run(const char * semantic, const char * source, const char * token_text, uin
     const auto recovered = recovery_executor.run({tokens[0]}, 1);
     require(recovered.completed && recovered.tokens == reference[0].execution.tokens &&
         recovery_session->current_length() == 2, "fresh-session recovery after injected failures failed");
+    const auto optimizer_state = runtime->execution_optimizer().snapshot();
+    require(runtime->execution_optimizer().mode() == QwenOptimizerMode::Shadow &&
+        optimizer_state.optimizer_errors == 0 && optimizer_state.last_decision.canonical_selected,
+        "shadow optimizer failed or changed canonical selection during qualification");
+    std::printf("optimizer_shadow mode=SHADOW cache_hits=%llu cache_misses=%llu guard_passes=%llu guard_failures=%llu "
+        "errors=%llu observations=%llu canonical_selected=YES\n",
+        static_cast<unsigned long long>(optimizer_state.cache_hits),
+        static_cast<unsigned long long>(optimizer_state.cache_misses),
+        static_cast<unsigned long long>(optimizer_state.guard_passes),
+        static_cast<unsigned long long>(optimizer_state.guard_failures),
+        static_cast<unsigned long long>(optimizer_state.optimizer_errors),
+        static_cast<unsigned long long>(optimizer_state.observations));
     std::puts("failure_recovery=fresh-session PASS");
     std::puts("QWEN_MULTI_GPU_26_14_SMALL_CONTEXT=TESTED NOT_QUALIFIED_32K=NOT_TESTED production_capacity=1032_UNCHANGED");
     return 0;

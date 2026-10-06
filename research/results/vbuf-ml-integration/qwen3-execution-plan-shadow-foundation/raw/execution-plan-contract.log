@@ -1,0 +1,1 @@
+qwen3_execution_plan_contract=PASS canonical=single+26/14 shadow=no-op guards=fail-closed cache=bounded invalidation=PASS profiler=bounded optimizer-failures=PASS

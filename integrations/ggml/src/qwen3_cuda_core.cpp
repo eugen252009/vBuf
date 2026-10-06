@@ -1,5 +1,6 @@
 #include "qwen3_cuda_core.h"
 
+#include "qwen3_execution_plan.h"
 #include "vbuf_region_executor.h"
 
 #include <algorithm>
@@ -271,6 +272,7 @@ struct QwenCudaRuntimeState::Impl {
     std::vector<std::unique_ptr<DeviceRuntime>> devices;
     std::unordered_map<std::string, uint32_t> tensor_owners;
     std::shared_ptr<TensorResidencyStore> residency;
+    QwenExecutionPlanOptimizer execution_optimizer;
 
     DeviceRuntime & by_id(uint32_t device_id) const {
         for (const auto & item : devices) if (item->device_id == device_id) return *item;
@@ -679,6 +681,7 @@ size_t QwenCudaRuntimeState::resident_tensor_count(uint32_t id) const {
 }
 uint32_t QwenCudaRuntimeState::prefill_chunk_size() const noexcept { return impl_->config.prefill_chunk_size; }
 bool QwenCudaRuntimeState::experimental_capacity_enabled() const noexcept { return impl_->config.allow_experimental_capacity; }
+QwenExecutionPlanOptimizer & QwenCudaRuntimeState::execution_optimizer() noexcept { return impl_->execution_optimizer; }
 
 QwenCudaSessionState::QwenCudaSessionState(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 QwenCudaSessionState::~QwenCudaSessionState() = default;

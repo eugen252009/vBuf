@@ -14,6 +14,8 @@
 
 namespace vbuf_ggml {
 
+class QwenExecutionPlanOptimizer;
+
 struct Qwen3CudaLayerWeights {
     ggml_tensor * attn_norm = nullptr;
     ggml_tensor * q = nullptr;
@@ -132,6 +134,7 @@ public:
     size_t resident_tensor_count(uint32_t device_id) const;
     uint32_t prefill_chunk_size() const noexcept;
     bool experimental_capacity_enabled() const noexcept;
+    QwenExecutionPlanOptimizer & execution_optimizer() noexcept;
 
 private:
     struct Impl;

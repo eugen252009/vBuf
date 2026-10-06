@@ -1,10 +1,12 @@
 #include "qwen3_generation.h"
+#include "qwen3_execution_plan.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -23,6 +25,43 @@ using Clock = std::chrono::steady_clock;
 
 uint64_t elapsed_ns(Clock::time_point start, Clock::time_point end) {
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
+}
+
+QwenOptimizerDecision safe_select_plan(std::optional<QwenExecutionPlan> & plan,
+    Qwen3Model & model, const std::shared_ptr<QwenCudaRuntimeState> & runtime,
+    const std::shared_ptr<QwenCudaSessionState> & session, QwenExecutionPlanPath path,
+    uint32_t rows, uint32_t context_length, QwenExecutionPhase phase) noexcept {
+    auto & optimizer = runtime->execution_optimizer();
+    QwenOptimizerDecision fallback;
+    fallback.mode = optimizer.mode();
+    fallback.canonical_selected = true;
+    if (fallback.mode == QwenOptimizerMode::Disabled) {
+        fallback.fallback = QwenOptimizerFallback::Disabled;
+        return fallback;
+    }
+    try {
+        if (!plan) plan = build_qwen_execution_plan(model, *runtime, *session, path);
+        const auto facts = collect_qwen_runtime_facts(*plan, *runtime, rows, context_length, phase);
+        return optimizer.select(*plan, facts);
+    } catch (...) {
+        optimizer.record_optimizer_failure();
+        fallback.fallback = QwenOptimizerFallback::InternalFailure;
+        return fallback;
+    }
+}
+
+void safe_record_plan(std::optional<QwenExecutionPlan> & plan,
+    Qwen3Model & model, const std::shared_ptr<QwenCudaRuntimeState> & runtime,
+    const std::shared_ptr<QwenCudaSessionState> & session, QwenExecutionPlanPath path,
+    uint32_t rows, uint32_t context_length, QwenExecutionPhase phase,
+    uint64_t execution_count, uint64_t elapsed) noexcept {
+    auto & optimizer = runtime->execution_optimizer();
+    if (optimizer.mode() != QwenOptimizerMode::Shadow || execution_count == 0) return;
+    try {
+        if (!plan) plan = build_qwen_execution_plan(model, *runtime, *session, path);
+        const auto facts = collect_qwen_runtime_facts(*plan, *runtime, rows, context_length, phase);
+        optimizer.record_execution(*plan, facts, execution_count, elapsed);
+    } catch (...) { optimizer.record_optimizer_failure(); }
 }
 
 DeviceResidencyKey make_key(const Qwen3Model & model, const Qwen3Tensor & tensor,
@@ -70,6 +109,7 @@ struct Qwen3GenerationExecutor::Impl {
     std::shared_ptr<QwenCudaSessionState> session;
     ggml_backend_t backend;
     uint32_t capacity;
+    std::optional<QwenExecutionPlan> optimizer_plan;
     uint64_t graph_allocation_vram_bytes = 0;
     bool capture_final_hidden = false;
     ggml_tensor * embedding;
@@ -359,6 +399,11 @@ Qwen3GenerationExecution Qwen3GenerationExecutor::run(const std::vector<uint32_t
 
     Qwen3GenerationExecution result;
     result.peak_vram_bytes = impl_->graph_allocation_vram_bytes;
+    const QwenExecutionPhase request_phase = prompt.size() >= prefill_chunk ?
+        QwenExecutionPhase::Prefill : QwenExecutionPhase::Decode;
+    const uint32_t request_rows = request_phase == QwenExecutionPhase::Prefill ? prefill_chunk : 1;
+    (void) safe_select_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
+        QwenExecutionPlanPath::SingleGpu, request_rows, static_cast<uint32_t>(prompt.size()), request_phase);
     impl_->session->reset();
     impl_->final_hidden_values.clear();
     const std::vector<DeviceResidencyKey> leases = impl_->acquire_weights();
@@ -388,9 +433,15 @@ Qwen3GenerationExecution Qwen3GenerationExecutor::run(const std::vector<uint32_t
         }
         const auto prefill_end = Clock::now();
         result.prefill_ns = elapsed_ns(prefill_start, prefill_end);
+        const uint64_t prefill_operations = prompt.size() / prefill_chunk + prompt.size() % prefill_chunk;
+        safe_record_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
+            QwenExecutionPlanPath::SingleGpu, request_rows, impl_->session->current_length(), request_phase,
+            prefill_operations, result.prefill_ns);
         if (result.cancelled) return result;
 
         uint32_t next_token = static_cast<uint32_t>(std::max_element(logits.begin(), logits.end()) - logits.begin());
+        (void) safe_select_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
+            QwenExecutionPlanPath::SingleGpu, 1, impl_->session->current_length(), QwenExecutionPhase::Decode);
         const auto decode_start = Clock::now();
         for (uint32_t generated = 0; generated < max_new_tokens; ++generated) {
             if (should_cancel && should_cancel()) { result.cancelled = true; break; }
@@ -409,6 +460,9 @@ Qwen3GenerationExecution Qwen3GenerationExecutor::run(const std::vector<uint32_t
             next_token = static_cast<uint32_t>(std::max_element(logits.begin(), logits.end()) - logits.begin());
         }
         result.decode_ns = elapsed_ns(decode_start, Clock::now());
+        safe_record_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
+            QwenExecutionPlanPath::SingleGpu, 1, impl_->session->current_length(), QwenExecutionPhase::Decode,
+            result.tokens.size(), result.decode_ns);
         result.final_logits = std::move(logits);
         result.final_hidden = impl_->final_hidden_values;
         size_t free_bytes = 0, total_bytes = 0;
@@ -454,6 +508,7 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
     std::shared_ptr<QwenCudaSessionState> session;
     uint32_t capacity;
     uint32_t prefill_chunk;
+    std::optional<QwenExecutionPlan> optimizer_plan;
     uint32_t early_device;
     uint32_t late_device;
     uint32_t cut;
@@ -735,6 +790,11 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
     if (embedding == nullptr || *std::max_element(prompt.begin(), prompt.end()) >= static_cast<uint32_t>(embedding->ne[1]))
         throw std::invalid_argument("Qwen prompt token is outside admitted vocabulary");
     Qwen3GenerationExecution result;
+    const QwenExecutionPhase request_phase = prompt.size() >= impl_->prefill_chunk ?
+        QwenExecutionPhase::Prefill : QwenExecutionPhase::Decode;
+    const uint32_t request_rows = request_phase == QwenExecutionPhase::Prefill ? impl_->prefill_chunk : 1;
+    (void) safe_select_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
+        QwenExecutionPlanPath::MultiGpu, request_rows, static_cast<uint32_t>(prompt.size()), request_phase);
     for (const auto & d : impl_->devices) {
         size_t free = 0, total = 0; impl_->runtime->device_memory(d.id, &free, &total);
         result.peak_vram_bytes += total >= free ? total - free : 0;
@@ -764,8 +824,14 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
             if (on_progress) on_progress(impl_->session->current_length(), result.final_hidden);
         }
         result.prefill_ns = elapsed_ns(prefill_start, Clock::now());
+        const uint64_t prefill_operations = prompt.size() / impl_->prefill_chunk + prompt.size() % impl_->prefill_chunk;
+        safe_record_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
+            QwenExecutionPlanPath::MultiGpu, request_rows, impl_->session->current_length(), request_phase,
+            prefill_operations, result.prefill_ns);
         if (result.cancelled) return result;
         uint32_t next = static_cast<uint32_t>(std::max_element(logits.begin(), logits.end()) - logits.begin());
+        (void) safe_select_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
+            QwenExecutionPlanPath::MultiGpu, 1, impl_->session->current_length(), QwenExecutionPhase::Decode);
         const auto decode_start = Clock::now();
         for (uint32_t generated = 0; generated < max_new_tokens; ++generated) {
             if (should_cancel && should_cancel()) { result.cancelled = true; break; }
@@ -779,6 +845,9 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
             next = static_cast<uint32_t>(std::max_element(logits.begin(), logits.end()) - logits.begin());
         }
         result.decode_ns = elapsed_ns(decode_start, Clock::now());
+        safe_record_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
+            QwenExecutionPlanPath::MultiGpu, 1, impl_->session->current_length(), QwenExecutionPhase::Decode,
+            result.tokens.size(), result.decode_ns);
         result.final_logits = std::move(logits);
         for (const auto & d : impl_->devices) {
             size_t free = 0, total = 0; impl_->runtime->device_memory(d.id, &free, &total);
