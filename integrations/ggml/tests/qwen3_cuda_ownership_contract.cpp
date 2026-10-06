@@ -30,6 +30,42 @@ QwenCudaRuntimeConfig test_config() {
     return config;
 }
 
+void validated_placement_map() {
+    Qwen3Model model;
+    model.layer_count = 40;
+    for (const char * name : {"token_embd.weight", "output_norm.weight", "output.weight"})
+        model.tensors.emplace(name, Qwen3Tensor{});
+    const char * suffixes[] = {"attn_norm.weight", "attn_q.weight", "attn_k.weight", "attn_v.weight",
+        "attn_q_norm.weight", "attn_k_norm.weight", "attn_output.weight", "ffn_norm.weight",
+        "ffn_gate.weight", "ffn_up.weight", "ffn_down.weight"};
+    for (uint32_t layer = 0; layer < model.layer_count; ++layer)
+        for (const char * suffix : suffixes)
+            model.tensors.emplace("blk." + std::to_string(layer) + "." + suffix, Qwen3Tensor{});
+
+    const auto split = QwenCudaPlacement::contiguous_split(0, 1, 26);
+    split.validate(model);
+    require(split.owner_for_tensor("token_embd.weight") == 0, "embedding placement is incorrect");
+    require(split.owner_for_tensor("blk.25.ffn_down.weight") == 0, "block 25 placement is incorrect");
+    require(split.owner_for_tensor("blk.26.attn_q.weight") == 1, "block 26 placement is incorrect");
+    require(split.owner_for_tensor("output_norm.weight") == 1 && split.owner_for_tensor("output.weight") == 1,
+        "final head placement is incorrect");
+    require(split.device_ids() == std::vector<uint32_t>({0, 1}), "split device identity list is incorrect");
+
+    const auto single = QwenCudaPlacement::single_device(1);
+    single.validate(model);
+    require(single.owner_for_tensor("blk.39.ffn_down.weight") == 1, "single-device placement is incorrect");
+    auto noncontiguous = split;
+    noncontiguous.block_device_ids[10] = 1;
+    require(throws([&] { noncontiguous.validate(model); }), "noncontiguous block placement was accepted");
+    auto wrong_head = split;
+    wrong_head.output_head_device_id = 0;
+    require(throws([&] { wrong_head.validate(model); }), "misplaced output head was accepted");
+    require(throws([&] { (void) split.owner_for_tensor("blk.bad.attn_q.weight"); }),
+        "malformed block tensor name was accepted");
+    require(throws([&] { (void) split.owner_for_tensor("unknown.weight"); }),
+        "unknown model tensor name was accepted");
+}
+
 void runtime_lifecycle_and_sessions() {
     auto runtime = QwenCudaRuntimeState::create_for_testing(test_config());
     require(runtime->backend() != nullptr, "runtime backend was not created");
@@ -155,6 +191,7 @@ int main(int argc, char ** argv) {
             return 0;
         }
         if (argc != 1) throw std::invalid_argument("usage: qwen3_cuda_ownership_contract [SEMANTIC_ARTIFACT SOURCE_URL]");
+        validated_placement_map();
         runtime_lifecycle_and_sessions();
         sequential_sessions_reuse_runtime();
         partial_creation_failures();

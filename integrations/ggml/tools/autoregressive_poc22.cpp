@@ -285,6 +285,7 @@ struct VbufModelRuntime::Impl {
     Metadata metadata;
     std::shared_ptr<Qwen3Model> qwen3_model;
     std::shared_ptr<QwenCudaRuntimeState> qwen_cuda_runtime;
+    QwenCudaRuntimeConfig qwen_cuda_config{};
     std::string semantic_model_path;
     std::vector<LayerPlan> plans;
     mutable std::string source_endpoint;
@@ -310,6 +311,7 @@ struct VbufGenerationSession::SessionState {
     uint32_t configured_context_capacity = 1032;
     std::shared_ptr<QwenCudaSessionState> qwen_cuda_session;
     std::unique_ptr<Qwen3GenerationExecutor> qwen_executor;
+    std::unique_ptr<Qwen3MultiDeviceGenerationExecutor> qwen_multidevice_executor;
 };
 
 VbufModelRuntime::VbufModelRuntime(const std::string & semantic_model, uint32_t block_count)
@@ -367,7 +369,16 @@ void VbufModelRuntime::prepare_qwen3_cuda(const std::string & source_endpoint) {
         throw std::runtime_error("Qwen model runtime source endpoint cannot change after initialization");
     }
     if (!impl_->qwen_cuda_runtime)
-        impl_->qwen_cuda_runtime = QwenCudaRuntimeState::create(*impl_->qwen3_model);
+        impl_->qwen_cuda_runtime = QwenCudaRuntimeState::create(*impl_->qwen3_model, impl_->qwen_cuda_config);
+}
+
+void VbufModelRuntime::prepare_qwen3_cuda_multigpu_26_14(const std::string & source_endpoint,
+    uint32_t early_device_id, uint32_t late_device_id) {
+    if (impl_->qwen_cuda_runtime)
+        throw std::runtime_error("multi-device placement must be selected before Qwen CUDA runtime creation");
+    if (!impl_->qwen3_model) throw std::runtime_error("Qwen multi-device preparation requires an admitted Qwen3 model");
+    impl_->qwen_cuda_config.placement = QwenCudaPlacement::contiguous_split(early_device_id, late_device_id, 26);
+    prepare_qwen3_cuda(source_endpoint);
 }
 
 VbufGenerationResult VbufModelRuntime::run(const VbufGenerationConfig & config) {
@@ -501,20 +512,31 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
             if (requested_positions > config.context_capacity)
                 throw std::runtime_error("Qwen request exceeds configured executable session capacity");
             runtime_->prepare_qwen3_cuda(config.source_endpoint);
-            if (!session_state_->qwen_cuda_session || !session_state_->qwen_executor ||
+            const bool multi_device = impl_->qwen_cuda_runtime->device_count() > 1;
+            if (!session_state_->qwen_cuda_session ||
+                (multi_device ? !session_state_->qwen_multidevice_executor : !session_state_->qwen_executor) ||
                 session_state_->qwen_cuda_session->capacity() != config.context_capacity) {
                 session_state_->qwen_executor.reset();
+                session_state_->qwen_multidevice_executor.reset();
                 session_state_->qwen_cuda_session.reset();
                 auto qwen_session = impl_->qwen_cuda_runtime->create_session(config.context_capacity);
-                auto executor = std::make_unique<Qwen3GenerationExecutor>(*impl_->qwen3_model,
-                    impl_->qwen_cuda_runtime, qwen_session);
+                if (multi_device) {
+                    auto executor = std::make_unique<Qwen3MultiDeviceGenerationExecutor>(*impl_->qwen3_model,
+                        impl_->qwen_cuda_runtime, qwen_session);
+                    session_state_->qwen_multidevice_executor = std::move(executor);
+                } else {
+                    auto executor = std::make_unique<Qwen3GenerationExecutor>(*impl_->qwen3_model,
+                        impl_->qwen_cuda_runtime, qwen_session);
+                    session_state_->qwen_executor = std::move(executor);
+                }
                 session_state_->qwen_cuda_session = std::move(qwen_session);
-                session_state_->qwen_executor = std::move(executor);
             }
             const auto resident_before = impl_->qwen_cuda_runtime->residency()->device_resident_bytes();
-            const Qwen3GenerationExecution execution = session_state_->qwen_executor->run(
-                config.prompt_tokens, config.max_new_tokens, config.stop_token,
-                config.on_token, config.should_cancel);
+            const Qwen3GenerationExecution execution = multi_device ?
+                session_state_->qwen_multidevice_executor->run(config.prompt_tokens, config.max_new_tokens,
+                    config.stop_token, config.on_token, config.should_cancel) :
+                session_state_->qwen_executor->run(config.prompt_tokens, config.max_new_tokens,
+                    config.stop_token, config.on_token, config.should_cancel);
             result.tokens = execution.tokens;
             result.final_logits = execution.final_logits;
             result.completed = execution.completed;

@@ -113,6 +113,9 @@ public:
     std::unique_ptr<VbufGenerationSession> create_session(uint32_t context_capacity = 1032);
     // Eagerly initialize exact-admitted Qwen CUDA model residency for long-lived servers.
     void prepare_qwen3_cuda(const std::string & source_endpoint);
+    // Explicit qualification/opt-in path; does not change the default single-device runtime.
+    void prepare_qwen3_cuda_multigpu_26_14(const std::string & source_endpoint,
+        uint32_t early_device_id = 0, uint32_t late_device_id = 1);
     // Compatibility convenience: create a session, run one request, destroy it.
     VbufGenerationResult run(const VbufGenerationConfig & config);
     VbufGenerationSnapshot snapshot() const;

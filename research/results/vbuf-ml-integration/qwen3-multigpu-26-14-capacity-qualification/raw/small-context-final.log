@@ -1,0 +1,30 @@
+model=Qwen3 layers=40 hidden=5120 heads=40 kv_heads=8 head_dim=128 vocabulary=151936 tensors=443 source_size=9000232144 source_sha256=sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31 tokenizer_eos=151645 add_bos=NO
+ffn_down_tensor name=blk.0.ffn_down.weight shape=[17408,5120] representation=14 ggml_type=q6_K payload_bytes=73113600 row_bytes=14280 total_blocks=348160 source_offset=579061448 source_length=73113600
+ggml_cuda_init: found 2 CUDA devices (Total VRAM: 19996 MiB):
+  Device 0: NVIDIA GeForce RTX 3060, compute capability 8.6, VMM: yes, VRAM: 12037 MiB
+  Device 1: NVIDIA GeForce RTX 2080 SUPER, compute capability 7.5, VMM: yes, VRAM: 7959 MiB
+single_reference prefix=1 greedy=25 logits=151936 h2d=8 d2h=4
+single_reference prefix=2 greedy=1115 logits=151936 h2d=12 d2h=6
+single_reference prefix=4 greedy=4 logits=151936 h2d=20 d2h=10
+single_reference prefix=8 greedy=89401 logits=151936 h2d=36 d2h=18
+single_reference prefix=16 greedy=16 logits=151936 h2d=68 d2h=34
+single_reference prefix=32 greedy=75902 logits=151936 h2d=8 d2h=5
+device_residency device=0 name=CUDA0 tensors=287 payload_bytes=5561288704 allocation_bytes=5561288704
+device_residency device=1 name=CUDA1 tensors=156 payload_bytes=3434505216 allocation_bytes=3434505216
+boundary pinned=yes bytes=655360 dtype=F32 hidden=5120
+device_session device=0 kv_allocation_bytes=6946816 prefill_scratch_bytes=67108864 decode_scratch_bytes=33554432 free_vram_bytes=6815875072 total_vram_bytes=12622168064
+device_session device=1 kv_allocation_bytes=3801088 prefill_scratch_bytes=67108864 decode_scratch_bytes=33554432 free_vram_bytes=4396285952 total_vram_bytes=8345812992
+two_device prefix=1 token=25 match=YES hidden_max_abs=3.33110046 hidden_rel_rms=0.00773853212 hidden_cosine=0.999972946386 logits_max_abs=0.229975224 logits_rel_rms=0.0107422067 logits_cosine=0.999962369147 boundary_handoffs=2 boundary_bytes=40960 length=2 kv25=finite kv26=finite numeric_check=PASS vram_used_sum=9755820032 free_vram_sum=11195383808
+two_device prefix=2 token=1115 match=YES hidden_max_abs=2.6237793 hidden_rel_rms=0.00522801329 hidden_cosine=0.999987236745 logits_max_abs=0.14814949 logits_rel_rms=0.00913625681 logits_cosine=0.999960889562 boundary_handoffs=3 boundary_bytes=61440 length=3 kv25=finite kv26=finite numeric_check=PASS vram_used_sum=9772597248 free_vram_sum=11195383808
+two_device prefix=4 token=4 match=YES hidden_max_abs=3.08679199 hidden_rel_rms=0.00788309113 hidden_cosine=0.999970115442 logits_max_abs=0.15524435 logits_rel_rms=0.00950269577 logits_cosine=0.999954882274 boundary_handoffs=5 boundary_bytes=102400 length=5 kv25=finite kv26=finite numeric_check=PASS vram_used_sum=9772597248 free_vram_sum=11195383808
+two_device prefix=8 token=89401 match=YES hidden_max_abs=4.05871582 hidden_rel_rms=0.00725283294 hidden_cosine=0.999975610449 logits_max_abs=0.147210121 logits_rel_rms=0.00960605176 logits_cosine=0.999955885932 boundary_handoffs=9 boundary_bytes=184320 length=9 kv25=finite kv26=finite numeric_check=PASS vram_used_sum=9772597248 free_vram_sum=11195383808
+two_device prefix=16 token=16 match=YES hidden_max_abs=1.74487305 hidden_rel_rms=0.00735643157 hidden_cosine=0.999973076072 logits_max_abs=0.182017207 logits_rel_rms=0.0164695456 logits_cosine=0.99987159401 boundary_handoffs=17 boundary_bytes=348160 length=17 kv25=finite kv26=finite numeric_check=PASS vram_used_sum=9772597248 free_vram_sum=11195383808
+two_device prefix=32 token=75902 match=YES hidden_max_abs=5.64245605 hidden_rel_rms=0.0182232002 hidden_cosine=0.999836740592 logits_max_abs=0.341286659 logits_rel_rms=0.0162541574 logits_cosine=0.999912946397 boundary_handoffs=2 boundary_bytes=675840 length=33 kv25=finite kv26=finite numeric_check=PASS vram_used_sum=9772597248 free_vram_sum=11174412288
+session_isolation=A/B/A PASS
+failure_injection point=7 logical_length=0 PASS
+failure_injection point=8 logical_length=0 PASS
+failure_injection point=9 logical_length=0 PASS
+failure_injection point=10 logical_length=0 PASS
+failure_injection point=11 logical_length=0 PASS
+failure_recovery=fresh-session PASS
+QWEN_MULTI_GPU_26_14_SMALL_CONTEXT=TESTED NOT_QUALIFIED_32K=NOT_TESTED production_capacity=1032_UNCHANGED

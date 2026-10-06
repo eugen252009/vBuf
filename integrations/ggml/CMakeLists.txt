@@ -178,6 +178,14 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_qwen3_cuda_ownership_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_qwen3_cuda_ownership_contract PRIVATE vbuf_qwen3_cuda_core)
 
+    add_executable(vbuf_qwen3_multigpu_qualification qualification/qwen3_multigpu_qualification.cpp)
+    target_compile_features(vbuf_qwen3_multigpu_qualification PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_qwen3_multigpu_qualification PRIVATE vbuf_qwen3_cuda_core)
+
+    add_executable(vbuf_qwen3_multigpu_capacity_gate qualification/qwen3_multigpu_capacity_gate.cpp)
+    target_compile_features(vbuf_qwen3_multigpu_capacity_gate PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_qwen3_multigpu_capacity_gate PRIVATE vbuf_qwen3_cuda_core)
+
     add_executable(vbuf_qwen3_model_admission_contract tests/qwen3_model_admission_contract.cpp)
     target_compile_features(vbuf_qwen3_model_admission_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_qwen3_model_admission_contract PRIVATE vbuf_qwen3_model)
