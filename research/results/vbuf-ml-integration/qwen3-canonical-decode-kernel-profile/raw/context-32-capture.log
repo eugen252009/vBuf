@@ -1,0 +1,35 @@
+ggml_cuda_init: found 2 CUDA devices (Total VRAM: 19996 MiB):
+  Device 0: NVIDIA GeForce RTX 3060, compute capability 8.6, VMM: yes, VRAM: 12037 MiB
+  Device 1: NVIDIA GeForce RTX 2080 SUPER, compute capability 7.5, VMM: yes, VRAM: 7959 MiB
+Importer error status: The importer binary and its dependencies were not found.
+Unable to retrieve the importer version: skipping importation of the QDSTRM file.
+model=Qwen3 layers=40 hidden=5120 heads=40 kv_heads=8 head_dim=128 vocabulary=151936 tensors=443 source_size=9000232144 source_sha256=sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31 tokenizer_eos=151645 add_bos=NO
+ffn_down_tensor name=blk.0.ffn_down.weight shape=[17408,5120] representation=14 ggml_type=q6_K payload_bytes=73113600 row_bytes=14280 total_blocks=348160 source_offset=579061448 source_length=73113600
+memory stage=before_runtime device=0 name=CUDA0 free_bytes=12471828480 total_bytes=12622168064 observed_used_bytes=150339584
+memory stage=before_runtime device=1 name=CUDA1 free_bytes=7448231936 total_bytes=8345812992 observed_used_bytes=897581056
+memory stage=after_runtime device=0 name=CUDA0 free_bytes=6910181376 total_bytes=12622168064 observed_used_bytes=5711986688
+memory stage=after_runtime device=1 name=CUDA1 free_bytes=4086104064 total_bytes=8345812992 observed_used_bytes=4259708928
+model_residency device=0 payload_bytes=5561288704 tensor_count=287 allocation_bytes=5561288704
+model_residency device=1 payload_bytes=3434505216 tensor_count=156 allocation_bytes=3434505216
+memory stage=before_session device=0 name=CUDA0 free_bytes=6910181376 total_bytes=12622168064 observed_used_bytes=5711986688
+memory stage=before_session device=1 name=CUDA1 free_bytes=4086104064 total_bytes=8345812992 observed_used_bytes=4259708928
+session_allocation label=run device=0 owned_layers=26 kv_bytes=3489660928 packed_v_bytes=67108864 kv_plus_packed_allocation_bytes=3556769792 prefill_scratch_bytes=545259520 boundary_host_bytes=655360
+session_allocation label=run device=1 owned_layers=14 kv_bytes=1879048192 packed_v_bytes=67108864 kv_plus_packed_allocation_bytes=1946157056 prefill_scratch_bytes=545259520 boundary_host_bytes=655360
+buffer_ownership label=run device=0 model_kv_prefill_decode_distinct=YES packed_v=kv_allocation boundary=separate_pinned_host rows=32
+buffer_ownership label=run device=1 model_kv_prefill_decode_distinct=YES packed_v=kv_allocation boundary=separate_pinned_host rows=32
+memory stage=after_session_and_executor device=0 name=CUDA0 free_bytes=2774597632 total_bytes=12622168064 observed_used_bytes=9847570432
+memory stage=after_session_and_executor device=1 name=CUDA1 free_bytes=1552482304 total_bytes=8345812992 observed_used_bytes=6793330688
+cuda_kernel_profile_range context=32 decode_steps=1 capture=PASS optimizer_mode=SHADOW
+optimizer_selection label=run mode=SHADOW candidate_found=YES cache_hit=YES guards_passed=YES eligible=YES validated=NO candidate_selected=NO canonical_selected=YES fallback=0 cache_hits=1 cache_misses=1 guard_passes=1 guard_failures=1 errors=0 observations=2 valid_candidates=0 invalidated_candidates=0
+capacity_gate label=run capacity=32768 chunk=32 visible_prefix=32 appended=1 final_length=33 boundary_handoffs=2 boundary_bytes=675840 boundary_audits=2 audited_bytes=675840 prefill_ns=738893818 decode_ns=4114085658 wall_ns=4854747885 decode_ns_per_token=4114085658 finite=YES historical_kv=preserved kv_append=PASS free_min0=2663448576 free_min1=1439629312
+output_fingerprint label=run chunk=32 token_fnv64=40a7a17d8f859d82 hidden_f32_fnv64=3593bfa670ea337f logits_f32_fnv64=bf21a8b4991570f6 generated=504
+memory stage=after_session_destruction device=0 name=CUDA0 free_bytes=6799032320 total_bytes=12622168064 observed_used_bytes=5823135744
+memory stage=after_session_destruction device=1 name=CUDA1 free_bytes=3968532480 total_bytes=8345812992 observed_used_bytes=4377280512
+memory stage=after_runtime_destruction device=0 name=CUDA0 free_bytes=12457148416 total_bytes=12622168064 observed_used_bytes=165019648
+memory stage=after_runtime_destruction device=1 name=CUDA1 free_bytes=7500136448 total_bytes=8345812992 observed_used_bytes=845676544
+gate_result capacity=32768 prefix=32 append=1 production_capacity=1032_UNCHANGED
+Capture range started in the application.
+Capture range ended in the application.
+Generating '/tmp/nsys-report-e0c9.qdstrm'
+Generated:
+    /tmp/qwen-kernel-context-32.qdstrm

@@ -18,6 +18,11 @@
 #include <string>
 #include <vector>
 
+#if defined(VBUF_QWEN3_HAS_CUDA_PROFILER_API)
+#include <cuda_profiler_api.h>
+#include <cuda_runtime_api.h>
+#endif
+
 using namespace vbuf_ggml;
 namespace {
 constexpr uint64_t source_bytes = 9000232144ULL;
@@ -267,6 +272,19 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
         "pinned boundary host allocation differs from configured F32 chunk geometry");
     const char * profile_env = std::getenv("VBUF_QWEN3_CAPTURE_DECODE_PROFILE");
     const bool capture_decode_profile = profile_env != nullptr && std::string(profile_env) == "1";
+    std::optional<uint32_t> cuda_profile_context;
+    if (const char * value = std::getenv("VBUF_QWEN3_CUDA_PROFILE_CONTEXT")) {
+        char * end = nullptr;
+        const unsigned long parsed = std::strtoul(value, &end, 10);
+        require(end != value && *end == '\0' && parsed <= UINT32_MAX,
+            "invalid VBUF_QWEN3_CUDA_PROFILE_CONTEXT value");
+        cuda_profile_context = static_cast<uint32_t>(parsed);
+#if !defined(VBUF_QWEN3_HAS_CUDA_PROFILER_API)
+        throw std::runtime_error("CUDA profiler API capture is unavailable in this build");
+#endif
+    }
+    bool cuda_profile_range_started = false;
+    bool cuda_profile_range_stopped = false;
     Qwen3MultiDeviceGenerationExecutor executor(model, runtime, session, capture_decode_profile);
     for (uint32_t device : {0U, 1U}) {
         const auto * owned = runtime->tensor(device == 0 ? "blk.0.attn_q.weight" : "blk.26.attn_q.weight", device);
@@ -304,13 +322,31 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
     std::vector<Sample> historical_samples;
     std::vector<Sample> progressive_samples;
     bool captured_prompt_kv = false;
-    auto on_token = [&](uint32_t, uint32_t) {
-        if (capture_decode_profile && captured_prompt_kv) return true;
-        historical_samples = sample_kv(*session, gate.prefix);
-        captured_prompt_kv = true;
+    auto on_token = [&](uint32_t, uint32_t decode_position) {
+        if (!(capture_decode_profile && captured_prompt_kv)) {
+            historical_samples = sample_kv(*session, gate.prefix);
+            captured_prompt_kv = true;
+        }
+        if (cuda_profile_context && decode_position == *cuda_profile_context && !cuda_profile_range_started) {
+#if defined(VBUF_QWEN3_HAS_CUDA_PROFILER_API)
+            const cudaError_t status = cudaProfilerStart();
+            if (status != cudaSuccess)
+                throw std::runtime_error(std::string("cudaProfilerStart failed: ") + cudaGetErrorString(status));
+            cuda_profile_range_started = true;
+#endif
+        }
         return true;
     };
     auto on_progress = [&](uint32_t visible, const std::vector<float> & hidden) {
+        if (cuda_profile_range_started && !cuda_profile_range_stopped && cuda_profile_context &&
+            visible == *cuda_profile_context + 1) {
+#if defined(VBUF_QWEN3_HAS_CUDA_PROFILER_API)
+            const cudaError_t status = cudaProfilerStop();
+            if (status != cudaSuccess)
+                throw std::runtime_error(std::string("cudaProfilerStop failed: ") + cudaGetErrorString(status));
+            cuda_profile_range_stopped = true;
+#endif
+        }
         if (capture_decode_profile && visible > gate.prefix) return;
         const auto current_memory = probe_gpus();
         for (size_t i = 0; i < 2; ++i) minimum_free[i] = std::min(minimum_free[i], current_memory[i].free);
@@ -332,6 +368,9 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
     const bool qualify_prebound = qualify_env != nullptr && std::string(qualify_env) == "1";
     const char * compare_modes_env = std::getenv("VBUF_QWEN3_COMPARE_DISABLED_SHADOW");
     const bool compare_modes = compare_modes_env != nullptr && std::string(compare_modes_env) == "1";
+    require(!cuda_profile_context || (*cuda_profile_context == gate.prefix && gate.append == 1 &&
+        !qualify_prebound && !compare_modes && !capture_decode_profile),
+        "CUDA kernel capture requires one canonical decode at the profiled prefix without host profiling");
     require(!qualify_prebound || (gate.capacity == 32768 && gate.chunk == 32 && gate.append >= 32),
         "prebound dispatch qualification requires capacity=32768, chunk=32, and at least 32 decode steps");
     require(!compare_modes || (gate.capacity == 32768 && gate.chunk == 32 && gate.prefix <= 64 && gate.append >= 32),
@@ -378,6 +417,12 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
     }
     require(execution.completed && execution.tokens.size() == gate.append && captured_prompt_kv,
         "capacity gate generation did not finish or capture pre-decode KV");
+    if (cuda_profile_context) {
+        require(cuda_profile_range_started && cuda_profile_range_stopped,
+            "CUDA profiler range did not enclose the requested decode token");
+        std::printf("cuda_kernel_profile_range context=%u decode_steps=1 capture=PASS optimizer_mode=SHADOW\n",
+            *cuda_profile_context);
+    }
     if (qualify_prebound) {
         const Qwen3GenerationExecution canonical = execution;
         const std::vector<Sample> canonical_historical = historical_samples;
