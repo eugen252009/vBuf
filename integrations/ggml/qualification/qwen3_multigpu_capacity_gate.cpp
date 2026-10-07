@@ -710,8 +710,9 @@ int run(const char * semantic, const char * source, const char * token_file,
     uint32_t capacity, uint32_t prefix, uint32_t append, uint32_t chunk, const std::string & mode,
     bool replay, bool exact_fit_overflow) {
     const auto seed = read_tokens(token_file);
-    require(capacity == 2048 || capacity == 4096 || capacity == 8192 || capacity == 16384 || capacity == 32768,
-        "capacity must be one rung of 2048/4096/8192/16384/32768");
+    require(capacity == 1024 || capacity == 2048 || capacity == 4096 || capacity == 8192 ||
+        capacity == 16384 || capacity == 32768,
+        "capacity must be one rung of 1024/2048/4096/8192/16384/32768");
     require(chunk == 16 || chunk == 32, "prefill chunk must be 16 or 32");
     require(mode == "run" || mode == "allocation-only", "mode must be run or allocation-only");
     require(mode != "allocation-only" || (prefix == 0 && append == 0),

@@ -1,0 +1,37 @@
+ggml_cuda_init: found 2 CUDA devices (Total VRAM: 19996 MiB):
+  Device 0: NVIDIA GeForce RTX 3060, compute capability 8.6, VMM: yes, VRAM: 12037 MiB
+  Device 1: NVIDIA GeForce RTX 2080 SUPER, compute capability 7.5, VMM: yes, VRAM: 7959 MiB
+model=Qwen3 layers=40 hidden=5120 heads=40 kv_heads=8 head_dim=128 vocabulary=151936 tensors=443 source_size=9000232144 source_sha256=sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31 tokenizer_eos=151645 add_bos=NO
+ffn_down_tensor name=blk.0.ffn_down.weight shape=[17408,5120] representation=14 ggml_type=q6_K payload_bytes=73113600 row_bytes=14280 total_blocks=348160 source_offset=579061448 source_length=73113600
+memory stage=before_runtime device=0 name=CUDA0 free_bytes=12501188608 total_bytes=12622168064 observed_used_bytes=120979456
+memory stage=before_runtime device=1 name=CUDA1 free_bytes=7749173248 total_bytes=8345812992 observed_used_bytes=596639744
+memory stage=after_runtime device=0 name=CUDA0 free_bytes=6939541504 total_bytes=12622168064 observed_used_bytes=5682626560
+memory stage=after_runtime device=1 name=CUDA1 free_bytes=4219404288 total_bytes=8345812992 observed_used_bytes=4126408704
+model_residency device=0 payload_bytes=5561288704 tensor_count=287 allocation_bytes=5561288704
+model_residency device=1 payload_bytes=3434505216 tensor_count=156 allocation_bytes=3434505216
+memory stage=before_session device=0 name=CUDA0 free_bytes=6939541504 total_bytes=12622168064 observed_used_bytes=5682626560
+memory stage=before_session device=1 name=CUDA1 free_bytes=4219404288 total_bytes=8345812992 observed_used_bytes=4126408704
+session_allocation label=run device=0 owned_layers=26 kv_bytes=3489660928 packed_v_bytes=67108864 kv_plus_packed_allocation_bytes=3556769792 prefill_scratch_bytes=545259520 boundary_host_bytes=655360
+session_allocation label=run device=1 owned_layers=14 kv_bytes=1879048192 packed_v_bytes=67108864 kv_plus_packed_allocation_bytes=1946157056 prefill_scratch_bytes=545259520 boundary_host_bytes=655360
+buffer_ownership label=run device=0 model_kv_prefill_decode_distinct=YES packed_v=kv_allocation boundary=separate_pinned_host rows=32
+buffer_ownership label=run device=1 model_kv_prefill_decode_distinct=YES packed_v=kv_allocation boundary=separate_pinned_host rows=32
+memory stage=after_session_and_executor device=0 name=CUDA0 free_bytes=2803957760 total_bytes=12622168064 observed_used_bytes=9818210304
+memory stage=after_session_and_executor device=1 name=CUDA1 free_bytes=1694433280 total_bytes=8345812992 observed_used_bytes=6651379712
+prefix_checkpoint label=run capacity=32768 visible=256 hidden_rms=21.7709141 kv_samples=24 kv=finite free0=2692808704 free1=1627783168
+prefix_checkpoint label=run capacity=32768 visible=512 hidden_rms=22.3529397 kv_samples=24 kv=finite free0=2692808704 free1=1664548864
+prefix_checkpoint label=run capacity=32768 visible=1024 hidden_rms=17.966149 kv_samples=24 kv=finite free0=2692808704 free1=1650851840
+prefix_checkpoint label=run capacity=32768 visible=2048 hidden_rms=25.7169187 kv_samples=24 kv=finite free0=2692808704 free1=1662058496
+prefix_checkpoint label=run capacity=32768 visible=4096 hidden_rms=23.0183174 kv_samples=24 kv=finite free0=2692808704 free1=1603731456
+prefix_checkpoint label=run capacity=32768 visible=8192 hidden_rms=20.1616681 kv_samples=24 kv=finite free0=2692808704 free1=1614544896
+prefix_checkpoint label=run capacity=32768 visible=16384 hidden_rms=33.6580927 kv_samples=24 kv=finite free0=2692808704 free1=1612447744
+prefix_checkpoint label=run capacity=32768 visible=24576 hidden_rms=27.0153448 kv_samples=24 kv=finite free0=2692808704 free1=1570308096
+prefix_checkpoint label=run capacity=32768 visible=32736 hidden_rms=29.5987486 kv_samples=24 kv=finite free0=2692808704 free1=1537343488
+optimizer_selection label=run mode=SHADOW candidate_found=YES cache_hit=YES guards_passed=YES eligible=YES validated=NO candidate_selected=NO canonical_selected=YES fallback=0 cache_hits=1 cache_misses=1 guard_passes=1 guard_failures=1 errors=0 observations=1024 valid_candidates=0 invalidated_candidates=0
+capacity_gate label=run capacity=32768 chunk=32 visible_prefix=32736 appended=1 final_length=32737 boundary_handoffs=1024 boundary_bytes=670453760 boundary_audits=10 audited_bytes=5918720 prefill_ns=621025654163 decode_ns=405665620 wall_ns=621433239358 decode_ns_per_token=405665620 finite=YES historical_kv=preserved kv_append=PASS free_min0=2692808704 free_min1=1365180416
+output_fingerprint label=run chunk=32 token_fnv64=09dd235e674f185e hidden_f32_fnv64=f794787e78c76b7c logits_f32_fnv64=3e41d3740f8a1056 generated=2308
+kv_sample_fingerprint label=run historical=2d1e893f6e677c52 progressive=04b0f10f01023374 appended=f79d7ea467de065d historical_rows=24 progressive_rows=216 appended_rows=12
+memory stage=after_session_destruction device=0 name=CUDA0 free_bytes=6828392448 total_bytes=12622168064 observed_used_bytes=5793775616
+memory stage=after_session_destruction device=1 name=CUDA1 free_bytes=4023910400 total_bytes=8345812992 observed_used_bytes=4321902592
+memory stage=after_runtime_destruction device=0 name=CUDA0 free_bytes=12486508544 total_bytes=12622168064 observed_used_bytes=135659520
+memory stage=after_runtime_destruction device=1 name=CUDA1 free_bytes=7555252224 total_bytes=8345812992 observed_used_bytes=790560768
+gate_result capacity=32768 prefix=32736 append=1 production_capacity=1032_UNCHANGED

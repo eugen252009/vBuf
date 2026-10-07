@@ -1,0 +1,4 @@
+query_rows,capacity,visible_prefix,captured_phase,copy_count,copy_grid_x,bytes_per_layer,copy_payload_40_mib,copy_kernel_sum_ms
+1,32768,32,decode,40,524288,67108864,2560.0,277.349647
+16,16384,32,prefill chunk 2,40,262144,33554432,1280.0,56.042206
+32,32768,64,prefill chunk 2,40,524288,67108864,2560.0,274.323823
