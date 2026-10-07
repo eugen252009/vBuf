@@ -10,12 +10,39 @@
 
 namespace vbuf_ggml {
 
+struct Qwen3DecodeProfile {
+    uint64_t steps = 0;
+    uint64_t plan_select_ns = 0;
+    uint64_t optimizer_record_ns = 0;
+    uint64_t control_prepare_ns = 0;
+    uint64_t control_enqueue_cpu_ns = 0;
+    uint64_t layer_resolve_cpu_ns = 0;
+    uint64_t boundary_descriptor_cpu_ns = 0;
+    uint64_t boundary_source_wait_d2h_ns = 0;
+    uint64_t boundary_destination_h2d_wait_ns = 0;
+    uint64_t control_h2d_bytes = 0;
+    uint64_t control_h2d_calls = 0;
+    uint64_t graph_submit_cpu_ns = 0;
+    uint64_t candidate_setup_ns = 0;
+    uint64_t candidate_dispatch_cpu_ns = 0;
+    uint64_t boundary_wait_transfer_ns = 0;
+    uint64_t final_device_wait_ns = 0;
+    uint64_t final_output_readback_ns = 0;
+    uint64_t final_sync_readback_ns = 0;
+    uint64_t step_wall_ns = 0;
+    std::vector<uint64_t> step_wall_samples_ns;
+    std::vector<uint64_t> outer_token_wall_samples_ns;
+};
+
 struct Qwen3GenerationExecution {
     std::vector<uint32_t> tokens;
     std::vector<float> final_logits;
     std::vector<float> final_hidden;
     uint64_t prefill_ns = 0;
     uint64_t decode_ns = 0;
+    uint64_t canonical_decode_steps = 0;
+    uint64_t specialized_decode_steps = 0;
+    Qwen3DecodeProfile decode_profile;
     uint64_t h2d_calls = 0;
     uint64_t h2d_bytes = 0;
     uint64_t d2h_calls = 0;
@@ -38,7 +65,8 @@ class Qwen3MultiDeviceGenerationExecutor final {
 public:
     Qwen3MultiDeviceGenerationExecutor(Qwen3Model & model,
         std::shared_ptr<QwenCudaRuntimeState> runtime,
-        std::shared_ptr<QwenCudaSessionState> session);
+        std::shared_ptr<QwenCudaSessionState> session,
+        bool capture_decode_profile = false);
     ~Qwen3MultiDeviceGenerationExecutor();
     Qwen3MultiDeviceGenerationExecutor(const Qwen3MultiDeviceGenerationExecutor &) = delete;
     Qwen3MultiDeviceGenerationExecutor & operator=(const Qwen3MultiDeviceGenerationExecutor &) = delete;

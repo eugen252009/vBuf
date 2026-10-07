@@ -110,8 +110,10 @@ struct QwenExecutionGuard {
 };
 
 enum class QwenCandidateStatus : uint8_t { Candidate, Valid, Invalidated };
+enum class QwenCandidateStrategy : uint8_t { PreboundDecodeDispatch, GuardProbe };
 struct QwenExecutionCandidate {
     std::string identity;
+    QwenCandidateStrategy strategy = QwenCandidateStrategy::PreboundDecodeDispatch;
     std::string base_plan_identity;
     std::string execution_plan_identity;
     std::vector<QwenExecutionGuard> guards;
@@ -119,11 +121,13 @@ struct QwenExecutionCandidate {
     std::string validation_note;
 };
 
-enum class QwenOptimizerMode : uint8_t { Disabled, Shadow };
-enum class QwenOptimizerFault : uint8_t { None, CandidateConstruction, GuardEvaluation, CacheLookup, ProfilerRecord };
+enum class QwenOptimizerMode : uint8_t { Disabled, Shadow, Enabled };
+enum class QwenOptimizerFault : uint8_t {
+    None, CandidateConstruction, GuardEvaluation, CacheLookup, ProfilerRecord, CandidateExecution
+};
 enum class QwenOptimizerFallback : uint8_t {
     None, Disabled, NoCandidate, GuardFailed, UnsupportedGuard, Invalidated,
-    CandidateMismatch, InternalFailure
+    CandidateMismatch, CandidateNotValidated, InternalFailure
 };
 
 struct QwenOptimizerDecision {
@@ -135,6 +139,10 @@ struct QwenOptimizerDecision {
     bool cache_hit = false;
     bool guards_passed = false;
     bool candidate_eligible = false;
+    bool candidate_validated = false;
+    bool candidate_selected = false;
+    bool qualification_trial = false;
+    QwenCandidateStrategy strategy = QwenCandidateStrategy::PreboundDecodeDispatch;
     bool canonical_selected = true;
 };
 
@@ -157,17 +165,21 @@ struct QwenOptimizerSnapshot {
     uint64_t optimizer_errors = 0;
     uint64_t observations = 0;
     size_t cache_size = 0;
+    size_t candidate_count = 0;
+    size_t valid_candidate_count = 0;
+    size_t invalidated_candidate_count = 0;
     size_t profile_key_count = 0;
     QwenOptimizerDecision last_decision;
     std::vector<QwenOptimizerProfileRecord> profile_records;
 };
 
-// The service only observes and describes a candidate. Shadow mode always
-// selects the canonical plan; no candidate execution path exists yet.
+// Shadow mode is observation-only and always selects canonical execution.
+// Enabled may select only a guarded, explicitly Valid candidate.
 class QwenExecutionPlanOptimizer final {
 public:
     static constexpr size_t max_cached_candidates = 64;
     static constexpr size_t max_profile_keys = 128;
+    static constexpr uint64_t min_candidate_hotness_observations = 32;
 
     QwenExecutionPlanOptimizer() = default;
     QwenExecutionPlanOptimizer(const QwenExecutionPlanOptimizer &) = delete;
@@ -182,7 +194,10 @@ public:
         uint64_t elapsed_ns) noexcept;
     void record_optimizer_failure() noexcept;
     bool register_candidate(QwenExecutionCandidate candidate) noexcept;
+    bool mark_candidate_valid(const std::string & identity, const std::string & validation_note) noexcept;
     bool invalidate_candidate(const std::string & identity) noexcept;
+    void set_unvalidated_trial_for_testing(bool enabled) noexcept;
+    bool consume_candidate_execution_fault_for_testing() noexcept;
     void set_fault_for_testing(QwenOptimizerFault fault) noexcept;
     QwenOptimizerSnapshot snapshot() const;
 
@@ -190,6 +205,7 @@ private:
     mutable std::mutex mutex_;
     std::atomic<QwenOptimizerMode> mode_{QwenOptimizerMode::Shadow};
     QwenOptimizerFault test_fault_ = QwenOptimizerFault::None;
+    bool allow_unvalidated_trial_for_testing_ = false;
     std::map<std::string, QwenExecutionCandidate> candidates_;
     std::map<std::string, QwenOptimizerProfileRecord> profiles_;
     uint64_t profile_ordinal_ = 0;
@@ -202,7 +218,7 @@ private:
     uint64_t observations_ = 0;
     QwenOptimizerDecision last_decision_;
 
-    static std::optional<QwenExecutionCandidate> make_noop_candidate(const QwenExecutionPlan & plan);
+    static std::optional<QwenExecutionCandidate> make_prebound_decode_candidate(const QwenExecutionPlan & plan);
     static std::string candidate_identity(const QwenExecutionPlan & plan);
     static bool evaluate_guard(const QwenExecutionGuard & guard, const QwenRuntimeFacts & facts,
         bool * supported);

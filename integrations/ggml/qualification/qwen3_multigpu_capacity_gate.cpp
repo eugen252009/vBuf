@@ -6,6 +6,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -51,6 +52,63 @@ void print_memory(const char * label, const std::vector<Memory> & memory) {
 void require(bool condition, const std::string & message) {
     if (!condition) throw std::runtime_error(message);
 }
+struct Distribution { uint64_t minimum = 0, median = 0, p95 = 0; };
+Distribution distribution(std::vector<uint64_t> samples) {
+    if (samples.empty()) return {};
+    std::sort(samples.begin(), samples.end());
+    const size_t middle = samples.size() / 2;
+    const uint64_t median = samples.size() % 2 != 0 ? samples[middle] :
+        samples[middle - 1] / 2 + samples[middle] / 2 +
+        ((samples[middle - 1] % 2 + samples[middle] % 2) / 2);
+    const size_t p95_index = (95 * samples.size() + 99) / 100 - 1;
+    return {samples.front(), median, samples[p95_index]};
+}
+void print_decode_profile(const char * label, const Qwen3GenerationExecution & execution) {
+    const auto & p = execution.decode_profile;
+    const auto step = distribution(p.step_wall_samples_ns);
+    const auto outer = distribution(p.outer_token_wall_samples_ns);
+    if (p.steps == 0) return;
+    const uint64_t steps = p.steps;
+    std::printf("decode_profile label=%s steps=%llu outer_min_median_p95_ns=%llu,%llu,%llu "
+        "step_min_median_p95_ns=%llu,%llu,%llu plan_select_ns_per_request=%llu optimizer_record_ns_per_request=%llu "
+        "control_prepare_ns_per_step=%llu control_enqueue_cpu_ns_per_step=%llu layer_resolve_cpu_ns_per_step=%llu "
+        "boundary_descriptor_cpu_ns_per_step=%llu graph_submit_cpu_ns_per_step=%llu "
+        "candidate_setup_ns_per_request=%llu candidate_dispatch_cpu_ns_per_step=%llu "
+        "boundary_wait_transfer_ns_per_step=%llu "
+        "boundary_source_wait_d2h_ns_per_step=%llu "
+        "boundary_destination_h2d_wait_ns_per_step=%llu final_sync_readback_ns_per_step=%llu "
+        "final_device_wait_ns_per_step=%llu final_output_readback_ns_per_step=%llu "
+        "control_h2d_bytes_per_step=%llu control_h2d_calls_per_step=%llu "
+        "canonical_decode_steps=%llu specialized_decode_steps=%llu\n", label,
+        static_cast<unsigned long long>(steps), static_cast<unsigned long long>(outer.minimum),
+        static_cast<unsigned long long>(outer.median), static_cast<unsigned long long>(outer.p95),
+        static_cast<unsigned long long>(step.minimum), static_cast<unsigned long long>(step.median),
+        static_cast<unsigned long long>(step.p95), static_cast<unsigned long long>(p.plan_select_ns),
+        static_cast<unsigned long long>(p.optimizer_record_ns),
+        static_cast<unsigned long long>(p.control_prepare_ns / steps),
+        static_cast<unsigned long long>(p.control_enqueue_cpu_ns / steps),
+        static_cast<unsigned long long>(p.layer_resolve_cpu_ns / steps),
+        static_cast<unsigned long long>(p.boundary_descriptor_cpu_ns / steps),
+        static_cast<unsigned long long>(p.graph_submit_cpu_ns / steps),
+        static_cast<unsigned long long>(p.candidate_setup_ns),
+        static_cast<unsigned long long>(p.candidate_dispatch_cpu_ns / steps),
+        static_cast<unsigned long long>(p.boundary_wait_transfer_ns / steps),
+        static_cast<unsigned long long>(p.boundary_source_wait_d2h_ns / steps),
+        static_cast<unsigned long long>(p.boundary_destination_h2d_wait_ns / steps),
+        static_cast<unsigned long long>(p.final_sync_readback_ns / steps),
+        static_cast<unsigned long long>(p.final_device_wait_ns / steps),
+        static_cast<unsigned long long>(p.final_output_readback_ns / steps),
+        static_cast<unsigned long long>(p.control_h2d_bytes / steps),
+        static_cast<unsigned long long>(p.control_h2d_calls / steps),
+        static_cast<unsigned long long>(execution.canonical_decode_steps),
+        static_cast<unsigned long long>(execution.specialized_decode_steps));
+}
+void print_pooled_distribution(const char * mode, const std::vector<uint64_t> & samples) {
+    const auto result = distribution(samples);
+    std::printf("decode_mode_pooled mode=%s samples=%zu min_ns=%llu median_ns=%llu p95_ns=%llu\n", mode,
+        samples.size(), static_cast<unsigned long long>(result.minimum),
+        static_cast<unsigned long long>(result.median), static_cast<unsigned long long>(result.p95));
+}
 std::vector<uint32_t> read_tokens(const std::string & path) {
     std::ifstream file(path);
     if (!file) throw std::runtime_error("cannot open token ID file: " + path);
@@ -89,6 +147,9 @@ bool finite_half(const std::vector<uint8_t> & bytes) {
 bool finite_f32(const std::vector<float> & values) {
     return !values.empty() && std::all_of(values.begin(), values.end(), [](float v) { return std::isfinite(v); });
 }
+bool bitwise_equal(const std::vector<float> & a, const std::vector<float> & b) {
+    return a.size() == b.size() && (a.empty() || std::memcmp(a.data(), b.data(), a.size() * sizeof(float)) == 0);
+}
 template <typename T> uint64_t fnv1a(const std::vector<T> & values) {
     uint64_t hash = 14695981039346656037ULL;
     const auto * bytes = reinterpret_cast<const uint8_t *>(values.data());
@@ -123,6 +184,25 @@ void compare_samples(QwenCudaSessionState & session, const std::vector<Sample> &
         require(kv_row(session, sample.layer, sample.key, sample.position) == sample.bytes,
             "historical KV changed: layer=" + std::to_string(sample.layer) +
             " position=" + std::to_string(sample.position));
+}
+std::vector<Sample> sample_kv_window(QwenCudaSessionState & session, uint32_t first, uint32_t count) {
+    std::vector<Sample> result;
+    result.reserve(static_cast<size_t>(count) * sampled_layers.size() * 2);
+    for (uint32_t position = first; position < first + count; ++position)
+        for (uint32_t layer : sampled_layers)
+            for (bool key : {true, false}) {
+                Sample item{layer, position, key, kv_row(session, layer, key, position)};
+                require(finite_half(item.bytes), "non-finite F16 KV sample in candidate comparison window");
+                result.push_back(std::move(item));
+            }
+    return result;
+}
+bool bitwise_equal_samples(const std::vector<Sample> & a, const std::vector<Sample> & b) {
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); ++i)
+        if (a[i].layer != b[i].layer || a[i].position != b[i].position || a[i].key != b[i].key ||
+            a[i].bytes != b[i].bytes) return false;
+    return true;
 }
 uint64_t expected_prefill_scratch(uint32_t capacity, uint32_t chunk) {
     const uint64_t score_bytes = static_cast<uint64_t>(capacity) * chunk * 40 * sizeof(float);
@@ -185,7 +265,9 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
     require(session->boundary_host_is_pinned() && session->boundary_host_bytes() ==
         static_cast<size_t>(gate.chunk) * hidden_width * sizeof(float),
         "pinned boundary host allocation differs from configured F32 chunk geometry");
-    Qwen3MultiDeviceGenerationExecutor executor(model, runtime, session);
+    const char * profile_env = std::getenv("VBUF_QWEN3_CAPTURE_DECODE_PROFILE");
+    const bool capture_decode_profile = profile_env != nullptr && std::string(profile_env) == "1";
+    Qwen3MultiDeviceGenerationExecutor executor(model, runtime, session, capture_decode_profile);
     for (uint32_t device : {0U, 1U}) {
         const auto * owned = runtime->tensor(device == 0 ? "blk.0.attn_q.weight" : "blk.26.attn_q.weight", device);
         require(owned && owned->buffer != nullptr, "model buffer missing from assigned device");
@@ -223,11 +305,13 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
     std::vector<Sample> progressive_samples;
     bool captured_prompt_kv = false;
     auto on_token = [&](uint32_t, uint32_t) {
+        if (capture_decode_profile && captured_prompt_kv) return true;
         historical_samples = sample_kv(*session, gate.prefix);
         captured_prompt_kv = true;
         return true;
     };
     auto on_progress = [&](uint32_t visible, const std::vector<float> & hidden) {
+        if (capture_decode_profile && visible > gate.prefix) return;
         const auto current_memory = probe_gpus();
         for (size_t i = 0; i < 2; ++i) minimum_free[i] = std::min(minimum_free[i], current_memory[i].free);
         while (next_checkpoint < checkpoints.size() && checkpoints[next_checkpoint] <= visible &&
@@ -244,12 +328,102 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
             ++next_checkpoint;
         }
     };
-    const auto start = Clock::now();
-    Qwen3GenerationExecution execution = executor.run(prompt, gate.append, std::nullopt,
-        on_token, {}, on_progress);
-    const uint64_t wall_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count());
+    const char * qualify_env = std::getenv("VBUF_QWEN3_QUALIFY_PREBOUND_DISPATCH");
+    const bool qualify_prebound = qualify_env != nullptr && std::string(qualify_env) == "1";
+    const char * compare_modes_env = std::getenv("VBUF_QWEN3_COMPARE_DISABLED_SHADOW");
+    const bool compare_modes = compare_modes_env != nullptr && std::string(compare_modes_env) == "1";
+    require(!qualify_prebound || (gate.capacity == 32768 && gate.chunk == 32 && gate.append >= 32),
+        "prebound dispatch qualification requires capacity=32768, chunk=32, and at least 32 decode steps");
+    require(!compare_modes || (gate.capacity == 32768 && gate.chunk == 32 && gate.prefix <= 64 && gate.append >= 32),
+        "DISABLED/SHADOW comparison is restricted to the short-prefix capacity-32768 gate");
+    struct TimedExecution { Qwen3GenerationExecution value; uint64_t wall_ns = 0; };
+    const auto execute_timed = [&]() {
+        const auto start = Clock::now();
+        auto value = executor.run(prompt, gate.append, std::nullopt, on_token, {}, on_progress);
+        return TimedExecution{std::move(value), static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count())};
+    };
+    Qwen3GenerationExecution execution;
+    uint64_t wall_ns = 0;
+    std::vector<Sample> mode_reference_historical, mode_reference_progressive, mode_reference_appended;
+    std::vector<Sample> validated_appended_samples;
+    if (compare_modes) {
+        runtime->execution_optimizer().set_mode(QwenOptimizerMode::Disabled);
+        auto disabled = execute_timed();
+        require(disabled.value.completed && disabled.value.tokens.size() == gate.append && captured_prompt_kv,
+            "DISABLED comparison request did not complete/capture pre-decode KV");
+        mode_reference_historical = historical_samples;
+        mode_reference_progressive = progressive_samples;
+        mode_reference_appended = sample_kv_window(*session, gate.prefix, gate.append);
+        if (capture_decode_profile) print_decode_profile("disabled", disabled.value);
+        runtime->execution_optimizer().set_mode(QwenOptimizerMode::Shadow);
+        auto shadow = execute_timed();
+        require(shadow.value.completed && shadow.value.tokens == disabled.value.tokens &&
+            bitwise_equal(shadow.value.final_logits, disabled.value.final_logits) &&
+            bitwise_equal(shadow.value.final_hidden, disabled.value.final_hidden),
+            "DISABLED and SHADOW canonical executions differ bitwise");
+        require(bitwise_equal_samples(mode_reference_appended, sample_kv_window(*session, gate.prefix, gate.append)),
+            "DISABLED and SHADOW appended KV rows differ bitwise");
+        compare_samples(*session, mode_reference_historical);
+        compare_samples(*session, mode_reference_progressive);
+        std::printf("optimizer_disabled_shadow_equivalence tokens=PASS hidden=BITWISE logits=BITWISE kv=BITWISE\n");
+        if (capture_decode_profile) print_decode_profile("shadow", shadow.value);
+        execution = std::move(shadow.value);
+        wall_ns = shadow.wall_ns;
+    } else {
+        runtime->execution_optimizer().set_mode(QwenOptimizerMode::Shadow);
+        auto canonical = execute_timed();
+        execution = std::move(canonical.value);
+        wall_ns = canonical.wall_ns;
+    }
     require(execution.completed && execution.tokens.size() == gate.append && captured_prompt_kv,
         "capacity gate generation did not finish or capture pre-decode KV");
+    if (qualify_prebound) {
+        const Qwen3GenerationExecution canonical = execution;
+        const std::vector<Sample> canonical_historical = historical_samples;
+        const std::vector<Sample> canonical_progressive = progressive_samples;
+        const std::vector<Sample> canonical_appended = sample_kv_window(*session, gate.prefix, gate.append);
+        validated_appended_samples = canonical_appended;
+        const auto observed = runtime->execution_optimizer().snapshot();
+        require(observed.last_decision.candidate_found && observed.last_decision.candidate_identity.size() != 0,
+            "guarded prebound candidate was not discovered in shadow baseline");
+        runtime->execution_optimizer().set_unvalidated_trial_for_testing(true);
+        runtime->execution_optimizer().set_mode(QwenOptimizerMode::Enabled);
+        auto trial = execute_timed();
+        runtime->execution_optimizer().set_unvalidated_trial_for_testing(false);
+        require(trial.value.completed && trial.value.specialized_decode_steps != 0 &&
+            trial.value.tokens == canonical.tokens && bitwise_equal(trial.value.final_logits, canonical.final_logits) &&
+            bitwise_equal(trial.value.final_hidden, canonical.final_hidden),
+            "prebound candidate trial differed from canonical tokens/hidden/logits");
+        const std::vector<Sample> trial_appended = sample_kv_window(*session, gate.prefix, gate.append);
+        require(bitwise_equal_samples(canonical_appended, trial_appended),
+            "prebound candidate trial changed selected appended KV rows");
+        compare_samples(*session, canonical_historical);
+        compare_samples(*session, canonical_progressive);
+        require(runtime->execution_optimizer().mark_candidate_valid(observed.last_decision.candidate_identity,
+            "exact token/hidden/logit/sampled-KV match against canonical decode"),
+            "candidate failed hotness/equivalence validation transition");
+        const auto validated_plan = build_qwen_execution_plan(model, *runtime, *session,
+            QwenExecutionPlanPath::MultiGpu);
+        const auto validated_facts = collect_qwen_runtime_facts(validated_plan, *runtime, 1,
+            session->current_length(), QwenExecutionPhase::Decode);
+        const auto validated_decision = runtime->execution_optimizer().select(validated_plan, validated_facts);
+        require(validated_decision.candidate_validated &&
+            (validated_decision.candidate_selected || validated_decision.fallback == QwenOptimizerFallback::GuardFailed),
+            "Valid candidate did not remain fail-closed under post-validation facts");
+        execution = std::move(trial.value);
+        wall_ns = trial.wall_ns;
+        const auto validated = runtime->execution_optimizer().snapshot();
+        require(validated.valid_candidate_count == 1 && execution.specialized_decode_steps != 0,
+            "validated candidate was not selected/executed");
+        std::printf("prebound_dispatch_qualification candidate=%s status=VALID trial=PASS exact_tokens=PASS "
+            "exact_hidden=PASS exact_logits=PASS sampled_kv_rows=PASS canonical_steps=%llu specialized_steps=%llu "
+            "canonical_decode_ns=%llu candidate_trial_decode_ns=%llu\n", observed.last_decision.candidate_identity.c_str(),
+            static_cast<unsigned long long>(canonical.canonical_decode_steps),
+            static_cast<unsigned long long>(execution.specialized_decode_steps),
+            static_cast<unsigned long long>(canonical.decode_ns), static_cast<unsigned long long>(execution.decode_ns));
+        if (capture_decode_profile) print_decode_profile("enabled_trial", execution);
+    }
     require(session->current_length() == gate.prefix + gate.append,
         "global logical position did not equal visible prefix plus appended tokens");
     require(finite_f32(execution.final_hidden) && finite_f32(execution.final_logits),
@@ -263,25 +437,43 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
                 "appended device-local K/V row is non-finite");
     require(execution.boundary_bytes_equal, "one or more selected boundary audits failed");
     const auto optimizer_state = runtime->execution_optimizer().snapshot();
-    require(runtime->execution_optimizer().mode() == QwenOptimizerMode::Shadow &&
-        optimizer_state.last_decision.canonical_selected,
-        "execution-plan optimizer did not remain in canonical shadow mode");
-    if (gate.capacity == 32768 && gate.prefix == 8192)
-        require(optimizer_state.last_decision.candidate_eligible,
-            "guarded 8K decode candidate was not observed as eligible in shadow mode");
-    if (gate.capacity == 32768 && gate.prefix >= 16384)
+    const bool optimizer_enabled = runtime->execution_optimizer().mode() == QwenOptimizerMode::Enabled;
+    if (qualify_prebound) {
+        require(optimizer_enabled && optimizer_state.valid_candidate_count == 1 &&
+            optimizer_state.last_decision.candidate_validated && execution.specialized_decode_steps != 0,
+            "validated candidate was not retained/enabled after qualification");
+    } else {
+        require(runtime->execution_optimizer().mode() == QwenOptimizerMode::Shadow &&
+            optimizer_state.last_decision.canonical_selected && execution.specialized_decode_steps == 0,
+            "shadow mode did not preserve canonical selection");
+    }
+    if (gate.capacity == 32768 && gate.prefix + gate.append <= 32767)
+        require(optimizer_state.last_decision.candidate_found && optimizer_state.last_decision.guards_passed,
+            "guarded decode interval did not pass at the final in-range context");
+    if (gate.capacity == 32768 && gate.prefix + gate.append >= 32768)
         require(optimizer_state.last_decision.candidate_found &&
             optimizer_state.last_decision.fallback == QwenOptimizerFallback::GuardFailed,
-            "candidate did not fail closed at the 32K context guard");
-    std::printf("optimizer_shadow label=%s mode=SHADOW candidate_found=%s cache_hit=%s guards_passed=%s "
-        "eligible=%s canonical_selected=%s fallback=%u observations=%llu\n", gate.label,
+            "candidate did not fail closed at the upper context guard");
+    std::printf("optimizer_selection label=%s mode=%s candidate_found=%s cache_hit=%s guards_passed=%s "
+        "eligible=%s validated=%s candidate_selected=%s canonical_selected=%s fallback=%u "
+        "cache_hits=%llu cache_misses=%llu guard_passes=%llu guard_failures=%llu errors=%llu observations=%llu "
+        "valid_candidates=%zu invalidated_candidates=%zu\n", gate.label,
+        optimizer_enabled ? "ENABLED" : "SHADOW",
         optimizer_state.last_decision.candidate_found ? "YES" : "NO",
         optimizer_state.last_decision.cache_hit ? "YES" : "NO",
         optimizer_state.last_decision.guards_passed ? "YES" : "NO",
         optimizer_state.last_decision.candidate_eligible ? "YES" : "NO",
+        optimizer_state.last_decision.candidate_validated ? "YES" : "NO",
+        optimizer_state.last_decision.candidate_selected ? "YES" : "NO",
         optimizer_state.last_decision.canonical_selected ? "YES" : "NO",
         static_cast<unsigned>(optimizer_state.last_decision.fallback),
-        static_cast<unsigned long long>(optimizer_state.observations));
+        static_cast<unsigned long long>(optimizer_state.cache_hits),
+        static_cast<unsigned long long>(optimizer_state.cache_misses),
+        static_cast<unsigned long long>(optimizer_state.guard_passes),
+        static_cast<unsigned long long>(optimizer_state.guard_failures),
+        static_cast<unsigned long long>(optimizer_state.optimizer_errors),
+        static_cast<unsigned long long>(optimizer_state.observations),
+        optimizer_state.valid_candidate_count, optimizer_state.invalidated_candidate_count);
     if (gate.boundary_audit_ends.empty())
         require(execution.boundary_audits == execution.boundary_handoffs,
             "all-handoff audit mode missed a boundary transfer");
@@ -300,6 +492,7 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
         static_cast<unsigned long long>(execution.prefill_ns), static_cast<unsigned long long>(execution.decode_ns),
         static_cast<unsigned long long>(wall_ns), static_cast<unsigned long long>(execution.decode_ns / gate.append),
         minimum_free[0], minimum_free[1]);
+    if (capture_decode_profile) print_decode_profile(gate.label, execution);
     std::printf("output_fingerprint label=%s chunk=%u token_fnv64=%016llx hidden_f32_fnv64=%016llx "
         "logits_f32_fnv64=%016llx generated=", gate.label, gate.chunk,
         static_cast<unsigned long long>(fnv1a(execution.tokens)),
@@ -320,6 +513,50 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
         require(session->allocation(0) == allocations_before[0] && session->allocation(1) == allocations_before[1],
             "reset/replay replaced or duplicated the device KV allocations");
         std::printf("capacity_replay label=%s capacity=%u bitwise=PASS allocation_reused=YES\n", gate.label, gate.capacity);
+        if (capture_decode_profile) print_decode_profile("replay", replay);
+    }
+
+    const char * repeat_modes_env = std::getenv("VBUF_QWEN3_REPEAT_MODE_BENCH");
+    const bool repeat_mode_bench = repeat_modes_env != nullptr && std::string(repeat_modes_env) == "1";
+    require(!repeat_mode_bench || (qualify_prebound && compare_modes && capture_decode_profile && gate.prefix == 32),
+        "repeated mode benchmark requires short-prefix candidate qualification and decode profiling");
+    if (repeat_mode_bench) {
+        std::array<std::vector<uint64_t>, 3> pooled_steps;
+        const std::array<QwenOptimizerMode, 3> modes{
+            QwenOptimizerMode::Disabled, QwenOptimizerMode::Shadow, QwenOptimizerMode::Enabled};
+        const auto mode_name = [](QwenOptimizerMode value) {
+            return value == QwenOptimizerMode::Disabled ? "DISABLED" :
+                value == QwenOptimizerMode::Shadow ? "SHADOW" : "ENABLED";
+        };
+        for (uint32_t cycle = 0; cycle < 3; ++cycle) {
+            for (uint32_t offset = 0; offset < modes.size(); ++offset) {
+                const uint32_t index = (cycle + offset) % modes.size();
+                runtime->execution_optimizer().set_mode(modes[index]);
+                auto measured = execute_timed();
+                require(measured.value.completed && measured.value.tokens == execution.tokens &&
+                    bitwise_equal(measured.value.final_logits, execution.final_logits) &&
+                    bitwise_equal(measured.value.final_hidden, execution.final_hidden) &&
+                    bitwise_equal_samples(validated_appended_samples,
+                        sample_kv_window(*session, gate.prefix, gate.append)),
+                    std::string(mode_name(modes[index])) + " repeat changed qualified outputs/KV");
+                compare_samples(*session, historical_samples);
+                compare_samples(*session, progressive_samples);
+                require((modes[index] == QwenOptimizerMode::Enabled &&
+                        measured.value.specialized_decode_steps == gate.append) ||
+                    (modes[index] != QwenOptimizerMode::Enabled &&
+                        measured.value.canonical_decode_steps == gate.append),
+                    std::string(mode_name(modes[index])) + " repeat selected an unexpected path");
+                pooled_steps[index].insert(pooled_steps[index].end(),
+                    measured.value.decode_profile.step_wall_samples_ns.begin(),
+                    measured.value.decode_profile.step_wall_samples_ns.end());
+                const std::string label = std::string(mode_name(modes[index])) + "_repeat_" + std::to_string(cycle + 1);
+                print_decode_profile(label.c_str(), measured.value);
+            }
+        }
+        print_pooled_distribution("DISABLED", pooled_steps[0]);
+        print_pooled_distribution("SHADOW", pooled_steps[1]);
+        print_pooled_distribution("ENABLED", pooled_steps[2]);
+        runtime->execution_optimizer().set_mode(QwenOptimizerMode::Enabled);
     }
 
     if (gate.capacity == 2048 && gate.prefix >= 512) {
@@ -359,6 +596,68 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
         std::printf("capacity_admission label=%s exact_fit=PASS overflow_rejected_before_execution=PASS recovery=PASS\n",
             gate.label);
     }
+    if (qualify_prebound) {
+        const auto prompt_a = repeat_tokens(seed, 31);
+        const auto prompt_b = repeat_tokens(seed, 32);
+        const auto a_first = executor.run(prompt_a, 2);
+        const auto b_middle = executor.run(prompt_b, 2);
+        const auto a_last = executor.run(prompt_a, 2);
+        require(a_first.completed && a_last.completed && b_middle.completed &&
+            a_first.canonical_decode_steps == 1 && a_first.specialized_decode_steps == 1 &&
+            b_middle.canonical_decode_steps == 0 && b_middle.specialized_decode_steps == 2 &&
+            a_last.tokens == a_first.tokens && bitwise_equal(a_last.final_logits, a_first.final_logits) &&
+            bitwise_equal(a_last.final_hidden, a_first.final_hidden),
+            "A/B/A reset isolation or lower-guard entry did not preserve dispatch/KV semantics");
+        std::printf("prebound_dispatch_ab_a=PASS A(c31)=%llu-canonical+%llu-specialized "
+            "B(c32)=%llu-canonical+%llu-specialized outputs=BITWISE\n",
+            static_cast<unsigned long long>(a_first.canonical_decode_steps),
+            static_cast<unsigned long long>(a_first.specialized_decode_steps),
+            static_cast<unsigned long long>(b_middle.canonical_decode_steps),
+            static_cast<unsigned long long>(b_middle.specialized_decode_steps));
+        const char * failure_mode = std::getenv("VBUF_QWEN3_CANDIDATE_FAILURE_MODE");
+        const bool graph_failure = failure_mode != nullptr && std::string(failure_mode) == "graph";
+        Qwen3GenerationExecution recovered;
+        if (graph_failure) {
+            bool failure_armed = false;
+            bool failure_thrown = false;
+            const auto arm_candidate_failure = [&](uint32_t visible, const std::vector<float> &) {
+                if (visible == prompt_b.size() && !failure_armed) {
+                    session->set_execution_failure(QwenCudaFailurePoint::ExecutionBeforeFinalBlock);
+                    failure_armed = true;
+                }
+            };
+            try { (void) executor.run(prompt_b, 1, std::nullopt, {}, {}, arm_candidate_failure); }
+            catch (const std::exception &) { failure_thrown = true; }
+            require(failure_armed && failure_thrown && session->current_length() == 0,
+                "candidate graph failure did not reset committed logical progress");
+            session->set_execution_failure(QwenCudaFailurePoint::None);
+            const auto after_fault = runtime->execution_optimizer().snapshot();
+            require(after_fault.invalidated_candidate_count == 1,
+                "candidate graph failure did not invalidate the optimized plan");
+            recovered = executor.run(prompt_b, 1);
+            require(recovered.completed && recovered.canonical_decode_steps == 1 &&
+                recovered.specialized_decode_steps == 0,
+                "request retry did not fall back to canonical after candidate graph failure");
+            std::printf("prebound_dispatch_failure=PASS point=before_final_block_graph candidate=INVALIDATED "
+                "failed_request=RESET retry=CANONICAL\n");
+        } else {
+            runtime->execution_optimizer().set_fault_for_testing(QwenOptimizerFault::CandidateExecution);
+            recovered = executor.run(prompt_b, 1);
+            const auto after_fault = runtime->execution_optimizer().snapshot();
+            require(recovered.completed && recovered.canonical_decode_steps == 1 &&
+                recovered.specialized_decode_steps == 0 &&
+                after_fault.last_decision.fallback == QwenOptimizerFallback::Invalidated &&
+                after_fault.invalidated_candidate_count == 1,
+                "injected pre-execution candidate failure did not invalidate and fall back to canonical");
+            std::printf("prebound_dispatch_failure=PASS point=before_first_decode_graph candidate=INVALIDATED "
+                "current_request=CANONICAL\n");
+        }
+        const auto canonical_recovery = executor.run(prompt_b, 1);
+        require(canonical_recovery.completed && canonical_recovery.canonical_decode_steps == 1 &&
+            canonical_recovery.specialized_decode_steps == 0 && canonical_recovery.tokens == recovered.tokens,
+            "canonical request did not recover after candidate invalidation");
+        std::printf("prebound_dispatch_recovery=PASS canonical=YES\n");
+    }
     return execution;
 }
 
@@ -397,7 +696,13 @@ int run(const char * semantic, const char * source, const char * token_file,
 
     GateConfig gate{capacity, prefix, append, chunk, mode.c_str(), mode == "allocation-only", replay,
         exact_fit_overflow, {}};
-    if (mode == "run" && prefix >= 4096) {
+    const char * profile_env = std::getenv("VBUF_QWEN3_CAPTURE_DECODE_PROFILE");
+    const bool capture_decode_profile = profile_env != nullptr && std::string(profile_env) == "1";
+    const char * qualify_env = std::getenv("VBUF_QWEN3_QUALIFY_PREBOUND_DISPATCH");
+    const bool qualify_prebound = qualify_env != nullptr && std::string(qualify_env) == "1";
+    if (mode == "run" && capture_decode_profile && !qualify_prebound) {
+        gate.boundary_audit_ends.push_back(prefix + append);
+    } else if (mode == "run" && prefix >= 4096) {
         for (uint32_t checkpoint : {256U, 512U, 1024U, 2048U, 4096U, 8192U, 16384U, 24576U})
             if (checkpoint <= prefix) gate.boundary_audit_ends.push_back(checkpoint);
         if (prefix % 32 == 0) gate.boundary_audit_ends.push_back(prefix);

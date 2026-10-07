@@ -502,6 +502,10 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
         std::vector<LayerGraph> decode_layers;
         std::vector<LayerGraph> prefill_layers;
     };
+    struct PreboundDecodeDispatch {
+        ggml_backend_t backend = nullptr;
+        ggml_cgraph * graph = nullptr;
+    };
 
     Qwen3Model * model;
     std::shared_ptr<QwenCudaRuntimeState> runtime;
@@ -512,6 +516,10 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
     uint32_t early_device;
     uint32_t late_device;
     uint32_t cut;
+    bool capture_decode_profile = false;
+    bool prebound_decode_dispatch_attempted = false;
+    bool prebound_decode_dispatch_ready = false;
+    std::vector<PreboundDecodeDispatch> prebound_decode_dispatch;
     ggml_tensor * final_decode_hidden = nullptr;
     ggml_tensor * final_decode_logits = nullptr;
     ggml_tensor * final_prefill_hidden = nullptr;
@@ -519,8 +527,9 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
     std::vector<DeviceGraphs> devices;
 
     Impl(Qwen3Model & admitted, std::shared_ptr<QwenCudaRuntimeState> runtime_state,
-        std::shared_ptr<QwenCudaSessionState> session_state)
+        std::shared_ptr<QwenCudaSessionState> session_state, bool profile_decode)
         : model(&admitted), runtime(std::move(runtime_state)), session(std::move(session_state)),
+          capture_decode_profile(profile_decode),
           capacity(session->capacity()), prefill_chunk(runtime->prefill_chunk_size()),
           early_device(runtime->placement().block_device_ids.front()),
           late_device(runtime->placement().block_device_ids.back()) {
@@ -652,6 +661,32 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
         }
     }
 
+    void build_prebound_decode_dispatch() noexcept {
+        if (prebound_decode_dispatch_attempted) return;
+        prebound_decode_dispatch_attempted = true;
+        try {
+            std::vector<PreboundDecodeDispatch> candidate;
+            candidate.reserve(layers);
+            for (uint32_t layer = 0; layer < layers; ++layer) {
+                const uint32_t owner = runtime->placement().block_device_ids[layer];
+                auto & graphs = device(owner).decode_layers;
+                auto & graph = graphs[layer < cut ? layer : layer - cut];
+                ggml_backend_t backend = runtime->backend(owner);
+                if (backend == nullptr || graph.graph == nullptr)
+                    throw std::runtime_error("prebound Qwen decode dispatch has a null backend/graph");
+                candidate.push_back({backend, graph.graph});
+            }
+            if (candidate.size() != layers)
+                throw std::runtime_error("prebound Qwen decode dispatch has incomplete layer coverage");
+            prebound_decode_dispatch = std::move(candidate);
+            prebound_decode_dispatch_ready = true;
+        } catch (...) {
+            prebound_decode_dispatch.clear();
+            prebound_decode_dispatch_ready = false;
+            runtime->execution_optimizer().record_optimizer_failure();
+        }
+    }
+
     std::vector<DeviceResidencyKey> acquire_weights() {
         auto store = runtime->residency();
         std::vector<DeviceResidencyKey> keys;
@@ -687,7 +722,9 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
         ++result->d2h_calls; result->d2h_bytes += bytes;
     }
 
-    void transfer_hidden(uint32_t position, uint32_t rows, bool prefill, Qwen3GenerationExecution * result) {
+    void transfer_hidden(uint32_t position, uint32_t rows, bool prefill, Qwen3GenerationExecution * result,
+        bool profile = false) {
+        const auto descriptor_start = profile ? Clock::now() : Clock::time_point{};
         auto & src_device = device(early_device);
         auto & dst_device = device(late_device);
         const auto & source_layers = prefill ? src_device.prefill_layers : src_device.decode_layers;
@@ -701,11 +738,16 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
         void * pinned = session->boundary_host_data();
         ggml_backend_t src_backend = runtime->backend(early_device);
         ggml_backend_t dst_backend = runtime->backend(late_device);
+        if (profile) result->decode_profile.boundary_descriptor_cpu_ns += elapsed_ns(descriptor_start, Clock::now());
+        const auto source_start = profile ? Clock::now() : Clock::time_point{};
         get(src_backend, src, pinned, bytes, result);
         ggml_backend_synchronize(src_backend);
+        if (profile) result->decode_profile.boundary_source_wait_d2h_ns += elapsed_ns(source_start, Clock::now());
         session->inject_execution_failure(QwenCudaFailurePoint::ExecutionAfterBoundaryD2H, "after boundary D2H");
+        const auto destination_start = profile ? Clock::now() : Clock::time_point{};
         set(dst_backend, dst, pinned, bytes, result);
         ggml_backend_synchronize(dst_backend);
+        if (profile) result->decode_profile.boundary_destination_h2d_wait_ns += elapsed_ns(destination_start, Clock::now());
         session->inject_execution_failure(QwenCudaFailurePoint::ExecutionAfterBoundaryH2D, "after boundary H2D");
         if (session->should_audit_boundary(position + rows)) {
             // Qualification audit reads back selected received activations; this is not a second handoff.
@@ -724,10 +766,13 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
     }
 
     std::vector<float> run_step(uint32_t position, const uint32_t * tokens, uint32_t rows,
-        bool prefill, Qwen3GenerationExecution * result) {
+        bool prefill, Qwen3GenerationExecution * result, bool use_prebound_dispatch = false,
+        bool actual_decode_step = false) {
         if (position != session->current_length() || position + rows > capacity ||
             rows == 0 || (prefill && rows != prefill_chunk) || (!prefill && rows != 1))
             throw std::logic_error("Qwen multi-device step disagrees with global logical position/capacity");
+        const bool profile = capture_decode_profile && actual_decode_step && rows == 1;
+        const auto step_start = profile ? Clock::now() : Clock::time_point{};
         std::vector<int32_t> token_ids(rows), positions(rows), row_ids(static_cast<size_t>(rows) * kv_heads);
         std::vector<float> mask(static_cast<size_t>(capacity) * rows);
         for (uint32_t q = 0; q < rows; ++q) {
@@ -738,6 +783,10 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
             for (uint32_t k = 0; k < capacity; ++k)
                 mask[static_cast<size_t>(q) * capacity + k] = k <= position + q ? 0.0f : -INFINITY;
         }
+        if (profile) result->decode_profile.control_prepare_ns += elapsed_ns(step_start, Clock::now());
+        const uint64_t h2d_bytes_before = result->h2d_bytes;
+        const uint64_t h2d_calls_before = result->h2d_calls;
+        const auto enqueue_start = profile ? Clock::now() : Clock::time_point{};
         for (auto & d : devices) {
             ggml_backend_t backend = runtime->backend(d.id);
             set(backend, prefill ? d.prefill_tokens : d.decode_tokens, token_ids.data(), token_ids.size() * sizeof(int32_t), result);
@@ -745,19 +794,54 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
             set(backend, prefill ? d.prefill_mask : d.decode_mask, mask.data(), mask.size() * sizeof(float), result);
             set(backend, prefill ? d.prefill_rows : d.decode_rows, row_ids.data(), row_ids.size() * sizeof(int32_t), result);
         }
-        for (uint32_t layer = 0; layer < layers; ++layer) {
-            const uint32_t owner = runtime->placement().block_device_ids[layer];
-            auto & d = device(owner);
-            if (layer == cut) session->inject_execution_failure(QwenCudaFailurePoint::ExecutionBeforeLateBlock, "before late-device execution");
-            if (layer + 1 == layers) session->inject_execution_failure(QwenCudaFailurePoint::ExecutionBeforeFinalBlock, "before final transformer block");
-            auto & graph = (prefill ? d.prefill_layers : d.decode_layers)[layer < cut ? layer : layer - cut];
-            const ggml_status status = ggml_backend_graph_compute_async(runtime->backend(owner), graph.graph);
-            if (status != GGML_STATUS_SUCCESS) throw std::runtime_error("Qwen multi-device layer graph execution failed at block " + std::to_string(layer));
-            if (layer + 1 == cut) transfer_hidden(position, rows, prefill, result);
+        if (profile) {
+            result->decode_profile.control_enqueue_cpu_ns += elapsed_ns(enqueue_start, Clock::now());
+            result->decode_profile.control_h2d_bytes += result->h2d_bytes - h2d_bytes_before;
+            result->decode_profile.control_h2d_calls += result->h2d_calls - h2d_calls_before;
+        }
+        if (use_prebound_dispatch && (!prebound_decode_dispatch_ready || prefill || rows != 1))
+            throw std::logic_error("prebound Qwen decode dispatch selected outside its guarded geometry");
+        const auto execute_layer = [&](uint32_t layer, ggml_backend_t layer_backend, ggml_cgraph * layer_graph) {
+            if (layer == cut) session->inject_execution_failure(QwenCudaFailurePoint::ExecutionBeforeLateBlock,
+                "before late-device execution");
+            if (layer + 1 == layers) session->inject_execution_failure(QwenCudaFailurePoint::ExecutionBeforeFinalBlock,
+                "before final transformer block");
+            const auto submit_start = profile ? Clock::now() : Clock::time_point{};
+            const ggml_status status = ggml_backend_graph_compute_async(layer_backend, layer_graph);
+            if (profile) result->decode_profile.graph_submit_cpu_ns += elapsed_ns(submit_start, Clock::now());
+            if (status != GGML_STATUS_SUCCESS)
+                throw std::runtime_error("Qwen multi-device layer graph execution failed at block " + std::to_string(layer));
+            if (layer + 1 == cut) {
+                const auto boundary_start = profile ? Clock::now() : Clock::time_point{};
+                transfer_hidden(position, rows, prefill, result, profile);
+                if (profile) result->decode_profile.boundary_wait_transfer_ns += elapsed_ns(boundary_start, Clock::now());
+            }
+        };
+        if (use_prebound_dispatch) {
+            ++result->specialized_decode_steps;
+            for (uint32_t layer = 0; layer < layers; ++layer) {
+                const auto dispatch_start = profile ? Clock::now() : Clock::time_point{};
+                const auto & binding = prebound_decode_dispatch[layer];
+                if (profile) result->decode_profile.candidate_dispatch_cpu_ns += elapsed_ns(dispatch_start, Clock::now());
+                execute_layer(layer, binding.backend, binding.graph);
+            }
+        } else {
+            for (uint32_t layer = 0; layer < layers; ++layer) {
+                const auto resolve_start = profile ? Clock::now() : Clock::time_point{};
+                const uint32_t owner = runtime->placement().block_device_ids[layer];
+                auto & d = device(owner);
+                auto & graph = (prefill ? d.prefill_layers : d.decode_layers)[layer < cut ? layer : layer - cut];
+                ggml_backend_t layer_backend = runtime->backend(owner);
+                if (profile) result->decode_profile.layer_resolve_cpu_ns += elapsed_ns(resolve_start, Clock::now());
+                execute_layer(layer, layer_backend, graph.graph);
+            }
         }
         const uint32_t final_device = late_device;
         ggml_backend_t backend = runtime->backend(final_device);
+        const auto final_start = profile ? Clock::now() : Clock::time_point{};
         ggml_backend_synchronize(backend);
+        if (profile) result->decode_profile.final_device_wait_ns += elapsed_ns(final_start, Clock::now());
+        const auto output_start = profile ? Clock::now() : Clock::time_point{};
         ggml_tensor * logits_tensor = prefill ? final_prefill_logits : final_decode_logits;
         ggml_tensor * hidden_tensor = prefill ? final_prefill_hidden : final_decode_hidden;
         std::vector<float> logits(static_cast<size_t>(logits_tensor->ne[0]));
@@ -770,13 +854,22 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
         get(backend, hidden_tensor, result->final_hidden.data(), embed_width * sizeof(float), result, hidden_offset);
         ggml_backend_synchronize(backend);
         session->commit_tokens(rows);
+        if (profile) {
+            result->decode_profile.final_output_readback_ns += elapsed_ns(output_start, Clock::now());
+            result->decode_profile.final_sync_readback_ns += elapsed_ns(final_start, Clock::now());
+            const uint64_t step_wall = elapsed_ns(step_start, Clock::now());
+            result->decode_profile.step_wall_ns += step_wall;
+            result->decode_profile.step_wall_samples_ns.push_back(step_wall);
+            ++result->decode_profile.steps;
+        }
         return logits;
     }
 };
 
 Qwen3MultiDeviceGenerationExecutor::Qwen3MultiDeviceGenerationExecutor(Qwen3Model & model,
-    std::shared_ptr<QwenCudaRuntimeState> runtime, std::shared_ptr<QwenCudaSessionState> session)
-    : impl_(std::make_unique<Impl>(model, std::move(runtime), std::move(session))) {}
+    std::shared_ptr<QwenCudaRuntimeState> runtime, std::shared_ptr<QwenCudaSessionState> session,
+    bool capture_decode_profile)
+    : impl_(std::make_unique<Impl>(model, std::move(runtime), std::move(session), capture_decode_profile)) {}
 Qwen3MultiDeviceGenerationExecutor::~Qwen3MultiDeviceGenerationExecutor() = default;
 
 Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vector<uint32_t> & prompt,
@@ -790,11 +883,18 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
     if (embedding == nullptr || *std::max_element(prompt.begin(), prompt.end()) >= static_cast<uint32_t>(embedding->ne[1]))
         throw std::invalid_argument("Qwen prompt token is outside admitted vocabulary");
     Qwen3GenerationExecution result;
+    if (impl_->capture_decode_profile) {
+        result.decode_profile.step_wall_samples_ns.reserve(static_cast<size_t>(max_new_tokens) + prompt.size());
+        result.decode_profile.outer_token_wall_samples_ns.reserve(max_new_tokens);
+    }
     const QwenExecutionPhase request_phase = prompt.size() >= impl_->prefill_chunk ?
         QwenExecutionPhase::Prefill : QwenExecutionPhase::Decode;
     const uint32_t request_rows = request_phase == QwenExecutionPhase::Prefill ? impl_->prefill_chunk : 1;
+    const auto initial_select_start = impl_->capture_decode_profile ? Clock::now() : Clock::time_point{};
     (void) safe_select_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
         QwenExecutionPlanPath::MultiGpu, request_rows, static_cast<uint32_t>(prompt.size()), request_phase);
+    if (impl_->capture_decode_profile)
+        result.decode_profile.plan_select_ns += elapsed_ns(initial_select_start, Clock::now());
     for (const auto & d : impl_->devices) {
         size_t free = 0, total = 0; impl_->runtime->device_memory(d.id, &free, &total);
         result.peak_vram_bytes += total >= free ? total - free : 0;
@@ -825,29 +925,65 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
         }
         result.prefill_ns = elapsed_ns(prefill_start, Clock::now());
         const uint64_t prefill_operations = prompt.size() / impl_->prefill_chunk + prompt.size() % impl_->prefill_chunk;
+        const auto prefill_record_start = impl_->capture_decode_profile ? Clock::now() : Clock::time_point{};
         safe_record_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
             QwenExecutionPlanPath::MultiGpu, request_rows, impl_->session->current_length(), request_phase,
             prefill_operations, result.prefill_ns);
+        if (impl_->capture_decode_profile)
+            result.decode_profile.optimizer_record_ns += elapsed_ns(prefill_record_start, Clock::now());
         if (result.cancelled) return result;
         uint32_t next = static_cast<uint32_t>(std::max_element(logits.begin(), logits.end()) - logits.begin());
-        (void) safe_select_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
-            QwenExecutionPlanPath::MultiGpu, 1, impl_->session->current_length(), QwenExecutionPhase::Decode);
         const auto decode_start = Clock::now();
         for (uint32_t generated = 0; generated < max_new_tokens; ++generated) {
             if (should_cancel && should_cancel()) { result.cancelled = true; break; }
             if (stop_token && next == *stop_token) { result.completed = true; break; }
+            const auto outer_step_start = impl_->capture_decode_profile ? Clock::now() : Clock::time_point{};
+            const uint32_t decode_position = impl_->session->current_length();
+            const auto decode_select_start = impl_->capture_decode_profile ? Clock::now() : Clock::time_point{};
+            QwenOptimizerDecision decode_decision = safe_select_plan(impl_->optimizer_plan, *impl_->model,
+                impl_->runtime, impl_->session, QwenExecutionPlanPath::MultiGpu, 1, decode_position,
+                QwenExecutionPhase::Decode);
+            if (impl_->capture_decode_profile)
+                result.decode_profile.plan_select_ns += elapsed_ns(decode_select_start, Clock::now());
+            bool use_prebound_dispatch = decode_decision.candidate_selected &&
+                decode_decision.strategy == QwenCandidateStrategy::PreboundDecodeDispatch;
+            if (use_prebound_dispatch && !impl_->prebound_decode_dispatch_attempted) {
+                const auto setup_start = impl_->capture_decode_profile ? Clock::now() : Clock::time_point{};
+                impl_->build_prebound_decode_dispatch();
+                if (impl_->capture_decode_profile)
+                    result.decode_profile.candidate_setup_ns += elapsed_ns(setup_start, Clock::now());
+            }
+            if (use_prebound_dispatch && (!impl_->prebound_decode_dispatch_ready ||
+                impl_->runtime->execution_optimizer().consume_candidate_execution_fault_for_testing())) {
+                (void) impl_->runtime->execution_optimizer().invalidate_candidate(decode_decision.candidate_identity);
+                decode_decision = safe_select_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime,
+                    impl_->session, QwenExecutionPlanPath::MultiGpu, 1, decode_position, QwenExecutionPhase::Decode);
+                use_prebound_dispatch = false;
+            }
             result.tokens.push_back(next);
-            if (on_token && !on_token(next, impl_->session->current_length() - 1)) { result.cancelled = true; break; }
-            logits = impl_->run_step(impl_->session->current_length(), &next, 1, false, &result);
+            if (on_token && !on_token(next, decode_position)) { result.cancelled = true; break; }
+            try {
+                logits = impl_->run_step(decode_position, &next, 1, false, &result, use_prebound_dispatch, true);
+            } catch (...) {
+                if (use_prebound_dispatch)
+                    (void) impl_->runtime->execution_optimizer().invalidate_candidate(decode_decision.candidate_identity);
+                throw;
+            }
+            if (!use_prebound_dispatch) ++result.canonical_decode_steps;
+            if (impl_->capture_decode_profile)
+                result.decode_profile.outer_token_wall_samples_ns.push_back(elapsed_ns(outer_step_start, Clock::now()));
             ++result.completed_positions;
             if (on_progress) on_progress(impl_->session->current_length(), result.final_hidden);
             if (generated + 1 == max_new_tokens) { result.completed = true; break; }
             next = static_cast<uint32_t>(std::max_element(logits.begin(), logits.end()) - logits.begin());
         }
         result.decode_ns = elapsed_ns(decode_start, Clock::now());
+        const auto decode_record_start = impl_->capture_decode_profile ? Clock::now() : Clock::time_point{};
         safe_record_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
             QwenExecutionPlanPath::MultiGpu, 1, impl_->session->current_length(), QwenExecutionPhase::Decode,
             result.tokens.size(), result.decode_ns);
+        if (impl_->capture_decode_profile)
+            result.decode_profile.optimizer_record_ns += elapsed_ns(decode_record_start, Clock::now());
         result.final_logits = std::move(logits);
         for (const auto & d : impl_->devices) {
             size_t free = 0, total = 0; impl_->runtime->device_memory(d.id, &free, &total);

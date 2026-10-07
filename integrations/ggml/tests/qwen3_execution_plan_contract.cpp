@@ -15,9 +15,9 @@ void require(bool condition, const char * message) {
 
 QwenExecutionPlanInput multi_input() {
     QwenExecutionPlanInput input;
-    input.model_identity = "sha256:test-qwen-artifact";
+    input.model_identity = "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31";
     input.backend_family = "GGML_CUDA";
-    input.stable_device_identities = {"RTX3060@0000:01:00.0", "RTX2080S@0000:02:00.0"};
+    input.stable_device_identities = {"CUDA0@0000:04:00.0", "CUDA1@0000:07:00.0"};
     input.stable_device_sm_versions = {86, 75};
     input.block_device_ids.assign(26, 0);
     input.block_device_ids.insert(input.block_device_ids.end(), 14, 1);
@@ -53,6 +53,7 @@ QwenExecutionCandidate manual_candidate(const QwenExecutionPlan & plan, std::str
     candidate.identity = plan.stable_identity + "|candidate=" + suffix;
     candidate.base_plan_identity = plan.stable_identity;
     candidate.execution_plan_identity = plan.stable_identity;
+    candidate.strategy = QwenCandidateStrategy::GuardProbe;
     candidate.status = QwenCandidateStatus::Valid;
     candidate.guards.push_back(std::move(guard));
     return candidate;
@@ -110,6 +111,43 @@ void test_plans() {
     require(rejected, "incomplete tensor dtype facts were accepted into a stable plan");
 }
 
+void test_candidate_is_bound_to_qualified_artifact_and_hardware() {
+    const auto require_no_candidate = [](QwenExecutionPlanInput input, const char * message) {
+        const auto plan = make_qwen_execution_plan(input);
+        QwenExecutionPlanOptimizer optimizer;
+        optimizer.set_mode(QwenOptimizerMode::Shadow);
+        const auto decision = optimizer.select(plan, decode_facts(plan));
+        require(!decision.candidate_found && decision.fallback == QwenOptimizerFallback::NoCandidate, message);
+    };
+    auto input = multi_input();
+    input.model_identity = "sha256:other-model";
+    require_no_candidate(input, "candidate was offered to a different semantic model");
+    input = multi_input();
+    input.backend_family = "GGML_CPU";
+    require_no_candidate(input, "candidate was offered to a different backend");
+    input = multi_input();
+    input.stable_device_identities[0] = "CUDA0@0000:05:00.0";
+    require_no_candidate(input, "candidate was offered to a different CUDA device identity");
+    input = multi_input();
+    input.stable_device_sm_versions[1] = 86;
+    require_no_candidate(input, "candidate was offered to a different CUDA SM pair");
+    input = multi_input();
+    input.activation_dtype = "BF16";
+    require_no_candidate(input, "candidate was offered to a different activation dtype");
+    input = multi_input();
+    input.kv_dtype = "F32";
+    require_no_candidate(input, "candidate was offered to a different KV dtype");
+    input = multi_input();
+    input.capacity = 16384;
+    require_no_candidate(input, "candidate was offered at a different capacity");
+    input = multi_input();
+    input.prefill_chunk_size = 16;
+    require_no_candidate(input, "candidate was offered at a different chunk size");
+    input = multi_input();
+    input.block_device_ids[0] = 1;
+    require_no_candidate(input, "candidate was offered at a different block placement");
+}
+
 void test_shadow_guards_cache_and_profiler() {
     const auto plan = make_qwen_execution_plan(multi_input());
     QwenExecutionPlanOptimizer optimizer;
@@ -139,27 +177,39 @@ void test_shadow_guards_cache_and_profiler() {
     require(decision.candidate_found && decision.cache_hit && decision.guards_passed &&
         decision.candidate_eligible && decision.canonical_selected &&
         decision.fallback == QwenOptimizerFallback::None,
-        "decode no-op candidate did not pass guards in shadow mode");
+        "prebound decode candidate did not pass guards in shadow mode");
     const auto repeated = optimizer.select(plan, facts);
     require(repeated.cache_hit && repeated.candidate_eligible && repeated.canonical_selected,
-        "candidate cache hit did not remain a canonical no-op");
-    const auto failed_context = optimizer.select(plan, decode_facts(plan, 16384));
+        "shadow candidate cache hit did not retain canonical selection");
+    const auto failed_context = optimizer.select(plan, decode_facts(plan, 31));
     require(failed_context.fallback == QwenOptimizerFallback::GuardFailed &&
-        failed_context.canonical_selected, "context guard failure did not fall back");
-    const auto context_32k = optimizer.select(plan, decode_facts(plan, 32736));
+        failed_context.canonical_selected, "lower context guard failure did not fall back");
+    const auto context_32k = optimizer.select(plan, decode_facts(plan, 32767));
     require(context_32k.fallback == QwenOptimizerFallback::GuardFailed &&
-        context_32k.canonical_selected, "32K-context guard did not fail closed");
+        context_32k.canonical_selected, "upper context guard did not fail closed");
 
     optimizer.record_execution(plan, prefill, 256, 1000);
     optimizer.record_execution(plan, facts, 8, 2000);
+    const std::string prebound_identity = decision.candidate_identity;
+    require(!optimizer.mark_candidate_valid(prebound_identity, "premature validation"),
+        "candidate became valid below the hotness threshold");
+    optimizer.record_execution(plan, facts, 24, 3000);
     auto stats = optimizer.snapshot();
     require(stats.cache_size == 1 && stats.cache_hits >= 5 && stats.cache_misses == 1 &&
         stats.guard_passes == 2 && stats.guard_failures == 4,
         "shadow cache/guard counters mismatch");
-    require(stats.observations == 264 && stats.profile_key_count == 2 && stats.profile_records.size() == 2,
+    require(stats.observations == 288 && stats.profile_key_count == 2 && stats.profile_records.size() == 2,
         "bounded profiler did not record phase hotness");
+    require(optimizer.mark_candidate_valid(prebound_identity, "exact decode parity contract passed"),
+        "candidate could not transition Candidate->Valid after hotness and validation evidence");
+    optimizer.set_mode(QwenOptimizerMode::Enabled);
+    const auto enabled = optimizer.select(plan, facts);
+    require(enabled.candidate_found && enabled.candidate_validated && enabled.candidate_selected &&
+        !enabled.canonical_selected && enabled.fallback == QwenOptimizerFallback::None,
+        "ENABLED mode did not select the Valid guarded candidate");
+    optimizer.set_mode(QwenOptimizerMode::Shadow);
 
-    auto unsupported = manual_candidate(plan, "noop-decode-8k-16k",
+    auto unsupported = manual_candidate(plan, "prebound-decode-dispatch-v1",
         {QwenGuardField::TensorMin, QwenGuardOperator::Less, 1});
     require(optimizer.register_candidate(unsupported), "could not register test unsupported guard");
     const auto unsupported_result = optimizer.select(plan, facts);
@@ -170,12 +220,12 @@ void test_shadow_guards_cache_and_profiler() {
     require(invalidated.fallback == QwenOptimizerFallback::Invalidated && invalidated.canonical_selected,
         "invalidated candidate remained selectable");
 
-    auto range_candidate = manual_candidate(plan, "noop-decode-8k-16k",
+    auto range_candidate = manual_candidate(plan, "prebound-decode-dispatch-v1",
         {QwenGuardField::ContextLength, QwenGuardOperator::StrictlyBetween, 8191, 8193});
     require(optimizer.register_candidate(range_candidate), "could not register scalar range guard");
     require(optimizer.select(plan, facts).guards_passed,
         "strict lower/upper guard interval did not pass at its interior value");
-    auto sm_candidate = manual_candidate(plan, "noop-decode-8k-16k",
+    auto sm_candidate = manual_candidate(plan, "prebound-decode-dispatch-v1",
         {QwenGuardField::DeviceSmVersion, QwenGuardOperator::Equal, 75, 0, 1});
     require(optimizer.register_candidate(sm_candidate) && optimizer.select(plan, facts).guards_passed,
         "known device-SM guard did not evaluate deterministically");
@@ -207,6 +257,22 @@ void test_optimizer_faults_fail_closed() {
         require(optimizer.snapshot().optimizer_errors == 1, "optimizer fault was not counted");
     }
 
+    QwenExecutionPlanOptimizer trial;
+    trial.set_mode(QwenOptimizerMode::Enabled);
+    const auto unvalidated = trial.select(plan, facts);
+    require(unvalidated.fallback == QwenOptimizerFallback::CandidateNotValidated &&
+        unvalidated.canonical_selected && !unvalidated.candidate_selected,
+        "ENABLED mode selected an unvalidated candidate outside trial mode");
+    trial.set_unvalidated_trial_for_testing(true);
+    const auto trial_decision = trial.select(plan, facts);
+    require(trial_decision.qualification_trial && trial_decision.candidate_selected &&
+        !trial_decision.canonical_selected, "explicit qualification trial did not select the candidate");
+    trial.set_unvalidated_trial_for_testing(false);
+    trial.set_fault_for_testing(QwenOptimizerFault::CandidateExecution);
+    require(trial.consume_candidate_execution_fault_for_testing() &&
+        !trial.consume_candidate_execution_fault_for_testing(),
+        "candidate execution fault was not one-shot");
+
     QwenExecutionPlanOptimizer profiler;
     profiler.set_mode(QwenOptimizerMode::Shadow);
     profiler.set_fault_for_testing(QwenOptimizerFault::ProfilerRecord);
@@ -219,10 +285,12 @@ void test_optimizer_faults_fail_closed() {
 int main() {
     try {
         test_plans();
+        test_candidate_is_bound_to_qualified_artifact_and_hardware();
         test_shadow_guards_cache_and_profiler();
         test_optimizer_faults_fail_closed();
-        std::cout << "qwen3_execution_plan_contract=PASS canonical=single+26/14 shadow=no-op guards=fail-closed "
-            "cache=bounded invalidation=PASS profiler=bounded optimizer-failures=PASS\n";
+        std::cout << "qwen3_execution_plan_contract=PASS canonical=single+26/14 shadow=canonical "
+            "enabled=validated-prebound-dispatch guards=fail-closed lifecycle=PASS cache=bounded "
+            "invalidation=PASS profiler=bounded optimizer-failures=PASS\n";
         return 0;
     } catch (const std::exception & error) {
         std::cerr << "qwen3_execution_plan_contract=FAIL: " << error.what() << '\n';
