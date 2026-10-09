@@ -1,0 +1,2272 @@
+{
+  "schema_version": 1,
+  "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+  "source_gguf_sha256": "915913e22399475dbe6c968ac014d9f1fbe08975e489279aede9d5c7b2c98eb6",
+  "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+  "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+  "policy_id": "vbuf.numerical-contracts",
+  "policy_version": 2,
+  "high_precision_reference_revision": "vbuf-high-precision-reference-cpp-v1",
+  "build_configuration": {
+    "directory": "/tmp/vbuf-qwen-native-matrix-build",
+    "cuda": "ON",
+    "unvalidated_qualification_trials": "OFF",
+    "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+    "cmake_cache_sha256": "f146b85f209f0eb6648f7319180ab2ee4fdc6d48f109059608c0bb83b6a9dc8e"
+  },
+  "external_ggml_worktree_status": " M src/ggml-cuda/ggml-cuda.cu\n",
+  "external_ggml_cuda_source_sha256": "f83aa82997808deb6cf790a6dff6da8dcaaf7b78f21a6154c8773b6c88864819",
+  "external_ggml_existing_diff_sha256": "5106d215b54ed9c69f9d9c9ef788b6f53856cfa8cff13491b3da9f57e9f634cb",
+  "external_ggml_existing_diff": "diff --git a/src/ggml-cuda/ggml-cuda.cu b/src/ggml-cuda/ggml-cuda.cu\nindex 598f3228..725cd0e3 100644\n--- a/src/ggml-cuda/ggml-cuda.cu\n+++ b/src/ggml-cuda/ggml-cuda.cu\n@@ -1812,6 +1812,24 @@ static bool ggml_cuda_should_fuse_mul_mat_vec_q(const ggml_tensor * tensor) {\n static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor * src0, const ggml_tensor * src1, ggml_tensor * dst) {\n     GGML_TENSOR_BINARY_OP_LOCALS\n \n+    const bool trace_qwen_score = std::getenv(\"VBUF_QWEN_TRACE_CUDA_DISPATCH\") != nullptr &&\n+        src0->type == GGML_TYPE_F16 && src0->ne[0] == 128 && src0->ne[2] == 8 &&\n+        src1->type == GGML_TYPE_F32 && src1->ne[0] == 128 &&\n+        (src1->ne[1] == 16 || src1->ne[1] == 32) && src1->ne[2] == 40 &&\n+        dst->ne[0] == 40 && dst->ne[2] == 40;\n+    auto trace_qwen_route = [&](const char * route) {\n+        if (trace_qwen_score) {\n+            std::fprintf(stderr, \"QWEN_CUDA_MATMUL_DISPATCH name=%s route=%s cc=%d \"\n+                \"src0=%s[%lld,%lld,%lld] src1=%s[%lld,%lld,%lld] dst=%s[%lld,%lld,%lld]\\n\",\n+                ggml_get_name(dst), route, ggml_cuda_info().devices[ctx.device].cc,\n+                ggml_type_name(src0->type), static_cast<long long>(src0->ne[0]),\n+                static_cast<long long>(src0->ne[1]), static_cast<long long>(src0->ne[2]),\n+                ggml_type_name(src1->type), static_cast<long long>(src1->ne[0]),\n+                static_cast<long long>(src1->ne[1]), static_cast<long long>(src1->ne[2]),\n+                ggml_type_name(dst->type), static_cast<long long>(dst->ne[0]),\n+                static_cast<long long>(dst->ne[1]), static_cast<long long>(dst->ne[2]));\n+        }\n+    };\n     const int32_t hint = ggml_get_op_params_i32(dst, 1);\n     if (hint == GGML_HINT_SRC0_IS_HADAMARD && ggml_cuda_op_fwht(ctx, src1, dst)) {\n         return;\n@@ -1823,6 +1841,7 @@ static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor\n     const bool bad_padding_clear = ggml_backend_buffer_get_usage(src0->buffer) == GGML_BACKEND_BUFFER_USAGE_COMPUTE\n         && ggml_nbytes(src0) != ggml_backend_buffer_get_alloc_size(src0->buffer, src0) && src0->view_src;\n     if (bad_padding_clear || src1->type != GGML_TYPE_F32 || dst->type != GGML_TYPE_F32) {\n+        trace_qwen_route(\"CUBLAS_PRECHECK_FALLBACK\");\n         ggml_cuda_mul_mat_cublas(ctx, src0, src1, dst);\n         return;\n     }\n@@ -1831,6 +1850,7 @@ static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor\n     const int warp_size = ggml_cuda_info().devices[ctx.device].warp_size;\n \n     if (ggml_cuda_should_use_mmvf(src0->type, cc, src0->ne, src0->nb, ne11)) {\n+        trace_qwen_route(\"MMVF\");\n         // The custom F16 vector kernel can be used over batched cuBLAS GEMM.\n         // But this is only faster for GPUs without tensor cores or with a thin src0 matrix (particularly KQV in attention)\n         ggml_cuda_mul_mat_vec_f(ctx, src0, src1, nullptr, dst);\n@@ -1851,17 +1871,21 @@ static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor\n         return;\n     }\n     if (ggml_cuda_should_use_mmf(src0->type, cc, warp_size, src0->ne, src0->nb, ne11, /*mul_mat_id =*/ false)) {\n+        trace_qwen_route(\"MMF\");\n         ggml_cuda_mul_mat_f(ctx, src0, src1, nullptr, dst);\n         return;\n     }\n     if (ggml_cuda_should_use_mmvq(src0->type, cc, ne11)) {\n+        trace_qwen_route(\"MMVQ\");\n         ggml_cuda_mul_mat_vec_q(ctx, src0, src1, nullptr, dst);\n         return;\n     }\n     if (ggml_cuda_should_use_mmq(src0->type, cc, ne11, /*n_experts =*/ 0)) {\n+        trace_qwen_route(\"MMQ\");\n         ggml_cuda_mul_mat_q(ctx, src0, src1, nullptr, dst);\n         return;\n     }\n+    trace_qwen_route(\"CUBLAS_FINAL\");\n     ggml_cuda_mul_mat_cublas(ctx, src0, src1, dst);\n }\n \n",
+  "source_logs": {
+    "primary": {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/capacity-sweep.log",
+      "sha256": "8ba3fd50950ba5b80fa14c2fcf7c56cbf1c6f6f2ca46ab5558b6eb78b923035c"
+    },
+    "repeat": {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/capacity-sweep.log",
+      "sha256": "2390c538713028eded2bea826bd4cc25ef317246d2fd8a8a9c9f833619b73047"
+    }
+  },
+  "captures": {
+    "primary": {
+      "256": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-prefill-layer-00.meta",
+          "meta_sha256": "771a6f65328b9e644a6e7bdc5573963dfbd1a59c09698dbb394e7ccd08d2007c",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 256,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-decode-layer-00.meta",
+          "meta_sha256": "b4ebac0af48bbc697ee64e98e1c41b885ead5b6882295bdcea2388a31220c0a9",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-decode-layer-00.bin",
+          "binary_sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2",
+          "capacity": 256,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254"
+        }
+      },
+      "512": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-prefill-layer-00.meta",
+          "meta_sha256": "32eb3514280a95d5249aac3098a0e32de44ef75fbcd41513a8d0c3726f5eae2c",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 512,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-decode-layer-00.meta",
+          "meta_sha256": "af7bca5952802a325d7331bb2fd872959ba0fbbfccbcdf3e9cf300cbb5bedff8",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-decode-layer-00.bin",
+          "binary_sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2",
+          "capacity": 512,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254"
+        }
+      },
+      "1024": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-prefill-layer-00.meta",
+          "meta_sha256": "8544502614b01fa99f953138ee6bae5338e131380437833d149408f9d815a59f",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 1024,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-decode-layer-00.meta",
+          "meta_sha256": "8c8cff29b4627cfb0e5d7db3b0e95a542682e7933b3ef860576e284d44d68620",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-decode-layer-00.bin",
+          "binary_sha256": "92d4f41edda51ee77924991f7ad3bf4b9cf821a38c67879e1d81fb1c8cada771",
+          "capacity": 1024,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de"
+        }
+      },
+      "1032": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-prefill-layer-00.meta",
+          "meta_sha256": "dff13f87a128dd97cc1e6720541e07c01a68596888a817bc8f09b08d54fe8c27",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 1032,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-decode-layer-00.meta",
+          "meta_sha256": "df464d0944218ea65e5f22d34c0a2b3fadd34636b3967a71cc5edd48ddbdd693",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-decode-layer-00.bin",
+          "binary_sha256": "7b476f28cd5fd1ab78abae8dc98132dbd35c61b4e06e383d4285d66edbf7aedd",
+          "capacity": 1032,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5"
+        }
+      }
+    },
+    "repeat": {
+      "256": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-prefill-layer-00.meta",
+          "meta_sha256": "771a6f65328b9e644a6e7bdc5573963dfbd1a59c09698dbb394e7ccd08d2007c",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 256,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-decode-layer-00.meta",
+          "meta_sha256": "b4ebac0af48bbc697ee64e98e1c41b885ead5b6882295bdcea2388a31220c0a9",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-decode-layer-00.bin",
+          "binary_sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2",
+          "capacity": 256,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254"
+        }
+      },
+      "512": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-prefill-layer-00.meta",
+          "meta_sha256": "32eb3514280a95d5249aac3098a0e32de44ef75fbcd41513a8d0c3726f5eae2c",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 512,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-decode-layer-00.meta",
+          "meta_sha256": "af7bca5952802a325d7331bb2fd872959ba0fbbfccbcdf3e9cf300cbb5bedff8",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-decode-layer-00.bin",
+          "binary_sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2",
+          "capacity": 512,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254"
+        }
+      },
+      "1024": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-prefill-layer-00.meta",
+          "meta_sha256": "8544502614b01fa99f953138ee6bae5338e131380437833d149408f9d815a59f",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 1024,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-decode-layer-00.meta",
+          "meta_sha256": "8c8cff29b4627cfb0e5d7db3b0e95a542682e7933b3ef860576e284d44d68620",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-decode-layer-00.bin",
+          "binary_sha256": "92d4f41edda51ee77924991f7ad3bf4b9cf821a38c67879e1d81fb1c8cada771",
+          "capacity": 1024,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de"
+        }
+      },
+      "1032": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-prefill-layer-00.meta",
+          "meta_sha256": "dff13f87a128dd97cc1e6720541e07c01a68596888a817bc8f09b08d54fe8c27",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 1032,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-decode-layer-00.meta",
+          "meta_sha256": "df464d0944218ea65e5f22d34c0a2b3fadd34636b3967a71cc5edd48ddbdd693",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-decode-layer-00.bin",
+          "binary_sha256": "7b476f28cd5fd1ab78abae8dc98132dbd35c61b4e06e383d4285d66edbf7aedd",
+          "capacity": 1032,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5"
+        }
+      }
+    }
+  },
+  "operator_capture": {
+    "directory": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/cuda-transfer-audit/resident-canonical-prefix32-layer21-position24-v3/operator-capture",
+    "metadata_sha256": "66e806aadb0dac46e5835e6778897ed1825adc6a9934c47c326fbc90e8425172",
+    "run_log_sha256": "9615b1637e14e84cd9b3e94d344a3d1aee541fee4c1366b61f1c615f4d2276a0",
+    "build_cache_sha256": "0515ed27b376755a6b4af7233cf0ca3d337f12f0b120610092948dcb53f1d7b6",
+    "norm_weight_tensor": "blk.21.attn_norm.weight:F32[5120]",
+    "norm_weight_tensor_sha256": "dd37e4a627d56a2f28c6d513b1a46f24a892e69f0065cc42957460ef2a41f59d",
+    "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/layer21-operator-capture.log",
+    "log_sha256": "f7e0a3ef6ca0a6e4e96bf474daa46edbd7def280860dad98f4c4df84915a3790",
+    "evaluation_records": 4
+  },
+  "inputs": [
+    {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/ggml/src/ggml-cuda/ggml-cuda.cu",
+      "size_bytes": 229000,
+      "sha256": "f83aa82997808deb6cf790a6dff6da8dcaaf7b78f21a6154c8773b6c88864819"
+    },
+    {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-14b-full/Qwen_Qwen3-14B-Q4_K_M.gguf",
+      "size_bytes": 9001753632,
+      "sha256": "915913e22399475dbe6c968ac014d9f1fbe08975e489279aede9d5c7b2c98eb6"
+    },
+    {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/build-residency/CMakeCache.txt",
+      "size_bytes": 47836,
+      "sha256": "0515ed27b376755a6b4af7233cf0ca3d337f12f0b120610092948dcb53f1d7b6"
+    },
+    {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/cuda-transfer-audit/resident-canonical-prefix32-layer21-position24-v3/operator-capture/resident-capture.meta",
+      "size_bytes": 1436,
+      "sha256": "66e806aadb0dac46e5835e6778897ed1825adc6a9934c47c326fbc90e8425172"
+    },
+    {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/cuda-transfer-audit/resident-canonical-prefix32-layer21-position24-v3/run.log",
+      "size_bytes": 70268,
+      "sha256": "9615b1637e14e84cd9b3e94d344a3d1aee541fee4c1366b61f1c615f4d2276a0"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/integrations/ggml/qualification/qwen3_numerical_calibration.py",
+      "size_bytes": 30906,
+      "sha256": "987904a88152ee4e6ea0728ae988f9282a52433fb1aa2caf5383204f83d0e53b"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "92d4f41edda51ee77924991f7ad3bf4b9cf821a38c67879e1d81fb1c8cada771"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-decode-layer-00.meta",
+      "size_bytes": 517,
+      "sha256": "8c8cff29b4627cfb0e5d7db3b0e95a542682e7933b3ef860576e284d44d68620"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-prefill-layer-00.meta",
+      "size_bytes": 526,
+      "sha256": "8544502614b01fa99f953138ee6bae5338e131380437833d149408f9d815a59f"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "7b476f28cd5fd1ab78abae8dc98132dbd35c61b4e06e383d4285d66edbf7aedd"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-decode-layer-00.meta",
+      "size_bytes": 517,
+      "sha256": "df464d0944218ea65e5f22d34c0a2b3fadd34636b3967a71cc5edd48ddbdd693"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-prefill-layer-00.meta",
+      "size_bytes": 526,
+      "sha256": "dff13f87a128dd97cc1e6720541e07c01a68596888a817bc8f09b08d54fe8c27"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-decode-layer-00.meta",
+      "size_bytes": 515,
+      "sha256": "b4ebac0af48bbc697ee64e98e1c41b885ead5b6882295bdcea2388a31220c0a9"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-prefill-layer-00.meta",
+      "size_bytes": 523,
+      "sha256": "771a6f65328b9e644a6e7bdc5573963dfbd1a59c09698dbb394e7ccd08d2007c"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-decode-layer-00.meta",
+      "size_bytes": 515,
+      "sha256": "af7bca5952802a325d7331bb2fd872959ba0fbbfccbcdf3e9cf300cbb5bedff8"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-prefill-layer-00.meta",
+      "size_bytes": 523,
+      "sha256": "32eb3514280a95d5249aac3098a0e32de44ef75fbcd41513a8d0c3726f5eae2c"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/capacity-sweep.log",
+      "size_bytes": 145202,
+      "sha256": "8ba3fd50950ba5b80fa14c2fcf7c56cbf1c6f6f2ca46ab5558b6eb78b923035c"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "92d4f41edda51ee77924991f7ad3bf4b9cf821a38c67879e1d81fb1c8cada771"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-decode-layer-00.meta",
+      "size_bytes": 517,
+      "sha256": "8c8cff29b4627cfb0e5d7db3b0e95a542682e7933b3ef860576e284d44d68620"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-prefill-layer-00.meta",
+      "size_bytes": 526,
+      "sha256": "8544502614b01fa99f953138ee6bae5338e131380437833d149408f9d815a59f"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "7b476f28cd5fd1ab78abae8dc98132dbd35c61b4e06e383d4285d66edbf7aedd"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-decode-layer-00.meta",
+      "size_bytes": 517,
+      "sha256": "df464d0944218ea65e5f22d34c0a2b3fadd34636b3967a71cc5edd48ddbdd693"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-prefill-layer-00.meta",
+      "size_bytes": 526,
+      "sha256": "dff13f87a128dd97cc1e6720541e07c01a68596888a817bc8f09b08d54fe8c27"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-decode-layer-00.meta",
+      "size_bytes": 515,
+      "sha256": "b4ebac0af48bbc697ee64e98e1c41b885ead5b6882295bdcea2388a31220c0a9"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-prefill-layer-00.meta",
+      "size_bytes": 523,
+      "sha256": "771a6f65328b9e644a6e7bdc5573963dfbd1a59c09698dbb394e7ccd08d2007c"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-decode-layer-00.meta",
+      "size_bytes": 515,
+      "sha256": "af7bca5952802a325d7331bb2fd872959ba0fbbfccbcdf3e9cf300cbb5bedff8"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-prefill-layer-00.meta",
+      "size_bytes": 523,
+      "sha256": "32eb3514280a95d5249aac3098a0e32de44ef75fbcd41513a8d0c3726f5eae2c"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/capacity-sweep.log",
+      "size_bytes": 145341,
+      "sha256": "2390c538713028eded2bea826bd4cc25ef317246d2fd8a8a9c9f833619b73047"
+    },
+    {
+      "path": "/tmp/vbuf-qwen-native-matrix-build/CMakeCache.txt",
+      "size_bytes": 47811,
+      "sha256": "f146b85f209f0eb6648f7319180ab2ee4fdc6d48f109059608c0bb83b6a9dc8e"
+    },
+    {
+      "path": "/tmp/vbuf-qwen-native-matrix-build/vbuf-patched-ggml/src/ggml-cuda/ggml-cuda.cu",
+      "size_bytes": 228242,
+      "sha256": "a6d0d78fba968e05e5a66b92e98d6296aad09aaa337730011bf5b657666a3c3d"
+    }
+  ],
+  "capture_replays": [
+    {
+      "capacity": 256,
+      "source_run": "primary",
+      "command": [
+        "/tmp/vbuf-qwen-native-matrix-build/vbuf_qwen3_reference_capture_qualification",
+        "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk",
+        "256"
+      ],
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/historical-capture-replays/capacity-256.log",
+      "log_sha256": "1d81a91c8676ad8e16051dca71403cc8a73837fd99cb9c51fda27111185f77b3",
+      "evaluation_records": 8
+    },
+    {
+      "capacity": 512,
+      "source_run": "primary",
+      "command": [
+        "/tmp/vbuf-qwen-native-matrix-build/vbuf_qwen3_reference_capture_qualification",
+        "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk",
+        "512"
+      ],
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/historical-capture-replays/capacity-512.log",
+      "log_sha256": "52f91963fb19c5d13174cf78c8ed46b09e0f17799e0da2e5bb077ae457befbcb",
+      "evaluation_records": 10
+    },
+    {
+      "capacity": 1024,
+      "source_run": "primary",
+      "command": [
+        "/tmp/vbuf-qwen-native-matrix-build/vbuf_qwen3_reference_capture_qualification",
+        "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk",
+        "1024"
+      ],
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/historical-capture-replays/capacity-1024.log",
+      "log_sha256": "d02b73c0ce4fec638de9ad08f338be868e8467a7249b9103298a62b4b4678fdf",
+      "evaluation_records": 8
+    },
+    {
+      "capacity": 1032,
+      "source_run": "primary",
+      "command": [
+        "/tmp/vbuf-qwen-native-matrix-build/vbuf_qwen3_reference_capture_qualification",
+        "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk",
+        "1032"
+      ],
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/historical-capture-replays/capacity-1032.log",
+      "log_sha256": "8ae59b113f70102b93762da4386a8b003572fb947519451951c776dc22867ef1",
+      "evaluation_records": 8
+    }
+  ],
+  "cuda_qk_replays": [
+    {
+      "phase": "prefill",
+      "capacity": 512,
+      "device": 0,
+      "dispatch_family": "cuBLAS",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/prefill/capacity-512.f32",
+      "output_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/prefill/capacity-512.log",
+      "log_sha256": "f2f94acc314bc05fa0f14d8764ac17d8c8ca9dc5f64afa392826876b9a5bc705",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/prefill/capacity-512.comparison.json",
+      "comparison_sha256": "375f1b43306de6020677a688757ad8ea59fdc7fd338392439bdf676f3ef8e8e5",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-cuBLAS",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap512:phase=prefill:cuda0",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-cuBLAS",
+        "fixture_identity": "qwen3-layer0-prefill-source-cap512-execution-cap512",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 512,
+        "context_length": 32,
+        "rows": 32,
+        "phase": "prefill",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "32",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "86",
+          "cuda_device": "NVIDIA GeForce RTX 3060",
+          "dispatch_family": "cuBLAS",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "512",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA0:NVIDIA GeForce RTX 3060@4:0"
+        ],
+        "device_sm_versions": [
+          86
+        ],
+        "reference_shape": [
+          32,
+          40,
+          32
+        ],
+        "candidate_shape": [
+          32,
+          40,
+          32
+        ],
+        "context_output_shape": [
+          32,
+          40,
+          32
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.31719970703125,
+          "mean_absolute_error": 0.023151924339589833,
+          "rms_error": 0.03309241087942706,
+          "relative_rms_error": 0.0005169685432097354,
+          "cosine_similarity": 0.9999998664364823,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "prefill",
+        "source_capacity": 512,
+        "execution_capacity": 512,
+        "device": 0,
+        "device_sm": 86,
+        "dispatch_family": "cuBLAS",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+        "source_capture_key_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+        "full_model_capture_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "replayed_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    },
+    {
+      "phase": "prefill",
+      "capacity": 512,
+      "device": 1,
+      "dispatch_family": "cuBLAS",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/prefill/capacity-512.f32",
+      "output_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/prefill/capacity-512.log",
+      "log_sha256": "813245244e0807692384f22b699f68201bbb03434c10d5bcf32767ae6c22485d",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/prefill/capacity-512.comparison.json",
+      "comparison_sha256": "c6b09a7b44d486f6ffc3195641714966c047f4dc12cc8f1548bf60a7e2d7857c",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-cuBLAS",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap512:phase=prefill:cuda1",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-cuBLAS",
+        "fixture_identity": "qwen3-layer0-prefill-source-cap512-execution-cap512",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 512,
+        "context_length": 32,
+        "rows": 32,
+        "phase": "prefill",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "32",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "75",
+          "cuda_device": "NVIDIA GeForce RTX 2080 SUPER",
+          "dispatch_family": "cuBLAS",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "512",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA1:NVIDIA GeForce RTX 2080 SUPER@7:0"
+        ],
+        "device_sm_versions": [
+          75
+        ],
+        "reference_shape": [
+          32,
+          40,
+          32
+        ],
+        "candidate_shape": [
+          32,
+          40,
+          32
+        ],
+        "context_output_shape": [
+          32,
+          40,
+          32
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.31719970703125,
+          "mean_absolute_error": 0.023151924339589833,
+          "rms_error": 0.03309241087942706,
+          "relative_rms_error": 0.0005169685432097354,
+          "cosine_similarity": 0.9999998664364823,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "prefill",
+        "source_capacity": 512,
+        "execution_capacity": 512,
+        "device": 1,
+        "device_sm": 75,
+        "dispatch_family": "cuBLAS",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+        "source_capture_key_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+        "full_model_capture_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "replayed_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    },
+    {
+      "phase": "prefill",
+      "capacity": 1024,
+      "device": 0,
+      "dispatch_family": "cuBLAS",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/prefill/capacity-1024.f32",
+      "output_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/prefill/capacity-1024.log",
+      "log_sha256": "b5eeda5f69f00e4c2ca32e6d91f3c3de87679635d0142b421af3ad8e62f2f1d0",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/prefill/capacity-1024.comparison.json",
+      "comparison_sha256": "5a9fe7173ffc2d8549b15f995c8ee6285fa841b19f72328850a35a55b95a0cc3",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-cuBLAS",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap1024:phase=prefill:cuda0",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-cuBLAS",
+        "fixture_identity": "qwen3-layer0-prefill-source-cap512-execution-cap1024",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 1024,
+        "context_length": 32,
+        "rows": 32,
+        "phase": "prefill",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "32",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "86",
+          "cuda_device": "NVIDIA GeForce RTX 3060",
+          "dispatch_family": "cuBLAS",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "1024",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA0:NVIDIA GeForce RTX 3060@4:0"
+        ],
+        "device_sm_versions": [
+          86
+        ],
+        "reference_shape": [
+          32,
+          40,
+          32
+        ],
+        "candidate_shape": [
+          32,
+          40,
+          32
+        ],
+        "context_output_shape": [
+          32,
+          40,
+          32
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.31719970703125,
+          "mean_absolute_error": 0.023151924339589833,
+          "rms_error": 0.03309241087942706,
+          "relative_rms_error": 0.0005169685432097354,
+          "cosine_similarity": 0.9999998664364823,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "prefill",
+        "source_capacity": 512,
+        "execution_capacity": 1024,
+        "device": 0,
+        "device_sm": 86,
+        "dispatch_family": "cuBLAS",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+        "source_capture_key_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+        "full_model_capture_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "replayed_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    },
+    {
+      "phase": "prefill",
+      "capacity": 1024,
+      "device": 1,
+      "dispatch_family": "cuBLAS",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/prefill/capacity-1024.f32",
+      "output_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/prefill/capacity-1024.log",
+      "log_sha256": "16b318d87036940e1e02ee6a5ea2756203e511e412aeb7fdb55b7b186db626ef",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/prefill/capacity-1024.comparison.json",
+      "comparison_sha256": "af1e963399dc22423c82ee0f035f658d0f71b302a16de64bef31579be5d18019",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-cuBLAS",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap1024:phase=prefill:cuda1",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-cuBLAS",
+        "fixture_identity": "qwen3-layer0-prefill-source-cap512-execution-cap1024",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 1024,
+        "context_length": 32,
+        "rows": 32,
+        "phase": "prefill",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "32",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "75",
+          "cuda_device": "NVIDIA GeForce RTX 2080 SUPER",
+          "dispatch_family": "cuBLAS",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "1024",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA1:NVIDIA GeForce RTX 2080 SUPER@7:0"
+        ],
+        "device_sm_versions": [
+          75
+        ],
+        "reference_shape": [
+          32,
+          40,
+          32
+        ],
+        "candidate_shape": [
+          32,
+          40,
+          32
+        ],
+        "context_output_shape": [
+          32,
+          40,
+          32
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.31719970703125,
+          "mean_absolute_error": 0.023151924339589833,
+          "rms_error": 0.03309241087942706,
+          "relative_rms_error": 0.0005169685432097354,
+          "cosine_similarity": 0.9999998664364823,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "prefill",
+        "source_capacity": 512,
+        "execution_capacity": 1024,
+        "device": 1,
+        "device_sm": 75,
+        "dispatch_family": "cuBLAS",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+        "source_capture_key_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+        "full_model_capture_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "replayed_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    },
+    {
+      "phase": "prefill",
+      "capacity": 1032,
+      "device": 0,
+      "dispatch_family": "cuBLAS",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/prefill/capacity-1032.f32",
+      "output_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/prefill/capacity-1032.log",
+      "log_sha256": "7e7c664cd59c00ec016febb62fe7f4ed8bea6cdd4b46dc815264f776c3daf898",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/prefill/capacity-1032.comparison.json",
+      "comparison_sha256": "647c4543fc46f3e640a557293b430ab176a06ba92e708a9c13ad95d286ea34ba",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-cuBLAS",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap1032:phase=prefill:cuda0",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-cuBLAS",
+        "fixture_identity": "qwen3-layer0-prefill-source-cap512-execution-cap1032",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 1032,
+        "context_length": 32,
+        "rows": 32,
+        "phase": "prefill",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "32",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "86",
+          "cuda_device": "NVIDIA GeForce RTX 3060",
+          "dispatch_family": "cuBLAS",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "1032",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA0:NVIDIA GeForce RTX 3060@4:0"
+        ],
+        "device_sm_versions": [
+          86
+        ],
+        "reference_shape": [
+          32,
+          40,
+          32
+        ],
+        "candidate_shape": [
+          32,
+          40,
+          32
+        ],
+        "context_output_shape": [
+          32,
+          40,
+          32
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.31719970703125,
+          "mean_absolute_error": 0.023151924339589833,
+          "rms_error": 0.03309241087942706,
+          "relative_rms_error": 0.0005169685432097354,
+          "cosine_similarity": 0.9999998664364823,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "prefill",
+        "source_capacity": 512,
+        "execution_capacity": 1032,
+        "device": 0,
+        "device_sm": 86,
+        "dispatch_family": "cuBLAS",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+        "source_capture_key_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+        "full_model_capture_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "replayed_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    },
+    {
+      "phase": "prefill",
+      "capacity": 1032,
+      "device": 1,
+      "dispatch_family": "cuBLAS",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/prefill/capacity-1032.f32",
+      "output_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/prefill/capacity-1032.log",
+      "log_sha256": "e69523059d2ebdf01a952d80f76b652c90f85910ff0517d835a0e2cd86d756dd",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/prefill/capacity-1032.comparison.json",
+      "comparison_sha256": "30f10d7a6cfd86db384f8900cd7ba2bd9641b478c3b74c4e617612cb723b7711",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-cuBLAS",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap1032:phase=prefill:cuda1",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-cuBLAS",
+        "fixture_identity": "qwen3-layer0-prefill-source-cap512-execution-cap1032",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 1032,
+        "context_length": 32,
+        "rows": 32,
+        "phase": "prefill",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "32",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "75",
+          "cuda_device": "NVIDIA GeForce RTX 2080 SUPER",
+          "dispatch_family": "cuBLAS",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "1032",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA1:NVIDIA GeForce RTX 2080 SUPER@7:0"
+        ],
+        "device_sm_versions": [
+          75
+        ],
+        "reference_shape": [
+          32,
+          40,
+          32
+        ],
+        "candidate_shape": [
+          32,
+          40,
+          32
+        ],
+        "context_output_shape": [
+          32,
+          40,
+          32
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.31719970703125,
+          "mean_absolute_error": 0.023151924339589833,
+          "rms_error": 0.03309241087942706,
+          "relative_rms_error": 0.0005169685432097354,
+          "cosine_similarity": 0.9999998664364823,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "prefill",
+        "source_capacity": 512,
+        "execution_capacity": 1032,
+        "device": 1,
+        "device_sm": 75,
+        "dispatch_family": "cuBLAS",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+        "source_capture_key_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+        "full_model_capture_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "replayed_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    },
+    {
+      "phase": "decode",
+      "capacity": 512,
+      "device": 0,
+      "dispatch_family": "MMVF",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/decode/capacity-512.f32",
+      "output_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/decode/capacity-512.log",
+      "log_sha256": "e6f5dc9277c9c09f6301ed50e1dcc041a30d52d9970a840ba4cea649f8f2de8d",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/decode/capacity-512.comparison.json",
+      "comparison_sha256": "b09f37300ea9d3cceb57ed5fa6d44bff19caacc7c65000b9c413ed381e89f649",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-MMVF",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap512:phase=decode:cuda0",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-MMVF",
+        "fixture_identity": "qwen3-layer0-decode-source-cap512-execution-cap512",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 512,
+        "context_length": 33,
+        "rows": 1,
+        "phase": "decode",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "33",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "86",
+          "cuda_device": "NVIDIA GeForce RTX 3060",
+          "dispatch_family": "MMVF",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "512",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA0:NVIDIA GeForce RTX 3060@4:0"
+        ],
+        "device_sm_versions": [
+          86
+        ],
+        "reference_shape": [
+          1,
+          40,
+          33
+        ],
+        "candidate_shape": [
+          1,
+          40,
+          33
+        ],
+        "context_output_shape": [
+          1,
+          40,
+          33
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.03505706787109375,
+          "mean_absolute_error": 0.006426630304618314,
+          "rms_error": 0.00830031343599393,
+          "relative_rms_error": 0.00013394157378789412,
+          "cosine_similarity": 0.9999999911247272,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "decode",
+        "source_capacity": 512,
+        "execution_capacity": 512,
+        "device": 0,
+        "device_sm": 86,
+        "dispatch_family": "MMVF",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+        "source_capture_key_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+        "full_model_capture_score_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254",
+        "replayed_score_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    },
+    {
+      "phase": "decode",
+      "capacity": 512,
+      "device": 1,
+      "dispatch_family": "MMVF",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/decode/capacity-512.f32",
+      "output_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/decode/capacity-512.log",
+      "log_sha256": "be3535eb22b3434f242426d6de73ae526355fe1dfa8bcb0e6327cc8872d584a8",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/decode/capacity-512.comparison.json",
+      "comparison_sha256": "3c37eb30f01dac96283106e1b57deabc4f145c03cdda5a03494736ce72d3452d",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-MMVF",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap512:phase=decode:cuda1",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-MMVF",
+        "fixture_identity": "qwen3-layer0-decode-source-cap512-execution-cap512",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 512,
+        "context_length": 33,
+        "rows": 1,
+        "phase": "decode",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "33",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "75",
+          "cuda_device": "NVIDIA GeForce RTX 2080 SUPER",
+          "dispatch_family": "MMVF",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "512",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA1:NVIDIA GeForce RTX 2080 SUPER@7:0"
+        ],
+        "device_sm_versions": [
+          75
+        ],
+        "reference_shape": [
+          1,
+          40,
+          33
+        ],
+        "candidate_shape": [
+          1,
+          40,
+          33
+        ],
+        "context_output_shape": [
+          1,
+          40,
+          33
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.03505706787109375,
+          "mean_absolute_error": 0.006426630304618314,
+          "rms_error": 0.00830031343599393,
+          "relative_rms_error": 0.00013394157378789412,
+          "cosine_similarity": 0.9999999911247272,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "decode",
+        "source_capacity": 512,
+        "execution_capacity": 512,
+        "device": 1,
+        "device_sm": 75,
+        "dispatch_family": "MMVF",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+        "source_capture_key_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+        "full_model_capture_score_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254",
+        "replayed_score_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    },
+    {
+      "phase": "decode",
+      "capacity": 1024,
+      "device": 0,
+      "dispatch_family": "MMF",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/decode/capacity-1024.f32",
+      "output_sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/decode/capacity-1024.log",
+      "log_sha256": "40f0fc7f9697986c5fb308782ffa6c22808607b4f14794684183725945b65660",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/decode/capacity-1024.comparison.json",
+      "comparison_sha256": "70de41485afd0e2da6e46e79dc1bfc642162b634eb299bc9ca15751526822ac9",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-MMF",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap1024:phase=decode:cuda0",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-MMF",
+        "fixture_identity": "qwen3-layer0-decode-source-cap512-execution-cap1024",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 1024,
+        "context_length": 33,
+        "rows": 1,
+        "phase": "decode",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "33",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "86",
+          "cuda_device": "NVIDIA GeForce RTX 3060",
+          "dispatch_family": "MMF",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "1024",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA0:NVIDIA GeForce RTX 3060@4:0"
+        ],
+        "device_sm_versions": [
+          86
+        ],
+        "reference_shape": [
+          1,
+          40,
+          33
+        ],
+        "candidate_shape": [
+          1,
+          40,
+          33
+        ],
+        "context_output_shape": [
+          1,
+          40,
+          33
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.019683837890625,
+          "mean_absolute_error": 0.004557193956817646,
+          "rms_error": 0.005876781256148884,
+          "relative_rms_error": 9.483320555611298e-05,
+          "cosine_similarity": 0.9999999955573238,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "decode",
+        "source_capacity": 512,
+        "execution_capacity": 1024,
+        "device": 0,
+        "device_sm": 86,
+        "dispatch_family": "MMF",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+        "source_capture_key_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+        "full_model_capture_score_sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de",
+        "replayed_score_sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    },
+    {
+      "phase": "decode",
+      "capacity": 1024,
+      "device": 1,
+      "dispatch_family": "MMF",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/decode/capacity-1024.f32",
+      "output_sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/decode/capacity-1024.log",
+      "log_sha256": "eb440c5332fc81695fa203a253240d32686c5221d1067b129f7640c0fb3f2e51",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/decode/capacity-1024.comparison.json",
+      "comparison_sha256": "f6f696503125643ea29448ef8fc1da25418985d2adf44969d438f95d4ae654e1",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-MMF",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap1024:phase=decode:cuda1",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-MMF",
+        "fixture_identity": "qwen3-layer0-decode-source-cap512-execution-cap1024",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 1024,
+        "context_length": 33,
+        "rows": 1,
+        "phase": "decode",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "33",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "75",
+          "cuda_device": "NVIDIA GeForce RTX 2080 SUPER",
+          "dispatch_family": "MMF",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "1024",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA1:NVIDIA GeForce RTX 2080 SUPER@7:0"
+        ],
+        "device_sm_versions": [
+          75
+        ],
+        "reference_shape": [
+          1,
+          40,
+          33
+        ],
+        "candidate_shape": [
+          1,
+          40,
+          33
+        ],
+        "context_output_shape": [
+          1,
+          40,
+          33
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.019683837890625,
+          "mean_absolute_error": 0.004557193956817646,
+          "rms_error": 0.005876781256148884,
+          "relative_rms_error": 9.483320555611298e-05,
+          "cosine_similarity": 0.9999999955573238,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "decode",
+        "source_capacity": 512,
+        "execution_capacity": 1024,
+        "device": 1,
+        "device_sm": 75,
+        "dispatch_family": "MMF",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+        "source_capture_key_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+        "full_model_capture_score_sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de",
+        "replayed_score_sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    },
+    {
+      "phase": "decode",
+      "capacity": 1032,
+      "device": 0,
+      "dispatch_family": "cuBLAS",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/decode/capacity-1032.f32",
+      "output_sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/decode/capacity-1032.log",
+      "log_sha256": "4be8f8c4c52b6cc539837c67c032306efe3a8592c2ed5adbeb3a90aa4ddc95ef",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda0/decode/capacity-1032.comparison.json",
+      "comparison_sha256": "9cf7acd4f8543b70c26242d05591206c8572b2243e8b3ae23ec67b48d57383c5",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-cuBLAS",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap1032:phase=decode:cuda0",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-cuBLAS",
+        "fixture_identity": "qwen3-layer0-decode-source-cap512-execution-cap1032",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 1032,
+        "context_length": 33,
+        "rows": 1,
+        "phase": "decode",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "33",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "86",
+          "cuda_device": "NVIDIA GeForce RTX 3060",
+          "dispatch_family": "cuBLAS",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "1032",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA0:NVIDIA GeForce RTX 3060@4:0"
+        ],
+        "device_sm_versions": [
+          86
+        ],
+        "reference_shape": [
+          1,
+          40,
+          33
+        ],
+        "candidate_shape": [
+          1,
+          40,
+          33
+        ],
+        "context_output_shape": [
+          1,
+          40,
+          33
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.25335693359375,
+          "mean_absolute_error": 0.021889535834391904,
+          "rms_error": 0.03180463257351864,
+          "relative_rms_error": 0.0005132291176101465,
+          "cosine_similarity": 0.9999998683899469,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "decode",
+        "source_capacity": 512,
+        "execution_capacity": 1032,
+        "device": 0,
+        "device_sm": 86,
+        "dispatch_family": "cuBLAS",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+        "source_capture_key_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+        "full_model_capture_score_sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5",
+        "replayed_score_sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    },
+    {
+      "phase": "decode",
+      "capacity": 1032,
+      "device": 1,
+      "dispatch_family": "cuBLAS",
+      "output": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/decode/capacity-1032.f32",
+      "output_sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5",
+      "log": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/decode/capacity-1032.log",
+      "log_sha256": "2f07bc2b223a799e4ce03fcb4fd7b254a2d75b0b35a0833ff70aff9e6c32d66f",
+      "comparison": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/raw/calibration-20261009/cuda-qk/cuda1/decode/capacity-1032.comparison.json",
+      "comparison_sha256": "7c7b83fc3299780602794bed5f9aa3e2bdbe99f2fb1a9d3918eb44b50634da07",
+      "evaluation_record": {
+        "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+        "contract_version": 1,
+        "contract_status": "NEEDS_CALIBRATION",
+        "category": "OPERATION_ACCURACY",
+        "evaluation_status": "NOT_TESTED",
+        "policy_id": "vbuf.numerical-contracts",
+        "policy_version": 2,
+        "policy_sha256": "1b8349e77a9494103260856e2a19a392152c16b51bfbaad2b7b750242817c067",
+        "reference_kind": "FP64_OPERATION_ORACLE",
+        "context_reference_kind": "FP64_OPERATION_ORACLE",
+        "reference_identity": "declared-per-fixture-fp64-qk-oracle",
+        "reference_implementation_revision": "vbuf-high-precision-reference-cpp-v1",
+        "reference_accumulation_precision": "binary64-product-and-left-to-right-sum",
+        "reference_input_representation": "Q=F32 captured post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+        "reference_output_representation": "F32-rounded-once",
+        "candidate_identity": "diagnostic-only:ggml-cuda-qk-cuBLAS",
+        "qualification_run_identity": "qwen3-qk-capture-replay:v1:source-cap512:exec-cap1032:phase=decode:cuda1",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-cuda-qk-cuBLAS",
+        "fixture_identity": "qwen3-layer0-decode-source-cap512-execution-cap1032",
+        "input_identity": "qwen3-native-av-boundary-capture:av-boundary-qk:cap512",
+        "token_sequence_identity": "",
+        "operation": "qk_matmul",
+        "output_name": "qk_matmul",
+        "output_dtype": "F32",
+        "input_dtype": "Q=F32;K=F16",
+        "capacity": 1032,
+        "context_length": 33,
+        "rows": 1,
+        "phase": "decode",
+        "execution_topology": "captured-qk-input-physical-capacity-replay",
+        "reference_dtype": "F32",
+        "candidate_dtype": "F32",
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "device_family": "CUDA",
+        "logical_inputs_equivalent": true,
+        "reference_operation_parameters": {
+          "active_key_rows": "33",
+          "attention_scale_applied": "false;applied by softmax",
+          "cuda_compute_capability": "75",
+          "cuda_device": "NVIDIA GeForce RTX 2080 SUPER",
+          "dispatch_family": "cuBLAS",
+          "dispatch_provenance": "pinned-source-predicate-replay",
+          "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+          "gqa_mapping": "floor(query_head/5)",
+          "head_dimension": "128",
+          "kv_heads": "8",
+          "padded_key_rows": "zero-filled",
+          "physical_key_capacity": "1032",
+          "query_heads": "40"
+        },
+        "reference_tokens": null,
+        "candidate_tokens": null,
+        "invariant_values": {},
+        "device_identities": [
+          "CUDA1:NVIDIA GeForce RTX 2080 SUPER@7:0"
+        ],
+        "device_sm_versions": [
+          75
+        ],
+        "reference_shape": [
+          1,
+          40,
+          33
+        ],
+        "candidate_shape": [
+          1,
+          40,
+          33
+        ],
+        "context_output_shape": [
+          1,
+          40,
+          33
+        ],
+        "measured_metrics": {
+          "max_absolute_error": 0.25335693359375,
+          "mean_absolute_error": 0.021889535834391904,
+          "rms_error": 0.03180463257351864,
+          "relative_rms_error": 0.0005132291176101465,
+          "cosine_similarity": 0.9999998683899469,
+          "finite_outputs": true,
+          "bitwise_equality": false,
+          "top1_equality": true
+        },
+        "criteria": [],
+        "failure_reasons": [
+          "contract needs calibration; measured diagnostics do not authorize selection"
+        ],
+        "replayed_metrics_only": true
+      },
+      "full_capture_match": {
+        "record_type": "replay_vs_full_model_capture",
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "phase": "decode",
+        "source_capacity": 512,
+        "execution_capacity": 1032,
+        "device": 1,
+        "device_sm": 75,
+        "dispatch_family": "cuBLAS",
+        "logical_inputs_equivalent": true,
+        "source_capture_query_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+        "source_capture_key_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+        "full_model_capture_score_sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5",
+        "replayed_score_sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5",
+        "bitwise_equal": true,
+        "max_absolute_error": 0.0,
+        "rms_error": 0.0,
+        "relative_rms_error": 0.0
+      }
+    }
+  ],
+  "calibration_authority": "diagnostic-only; no contract thresholds or admission scope activated",
+  "outputs": [
+    {
+      "path": "cuda-dispatch-instrumented-build.log",
+      "size_bytes": 504,
+      "sha256": "452abb19790fba145f6d60dcbe838ebc5b9121f0fbc9b323b3cf029b292a588e"
+    },
+    {
+      "path": "cuda-dispatch-restored-build.log",
+      "size_bytes": 504,
+      "sha256": "452abb19790fba145f6d60dcbe838ebc5b9121f0fbc9b323b3cf029b292a588e"
+    },
+    {
+      "path": "cuda-dispatch-trace.patch.gz",
+      "size_bytes": 1052,
+      "sha256": "6213f79967dc4d2057d7fc91ba0c149b7b0f2e295db911e9001d5b1cce57e5cd"
+    },
+    {
+      "path": "cuda-qk/cuda0/decode/capacity-1024.comparison.json",
+      "size_bytes": 826,
+      "sha256": "70de41485afd0e2da6e46e79dc1bfc642162b634eb299bc9ca15751526822ac9"
+    },
+    {
+      "path": "cuda-qk/cuda0/decode/capacity-1024.f32",
+      "size_bytes": 5280,
+      "sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de"
+    },
+    {
+      "path": "cuda-qk/cuda0/decode/capacity-1024.log",
+      "size_bytes": 3469,
+      "sha256": "40f0fc7f9697986c5fb308782ffa6c22808607b4f14794684183725945b65660"
+    },
+    {
+      "path": "cuda-qk/cuda0/decode/capacity-1032.comparison.json",
+      "size_bytes": 829,
+      "sha256": "9cf7acd4f8543b70c26242d05591206c8572b2243e8b3ae23ec67b48d57383c5"
+    },
+    {
+      "path": "cuda-qk/cuda0/decode/capacity-1032.f32",
+      "size_bytes": 5280,
+      "sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5"
+    },
+    {
+      "path": "cuda-qk/cuda0/decode/capacity-1032.log",
+      "size_bytes": 3487,
+      "sha256": "4be8f8c4c52b6cc539837c67c032306efe3a8592c2ed5adbeb3a90aa4ddc95ef"
+    },
+    {
+      "path": "cuda-qk/cuda0/decode/capacity-512.comparison.json",
+      "size_bytes": 826,
+      "sha256": "b09f37300ea9d3cceb57ed5fa6d44bff19caacc7c65000b9c413ed381e89f649"
+    },
+    {
+      "path": "cuda-qk/cuda0/decode/capacity-512.f32",
+      "size_bytes": 5280,
+      "sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254"
+    },
+    {
+      "path": "cuda-qk/cuda0/decode/capacity-512.log",
+      "size_bytes": 3468,
+      "sha256": "e6f5dc9277c9c09f6301ed50e1dcc041a30d52d9970a840ba4cea649f8f2de8d"
+    },
+    {
+      "path": "cuda-qk/cuda0/prefill/capacity-1024.comparison.json",
+      "size_bytes": 830,
+      "sha256": "5a9fe7173ffc2d8549b15f995c8ee6285fa841b19f72328850a35a55b95a0cc3"
+    },
+    {
+      "path": "cuda-qk/cuda0/prefill/capacity-1024.f32",
+      "size_bytes": 163840,
+      "sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+    },
+    {
+      "path": "cuda-qk/cuda0/prefill/capacity-1024.log",
+      "size_bytes": 3499,
+      "sha256": "b5eeda5f69f00e4c2ca32e6d91f3c3de87679635d0142b421af3ad8e62f2f1d0"
+    },
+    {
+      "path": "cuda-qk/cuda0/prefill/capacity-1032.comparison.json",
+      "size_bytes": 830,
+      "sha256": "647c4543fc46f3e640a557293b430ab176a06ba92e708a9c13ad95d286ea34ba"
+    },
+    {
+      "path": "cuda-qk/cuda0/prefill/capacity-1032.f32",
+      "size_bytes": 163840,
+      "sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+    },
+    {
+      "path": "cuda-qk/cuda0/prefill/capacity-1032.log",
+      "size_bytes": 3499,
+      "sha256": "7e7c664cd59c00ec016febb62fe7f4ed8bea6cdd4b46dc815264f776c3daf898"
+    },
+    {
+      "path": "cuda-qk/cuda0/prefill/capacity-512.comparison.json",
+      "size_bytes": 829,
+      "sha256": "375f1b43306de6020677a688757ad8ea59fdc7fd338392439bdf676f3ef8e8e5"
+    },
+    {
+      "path": "cuda-qk/cuda0/prefill/capacity-512.f32",
+      "size_bytes": 163840,
+      "sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+    },
+    {
+      "path": "cuda-qk/cuda0/prefill/capacity-512.log",
+      "size_bytes": 3491,
+      "sha256": "f2f94acc314bc05fa0f14d8764ac17d8c8ca9dc5f64afa392826876b9a5bc705"
+    },
+    {
+      "path": "cuda-qk/cuda1/decode/capacity-1024.comparison.json",
+      "size_bytes": 826,
+      "sha256": "f6f696503125643ea29448ef8fc1da25418985d2adf44969d438f95d4ae654e1"
+    },
+    {
+      "path": "cuda-qk/cuda1/decode/capacity-1024.f32",
+      "size_bytes": 5280,
+      "sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de"
+    },
+    {
+      "path": "cuda-qk/cuda1/decode/capacity-1024.log",
+      "size_bytes": 3481,
+      "sha256": "eb440c5332fc81695fa203a253240d32686c5221d1067b129f7640c0fb3f2e51"
+    },
+    {
+      "path": "cuda-qk/cuda1/decode/capacity-1032.comparison.json",
+      "size_bytes": 829,
+      "sha256": "7c7b83fc3299780602794bed5f9aa3e2bdbe99f2fb1a9d3918eb44b50634da07"
+    },
+    {
+      "path": "cuda-qk/cuda1/decode/capacity-1032.f32",
+      "size_bytes": 5280,
+      "sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5"
+    },
+    {
+      "path": "cuda-qk/cuda1/decode/capacity-1032.log",
+      "size_bytes": 3499,
+      "sha256": "2f07bc2b223a799e4ce03fcb4fd7b254a2d75b0b35a0833ff70aff9e6c32d66f"
+    },
+    {
+      "path": "cuda-qk/cuda1/decode/capacity-512.comparison.json",
+      "size_bytes": 826,
+      "sha256": "3c37eb30f01dac96283106e1b57deabc4f145c03cdda5a03494736ce72d3452d"
+    },
+    {
+      "path": "cuda-qk/cuda1/decode/capacity-512.f32",
+      "size_bytes": 5280,
+      "sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254"
+    },
+    {
+      "path": "cuda-qk/cuda1/decode/capacity-512.log",
+      "size_bytes": 3480,
+      "sha256": "be3535eb22b3434f242426d6de73ae526355fe1dfa8bcb0e6327cc8872d584a8"
+    },
+    {
+      "path": "cuda-qk/cuda1/prefill/capacity-1024.comparison.json",
+      "size_bytes": 830,
+      "sha256": "af1e963399dc22423c82ee0f035f658d0f71b302a16de64bef31579be5d18019"
+    },
+    {
+      "path": "cuda-qk/cuda1/prefill/capacity-1024.f32",
+      "size_bytes": 163840,
+      "sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+    },
+    {
+      "path": "cuda-qk/cuda1/prefill/capacity-1024.log",
+      "size_bytes": 3511,
+      "sha256": "16b318d87036940e1e02ee6a5ea2756203e511e412aeb7fdb55b7b186db626ef"
+    },
+    {
+      "path": "cuda-qk/cuda1/prefill/capacity-1032.comparison.json",
+      "size_bytes": 830,
+      "sha256": "30f10d7a6cfd86db384f8900cd7ba2bd9641b478c3b74c4e617612cb723b7711"
+    },
+    {
+      "path": "cuda-qk/cuda1/prefill/capacity-1032.f32",
+      "size_bytes": 163840,
+      "sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+    },
+    {
+      "path": "cuda-qk/cuda1/prefill/capacity-1032.log",
+      "size_bytes": 3511,
+      "sha256": "e69523059d2ebdf01a952d80f76b652c90f85910ff0517d835a0e2cd86d756dd"
+    },
+    {
+      "path": "cuda-qk/cuda1/prefill/capacity-512.comparison.json",
+      "size_bytes": 829,
+      "sha256": "c6b09a7b44d486f6ffc3195641714966c047f4dc12cc8f1548bf60a7e2d7857c"
+    },
+    {
+      "path": "cuda-qk/cuda1/prefill/capacity-512.f32",
+      "size_bytes": 163840,
+      "sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+    },
+    {
+      "path": "cuda-qk/cuda1/prefill/capacity-512.log",
+      "size_bytes": 3503,
+      "sha256": "813245244e0807692384f22b699f68201bbb03434c10d5bcf32767ae6c22485d"
+    },
+    {
+      "path": "evaluations.jsonl",
+      "size_bytes": 99327,
+      "sha256": "0e6bc357fef045ba1d4d89c4b9df7d16131f983ceafcd169a154faf36a377292"
+    },
+    {
+      "path": "historical-capture-replays/capacity-1024.log",
+      "size_bytes": 13814,
+      "sha256": "d02b73c0ce4fec638de9ad08f338be868e8467a7249b9103298a62b4b4678fdf"
+    },
+    {
+      "path": "historical-capture-replays/capacity-1032.log",
+      "size_bytes": 13836,
+      "sha256": "8ae59b113f70102b93762da4386a8b003572fb947519451951c776dc22867ef1"
+    },
+    {
+      "path": "historical-capture-replays/capacity-256.log",
+      "size_bytes": 13815,
+      "sha256": "1d81a91c8676ad8e16051dca71403cc8a73837fd99cb9c51fda27111185f77b3"
+    },
+    {
+      "path": "historical-capture-replays/capacity-512.log",
+      "size_bytes": 18909,
+      "sha256": "52f91963fb19c5d13174cf78c8ed46b09e0f17799e0da2e5bb077ae457befbcb"
+    },
+    {
+      "path": "input-provenance.json",
+      "size_bytes": 33998,
+      "sha256": "07d990e2c8956a0c93cea8a2d46e2e288fe1125b7f7482c6407e12e282dc3782"
+    },
+    {
+      "path": "layer21-operator-capture.log",
+      "size_bytes": 8976,
+      "sha256": "f7e0a3ef6ca0a6e4e96bf474daa46edbd7def280860dad98f4c4df84915a3790"
+    },
+    {
+      "path": "summary.csv",
+      "size_bytes": 10964,
+      "sha256": "c7a4ffa0109a208a50d590f8a36663523f682333e70e517e08a8aff9d1dc67fa"
+    }
+  ],
+  "evaluation_record_count": 50,
+  "contracts_observed": [
+    "qwen3.attention_av.fp64_model_boundary_observation",
+    "qwen3.attention_av.fp64_operation_accuracy",
+    "vbuf.qk_matmul.fp64.operation_accuracy",
+    "vbuf.rmsnorm.fp64.operation_accuracy",
+    "vbuf.softmax.fp64.operation_accuracy"
+  ],
+  "result_status": "DIAGNOSTIC_ONLY_NEEDS_CALIBRATION",
+  "admission_authority_created": false
+}

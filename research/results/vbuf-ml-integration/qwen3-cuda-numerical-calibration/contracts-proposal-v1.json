@@ -1,0 +1,114 @@
+{
+  "proposal_id": "qwen3-cuda-operation-accuracy-scopes-v1",
+  "proposal_status": "PROPOSED_NOT_ACTIVE",
+  "policy_id": "vbuf.numerical-contracts",
+  "policy_version": 2,
+  "policy_changes": false,
+  "thresholds": null,
+  "production_selection_changes": false,
+  "execution_admission_changes": false,
+  "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+  "source_gguf_sha256": "915913e22399475dbe6c968ac014d9f1fbe08975e489279aede9d5c7b2c98eb6",
+  "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+  "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+  "evidence_boundary": {
+    "status": "MEASURED_DIAGNOSTIC",
+    "model_runs": "historical captures plus operation-only CUDA replays; no full-model run was initiated by this calibration",
+    "sequence": "one 32-token natural-repeat prefill and one decode at visible context 33",
+    "layers": [0, 21],
+    "devices": [
+      {"device": "NVIDIA GeForce RTX 3060", "sm": 86},
+      {"device": "NVIDIA GeForce RTX 2080 SUPER", "sm": 75}
+    ],
+    "independent_samples": "The two sweep captures repeat identical inputs; capacity and device replays are controlled configurations, not independent prompts or activation samples."
+  },
+  "proposals": [
+    {
+      "proposal_id": "qk-matmul-qwen3-cuda-scope",
+      "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+      "version": 1,
+      "status": "KEEP_NEEDS_CALIBRATION; PROPOSE SCOPED EVIDENCE FIELDS",
+      "candidate_implementations": ["ggml-cuda-qk-MMVF", "ggml-cuda-qk-MMF", "ggml-cuda-qk-cuBLAS"],
+      "scope": {
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "device_sm_versions": [86, 75],
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "input_representation": "Q=F32 post-RoPE; K=F16 cache decoded by pinned GGML trait",
+        "geometry": {"head_dimension": 128, "query_heads": 40, "kv_heads": 8, "gqa_mapping": "floor(query_head/5)"},
+        "phases_and_rows": {"prefill": 32, "decode": 1},
+        "capacities_and_routes": {"512_decode": "MMVF", "1024_decode": "MMF", "1032_decode": "cuBLAS", "prefill_32_rows": "cuBLAS"},
+        "required_evidence_fields": ["physical capacity", "visible key extent", "selected CUDA dispatch family", "SM version", "input hashes", "reference arithmetic and output rounding"]
+      },
+      "thresholds": null,
+      "qualification_limit": "One captured sequence and two layers do not establish worst-case or prompt-independent tolerance."
+    },
+    {
+      "proposal_id": "softmax-qwen3-cuda-scope",
+      "contract_id": "vbuf.softmax.fp64.operation_accuracy",
+      "version": 1,
+      "status": "KEEP_NEEDS_CALIBRATION; PROPOSE MASK/EXTENT-SCOPED EVIDENCE",
+      "scope": {
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "device_sm_versions": [86],
+        "input_output_dtype": "F32",
+        "operation": "stable softmax on captured QK scores with scale 1/sqrt(128)",
+        "mask": "causal per-row visible prefix; excluded output exactly zero",
+        "layers": [0, 21],
+        "required_invariants": ["finite outputs", "probability range", "row normalization", "masked positions zero"]
+      },
+      "thresholds": null,
+      "qualification_limit": "Observed score distributions cover only the recorded prompt and context lengths."
+    },
+    {
+      "proposal_id": "rmsnorm-qwen3-cuda-scope",
+      "contract_id": "vbuf.rmsnorm.fp64.operation_accuracy",
+      "version": 1,
+      "status": "KEEP_NEEDS_CALIBRATION; PROPOSE EPSILON/WEIGHT-BOUND SCOPE",
+      "scope": {
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "device_sm_versions": [86],
+        "layer": 21,
+        "input_shape": [32, 5120],
+        "epsilon": 1e-6,
+        "scale_tensor": "blk.21.attn_norm.weight:F32[5120]",
+        "scale_tensor_sha256": "dd37e4a627d56a2f28c6d513b1a46f24a892e69f0065cc42957460ef2a41f59d",
+        "operation": "ggml_rms_norm followed by elementwise multiply"
+      },
+      "thresholds": null,
+      "qualification_limit": "One layer, one scale vector, one captured batch; no cross-layer or cross-model bound."
+    },
+    {
+      "proposal_id": "attention-av-qwen3-cuda-scope",
+      "contract_id": "qwen3.attention_av.fp64_operation_accuracy",
+      "version": 1,
+      "status": "PROPOSED_NOT_REGISTERED",
+      "related_existing_contract": "qwen3.attention_av.fp64_model_boundary_observation",
+      "candidate_scopes": [
+        {"implementation_identity": "ggml-cuda-canonical-packed-v-av", "role": "canonical authoritative execution"},
+        {"implementation_identity": "ggml-native-layout-av", "role": "experimental diagnostic candidate; not production-qualified"}
+      ],
+      "scope": {
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "device_sm_versions": [86],
+        "input_representation": "probabilities=F32; V=F16 cache decoded by pinned GGML trait",
+        "geometry": {"query_heads": 40, "kv_heads": 8, "head_dimension": 128, "gqa_mapping": "floor(query_head/5)"},
+        "visible_extent": "per-query causal prefix",
+        "layers": [0, 21],
+        "capacities_observed": [32, 256, 512, 1024, 1032]
+      },
+      "thresholds": null,
+      "required_separation": "FP64 mathematical accuracy and canonical packed-V compatibility remain distinct observations; neither establishes model-level compatibility."
+    }
+  ],
+  "explicitly_not_proposed": [
+    "No numeric threshold for any operation.",
+    "No changes to policy-v2.json, active thresholds, ExecutionPlan admission, or production defaults.",
+    "No native AV promotion or relaxation of capacity guards.",
+    "No Q4_K quantization-loss contract: no verified unquantized source tensor was used.",
+    "No general CUDA matmul calibration from the historical CPU Q4_K/Q8_K slice."
+  ]
+}

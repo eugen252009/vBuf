@@ -1,0 +1,19 @@
+{
+  "record_type": "replay_vs_full_model_capture",
+  "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+  "phase": "prefill",
+  "source_capacity": 512,
+  "execution_capacity": 512,
+  "device": 0,
+  "device_sm": 86,
+  "dispatch_family": "cuBLAS",
+  "logical_inputs_equivalent": true,
+  "source_capture_query_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+  "source_capture_key_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+  "full_model_capture_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+  "replayed_score_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8",
+  "bitwise_equal": true,
+  "max_absolute_error": 0.0,
+  "rms_error": 0.0,
+  "relative_rms_error": 0.0
+}

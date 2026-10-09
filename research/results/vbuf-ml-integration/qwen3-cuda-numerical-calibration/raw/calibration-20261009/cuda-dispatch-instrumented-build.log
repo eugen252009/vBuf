@@ -1,0 +1,11 @@
+[  2%] Built target vbuf_numerical_contracts
+[  8%] Built target ggml-base
+[ 18%] Built target ggml-cpu
+[ 18%] Building CUDA object ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/ggml-cuda.cu.o
+[ 18%] Linking CUDA shared library libggml-cuda.so
+[ 98%] Built target ggml-cuda
+[ 98%] Linking CXX shared library libggml.so
+[ 98%] Built target ggml
+[100%] Built target vbuf_high_precision_reference
+[100%] Linking CXX executable vbuf_qwen3_cuda_qk_calibration
+[100%] Built target vbuf_qwen3_cuda_qk_calibration

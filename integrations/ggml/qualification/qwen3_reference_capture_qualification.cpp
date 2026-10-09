@@ -23,7 +23,7 @@ namespace {
 constexpr size_t head_dimension = 128;
 constexpr size_t query_heads = 40;
 constexpr size_t kv_heads = 8;
-constexpr uint32_t capacity = 512;
+constexpr size_t embedding_width = head_dimension * query_heads;
 constexpr const char * model_identity =
     "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31";
 constexpr const char * placement = "multi:0x26,1x14;emb=0;norm=1;head=1";
@@ -70,6 +70,7 @@ struct Capture {
     size_t rows = 0;
     size_t visible = 0;
     size_t layer = 0;
+    size_t capacity = 0;
     std::vector<uint16_t> values_f16;
     std::vector<float> probabilities;
     std::vector<int32_t> positions;
@@ -107,9 +108,9 @@ std::vector<T> read_raw_elements(const fs::path & path, size_t count) {
     return values;
 }
 
-Capture read_capture(const fs::path & directory, const std::string & phase) {
+Capture read_capture(const fs::path & directory, size_t capacity, const std::string & phase) {
     std::ostringstream stem_stream;
-    stem_stream << "boundary-capacity-512-" << phase << "-layer-00";
+    stem_stream << "boundary-capacity-" << capacity << '-' << phase << "-layer-00";
     const std::string stem = stem_stream.str();
     const auto metadata = read_metadata(directory / (stem + ".meta"));
     require(metadata.at("format") == "qwen3-native-av-boundary-v1", "unsupported Qwen boundary capture format");
@@ -126,6 +127,7 @@ Capture read_capture(const fs::path & directory, const std::string & phase) {
     capture.rows = metadata_size(metadata, "query_rows");
     capture.visible = metadata_size(metadata, "visible_context");
     capture.layer = metadata_size(metadata, "layer");
+    capture.capacity = capacity;
     require((phase == "prefill" && capture.rows == 32 && capture.visible == 32) ||
         (phase == "decode" && capture.rows == 1 && capture.visible == 33),
         "unexpected captured prefill/decode extent");
@@ -203,7 +205,8 @@ EvaluationContext base_context(const Capture & capture, const std::string & oper
     context.output_name = operation;
     context.candidate_identity = "diagnostic-only:" + implementation;
     context.qualification_run_identity = "historical-qwen3-capture-replay:v1:" +
-        capture.path.parent_path().filename().string() + ":" + capture.phase;
+        capture.path.parent_path().filename().string() + ":cap" +
+        std::to_string(capture.capacity) + ":" + capture.phase;
     context.model_identity = model_identity;
     context.backend_family = "GGML_CUDA";
     context.implementation_identity = implementation;
@@ -213,13 +216,14 @@ EvaluationContext base_context(const Capture & capture, const std::string & oper
     context.placement_identity = placement;
     context.phase = capture.phase;
     context.execution_topology = "native-av-side-branch";
-    context.fixture_identity = capture.phase == "prefill" ?
-        "qwen3-native-av-prefill32-cap512-layer0" : "qwen3-native-av-decode32-cap512-layer0";
+    const std::string phase_fixture = capture.phase == "prefill" ? "prefill32" : "decode32";
+    context.fixture_identity = "qwen3-native-av-" + phase_fixture + "-cap" +
+        std::to_string(capture.capacity) + "-layer" + std::to_string(capture.layer);
     context.input_identity = "captured-qwen3-layer0-boundary:" + capture.path.parent_path().filename().string();
     context.output_dtype = "F32";
     context.input_dtype = input_dtype;
     context.output_shape = std::move(output_shape);
-    context.capacity = capacity;
+    context.capacity = static_cast<uint32_t>(capture.capacity);
     context.context_length = static_cast<uint32_t>(capture.visible);
     context.rows = static_cast<uint32_t>(capture.rows);
     context.logical_inputs_equivalent = true;
@@ -307,8 +311,36 @@ void qualify_q4k_projection(const fs::path & weights_path, const fs::path & acti
     require_diagnostic_only(evaluation, "Q4_K Q8_K projection");
 }
 
-void qualify_capture(const fs::path & directory, const std::string & phase) {
-    const Capture capture = read_capture(directory, phase);
+std::string qk_dispatch_family(const Capture & capture) {
+    // Pinned GGML 2d191b5 dispatch predicates for CUDA0 (SM 8.6):
+    // F16 K, F32 Q, ne0=128, ne2=8. MMVF handles one-row decode only
+    // through capacity 512; MMF also requires capacity divisible by 32 and
+    // at most 16 query columns, so 32-row prefill falls through to cuBLAS.
+    if (capture.phase == "decode" && capture.capacity <= 512) return "MMVF";
+    if (capture.phase == "decode" && capture.capacity % 32 == 0) return "MMF";
+    return "cuBLAS";
+}
+
+std::string metric_number(const NumericalMetrics & metrics, Metric metric);
+
+void emit_av_proposal_metrics(const Capture & capture, const std::string & candidate_identity,
+        const NumericalMetrics & metrics) {
+    std::cout << "{\"record_type\":\"diagnostic_scope_proposal_metrics\","
+        << "\"contract_proposal_id\":\"qwen3.attention_av.fp64_operation_accuracy\","
+        << "\"contract_status\":\"NEEDS_CALIBRATION\",\"evaluation_status\":\"NOT_TESTED\","
+        << "\"candidate_identity\":\"diagnostic-only:" << candidate_identity << "\","
+        << "\"reference_identity\":\"qwen3-av-boundary-fp64-oracle-v1\","
+        << "\"model_identity\":\"" << model_identity << "\",\"capacity\":" << capture.capacity
+        << ",\"rows\":" << capture.rows << ",\"context_length\":" << capture.visible
+        << ",\"layer\":" << capture.layer << ",\"phase\":\"" << capture.phase << "\","
+        << "\"relative_rms_error\":" << metric_number(metrics, Metric::RelativeRmsError)
+        << ",\"max_absolute_error\":" << metric_number(metrics, Metric::MaxAbsoluteError)
+        << ",\"cosine_similarity\":" << metric_number(metrics, Metric::CosineSimilarity)
+        << ",\"production_authority\":false}\n";
+}
+
+void qualify_capture(const fs::path & directory, size_t capacity, const std::string & phase) {
+    const Capture capture = read_capture(directory, capacity, phase);
     const size_t rows = capture.rows, visible = capture.visible;
     const auto decoded_keys = decode_ggml_rows(GGML_TYPE_F16, capture.keys_f16.data(),
         capture.keys_f16.size() * sizeof(uint16_t), visible * kv_heads, head_dimension);
@@ -330,7 +362,8 @@ void qualify_capture(const fs::path & directory, const std::string & phase) {
         convert_legacy_matrix(capture.qk_oracle, rows, query_heads, visible), {rows, query_heads, visible});
     require(qk_reference_result.f32 == saved_qk_oracle.f32,
         "independent QK oracle did not reproduce the captured FP64 QK reference");
-    auto qk_context = base_context(capture, "qk_matmul", "ggml-captured-qk", "F32+F16",
+    const std::string qk_family = qk_dispatch_family(capture);
+    auto qk_context = base_context(capture, "qk_matmul", "ggml-cuda-qk-" + qk_family, "F32+F16",
         {rows, query_heads, visible});
     auto qk_eval = evaluate_reference_comparison("vbuf.qk_matmul.fp64.operation_accuracy", 1,
         qk_reference_result, qk_candidate, qk_context,
@@ -339,7 +372,10 @@ void qualify_capture(const fs::path & directory, const std::string & phase) {
             "F32-rounded-once", {{"head_dimension", "128"}, {"query_heads", "40"},
                 {"kv_heads", "8"}, {"gqa_mapping", "floor(query_head/5)"},
                 {"ggml_commit", "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d"},
-                {"attention_scale_applied", "false;applied by softmax"}}));
+                {"attention_scale_applied", "false;applied by softmax"},
+                {"dispatch_family", qk_family},
+                {"dispatch_provenance", "derived from pinned GGML CUDA predicates and captured tensor geometry"},
+                {"key_capacity", std::to_string(capture.capacity)}}));
     require_diagnostic_only(qk_eval, phase + " QK");
 
     std::vector<float> score_rows = qk_candidate.f32;
@@ -353,7 +389,7 @@ void qualify_capture(const fs::path & directory, const std::string & phase) {
         contiguous_view(score_rows.data(), {rows * query_heads, visible}),
         1.0 / std::sqrt(static_cast<double>(head_dimension)), extents, nullptr, ScalarType::F32);
     const Tensor probability_candidate = make_f32_tensor(probability_rows, {rows * query_heads, visible});
-    auto softmax_context = base_context(capture, "softmax", "ggml-captured-softmax", "F32",
+    auto softmax_context = base_context(capture, "softmax", "ggml-cuda-softmax-f32", "F32",
         {rows * query_heads, visible});
     const auto invariants = probability_invariants(view(probability_candidate), extents);
     softmax_context.invariant_values.insert(invariants.begin(), invariants.end());
@@ -383,15 +419,18 @@ void qualify_capture(const fs::path & directory, const std::string & phase) {
         {head_dimension, rows, query_heads});
     auto av_context = base_context(capture, "attention_av", "ggml-native-layout-av", "F16",
         {head_dimension, rows, query_heads});
-    const auto av_eval = evaluate_reference_comparison("qwen3.attention_av.fp64_model_boundary_observation", 1,
-        av_reference, native_candidate, av_context,
-        provenance("binary64-product-and-ascending-position-sum",
-            "captured probabilities=F32;V=F16 cache decoded by pinned GGML trait",
-            "F32-rounded-once", {{"query_heads", "40"}, {"kv_heads", "8"},
-                {"head_dimension", "128"}, {"gqa_mapping", "floor(query_head/5)"},
-                {"visible_extent", "per-query-position+1"},
-                {"ggml_commit", "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d"}}));
-    require_diagnostic_only(av_eval, phase + " AV");
+    const auto av_provenance = provenance("binary64-product-and-ascending-position-sum",
+        "captured probabilities=F32;V=F16 cache decoded by pinned GGML trait",
+        "F32-rounded-once", {{"query_heads", "40"}, {"kv_heads", "8"},
+            {"head_dimension", "128"}, {"gqa_mapping", "floor(query_head/5)"},
+            {"visible_extent", "per-query-position+1"},
+            {"ggml_commit", "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d"}});
+    if (capture.capacity == 512) {
+        const auto av_eval = evaluate_reference_comparison(
+            "qwen3.attention_av.fp64_model_boundary_observation", 1,
+            av_reference, native_candidate, av_context, av_provenance);
+        require_diagnostic_only(av_eval, phase + " native AV");
+    }
 
     const Tensor canonical_candidate = make_f32_tensor(capture.canonical,
         {head_dimension, rows, query_heads});
@@ -399,6 +438,8 @@ void qualify_capture(const fs::path & directory, const std::string & phase) {
         numeric_view(canonical_candidate), av_context);
     const auto native_metrics = measure_tensor_pair(numeric_view(av_reference),
         numeric_view(native_candidate), av_context);
+    emit_av_proposal_metrics(capture, "ggml-cuda-canonical-packed-v-av", canonical_metrics);
+    emit_av_proposal_metrics(capture, "ggml-native-layout-av", native_metrics);
     const auto relative = [](const NumericalMetrics & metrics) {
         const auto found = metrics.values.find(Metric::RelativeRmsError);
         if (found == metrics.values.end() || !found->second.numeric_value) return std::string("null");
@@ -406,27 +447,205 @@ void qualify_capture(const fs::path & directory, const std::string & phase) {
         value << std::setprecision(17) << *found->second.numeric_value;
         return value.str();
     };
-    std::cout << "qwen3_reference_capture_check phase=" << phase << " layer=0 rows=" << rows
+    std::cout << "qwen3_reference_capture_check phase=" << phase << " layer=0 capacity=" << capture.capacity << " rows=" << rows
         << " visible=" << visible << " saved_fp64_oracle=bitwise-match"
+        << " av_contract_scope=" << (capture.capacity == 512 ? "applicable" : "out-of-scope-diagnostic-only")
         << " canonical_relative_rms=" << relative(canonical_metrics)
         << " native_relative_rms=" << relative(native_metrics) << '\n';
+}
+
+EvaluationContext operator_capture_context(const std::string & operation, const std::string & implementation,
+        const std::string & input_dtype, std::vector<uint64_t> output_shape) {
+    EvaluationContext context;
+    context.output_name = operation;
+    context.candidate_identity = "diagnostic-only:" + implementation;
+    context.qualification_run_identity = "historical-qwen3-operator-capture-replay:v1:layer21-position24";
+    context.model_identity = model_identity;
+    context.backend_family = "GGML_CUDA";
+    context.implementation_identity = implementation;
+    context.device_family = "CUDA";
+    context.device_identities = {"CUDA0@0000:04:00.0"};
+    context.device_sm_versions = {86};
+    context.placement_identity = placement;
+    context.phase = "prefill";
+    context.execution_topology = "resident-operator-capture-replay";
+    context.fixture_identity = "qwen3-resident-prefix32-layer21-position24";
+    context.input_identity = "captured-qwen3-resident-layer21-position24";
+    context.output_dtype = "F32";
+    context.input_dtype = input_dtype;
+    context.output_shape = std::move(output_shape);
+    context.capacity = 32;
+    context.context_length = 32;
+    context.rows = 32;
+    context.logical_inputs_equivalent = true;
+    return context;
+}
+
+std::string metric_number(const NumericalMetrics & metrics, Metric metric) {
+    const auto found = metrics.values.find(metric);
+    if (found == metrics.values.end() || !found->second.numeric_value) return "null";
+    std::ostringstream value;
+    value << std::setprecision(17) << *found->second.numeric_value;
+    return value.str();
+}
+
+void qualify_operator_capture(const fs::path & directory, const fs::path & rmsnorm_weight_path,
+        const std::string & tensor_sha256, const std::string & gguf_sha256) {
+    require(tensor_sha256.size() == 64 && gguf_sha256 ==
+        "915913e22399475dbe6c968ac014d9f1fbe08975e489279aede9d5c7b2c98eb6",
+        "RMSNorm weight provenance does not match the registered Qwen3 source GGUF");
+    const auto metadata_path = directory / "resident-capture.meta";
+    const auto metadata_bytes = read_bytes(metadata_path);
+    const std::string metadata(metadata_bytes.begin(), metadata_bytes.end());
+    for (const std::string required : {
+            "layer=21 position=24 positions=32",
+            "layer-21-layer_input type=f32 ne=5120,32,1,1 bytes=655360",
+            "layer-21-attention_rmsnorm type=f32 ne=5120,32,1,1 bytes=655360",
+            "layer-21-q_rope type=f32 ne=128,40,32,1 bytes=655360",
+            "layer-21-k_cache_f16 type=f16 ne=128,8,32,1 bytes=65536",
+            "layer-21-v_cache_f16 type=f16 ne=128,8,32,1 bytes=65536",
+            "layer-21-attention_scores type=f32 ne=32,32,40,1 bytes=163840",
+            "layer-21-attention_probabilities type=f32 ne=32,32,40,1 bytes=163840",
+            "layer-21-attention_context type=f32 ne=5120,32,1,1 bytes=655360"})
+        require(metadata.find(required) != std::string::npos,
+            "operator capture metadata is missing expected geometry: " + required);
+
+    constexpr size_t rows = 32;
+    constexpr size_t visible = 32;
+    const fs::path input_path = directory / "layer-21-layer_input.bin";
+    const auto input = read_raw_elements<float>(input_path, rows * embedding_width);
+    const auto rmsnorm_candidate_values = read_raw_elements<float>(directory / "layer-21-attention_rmsnorm.bin",
+        rows * embedding_width);
+    const auto rmsnorm_scale_values = read_raw_elements<float>(rmsnorm_weight_path, embedding_width);
+
+    const auto q_values = read_raw_elements<float>(directory / "layer-21-q_rope.bin",
+        rows * query_heads * head_dimension);
+    const auto k_values = read_raw_elements<uint16_t>(directory / "layer-21-k_cache_f16.bin",
+        visible * kv_heads * head_dimension);
+    const auto score_values_legacy = read_raw_elements<float>(directory / "layer-21-attention_scores.bin",
+        rows * query_heads * visible);
+    const auto probability_values_legacy = read_raw_elements<float>(directory / "layer-21-attention_probabilities.bin",
+        rows * query_heads * visible);
+    const auto score_values = convert_legacy_matrix(score_values_legacy, rows, query_heads, visible);
+    const auto probability_values = convert_legacy_matrix(probability_values_legacy, rows, query_heads, visible);
+    const auto v_values = read_raw_elements<uint16_t>(directory / "layer-21-v_cache_f16.bin",
+        visible * kv_heads * head_dimension);
+    const auto av_candidate_values = read_raw_elements<float>(directory / "layer-21-attention_context.bin",
+        rows * query_heads * head_dimension);
+
+    const auto decoded_keys = decode_ggml_rows(GGML_TYPE_F16, k_values.data(),
+        k_values.size() * sizeof(uint16_t), visible * kv_heads, head_dimension);
+    const auto decoded_values = decode_ggml_rows(GGML_TYPE_F16, v_values.data(),
+        v_values.size() * sizeof(uint16_t), visible * kv_heads, head_dimension);
+    const TensorView query_view = contiguous_view(q_values.data(), {rows, query_heads, head_dimension});
+    const TensorView key_view = contiguous_view(decoded_keys.f32.data(), {visible, kv_heads, head_dimension});
+    const Tensor qk_reference = qk_scores(query_view, key_view, Accumulation::F64, ScalarType::F32);
+    const Tensor qk_candidate = make_f32_tensor(score_values, {rows, query_heads, visible});
+    auto qk_context = operator_capture_context("qk_matmul", "ggml-cuda-qk-cuBLAS", "Q=F32;K=F16",
+        {rows, query_heads, visible});
+    const auto qk_eval = evaluate_reference_comparison("vbuf.qk_matmul.fp64.operation_accuracy", 1,
+        qk_reference, qk_candidate, qk_context,
+        provenance("binary64-product-and-left-to-right-sum",
+            "Q=F32 post-RoPE;K=F16 captured cache decoded by pinned GGML trait",
+            "F32-rounded-once", {{"head_dimension", "128"}, {"query_heads", "40"},
+                {"kv_heads", "8"}, {"gqa_mapping", "floor(query_head/5)"},
+                {"physical_key_capacity", "32"}, {"dispatch_family", "cuBLAS (source-derived: query rows 32 exceed MMF 16-column limit)"},
+                {"attention_scale_applied", "false;applied by softmax"},
+                {"ggml_commit", "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d"}}));
+    require_diagnostic_only(qk_eval, "layer-21 QK");
+
+    std::vector<size_t> extents;
+    extents.reserve(rows * query_heads);
+    for (size_t row = 0; row < rows; ++row)
+        for (size_t head = 0; head < query_heads; ++head) extents.push_back(row + 1);
+    const Tensor softmax_reference = softmax(
+        contiguous_view(score_values.data(), {rows * query_heads, visible}),
+        1.0 / std::sqrt(static_cast<double>(head_dimension)), extents, nullptr, ScalarType::F32);
+    const Tensor softmax_candidate = make_f32_tensor(probability_values, {rows * query_heads, visible});
+    auto softmax_context = operator_capture_context("softmax", "ggml-cuda-softmax-f32", "F32",
+        {rows * query_heads, visible});
+    const auto softmax_invariants = probability_invariants(view(softmax_candidate), extents);
+    softmax_context.invariant_values.insert(softmax_invariants.begin(), softmax_invariants.end());
+    const auto softmax_eval = evaluate_reference_comparison("vbuf.softmax.fp64.operation_accuracy", 1,
+        softmax_reference, softmax_candidate, softmax_context,
+        provenance("binary64-exp-and-normalization", "captured F32 QK scores; causal prefix mask",
+            "F32-rounded-once", {{"axis", "last"}, {"scale", "1/sqrt(128)"},
+                {"logical_extents", "row+1 across 40 query heads"}, {"masked_output", "exact-zero"},
+                {"ggml_commit", "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d"}}));
+    require_diagnostic_only(softmax_eval, "layer-21 softmax");
+
+    const Tensor rmsnorm_reference = rms_norm(contiguous_view(input.data(), {rows, embedding_width}),
+        contiguous_view(rmsnorm_scale_values.data(), {embedding_width}), 1e-6, ScalarType::F32);
+    const Tensor rmsnorm_candidate = make_f32_tensor(rmsnorm_candidate_values, {rows, embedding_width});
+    auto rmsnorm_context = operator_capture_context("rmsnorm", "ggml-cuda-rmsnorm-f32-mul", "F32+F32",
+        {rows, embedding_width});
+    rmsnorm_context.invariant_values["epsilon_semantics_match"] = true;
+    const auto rmsnorm_eval = evaluate_reference_comparison("vbuf.rmsnorm.fp64.operation_accuracy", 1,
+        rmsnorm_reference, rmsnorm_candidate, rmsnorm_context,
+        provenance("binary64-sum-of-squares-and-normalization",
+            "captured F32 input; exact F32 blk.21.attn_norm.weight from source GGUF",
+            "F32-rounded-once", {{"normalized_dimension", "5120"}, {"epsilon", "1e-6"},
+                {"scale_tensor", "blk.21.attn_norm.weight:F32[5120]"},
+                {"scale_tensor_sha256", tensor_sha256}, {"source_gguf_sha256", gguf_sha256},
+                {"operator", "ggml_rms_norm then elementwise multiply"},
+                {"ggml_commit", "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d"}}));
+    require_diagnostic_only(rmsnorm_eval, "layer-21 RMSNorm");
+
+    std::vector<size_t> per_query_extents(rows, visible);
+    for (size_t row = 0; row < rows; ++row) per_query_extents[row] = row + 1;
+    const Tensor av_reference = attention_av(
+        contiguous_view(probability_values.data(), {rows, query_heads, visible}),
+        TensorView{decoded_values.f32.data(), ScalarType::F32,
+            {visible, kv_heads, head_dimension},
+            {static_cast<ptrdiff_t>(kv_heads * head_dimension * sizeof(float)),
+             static_cast<ptrdiff_t>(head_dimension * sizeof(float)), static_cast<ptrdiff_t>(sizeof(float))}},
+        per_query_extents, Accumulation::F64, ScalarType::F32);
+    const Tensor av_candidate = make_f32_tensor(av_candidate_values, {rows, query_heads, head_dimension});
+    auto av_context = operator_capture_context("attention_av", "ggml-cuda-canonical-packed-v-av", "F16",
+        {rows, query_heads, head_dimension});
+    const NumericalMetrics av_metrics = measure_tensor_pair(numeric_view(av_reference),
+        numeric_view(av_candidate), av_context);
+    std::cout << "{\"record_type\":\"diagnostic_scope_proposal_metrics\","
+        << "\"contract_proposal_id\":\"qwen3.attention_av.fp64_operation_accuracy\","
+        << "\"contract_status\":\"NEEDS_CALIBRATION\",\"evaluation_status\":\"NOT_TESTED\","
+        << "\"candidate_identity\":\"diagnostic-only:ggml-cuda-canonical-packed-v-av\","
+        << "\"reference_identity\":\"qwen3-av-boundary-fp64-oracle-v1\","
+        << "\"model_identity\":\"" << model_identity << "\",\"capacity\":32,\"rows\":32,"
+        << "\"layer\":21,\"phase\":\"prefill\",\"relative_rms_error\":"
+        << metric_number(av_metrics, Metric::RelativeRmsError) << ",\"max_absolute_error\":"
+        << metric_number(av_metrics, Metric::MaxAbsoluteError) << ",\"cosine_similarity\":"
+        << metric_number(av_metrics, Metric::CosineSimilarity) << ",\"production_authority\":false}\n";
 }
 
 } // namespace
 
 int main(int argc, char ** argv) {
     try {
-        require(argc == 2 || (argc == 6 && std::string(argv[2]) == "--q4k-qproj"),
-            "usage: vbuf_qwen3_reference_capture_qualification CAPTURE_DIRECTORY "
-            "[--q4k-qproj Q4K_WEIGHT_BYTES Q8K_ACTIVATION_BYTES CPU_OUTPUT_F32]");
+        if (argc == 6 && std::string(argv[1]) == "--operator-capture") {
+            const fs::path directory(argv[2]);
+            require(fs::exists(directory), "operator capture directory does not exist: " + directory.string());
+            qualify_operator_capture(directory, argv[3], argv[4], argv[5]);
+            std::cout << "vbuf_qwen3_reference_capture_qualification=PASS operator_capture="
+                << directory.string() << " revision=" << implementation_revision()
+                << " policy_version=" << project_policy_version() << " authorizing=false\n";
+            return 0;
+        }
+        const bool q4k_projection = argc >= 3 && std::string(argv[2]) == "--q4k-qproj";
+        require((!q4k_projection && (argc == 2 || argc == 3)) || (q4k_projection && argc == 6),
+            "usage: vbuf_qwen3_reference_capture_qualification CAPTURE_DIRECTORY [CAPACITY] "
+            "| CAPTURE_DIRECTORY --q4k-qproj Q4K_WEIGHT_BYTES Q8K_ACTIVATION_BYTES CPU_OUTPUT_F32 "
+            "| --operator-capture DIRECTORY RMSNORM_WEIGHT_F32 RMSNORM_WEIGHT_SHA256 SOURCE_GGUF_SHA256");
         const fs::path directory = fs::path(argv[1]);
         require(fs::exists(directory), "capture directory does not exist: " + directory.string());
-        qualify_capture(directory, "prefill");
-        qualify_capture(directory, "decode");
-        if (argc == 6)
+        const size_t capacity = !q4k_projection && argc == 3 ?
+            static_cast<size_t>(std::stoull(argv[2])) : 512;
+        qualify_capture(directory, capacity, "prefill");
+        qualify_capture(directory, capacity, "decode");
+        if (q4k_projection)
             qualify_q4k_projection(argv[3], argv[4], argv[5]);
         std::cout << "vbuf_qwen3_reference_capture_qualification=PASS source="
-                  << directory.string() << " revision=" << implementation_revision()
+                  << directory.string() << " capacity=" << capacity
+                  << " revision=" << implementation_revision()
                   << " policy_version=" << project_policy_version()
                   << " authorizing=false\n";
         return 0;

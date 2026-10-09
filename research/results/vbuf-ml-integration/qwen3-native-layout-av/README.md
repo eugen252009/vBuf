@@ -98,7 +98,12 @@ native AV indexing or softmax**:
   from the captured actual scores to relative RMS `1.26e-7` at capacity 1024
   and `1.39e-7` at 1032. The high-capacity score differences therefore arise
   before softmax. Against the independent FP64 QK oracle, score relative RMS was
-  `9.48e-5` at 1024 and `5.13e-4` at 1032.
+  `9.48e-5` at 1024 and `5.13e-4` at 1032. A follow-up operation-only CUDA
+  replay directly observed the pinned GGML dispatch branches on both SM 8.6
+  and SM 7.5, and reproduced every saved active QK score bitwise across
+  capacities 512/1024/1032 and prefill/decode. Detailed calibration and its
+  non-active contract proposals are in
+  [`qwen3-cuda-numerical-calibration.md`](../qwen3-cuda-numerical-calibration.md).
 - On identical captured AV inputs, native AV stayed within at most
   `1.02e-7` relative RMS of its FP64 AV oracle. Canonical packed-V matmul
   differed from that oracle by up to `3.251e-4`; canonical-versus-native AV

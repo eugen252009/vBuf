@@ -203,3 +203,17 @@ known native prefill/topology logits failures and passing controls against the
 current policy, and records actual-model AV metrics as `NOT_TESTED` under
 `NEEDS_CALIBRATION`. All records remain marked replay-only. This is regression
 classification, not a new model qualification claim.
+
+`qualification/qwen3_numerical_calibration.py` orchestrates provenance-checked
+Qwen3-14B CUDA capture replays. It verifies the saved Q/K inputs across the
+capacity sweeps, runs the independent C++ reference evaluator, replays the
+captured Q/K through MMVF/MMF/cuBLAS geometry on both CUDA devices, records the
+selected GGML dispatch branch using temporary instrumentation in the generated
+build copy, and restores that copy before exit. Layer-21 QK, causal softmax,
+RMSNorm, and canonical AV captures are evaluated where inputs are available.
+Raw inputs remain at their existing paths; the run manifest records their
+SHA-256 values and the small generated QK output fixtures. The policy stays at
+version 2 and every observation remains non-authorizing. See
+[`qwen3-cuda-numerical-calibration.md`](../../../../research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration.md)
+and its separate, inactive
+[`contract proposal`](../../../../research/results/vbuf-ml-integration/qwen3-cuda-numerical-calibration/contracts-proposal-v1.json).

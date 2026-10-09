@@ -1,0 +1,482 @@
+{
+  "schema_version": 1,
+  "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+  "source_gguf_sha256": "915913e22399475dbe6c968ac014d9f1fbe08975e489279aede9d5c7b2c98eb6",
+  "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+  "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+  "policy_id": "vbuf.numerical-contracts",
+  "policy_version": 2,
+  "high_precision_reference_revision": "vbuf-high-precision-reference-cpp-v1",
+  "build_configuration": {
+    "directory": "/tmp/vbuf-qwen-native-matrix-build",
+    "cuda": "ON",
+    "unvalidated_qualification_trials": "OFF",
+    "ggml_commit": "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d",
+    "cmake_cache_sha256": "f146b85f209f0eb6648f7319180ab2ee4fdc6d48f109059608c0bb83b6a9dc8e"
+  },
+  "external_ggml_worktree_status": " M src/ggml-cuda/ggml-cuda.cu\n",
+  "external_ggml_cuda_source_sha256": "f83aa82997808deb6cf790a6dff6da8dcaaf7b78f21a6154c8773b6c88864819",
+  "external_ggml_existing_diff_sha256": "5106d215b54ed9c69f9d9c9ef788b6f53856cfa8cff13491b3da9f57e9f634cb",
+  "external_ggml_existing_diff": "diff --git a/src/ggml-cuda/ggml-cuda.cu b/src/ggml-cuda/ggml-cuda.cu\nindex 598f3228..725cd0e3 100644\n--- a/src/ggml-cuda/ggml-cuda.cu\n+++ b/src/ggml-cuda/ggml-cuda.cu\n@@ -1812,6 +1812,24 @@ static bool ggml_cuda_should_fuse_mul_mat_vec_q(const ggml_tensor * tensor) {\n static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor * src0, const ggml_tensor * src1, ggml_tensor * dst) {\n     GGML_TENSOR_BINARY_OP_LOCALS\n \n+    const bool trace_qwen_score = std::getenv(\"VBUF_QWEN_TRACE_CUDA_DISPATCH\") != nullptr &&\n+        src0->type == GGML_TYPE_F16 && src0->ne[0] == 128 && src0->ne[2] == 8 &&\n+        src1->type == GGML_TYPE_F32 && src1->ne[0] == 128 &&\n+        (src1->ne[1] == 16 || src1->ne[1] == 32) && src1->ne[2] == 40 &&\n+        dst->ne[0] == 40 && dst->ne[2] == 40;\n+    auto trace_qwen_route = [&](const char * route) {\n+        if (trace_qwen_score) {\n+            std::fprintf(stderr, \"QWEN_CUDA_MATMUL_DISPATCH name=%s route=%s cc=%d \"\n+                \"src0=%s[%lld,%lld,%lld] src1=%s[%lld,%lld,%lld] dst=%s[%lld,%lld,%lld]\\n\",\n+                ggml_get_name(dst), route, ggml_cuda_info().devices[ctx.device].cc,\n+                ggml_type_name(src0->type), static_cast<long long>(src0->ne[0]),\n+                static_cast<long long>(src0->ne[1]), static_cast<long long>(src0->ne[2]),\n+                ggml_type_name(src1->type), static_cast<long long>(src1->ne[0]),\n+                static_cast<long long>(src1->ne[1]), static_cast<long long>(src1->ne[2]),\n+                ggml_type_name(dst->type), static_cast<long long>(dst->ne[0]),\n+                static_cast<long long>(dst->ne[1]), static_cast<long long>(dst->ne[2]));\n+        }\n+    };\n     const int32_t hint = ggml_get_op_params_i32(dst, 1);\n     if (hint == GGML_HINT_SRC0_IS_HADAMARD && ggml_cuda_op_fwht(ctx, src1, dst)) {\n         return;\n@@ -1823,6 +1841,7 @@ static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor\n     const bool bad_padding_clear = ggml_backend_buffer_get_usage(src0->buffer) == GGML_BACKEND_BUFFER_USAGE_COMPUTE\n         && ggml_nbytes(src0) != ggml_backend_buffer_get_alloc_size(src0->buffer, src0) && src0->view_src;\n     if (bad_padding_clear || src1->type != GGML_TYPE_F32 || dst->type != GGML_TYPE_F32) {\n+        trace_qwen_route(\"CUBLAS_PRECHECK_FALLBACK\");\n         ggml_cuda_mul_mat_cublas(ctx, src0, src1, dst);\n         return;\n     }\n@@ -1831,6 +1850,7 @@ static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor\n     const int warp_size = ggml_cuda_info().devices[ctx.device].warp_size;\n \n     if (ggml_cuda_should_use_mmvf(src0->type, cc, src0->ne, src0->nb, ne11)) {\n+        trace_qwen_route(\"MMVF\");\n         // The custom F16 vector kernel can be used over batched cuBLAS GEMM.\n         // But this is only faster for GPUs without tensor cores or with a thin src0 matrix (particularly KQV in attention)\n         ggml_cuda_mul_mat_vec_f(ctx, src0, src1, nullptr, dst);\n@@ -1851,17 +1871,21 @@ static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor\n         return;\n     }\n     if (ggml_cuda_should_use_mmf(src0->type, cc, warp_size, src0->ne, src0->nb, ne11, /*mul_mat_id =*/ false)) {\n+        trace_qwen_route(\"MMF\");\n         ggml_cuda_mul_mat_f(ctx, src0, src1, nullptr, dst);\n         return;\n     }\n     if (ggml_cuda_should_use_mmvq(src0->type, cc, ne11)) {\n+        trace_qwen_route(\"MMVQ\");\n         ggml_cuda_mul_mat_vec_q(ctx, src0, src1, nullptr, dst);\n         return;\n     }\n     if (ggml_cuda_should_use_mmq(src0->type, cc, ne11, /*n_experts =*/ 0)) {\n+        trace_qwen_route(\"MMQ\");\n         ggml_cuda_mul_mat_q(ctx, src0, src1, nullptr, dst);\n         return;\n     }\n+    trace_qwen_route(\"CUBLAS_FINAL\");\n     ggml_cuda_mul_mat_cublas(ctx, src0, src1, dst);\n }\n \n",
+  "source_logs": {
+    "primary": {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/capacity-sweep.log",
+      "sha256": "8ba3fd50950ba5b80fa14c2fcf7c56cbf1c6f6f2ca46ab5558b6eb78b923035c"
+    },
+    "repeat": {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/capacity-sweep.log",
+      "sha256": "2390c538713028eded2bea826bd4cc25ef317246d2fd8a8a9c9f833619b73047"
+    }
+  },
+  "captures": {
+    "primary": {
+      "256": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-prefill-layer-00.meta",
+          "meta_sha256": "771a6f65328b9e644a6e7bdc5573963dfbd1a59c09698dbb394e7ccd08d2007c",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 256,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-decode-layer-00.meta",
+          "meta_sha256": "b4ebac0af48bbc697ee64e98e1c41b885ead5b6882295bdcea2388a31220c0a9",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-decode-layer-00.bin",
+          "binary_sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2",
+          "capacity": 256,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254"
+        }
+      },
+      "512": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-prefill-layer-00.meta",
+          "meta_sha256": "32eb3514280a95d5249aac3098a0e32de44ef75fbcd41513a8d0c3726f5eae2c",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 512,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-decode-layer-00.meta",
+          "meta_sha256": "af7bca5952802a325d7331bb2fd872959ba0fbbfccbcdf3e9cf300cbb5bedff8",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-decode-layer-00.bin",
+          "binary_sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2",
+          "capacity": 512,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254"
+        }
+      },
+      "1024": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-prefill-layer-00.meta",
+          "meta_sha256": "8544502614b01fa99f953138ee6bae5338e131380437833d149408f9d815a59f",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 1024,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-decode-layer-00.meta",
+          "meta_sha256": "8c8cff29b4627cfb0e5d7db3b0e95a542682e7933b3ef860576e284d44d68620",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-decode-layer-00.bin",
+          "binary_sha256": "92d4f41edda51ee77924991f7ad3bf4b9cf821a38c67879e1d81fb1c8cada771",
+          "capacity": 1024,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de"
+        }
+      },
+      "1032": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-prefill-layer-00.meta",
+          "meta_sha256": "dff13f87a128dd97cc1e6720541e07c01a68596888a817bc8f09b08d54fe8c27",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 1032,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-decode-layer-00.meta",
+          "meta_sha256": "df464d0944218ea65e5f22d34c0a2b3fadd34636b3967a71cc5edd48ddbdd693",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-decode-layer-00.bin",
+          "binary_sha256": "7b476f28cd5fd1ab78abae8dc98132dbd35c61b4e06e383d4285d66edbf7aedd",
+          "capacity": 1032,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5"
+        }
+      }
+    },
+    "repeat": {
+      "256": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-prefill-layer-00.meta",
+          "meta_sha256": "771a6f65328b9e644a6e7bdc5573963dfbd1a59c09698dbb394e7ccd08d2007c",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 256,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-decode-layer-00.meta",
+          "meta_sha256": "b4ebac0af48bbc697ee64e98e1c41b885ead5b6882295bdcea2388a31220c0a9",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-decode-layer-00.bin",
+          "binary_sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2",
+          "capacity": 256,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254"
+        }
+      },
+      "512": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-prefill-layer-00.meta",
+          "meta_sha256": "32eb3514280a95d5249aac3098a0e32de44ef75fbcd41513a8d0c3726f5eae2c",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 512,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-decode-layer-00.meta",
+          "meta_sha256": "af7bca5952802a325d7331bb2fd872959ba0fbbfccbcdf3e9cf300cbb5bedff8",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-decode-layer-00.bin",
+          "binary_sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2",
+          "capacity": 512,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a5dedac1066610a02cc8848480aa6ed75b011a79661eca879dcf15c3716e0254"
+        }
+      },
+      "1024": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-prefill-layer-00.meta",
+          "meta_sha256": "8544502614b01fa99f953138ee6bae5338e131380437833d149408f9d815a59f",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 1024,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-decode-layer-00.meta",
+          "meta_sha256": "8c8cff29b4627cfb0e5d7db3b0e95a542682e7933b3ef860576e284d44d68620",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-decode-layer-00.bin",
+          "binary_sha256": "92d4f41edda51ee77924991f7ad3bf4b9cf821a38c67879e1d81fb1c8cada771",
+          "capacity": 1024,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "a00f82f42a14c2dab75962f9f89b76dee7391c9d41dea3448a01408f84c273de"
+        }
+      },
+      "1032": {
+        "prefill": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-prefill-layer-00.meta",
+          "meta_sha256": "dff13f87a128dd97cc1e6720541e07c01a68596888a817bc8f09b08d54fe8c27",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-prefill-layer-00.bin",
+          "binary_sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263",
+          "capacity": 1032,
+          "phase": "prefill",
+          "rows": 32,
+          "visible_context": 32,
+          "key_input_sha256": "239c16e0bf1bc23d5356f5e5cd66778882f7ef442cdcdb0b38c33db63f5b7f9a",
+          "query_input_sha256": "b05a810568061d14c6d1a6e6b70e45765b1df2d646efdf60b753f247bd42fd63",
+          "saved_cuda_qk_sha256": "5e75a5134e3224a369e031f4a824b292b499d8d2ccb59bb4e05142119eede3e8"
+        },
+        "decode": {
+          "meta_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-decode-layer-00.meta",
+          "meta_sha256": "df464d0944218ea65e5f22d34c0a2b3fadd34636b3967a71cc5edd48ddbdd693",
+          "binary_path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-decode-layer-00.bin",
+          "binary_sha256": "7b476f28cd5fd1ab78abae8dc98132dbd35c61b4e06e383d4285d66edbf7aedd",
+          "capacity": 1032,
+          "phase": "decode",
+          "rows": 1,
+          "visible_context": 33,
+          "key_input_sha256": "dd1f4f171243a7c9c076a2f82de74edcd5d82542fe7e1d8ee35a3edc344fd87f",
+          "query_input_sha256": "944fe3b75168f4c2d0e464f5b91ea1f7ab7a29a212e7d64c93327afd8b5a4c95",
+          "saved_cuda_qk_sha256": "fe8a307926acc5a9950c94c2136722205406671dd39e41ebae1a996721f1c5e5"
+        }
+      }
+    }
+  },
+  "operator_capture": {
+    "directory": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/cuda-transfer-audit/resident-canonical-prefix32-layer21-position24-v3/operator-capture",
+    "metadata_sha256": "66e806aadb0dac46e5835e6778897ed1825adc6a9934c47c326fbc90e8425172",
+    "run_log_sha256": "9615b1637e14e84cd9b3e94d344a3d1aee541fee4c1366b61f1c615f4d2276a0",
+    "build_cache_sha256": "0515ed27b376755a6b4af7233cf0ca3d337f12f0b120610092948dcb53f1d7b6"
+  },
+  "inputs": [
+    {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/ggml/src/ggml-cuda/ggml-cuda.cu",
+      "size_bytes": 229000,
+      "sha256": "f83aa82997808deb6cf790a6dff6da8dcaaf7b78f21a6154c8773b6c88864819"
+    },
+    {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-14b-full/Qwen_Qwen3-14B-Q4_K_M.gguf",
+      "size_bytes": 9001753632,
+      "sha256": "915913e22399475dbe6c968ac014d9f1fbe08975e489279aede9d5c7b2c98eb6"
+    },
+    {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/build-residency/CMakeCache.txt",
+      "size_bytes": 47836,
+      "sha256": "0515ed27b376755a6b4af7233cf0ca3d337f12f0b120610092948dcb53f1d7b6"
+    },
+    {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/cuda-transfer-audit/resident-canonical-prefix32-layer21-position24-v3/operator-capture/resident-capture.meta",
+      "size_bytes": 1436,
+      "sha256": "66e806aadb0dac46e5835e6778897ed1825adc6a9934c47c326fbc90e8425172"
+    },
+    {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-cuda-q4k/cuda-transfer-audit/resident-canonical-prefix32-layer21-position24-v3/run.log",
+      "size_bytes": 70268,
+      "sha256": "9615b1637e14e84cd9b3e94d344a3d1aee541fee4c1366b61f1c615f4d2276a0"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/integrations/ggml/qualification/qwen3_numerical_calibration.py",
+      "size_bytes": 30906,
+      "sha256": "987904a88152ee4e6ea0728ae988f9282a52433fb1aa2caf5383204f83d0e53b"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "92d4f41edda51ee77924991f7ad3bf4b9cf821a38c67879e1d81fb1c8cada771"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-decode-layer-00.meta",
+      "size_bytes": 517,
+      "sha256": "8c8cff29b4627cfb0e5d7db3b0e95a542682e7933b3ef860576e284d44d68620"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1024-prefill-layer-00.meta",
+      "size_bytes": 526,
+      "sha256": "8544502614b01fa99f953138ee6bae5338e131380437833d149408f9d815a59f"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "7b476f28cd5fd1ab78abae8dc98132dbd35c61b4e06e383d4285d66edbf7aedd"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-decode-layer-00.meta",
+      "size_bytes": 517,
+      "sha256": "df464d0944218ea65e5f22d34c0a2b3fadd34636b3967a71cc5edd48ddbdd693"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-1032-prefill-layer-00.meta",
+      "size_bytes": 526,
+      "sha256": "dff13f87a128dd97cc1e6720541e07c01a68596888a817bc8f09b08d54fe8c27"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-decode-layer-00.meta",
+      "size_bytes": 515,
+      "sha256": "b4ebac0af48bbc697ee64e98e1c41b885ead5b6882295bdcea2388a31220c0a9"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-256-prefill-layer-00.meta",
+      "size_bytes": 523,
+      "sha256": "771a6f65328b9e644a6e7bdc5573963dfbd1a59c09698dbb394e7ccd08d2007c"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-decode-layer-00.meta",
+      "size_bytes": 515,
+      "sha256": "af7bca5952802a325d7331bb2fd872959ba0fbbfccbcdf3e9cf300cbb5bedff8"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/boundary-capacity-512-prefill-layer-00.meta",
+      "size_bytes": 523,
+      "sha256": "32eb3514280a95d5249aac3098a0e32de44ef75fbcd41513a8d0c3726f5eae2c"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk/capacity-sweep.log",
+      "size_bytes": 145202,
+      "sha256": "8ba3fd50950ba5b80fa14c2fcf7c56cbf1c6f6f2ca46ab5558b6eb78b923035c"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "92d4f41edda51ee77924991f7ad3bf4b9cf821a38c67879e1d81fb1c8cada771"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-decode-layer-00.meta",
+      "size_bytes": 517,
+      "sha256": "8c8cff29b4627cfb0e5d7db3b0e95a542682e7933b3ef860576e284d44d68620"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1024-prefill-layer-00.meta",
+      "size_bytes": 526,
+      "sha256": "8544502614b01fa99f953138ee6bae5338e131380437833d149408f9d815a59f"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "7b476f28cd5fd1ab78abae8dc98132dbd35c61b4e06e383d4285d66edbf7aedd"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-decode-layer-00.meta",
+      "size_bytes": 517,
+      "sha256": "df464d0944218ea65e5f22d34c0a2b3fadd34636b3967a71cc5edd48ddbdd693"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-1032-prefill-layer-00.meta",
+      "size_bytes": 526,
+      "sha256": "dff13f87a128dd97cc1e6720541e07c01a68596888a817bc8f09b08d54fe8c27"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-decode-layer-00.meta",
+      "size_bytes": 515,
+      "sha256": "b4ebac0af48bbc697ee64e98e1c41b885ead5b6882295bdcea2388a31220c0a9"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-256-prefill-layer-00.meta",
+      "size_bytes": 523,
+      "sha256": "771a6f65328b9e644a6e7bdc5573963dfbd1a59c09698dbb394e7ccd08d2007c"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-decode-layer-00.bin",
+      "size_bytes": 243492,
+      "sha256": "13dbe659c5f437a31439d6cd33f97c35f7d4961d0d59b45df15ded69bc9e0ca2"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-decode-layer-00.meta",
+      "size_bytes": 515,
+      "sha256": "af7bca5952802a325d7331bb2fd872959ba0fbbfccbcdf3e9cf300cbb5bedff8"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-prefill-layer-00.bin",
+      "size_bytes": 3571840,
+      "sha256": "b53f5999707d8dd8532fa6af41a09f8aa01e605cdddb75058cb956078dc96263"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/boundary-capacity-512-prefill-layer-00.meta",
+      "size_bytes": 523,
+      "sha256": "32eb3514280a95d5249aac3098a0e32de44ef75fbcd41513a8d0c3726f5eae2c"
+    },
+    {
+      "path": "/home/eugen/projekte/vBuf/research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk-repeat/capacity-sweep.log",
+      "size_bytes": 145341,
+      "sha256": "2390c538713028eded2bea826bd4cc25ef317246d2fd8a8a9c9f833619b73047"
+    },
+    {
+      "path": "/tmp/vbuf-qwen-native-matrix-build/CMakeCache.txt",
+      "size_bytes": 47811,
+      "sha256": "f146b85f209f0eb6648f7319180ab2ee4fdc6d48f109059608c0bb83b6a9dc8e"
+    },
+    {
+      "path": "/tmp/vbuf-qwen-native-matrix-build/vbuf-patched-ggml/src/ggml-cuda/ggml-cuda.cu",
+      "size_bytes": 228242,
+      "sha256": "a6d0d78fba968e05e5a66b92e98d6296aad09aaa337730011bf5b657666a3c3d"
+    }
+  ],
+  "capture_replays": [],
+  "cuda_qk_replays": [],
+  "calibration_authority": "diagnostic-only; no contract thresholds or admission scope activated"
+}

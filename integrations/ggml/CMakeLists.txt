@@ -258,6 +258,15 @@ if(VBUF_BUILD_PROBES)
         qualification/qwen3_reference_capture_qualification.cpp)
     target_compile_features(vbuf_qwen3_reference_capture_qualification PRIVATE cxx_std_17)
     target_link_libraries(vbuf_qwen3_reference_capture_qualification PRIVATE vbuf_high_precision_reference)
+    if(VBUF_ENABLE_CUDA)
+        add_executable(vbuf_qwen3_cuda_qk_calibration
+            qualification/qwen3_cuda_qk_calibration.cpp)
+        target_compile_features(vbuf_qwen3_cuda_qk_calibration PRIVATE cxx_std_17)
+        target_include_directories(vbuf_qwen3_cuda_qk_calibration PRIVATE
+            "${GGML_SOURCE_DIR}/src/ggml-cuda")
+        target_link_libraries(vbuf_qwen3_cuda_qk_calibration PRIVATE
+            vbuf_high_precision_reference ggml ggml-cuda CUDA::cudart)
+    endif()
 
     add_executable(vbuf_numerical_contract_evidence_replay tests/vbuf_numerical_contract_evidence_replay.cpp)
     target_compile_features(vbuf_numerical_contract_evidence_replay PRIVATE cxx_std_17)
