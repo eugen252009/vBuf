@@ -1,0 +1,12 @@
+{
+  "schema": "qwen3-vbuf-matched-chat-template-v1",
+  "gguf_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+  "original_template_sha256": "57f1fd00f0013a2be96aa79b857391f27e23df5b5f847072b524c897e24d0361",
+  "matched_template_sha256": "fe03df53dcd2ac3c3bf561723259d8a1be4d899c90373caa01a7285acfb1afa4",
+  "changes": [
+    "Escape apostrophes in serialized tool schemas as \\u0027, matching serialize_qwen_template_json.",
+    "Omit llama.cpp's empty <think>...</think> generation suffix, matching the vBuf native renderer's assistant prefix."
+  ],
+  "source_template_chars": 4100,
+  "matched_template_chars": 3998
+}

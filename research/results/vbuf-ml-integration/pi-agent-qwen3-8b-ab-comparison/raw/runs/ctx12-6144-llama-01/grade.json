@@ -1,0 +1,45 @@
+{
+  "run_id": "ctx12-6144-llama-01",
+  "backend": "llama",
+  "independent_grade": "agent failure; not a coding-agent success",
+  "agent_exit_code": 0,
+  "protocol_outcome": "The agent read the task, wrote snake.c and Makefile, then ran bash/build attempts. Strict compilation failed repeatedly. Although maxTokens was configured as 6144, Pi dynamically reduced later request caps as conversation history grew (down through 830, 475, 23, and 1 token); repair write calls ended with finish_reason length and were not executed. The agent ended with stop reason length and no successful test run.",
+  "observed_request_completion_caps": [6144, 6144, 4400, 4257, 4227, 4077, 3645, 830, 475, 23, 1],
+  "generated_artifacts": [
+    "snake.c (9309 bytes; SHA-256 c73eb257f673b4c463ef876ca8c6fc0fb7569fb47c4e272dffe62ecd1348de13)",
+    "Makefile (420 bytes; SHA-256 901aa46faf9a8de246d21296061138a6920aa9370973574c4d9159ead023a26d)",
+    "README.md (unchanged task fixture; SHA-256 5387f04d5b3260b81e6afa09b10045b99f50a33ea81039a665120a8f6107459a)"
+  ],
+  "strict_build": {
+    "result": "FAIL",
+    "independent_make_test_exit_code": 2,
+    "errors": [
+      "implicit declaration/conflicting type for placeFood",
+      "implicit declaration of isOccupied",
+      "implicit declaration of usleep under the requested strict C11 build"
+    ],
+    "evidence": "independent-make-test.log"
+  },
+  "tests": "not run by the independent grader because compilation failed; agent bash attempts also failed",
+  "static_contract_audit": {
+    "main_definitions": 1,
+    "assert_calls": 0,
+    "README_play_instructions_written": false,
+    "notes": [
+      "The self-test uses printf conditionals instead of assertions and can report success without failing the process.",
+      "The growth branch increments bodyLength but does not update the body with the new head.",
+      "The self-collision test inherits gameOver from the preceding wall test, so it does not establish self-collision behavior.",
+      "The input loop reads individual characters rather than one line-level WASD move per Enter.",
+      "Food placement's same-seed and no-overlap requirements are not established by its global rand/static-counter implementation."
+    ]
+  },
+  "overall_success": false,
+  "prompt_evidence": {
+    "actual_vbuf_and_llama_first_request_messages_and_tools_equal": true,
+    "canonical_messages_tools_sha256": "a740be9a2e709d8131835259dd963ad4ada1efffb6a287e8a6e8890ac3fe6c09",
+    "max_completion_tokens": 6144,
+    "matched_template_probe_token_count": 673,
+    "matched_template_probe_token_ids_sha256": "24a4e6ecf08db8423782b0361aea6ae57eb4b6dc85a8e53125d1035559cdf05a"
+  },
+  "evidence": ["manifest.json", "result.json", "http.jsonl.gz", "server.jsonl.gz", "agent.jsonl.gz", "generated-project/", "independent-make-test.log"]
+}

@@ -1,0 +1,14 @@
+{
+  "schema": "vbuf-pi-qwen3-8b-ab-order-v1",
+  "shuffle_seed": 20261009,
+  "order": [
+    {"index": 1, "backend": "vbuf", "run_id": "ab-vbuf-01"},
+    {"index": 2, "backend": "llama", "run_id": "ab-llama-01"},
+    {"index": 3, "backend": "vbuf", "run_id": "ab-vbuf-02"},
+    {"index": 4, "backend": "llama", "run_id": "ab-llama-02"},
+    {"index": 5, "backend": "vbuf", "run_id": "ab-vbuf-03"},
+    {"index": 6, "backend": "llama", "run_id": "ab-llama-03"}
+  ],
+  "independent_trials_per_backend": 3,
+  "sampling": "greedy; independent server and Pi process per run; no Pi session reuse"
+}

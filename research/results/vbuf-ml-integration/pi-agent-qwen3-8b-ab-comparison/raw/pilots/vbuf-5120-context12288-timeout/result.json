@@ -1,0 +1,20 @@
+{
+  "run_id": "ctx12-5k-vbuf-01",
+  "classification": "5120-token timeout pilot; not scored in the final balanced comparison",
+  "backend": "vbuf",
+  "bwrap_exit_code": -9,
+  "outer_cap_reason": "outer wall limit 1200s exceeded",
+  "supervisor_trial_end": null,
+  "generated_project_files": [
+    {
+      "path": "README.md",
+      "size": 947,
+      "sha256": "5387f04d5b3260b81e6afa09b10045b99f50a33ea81039a665120a8f6107459a"
+    }
+  ],
+  "nvidia_after": {
+    "gpu_query": "0, GPU-888379f7-ab38-cd4e-7220-0f3ff2de5fca, NVIDIA GeForce RTX 3060, 8793, 12288, 100\n1, GPU-9d8f11c5-7b23-4b91-9f41-9c1841bd4a0f, NVIDIA GeForce RTX 2080 SUPER, 376, 8192, 13",
+    "compute_apps": "GPU-9d8f11c5-7b23-4b91-9f41-9c1841bd4a0f, 25494, /home/eugen/.local/share/Steam/ubuntu12_64/steamwebhelper, 8"
+  },
+  "finished_at_utc": "2026-10-09T22:45:03.871833+00:00"
+}

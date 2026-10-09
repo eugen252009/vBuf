@@ -1,0 +1,19 @@
+{
+  "schema": "qwen3-pi-ab-prompt-equivalence-v1",
+  "status": "PASS",
+  "vbuf_reference": "excluded exploratory vbuf-04 first Pi request; generation outcome is not scored",
+  "llama_probe": "matched-template-probe; apply-template plus tokenize only; no Pi/model generation",
+  "request_sha256": "231024a4ac4446c8977a8b74d062fe7343c75ccdd1b3f29a027cd207f69e2c37",
+  "template_sha256": "fe03df53dcd2ac3c3bf561723259d8a1be4d899c90373caa01a7285acfb1afa4",
+  "source_template_sha256": "57f1fd00f0013a2be96aa79b857391f27e23df5b5f847072b524c897e24d0361",
+  "rendered_prompt_utf8_bytes": 2881,
+  "rendered_prompt_sha256": "2f65d6dfb41afd31c0252397a0d943875beab1084867ad6774e0d8ee2ed8a955",
+  "vbuf_prompt_token_count": 673,
+  "llama_prompt_token_count": 673,
+  "llama_prompt_token_ids_sha256": "24a4e6ecf08db8423782b0361aea6ae57eb4b6dc85a8e53125d1035559cdf05a",
+  "token_ids_identical": true,
+  "first_mismatch_index": null,
+  "task_user_message_sha256": "6f688dc9756f0803de80b6c70183a12dd522ff9f8a8e667b1cc6f7aa29b03418",
+  "task_system_prompt_sha256": "cd58a300e5b41d0f6ff219078517ab7293533420872a8f68f26aa724a746b0ca",
+  "qualification_boundary": "This establishes identical first-turn token IDs for the captured Pi request, not agent success or backend numerical parity."
+}

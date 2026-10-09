@@ -1,0 +1,24 @@
+{
+  "schema": "vbuf-pi-qwen3-8b-ab-order-v6",
+  "shuffle_seed": 20261009,
+  "supersedes": "run-order-v5-4096-context12288.json",
+  "schedule_change_reason": "A 4096-token request at 12288 context repeatedly ended as an unterminated tool_call after about 285s; 5120- and 6144-token requests exceeded Pi's default 300s timeout. Keep 6144 tokens and 12288 context, set the documented Pi provider timeout to 600s, and disable automatic retries so each deterministic request is attempted once. This preserves the larger source-writing budget while bounding per-trial cost. Task, prompts, sampling, context, and alternating backend order remain fixed.",
+  "completion_budget": {
+    "configured_max_tokens": 6144,
+    "context_window": 12288,
+    "request_timeout_seconds": 600,
+    "automatic_retries": false,
+    "provider_retries": 0,
+    "note": "Pi clamps max completion tokens to contextWindow minus estimated input tokens and a 4096-token safety reserve; at this context the captured initial request should retain the configured cap."
+  },
+  "order": [
+    {"index": 1, "backend": "vbuf", "run_id": "ctx12-6144-vbuf-01"},
+    {"index": 2, "backend": "llama", "run_id": "ctx12-6144-llama-01"},
+    {"index": 3, "backend": "vbuf", "run_id": "ctx12-6144-vbuf-02"},
+    {"index": 4, "backend": "llama", "run_id": "ctx12-6144-llama-02"},
+    {"index": 5, "backend": "vbuf", "run_id": "ctx12-6144-vbuf-03"},
+    {"index": 6, "backend": "llama", "run_id": "ctx12-6144-llama-03"}
+  ],
+  "independent_trials_per_backend": 3,
+  "sampling": "greedy; independent server and Pi process per run; no Pi session reuse"
+}

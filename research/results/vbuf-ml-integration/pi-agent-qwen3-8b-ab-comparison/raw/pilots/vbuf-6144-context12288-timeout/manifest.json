@@ -1,0 +1,124 @@
+{
+  "schema": "vbuf-pi-qwen3-8b-ab-trial-v1",
+  "trial_mode": "timeout_budget_pilot_not_scored",
+  "run_id": "ctx12-vbuf-01",
+  "classification": "6144-token request at 12288 context exceeded Pi OpenAI timeout of 300s on three auto-retries; no source generated; excluded before the balanced schedule",
+  "backend": "vbuf",
+  "started_at_utc": "2026-10-09T22:02:00.420705+00:00",
+  "cwd_inside_sandbox": "/mnt/workspace",
+  "workspace_host_path": "/var/tmp/vbuf-pi-qwen3-ab-workspaces/pilot-vbuf-6144-context12288/workspace",
+  "task_fixture": "benchmark-task-v1",
+  "task_readme_sha256": "5387f04d5b3260b81e6afa09b10045b99f50a33ea81039a665120a8f6107459a",
+  "pi_user_message_sha256": "6f688dc9756f0803de80b6c70183a12dd522ff9f8a8e667b1cc6f7aa29b03418",
+  "system_prompt_sha256": "cd58a300e5b41d0f6ff219078517ab7293533420872a8f68f26aa724a746b0ca",
+  "artifacts": {
+    "gguf": {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-8b/Qwen3-8B-Q4_K_M.gguf",
+      "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+      "verified_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785"
+    },
+    "vbuf": {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-8b/Qwen3-8B-Q4_K_M.vbuf",
+      "sha256": "cc85fa7afd90808484485de0e0a09e88ff5b98b58d1fb69c7083f64916417cb5",
+      "verified_sha256": "cc85fa7afd90808484485de0e0a09e88ff5b98b58d1fb69c7083f64916417cb5"
+    },
+    "semantic": {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-8b/Qwen3-8B-Q4_K_M.semantic.vbuf",
+      "sha256": "99f2892dbe58d427605457729a6edcfa037d67f8ec1ff7f325953345b5d11212",
+      "verified_sha256": "99f2892dbe58d427605457729a6edcfa037d67f8ec1ff7f325953345b5d11212"
+    }
+  },
+  "limits": {
+    "wall_seconds": 1200,
+    "backend_startup_seconds": 180,
+    "tool_seconds": 120,
+    "tool_calls": 32,
+    "turns": 32,
+    "max_total_generation_tokens": 196608,
+    "agent_shell_virtual_memory_bytes": 4294967296,
+    "agent_shell_cpu_seconds": 120,
+    "workspace_max_bytes": 536870912,
+    "workspace_max_files": 256,
+    "tmpfs_max_bytes": {
+      "tmp": 1073741824,
+      "home": 16777216,
+      "var_tmp": 16777216,
+      "mnt": 16777216
+    },
+    "http_exchanges": 40,
+    "max_tokens_per_request": 6144
+  },
+  "sandbox": {
+    "mechanism": "bubblewrap user,pid,network namespaces; read-only root; workspace-only writable bind; only GPU0 device nodes",
+    "network": "unshared network namespace; Pi, proxy, backend, and range source use loopback inside the namespace",
+    "host_root_read_only": true,
+    "workspace_writable": true,
+    "model_artifacts_read_only": true,
+    "external_repositories_hidden": true,
+    "gpu_visible_to_backend": "CUDA_VISIBLE_DEVICES=0; RTX 3060 only",
+    "gpu_visible_to_agent_shell": "CUDA_VISIBLE_DEVICES empty"
+  },
+  "versions": {
+    "pi": "1.1.0",
+    "node": "v24.16.0",
+    "bwrap": "bubblewrap 0.12.0",
+    "llama_server": "version: 0.1.0-dev (build 10418, commit a97123e49)\nbuilt with GNU 14.2.0 for Linux x86_64",
+    "vbuf_server_sha256": "809a016806295886e285b8321c3ed6f77d47bcfd4b82ae078b6b7ee0b2a08d7c",
+    "llama_server_sha256": "fbad4b4cca30b14829ae4e06e64f68402ca79f3387715290a1f2f0926eb070cf",
+    "vbuf_ml_library_sha256": "d7db63299b6718b714d4fdf2170b2d5be01618874ace5eb717ad16ebeb6e0b00",
+    "node_sha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+    "vbuf_git_commit": "f9300144e2349ff2eeb37b2fb8f0edfb179489c3",
+    "llama_cpp_git_commit": "a97123e497968f3440264c0464a7adc7c999c027"
+  },
+  "nvidia_before": {
+    "gpu_query": "0, GPU-888379f7-ab38-cd4e-7220-0f3ff2de5fca, NVIDIA GeForce RTX 3060, 57, 12288, 0\n1, GPU-9d8f11c5-7b23-4b91-9f41-9c1841bd4a0f, NVIDIA GeForce RTX 2080 SUPER, 332, 8192, 14",
+    "compute_apps": "GPU-9d8f11c5-7b23-4b91-9f41-9c1841bd4a0f, 25494, /home/eugen/.local/share/Steam/ubuntu12_64/steamwebhelper, 8"
+  },
+  "llama_prompt_normalization": {
+    "mode": "Qwen3 GGUF template derived with the recorded generator; apostrophe escaping and empty thinking suffix normalized to match vBuf renderer",
+    "template_sha256": "fe03df53dcd2ac3c3bf561723259d8a1be4d899c90373caa01a7285acfb1afa4",
+    "template_metadata_sha256": "a47919cb96e55e70bff5d9c04fcc99bd2fc5a8972b6e89505cb01bf868f6f602"
+  },
+  "expected_llama_server": {
+    "context": 12288,
+    "parallel_slots": 1,
+    "batch": 512,
+    "ubatch": 128,
+    "gpu_layers": "all",
+    "flash_attention": "off",
+    "temperature": 0,
+    "top_k": 1,
+    "top_p": 1,
+    "repeat_penalty": 1,
+    "seed": 42,
+    "reasoning": "off",
+    "jinja_enable_thinking": false
+  },
+  "expected_vbuf_server": {
+    "context": 12288,
+    "layers": 36,
+    "max_new_tokens": 6144,
+    "execution": "experimental exact-identity Qwen3-8B; canonical vBuf runtime",
+    "sampling": "greedy argmax; no request-level sampler options"
+  },
+  "pi_configuration": {
+    "provider": "pi-ab-local",
+    "model": "qwen3-8b",
+    "api": "openai-completions",
+    "context_window": 12288,
+    "max_tokens": 6144,
+    "thinking": "off",
+    "tools": [
+      "read",
+      "write",
+      "bash"
+    ],
+    "session": false,
+    "extensions": false,
+    "mcp": false,
+    "skills": false,
+    "context_files": false,
+    "prompt_templates": false,
+    "themes": false
+  }
+}

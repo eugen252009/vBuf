@@ -1,0 +1,20 @@
+{
+  "run_id": "ctx12-6144-vbuf-02",
+  "backend": "vbuf",
+  "independent_grade": "agent failure; not a coding-agent success",
+  "agent_exit_code": 0,
+  "pi_stop_reason": "error",
+  "protocol_outcome": "The initial README read tool call succeeded. The second completion returned HTTP 500: malformed Qwen tool output: unterminated tool_call block after 426.089 seconds.",
+  "generated_artifacts": ["README.md (unchanged task fixture; SHA-256 5387f04d5b3260b81e6afa09b10045b99f50a33ea81039a665120a8f6107459a)"],
+  "source_generated": false,
+  "makefile_generated": false,
+  "strict_build": "not run; no source or Makefile was generated",
+  "task_behavior": "not demonstrated; required tests and playable game absent",
+  "overall_success": false,
+  "prompt_evidence": {
+    "vbuf_prompt_token_count": 673,
+    "token_id_sha256": "24a4e6ecf08db8423782b0361aea6ae57eb4b6dc85a8e53125d1035559cdf05a",
+    "matches_recorded_llama_template_probe": true
+  },
+  "evidence": ["manifest.json", "result.json", "http.jsonl.gz", "server.jsonl.gz", "agent.jsonl.gz", "generated-project/"]
+}

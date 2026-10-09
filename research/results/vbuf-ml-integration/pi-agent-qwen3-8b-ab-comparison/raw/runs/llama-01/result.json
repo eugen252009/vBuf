@@ -1,0 +1,33 @@
+{
+  "run_id": "llama-01",
+  "backend": "llama",
+  "bwrap_exit_code": 0,
+  "outer_cap_reason": null,
+  "supervisor_trial_end": {
+    "event": "trial_end",
+    "backend": "llama",
+    "agent_exit_code": 0,
+    "cap_reason": null,
+    "ready_ms": 2569.8,
+    "wall_seconds": 70.107,
+    "agent_stats": {
+      "elapsed_seconds": 67.232,
+      "turn_count": 5,
+      "tool_call_count": 4,
+      "http_exchange_count": 5,
+      "cap_reason": null
+    }
+  },
+  "generated_project_files": [
+    {
+      "path": "README.md",
+      "size": 947,
+      "sha256": "5387f04d5b3260b81e6afa09b10045b99f50a33ea81039a665120a8f6107459a"
+    }
+  ],
+  "nvidia_after": {
+    "gpu_query": "0, GPU-888379f7-ab38-cd4e-7220-0f3ff2de5fca, NVIDIA GeForce RTX 3060, 55, 12288, 20\n1, GPU-9d8f11c5-7b23-4b91-9f41-9c1841bd4a0f, NVIDIA GeForce RTX 2080 SUPER, 467, 8192, 27",
+    "compute_apps": "GPU-9d8f11c5-7b23-4b91-9f41-9c1841bd4a0f, 157826, /home/eugen/.local/share/Steam/ubuntu12_64/steamwebhelper, 8"
+  },
+  "finished_at_utc": "2026-10-09T10:48:48.864551+00:00"
+}

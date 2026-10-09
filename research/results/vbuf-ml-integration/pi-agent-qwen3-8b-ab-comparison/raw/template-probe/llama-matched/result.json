@@ -1,0 +1,30 @@
+{
+  "run_id": "matched-template-probe",
+  "backend": "llama",
+  "bwrap_exit_code": 0,
+  "outer_cap_reason": null,
+  "supervisor_trial_end": {
+    "event": "trial_end",
+    "backend": "llama",
+    "agent_exit_code": 0,
+    "cap_reason": null,
+    "ready_ms": 2563.8,
+    "wall_seconds": 2.737,
+    "agent_stats": {
+      "template_probe_only": true,
+      "prompt_token_count": 673
+    }
+  },
+  "generated_project_files": [
+    {
+      "path": "README.md",
+      "size": 947,
+      "sha256": "5387f04d5b3260b81e6afa09b10045b99f50a33ea81039a665120a8f6107459a"
+    }
+  ],
+  "nvidia_after": {
+    "gpu_query": "0, GPU-888379f7-ab38-cd4e-7220-0f3ff2de5fca, NVIDIA GeForce RTX 3060, 12, 12288, 69\n1, GPU-9d8f11c5-7b23-4b91-9f41-9c1841bd4a0f, NVIDIA GeForce RTX 2080 SUPER, 512, 8192, 31",
+    "compute_apps": ""
+  },
+  "finished_at_utc": "2026-10-09T21:25:47.379840+00:00"
+}

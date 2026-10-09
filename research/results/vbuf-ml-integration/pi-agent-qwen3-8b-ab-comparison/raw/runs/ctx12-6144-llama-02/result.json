@@ -1,0 +1,43 @@
+{
+  "run_id": "ctx12-6144-llama-02",
+  "backend": "llama",
+  "bwrap_exit_code": 0,
+  "outer_cap_reason": null,
+  "supervisor_trial_end": {
+    "event": "trial_end",
+    "backend": "llama",
+    "agent_exit_code": 0,
+    "cap_reason": null,
+    "ready_ms": 2538.3,
+    "wall_seconds": 162.766,
+    "agent_stats": {
+      "elapsed_seconds": 159.831,
+      "turn_count": 11,
+      "tool_call_count": 10,
+      "http_exchange_count": 11,
+      "cap_reason": null
+    }
+  },
+  "generated_project_files": [
+    {
+      "path": "Makefile",
+      "size": 420,
+      "sha256": "901aa46faf9a8de246d21296061138a6920aa9370973574c4d9159ead023a26d"
+    },
+    {
+      "path": "README.md",
+      "size": 947,
+      "sha256": "5387f04d5b3260b81e6afa09b10045b99f50a33ea81039a665120a8f6107459a"
+    },
+    {
+      "path": "snake.c",
+      "size": 9309,
+      "sha256": "c73eb257f673b4c463ef876ca8c6fc0fb7569fb47c4e272dffe62ecd1348de13"
+    }
+  ],
+  "nvidia_after": {
+    "gpu_query": "0, GPU-888379f7-ab38-cd4e-7220-0f3ff2de5fca, NVIDIA GeForce RTX 3060, 57, 12288, 79\n1, GPU-9d8f11c5-7b23-4b91-9f41-9c1841bd4a0f, NVIDIA GeForce RTX 2080 SUPER, 367, 8192, 16",
+    "compute_apps": "GPU-9d8f11c5-7b23-4b91-9f41-9c1841bd4a0f, 25494, /home/eugen/.local/share/Steam/ubuntu12_64/steamwebhelper, 8"
+  },
+  "finished_at_utc": "2026-10-09T23:39:10.609796+00:00"
+}

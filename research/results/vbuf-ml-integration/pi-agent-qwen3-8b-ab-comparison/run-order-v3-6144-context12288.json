@@ -1,0 +1,21 @@
+{
+  "schema": "vbuf-pi-qwen3-8b-ab-order-v3",
+  "shuffle_seed": 20261009,
+  "supersedes": "run-order-v2-6144-context8192.json",
+  "schedule_change_reason": "Raising configured maxTokens from 4096 to 6144 did not change Pi's effective 3396/3118-token requests at an 8192 context, and the vBuf write response remained unterminated. Use the experimental Qwen3-8B model's supported 12288 context (below its 40960 metadata limit) with a 6144 configured completion cap; preserve identical prompts, greedy sampling, backend order, and independent workspaces.",
+  "completion_budget": {
+    "configured_max_tokens": 6144,
+    "context_window": 12288,
+    "note": "Preserve actual per-request max_completion_tokens. Both backends and Pi model metadata use this context and completion configuration."
+  },
+  "order": [
+    {"index": 1, "backend": "vbuf", "run_id": "ctx12-vbuf-01"},
+    {"index": 2, "backend": "llama", "run_id": "ctx12-llama-01"},
+    {"index": 3, "backend": "vbuf", "run_id": "ctx12-vbuf-02"},
+    {"index": 4, "backend": "llama", "run_id": "ctx12-llama-02"},
+    {"index": 5, "backend": "vbuf", "run_id": "ctx12-vbuf-03"},
+    {"index": 6, "backend": "llama", "run_id": "ctx12-llama-03"}
+  ],
+  "independent_trials_per_backend": 3,
+  "sampling": "greedy; independent server and Pi process per run; no Pi session reuse"
+}

@@ -1,0 +1,22 @@
+{
+  "schema": "vbuf-pi-qwen3-8b-ab-order-v4",
+  "shuffle_seed": 20261009,
+  "supersedes": "run-order-v3-6144-context12288.json",
+  "schedule_change_reason": "A 6144-token request at the 12288 context exceeded Pi's observed 300-second OpenAI request timeout on all three auto-retries. Use a 5120-token configured/request cap at the same context; this is below the timed-out cap and allows about 300s based on the measured 3118-token generation interval. Task, prompts, sampling, context, and alternating backend order remain fixed.",
+  "completion_budget": {
+    "configured_max_tokens": 5120,
+    "context_window": 12288,
+    "request_timeout_seconds": 300,
+    "note": "Pi clamps max completion tokens to contextWindow minus estimated input tokens and a 4096-token safety reserve. Preserve each actual request cap and outcome."
+  },
+  "order": [
+    {"index": 1, "backend": "vbuf", "run_id": "ctx12-5k-vbuf-01"},
+    {"index": 2, "backend": "llama", "run_id": "ctx12-5k-llama-01"},
+    {"index": 3, "backend": "vbuf", "run_id": "ctx12-5k-vbuf-02"},
+    {"index": 4, "backend": "llama", "run_id": "ctx12-5k-llama-02"},
+    {"index": 5, "backend": "vbuf", "run_id": "ctx12-5k-vbuf-03"},
+    {"index": 6, "backend": "llama", "run_id": "ctx12-5k-llama-03"}
+  ],
+  "independent_trials_per_backend": 3,
+  "sampling": "greedy; independent server and Pi process per run; no Pi session reuse"
+}

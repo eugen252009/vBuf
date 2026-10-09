@@ -1,0 +1,23 @@
+gcc -std=c11 -Wall -Wextra -Wpedantic -Werror -g -o snake snake.c
+snake.c: In function ‘initGameState’:
+snake.c:66:5: error: implicit declaration of function ‘placeFood’ [-Wimplicit-function-declaration]
+   66 |     placeFood(state);
+      |     ^~~~~~~~~
+snake.c: At top level:
+snake.c:70:6: error: conflicting types for ‘placeFood’; have ‘void(GameState *)’ [-Werror]
+   70 | void placeFood(GameState *state) {
+      |      ^~~~~~~~~
+snake.c:66:5: note: previous implicit declaration of ‘placeFood’ with type ‘void(GameState *)’
+   66 |     placeFood(state);
+      |     ^~~~~~~~~
+snake.c: In function ‘placeFood’:
+snake.c:92:36: error: implicit declaration of function ‘isOccupied’ [-Wimplicit-function-declaration]
+   92 |         } while (attempts < 100 && isOccupied(state, state->foodX, state->foodY));
+      |                                    ^~~~~~~~~~
+snake.c: In function ‘main’:
+snake.c:368:9: error: implicit declaration of function ‘usleep’; did you mean ‘sleep’? [-Wimplicit-function-declaration]
+  368 |         usleep(100000); // 100ms delay
+      |         ^~~~~~
+      |         sleep
+cc1: all warnings being treated as errors
+make: *** [Makefile:7: snake] Fehler 1
