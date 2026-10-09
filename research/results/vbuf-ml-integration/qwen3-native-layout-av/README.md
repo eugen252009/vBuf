@@ -150,12 +150,38 @@ RMS) with its generated token unchanged. Each result repeated deterministically.
 
 The planned 20-fixture matrix stopped after the first new common-token failure;
 only the baseline fixture ran from that matrix. Its other prompts, token patterns,
-and capacities were not tested. The targeted session-reuse smoke confirmed
-cancel-at-prompt-boundary followed by same-executor re-entry returns the same
-captures as a fresh session, but this does not resolve the numerical failure.
-No guard, threshold, production setting, or canonical fallback was changed, and
-no speedup is claimed. Detailed per-position evidence and the exact manifests are
-in [`../qwen3-numerical-propagation/README.md`](../qwen3-numerical-propagation/README.md).
+and capacities were not tested. A targeted topology control repeated twice
+compared the same 33 input IDs processed incrementally versus as a 32-row prefill
+plus decode. Canonical topology change alone measured `0.0184071` logits
+relative RMS; native topology change measured `0.0268631` and failed the
+unchanged gate. This confirms a phase/topology interaction, not a direct AV
+mathematical defect.
+
+An exact prefix control verified that the 8+1 endpoint is bitwise equal to
+position 8 of the 8+25 run for both canonical and native paths: same nine-token
+history, capacity 512, decode geometry, candidate selection, hidden capture, and
+logit capture. The native-versus-canonical short endpoint still fails (`0.0301166`
+logits relative RMS), while the 8+25 final endpoint passes (`0.0170682`). The
+long run is not numerically within the final gate at every intermediate output.
+
+A bounded native-prefill capture then confirmed that at layer 0 the actual
+candidate graph has bitwise-identical Q/K/scores, V, probabilities, and positions
+to the canonical prefill baseline, and its native AV output matches the same-input
+native side branch exactly. Native-versus-canonical AV itself differs by
+`2.63736e-4` relative RMS; the native result remains closer to the independent
+FP64 oracle. The layer-0 post-block drift is `0.00390628`, and AV inputs first
+differ at layer 1, consistent with downstream propagation. No AV arithmetic,
+guard, threshold, production setting, or canonical fallback was changed.
+
+The targeted session-reuse smoke confirmed cancel-at-prompt-boundary followed by
+same-executor re-entry returns the same captures as a fresh session, but this
+does not resolve the numerical failure. No speedup is claimed. Detailed
+per-position evidence and the exact manifests are in
+[`../qwen3-numerical-propagation/README.md`](../qwen3-numerical-propagation/README.md),
+with new raw topology captures under
+`../qwen3-numerical-propagation/raw/native-av-divergence-topology-final-20261009-070840/`
+and native-prefill locality evidence under
+`../qwen3-numerical-propagation/raw/native-av-divergence-prefill-locality-final-20261009-070358/`.
 
 ## Reproduction
 

@@ -1,0 +1,1 @@
+fixture_id,mode,cancelled_length,reused_length,cancelled_at_prompt_boundary,reentered_cleanly,session_reset_verified,tokens_equal_fresh,captures_equal_fresh,token_hash,capture_hash,status

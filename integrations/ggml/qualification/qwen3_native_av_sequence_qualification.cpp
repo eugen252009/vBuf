@@ -650,6 +650,97 @@ void write_summary(std::ostream & out, const Fixture & fixture, const PairSummar
         s.canonical_tokens, s.candidate_tokens, s.detail});
 }
 
+void write_topology_comparison(std::ostream & summary_out, std::ostream & layers_out,
+        const Fixture & fixture, uint32_t repeat, const std::vector<uint32_t> & common_input,
+        const char * comparison, const Qwen3GenerationExecution & left,
+        const Qwen3GenerationExecution & right) {
+    require(common_input.size() >= 2, "topology comparison requires a multi-token common history");
+    require(left.layer_activation_captures.size() == 40 && right.layer_activation_captures.size() == 40,
+        "topology comparison requires the 40 target-position layer captures");
+    const uint32_t position = static_cast<uint32_t>(common_input.size() - 1);
+    const uint32_t input_token = common_input.back();
+    const auto check_target_capture = [&](const Qwen3GenerationExecution & execution) {
+        const auto found = std::find_if(execution.attention_av_output_captures.begin(),
+            execution.attention_av_output_captures.end(), [&](const Qwen3GenerationOutputCapture & capture) {
+                return capture.position == position && capture.rows == 1 &&
+                    capture.phase == QwenExecutionPhase::Decode && capture.input_token == input_token;
+            });
+        require(found != execution.attention_av_output_captures.end(),
+            "topology comparison is missing the common target-token decode capture");
+    };
+    check_target_capture(left);
+    check_target_capture(right);
+
+    bool all_layers_equal = true;
+    uint32_t first_changed_layer = UINT32_MAX;
+    for (uint32_t layer = 0; layer < 40; ++layer) {
+        const auto & a = left.layer_activation_captures[layer];
+        const auto & b = right.layer_activation_captures[layer];
+        require(a.layer == layer && b.layer == layer && a.position == position && b.position == position &&
+            a.rows == 1 && b.rows == 1 && !a.prefill && !b.prefill &&
+            a.hidden.size() == 5120 && b.hidden.size() == 5120,
+            "topology layer captures do not match the common decode boundary");
+        const Metrics metric = compare(a.hidden, b.hidden);
+        const bool bitwise_equal = a.hidden == b.hidden;
+        all_layers_equal = all_layers_equal && bitwise_equal;
+        if (!bitwise_equal && first_changed_layer == UINT32_MAX) first_changed_layer = layer;
+        csv_row(layers_out, {fixture.id, std::to_string(repeat), hex64(token_hash(common_input)),
+            std::to_string(position), std::to_string(input_token), comparison, std::to_string(layer),
+            std::to_string(a.rows), format_double(metric.max_abs), format_double(metric.relative_rms),
+            format_double(metric.cosine), bitwise_equal ? "yes" : "no"});
+    }
+    const Metrics hidden = compare(left.final_hidden, right.final_hidden);
+    const Metrics logits = compare(left.final_logits, right.final_logits);
+    csv_row(summary_out, {fixture.id, std::to_string(repeat), hex64(token_hash(common_input)),
+        std::to_string(common_input.size()), std::to_string(position), std::to_string(input_token), comparison,
+        all_layers_equal ? "yes" : "no",
+        first_changed_layer == UINT32_MAX ? "none" : std::to_string(first_changed_layer),
+        format_double(hidden.max_abs), format_double(hidden.relative_rms), format_double(hidden.cosine),
+        format_double(logits.max_abs), format_double(logits.relative_rms), format_double(logits.cosine),
+        top1(left.final_logits) == top1(right.final_logits) ? "yes" : "no"});
+}
+
+void write_prefix_equivalence(std::ostream & out, const Fixture & fixture, uint32_t repeat,
+        const std::vector<uint32_t> & prefix, const char * comparison,
+        const Run & left, const Run & right) {
+    require(prefix.size() >= 2 && left.current_length >= prefix.size() && right.current_length == prefix.size(),
+        "short/long prefix comparison has inconsistent session lengths");
+    const uint32_t position = static_cast<uint32_t>(prefix.size() - 1);
+    const uint32_t input_token = prefix.back();
+    const auto find_capture = [&](const Run & run) -> const Qwen3GenerationOutputCapture & {
+        const auto found = std::find_if(run.execution.attention_av_output_captures.begin(),
+            run.execution.attention_av_output_captures.end(), [&](const Qwen3GenerationOutputCapture & capture) {
+                return capture.position == position && capture.rows == 1 &&
+                    capture.phase == QwenExecutionPhase::Decode && capture.input_token == input_token;
+            });
+        require(found != run.execution.attention_av_output_captures.end(),
+            "short/long prefix comparison is missing the exact target-token decode capture");
+        return *found;
+    };
+    const auto & a = find_capture(left);
+    const auto & b = find_capture(right);
+    bool geometry_equal = left.execution.attention_av_step_diagnostics.size() >=
+        right.execution.attention_av_step_diagnostics.size();
+    bool selection_equal = geometry_equal;
+    for (size_t i = 0; i < right.execution.attention_av_step_diagnostics.size(); ++i) {
+        const auto & x = left.execution.attention_av_step_diagnostics[i];
+        const auto & y = right.execution.attention_av_step_diagnostics[i];
+        geometry_equal = geometry_equal && x.position == y.position && x.rows == y.rows && x.phase == y.phase;
+        selection_equal = selection_equal && x.native_candidate_requested == y.native_candidate_requested &&
+            x.native_candidate_selected == y.native_candidate_selected && x.native_av_executed == y.native_av_executed &&
+            x.native_av_layer_graphs == y.native_av_layer_graphs;
+    }
+    const Metrics hidden = compare(a.hidden, b.hidden);
+    const Metrics logits = compare(a.logits, b.logits);
+    csv_row(out, {fixture.id, std::to_string(repeat), std::to_string(fixture.capacity),
+        std::to_string(prefix.size()), std::to_string(position), std::to_string(input_token),
+        hex64(token_hash(prefix)), comparison, geometry_equal ? "yes" : "no",
+        selection_equal ? "yes" : "no", a.hidden == b.hidden ? "yes" : "no",
+        a.logits == b.logits ? "yes" : "no", format_double(hidden.relative_rms),
+        format_double(hidden.cosine), format_double(logits.relative_rms), format_double(logits.cosine),
+        top1(a.logits) == top1(b.logits) ? "yes" : "no"});
+}
+
 bool run_fixture_is_expected_negative(const Fixture & fixture, const PairSummary & summary) {
     return fixture.prior_result == "FAIL" && summary.status == "KNOWN_NEGATIVE_REPRODUCED";
 }
@@ -749,13 +840,22 @@ int run_matrix(const std::string & semantic, const std::string & source,
     std::ofstream tokens_out(std::filesystem::path(output_dir) / "token_sequences.csv");
     std::ofstream repeats_out(std::filesystem::path(output_dir) / "repeatability.csv");
     std::ofstream reuse_out(std::filesystem::path(output_dir) / "session_reuse.csv");
-    require(summary_out && positions_out && tokens_out && repeats_out && reuse_out,
+    std::ofstream topology_out(std::filesystem::path(output_dir) / "topology_comparison.csv");
+    std::ofstream topology_layers_out(std::filesystem::path(output_dir) / "topology_layer_comparison.csv");
+    std::ofstream prefix_out(std::filesystem::path(output_dir) / "prefix_equivalence.csv");
+    require(summary_out && positions_out && tokens_out && repeats_out && reuse_out && topology_out &&
+        topology_layers_out && prefix_out,
         "could not create one or more matrix evidence files");
     summary_out << "fixture_id,repeat,run_kind,mode,prior_result,status,canonical_completed,candidate_completed,canonical_cancelled,candidate_cancelled,same_history,generated_tokens_equal,first_mismatch_position,canonical_length,candidate_length,canonical_session_reset,candidate_session_reset,candidate_requested_steps,candidate_selected_steps,candidate_native_steps,candidate_native_layer_graphs,candidate_canonical_layer_graphs,diagnostic_interventions,packed_v_copy_bytes_avoided,final_hidden_max_abs,final_hidden_relative_rms,final_hidden_cosine,final_logits_max_abs,final_logits_relative_rms,final_logits_cosine,numeric_gate,selection_guard,canonical_token_hash,candidate_token_hash,canonical_capture_hash,candidate_capture_hash,input_token_ids,canonical_generated_tokens,candidate_generated_tokens,detail\n";
     positions_out << "fixture_id,repeat,run_kind,position,rows,phase,input_token,canonical_next_top1,candidate_next_top1,next_top1_equal,candidate_requested,candidate_selected,native_av_executed,native_av_layer_graphs,diagnostic_interventions,canonical_av_layer_graphs,hidden_max_abs,hidden_relative_rms,hidden_cosine,logits_max_abs,logits_relative_rms,logits_cosine\n";
     tokens_out << "fixture_id,repeat,run_kind,input_token_ids,canonical_generated_tokens,candidate_generated_tokens,canonical_token_hash,candidate_token_hash,trajectory_equal\n";
     repeats_out << "fixture_id,run_kind,attempts,canonical_tokens_repeatable,candidate_tokens_repeatable,canonical_capture_repeatable,candidate_capture_repeatable,status\n";
     reuse_out << "fixture_id,mode,cancelled_length,reused_length,cancelled_at_prompt_boundary,reentered_cleanly,session_reset_verified,tokens_equal_fresh,captures_equal_fresh,token_hash,capture_hash,status\n";
+    topology_out << "fixture_id,repeat,token_hash,token_count,position,input_token,comparison,all_layer_captures_bitwise_equal,first_differing_layer,hidden_max_abs,hidden_relative_rms,hidden_cosine,logits_max_abs,logits_relative_rms,logits_cosine,top1_equal\n";
+    topology_layers_out << "fixture_id,repeat,token_hash,position,input_token,comparison,layer,rows,max_abs,relative_rms,cosine,bitwise_equal\n";
+    prefix_out << "fixture_id,repeat,capacity,prefix_tokens,position,input_token,prefix_token_hash,comparison,"
+        << "step_geometry_equal,native_selection_equal,hidden_bitwise_equal,logits_bitwise_equal,"
+        << "hidden_relative_rms,hidden_cosine,logits_relative_rms,logits_cosine,top1_equal\n";
 
     Qwen3Model model;
     open_qwen3_model(semantic, source, &model, true);
@@ -875,6 +975,47 @@ int run_matrix(const std::string & semantic, const std::string & source,
                     PairSummary common = compare_pair(positions_out, tokens_out, fixture, repeat,
                         "COMMON_TOKEN_REPLAY", RunMode::Both, true, common_input,
                         common_canonical, common_candidate, false, true, UINT32_MAX);
+                    require(main.same_tokens && common_input.size() == fixture.prompt.size() + canonical.execution.tokens.size() &&
+                        canonical.execution.completed && candidate.execution.completed &&
+                        common_canonical.execution.cancelled && common_candidate.execution.cancelled &&
+                        canonical.current_length == common_input.size() && candidate.current_length == common_input.size() &&
+                        common_canonical.current_length == common_input.size() && common_candidate.current_length == common_input.size(),
+                        "topology comparison paths did not reach the same fixed token history and boundary");
+                    write_topology_comparison(topology_out, topology_layers_out, fixture, repeat, common_input,
+                        "canonical_incremental_vs_canonical_prefill32", canonical.execution,
+                        common_canonical.execution);
+                    write_topology_comparison(topology_out, topology_layers_out, fixture, repeat, common_input,
+                        "native_incremental_vs_native_prefill32", candidate.execution,
+                        common_candidate.execution);
+                    write_topology_comparison(topology_out, topology_layers_out, fixture, repeat, common_input,
+                        "canonical_incremental_vs_native_incremental", canonical.execution,
+                        candidate.execution);
+                    write_topology_comparison(topology_out, topology_layers_out, fixture, repeat, common_input,
+                        "canonical_prefill32_vs_native_prefill32", common_canonical.execution,
+                        common_candidate.execution);
+                    const std::vector<uint32_t> expected_first_token{canonical.execution.tokens.front()};
+                    runtime->execution_optimizer().set_mode(QwenOptimizerMode::Disabled);
+                    const Run short_canonical = execute(model, runtime, fixture.capacity, fixture.prompt,
+                        1, false);
+                    runtime->execution_optimizer().set_mode(QwenOptimizerMode::Enabled);
+                    uint32_t short_mismatch = UINT32_MAX;
+                    const Run short_candidate = execute(model, runtime, fixture.capacity, fixture.prompt,
+                        1, true, &expected_first_token, &short_mismatch);
+                    require(short_canonical.execution.completed && short_candidate.execution.completed &&
+                        short_canonical.execution.tokens == expected_first_token &&
+                        short_candidate.execution.tokens == expected_first_token &&
+                        short_canonical.current_length == fixture.prompt.size() + 1 &&
+                        short_candidate.current_length == fixture.prompt.size() + 1 &&
+                        short_mismatch == UINT32_MAX,
+                        "short 8+1 prefix control did not reproduce the first long-run token");
+                    std::vector<uint32_t> prefix_input = fixture.prompt;
+                    prefix_input.push_back(expected_first_token.front());
+                    write_prefix_equivalence(prefix_out, fixture, repeat, prefix_input,
+                        "canonical_incremental_long_vs_short", canonical, short_canonical);
+                    write_prefix_equivalence(prefix_out, fixture, repeat, prefix_input,
+                        "native_incremental_long_vs_short", candidate, short_candidate);
+                    write_prefix_equivalence(prefix_out, fixture, repeat, prefix_input,
+                        "canonical_short_vs_native_short", short_canonical, short_candidate);
                     write_summary(summary_out, fixture, common, common_canonical, common_candidate);
                     fixture_summaries.push_back(common);
                     std::printf("common_replay id=%s repeat=%u status=%s common_tokens=%zu native_steps=%llu hidden_rms=%.9g logits_rms=%.9g\n",
@@ -921,6 +1062,9 @@ int run_matrix(const std::string & semantic, const std::string & source,
     tokens_out.close();
     repeats_out.close();
     reuse_out.close();
+    topology_out.close();
+    topology_layers_out.close();
+    prefix_out.close();
     std::printf("matrix_result status=%s fixtures_run=%zu fixtures_total=%zu candidate_status=Candidate_NOT_Valid output=%s\n",
         stop ? "STOPPED_ON_FAILURE" : "COMPLETED", stop ? stop_index + 1 : fixtures.size(),
         fixtures.size(), output_dir.c_str());

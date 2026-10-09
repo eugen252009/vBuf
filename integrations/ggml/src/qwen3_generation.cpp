@@ -985,8 +985,7 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
             if (status != GGML_STATUS_SUCCESS)
                 throw std::runtime_error("Qwen multi-device layer graph execution failed at block " + std::to_string(layer));
 #ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
-            if (capture_attention_av_boundary && !use_native_attention_av && layer < cut &&
-                diagnostic_graph != nullptr &&
+            if (capture_attention_av_boundary && layer < cut && diagnostic_graph != nullptr &&
                 (diagnostic_capture_position == UINT32_MAX || diagnostic_capture_position == position)) {
                 ggml_backend_synchronize(layer_backend);
                 const LayerGraph & diagnostic = *diagnostic_graph;
@@ -1000,7 +999,7 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
                 capture.layer = layer;
                 capture.device_id = runtime->placement().block_device_ids[layer];
                 capture.prefill = prefill;
-                capture.native_intervention = canonical_output == nullptr;
+                capture.native_intervention = canonical_output == nullptr && !use_native_attention_av;
                 capture.capacity = capacity;
                 capture.query_rows = rows;
                 const auto save_metadata = [](const ggml_tensor * tensor, auto & ne, auto & nb) {

@@ -586,10 +586,11 @@ const CompactBoundary & av_at(const PropagationWorkload & run, uint32_t layer) {
 }
 
 bool intervention_inputs_match(const CompactBoundary & baseline,
-        const Qwen3AttentionAVBoundaryCapture & intervention, Metrics * native_output_metrics) {
+        const Qwen3AttentionAVBoundaryCapture & intervention, Metrics * native_output_metrics,
+        bool allow_full_candidate = false) {
     if (baseline.layer != intervention.layer || baseline.capacity != intervention.capacity ||
         baseline.query_rows != intervention.query_rows || baseline.visible_context == 0 ||
-        intervention.native_intervention == false || baseline.positions != intervention.positions ||
+        (!intervention.native_intervention && !allow_full_candidate) || baseline.positions != intervention.positions ||
         baseline.value_type != intervention.value_type || intervention.value_type != GGML_TYPE_F16 ||
         baseline.value_ne != intervention.value_ne || baseline.value_nb != intervention.value_nb ||
         baseline.probability_ne[0] != intervention.probability_ne[0] ||
@@ -739,8 +740,10 @@ int run_propagation(const std::string & semantic, const std::string & source,
     std::ofstream all_native_csv(root / "all_native_decode_layers.csv");
     std::ofstream native_candidate_summary(root / "native_candidate_summary.csv");
     std::ofstream native_prefill_layers(root / "all_native_prefill_layers.csv");
+    std::ofstream prefill_candidate_locality(root / "prefill_candidate_locality.csv");
     require(local_csv && capacity_csv && qk_csv && intervention_csv && intervention_summary && all_native_csv &&
-        native_candidate_summary && native_prefill_layers, "cannot create propagation CSV outputs");
+        native_candidate_summary && native_prefill_layers && prefill_candidate_locality,
+        "cannot create propagation CSV outputs");
     local_csv << "workload,phase,position,visible_context,layer,scope,group,count,"
         << "canonical_native_max_abs,canonical_native_rms,canonical_native_relative_rms,canonical_native_cosine,"
         << "canonical_oracle_max_abs,canonical_oracle_rms,canonical_oracle_relative_rms,canonical_oracle_cosine,"
@@ -763,6 +766,9 @@ int run_propagation(const std::string & semantic, const std::string & source,
         << "final_logits_relative_rms,final_logits_cosine,numeric_gate\n";
     native_prefill_layers << "phase,position,from_variant,to_layer,rows,max_abs,rms,relative_rms,cosine,"
         << "reference_rms,candidate_rms,changed,packed_v_copy_bytes_avoided_total\n";
+    prefill_candidate_locality << "layer,position,rows,visible_context,av_input_comparison_scope,av_inputs_bitwise_equal,"
+        << "candidate_native_matches_canonical_sidebranch,native_output_relative_rms,canonical_to_candidate_av_relative_rms,"
+        << "layer_hidden_relative_rms,q_ne,k_ne,score_ne,probability_ne\n";
 
     auto session512 = runtime->create_session(capacity);
     auto executor512 = std::make_unique<Qwen3MultiDeviceGenerationExecutor>(
@@ -1005,7 +1011,7 @@ int run_propagation(const std::string & semantic, const std::string & source,
         "propagation run is missing its isolated 32-row prefill baseline");
     const auto prefill_candidate = make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Prefill);
     require(optimizer.register_candidate(prefill_candidate), "could not register all-native prefill diagnostic candidate");
-    executor512->configure_attention_av_diagnostic(0, false, -1, true, false);
+    executor512->configure_attention_av_diagnostic(0, true, -1, true, false);
     auto native_prefill = executor512->run(prompt, 1, prefill32_baseline->tokens.front());
     const bool prefill_stopped_before_decode = native_prefill.tokens.empty();
     require(native_prefill.completed &&
@@ -1013,8 +1019,8 @@ int run_propagation(const std::string & semantic, const std::string & source,
         native_prefill.native_av_steps == 1 && native_prefill.native_av_layers == early_layers &&
         native_prefill.packed_v_copy_bytes_avoided == copy_bytes_per_native_step &&
         native_prefill.layer_activation_captures.size() == 40 &&
-        native_prefill.attention_av_boundary_captures.empty(),
-        "32-row native prefill trial did not execute exactly its eligible early-device AV blocks");
+        native_prefill.attention_av_boundary_captures.size() == early_layers,
+        "32-row native prefill trial did not execute and capture exactly its eligible early-device AV blocks");
     const auto & prefill_reference = *prefill32_baseline;
     for (uint32_t layer = 0; layer < 40; ++layer) {
         const auto & reference_layer = activation_at(prefill_reference, layer);
@@ -1026,6 +1032,38 @@ int run_propagation(const std::string & semantic, const std::string & source,
             << m.max_abs << ',' << m.rms << ',' << m.relative_rms << ',' << m.cosine << ','
             << m.reference_rms << ',' << m.candidate_rms << ',' << m.changed << ','
             << native_prefill.packed_v_copy_bytes_avoided << '\n';
+
+        if (layer >= early_layers) continue;
+        const auto capture = std::find_if(native_prefill.attention_av_boundary_captures.begin(),
+            native_prefill.attention_av_boundary_captures.end(), [layer](const auto & item) {
+                return item.layer == layer;
+            });
+        require(capture != native_prefill.attention_av_boundary_captures.end() &&
+            !capture->native_intervention && capture->prefill && capture->positions.size() == rows,
+            "native prefill candidate did not retain its actual early-device AV graph boundary");
+        Metrics native_same_input;
+        const bool av_inputs_equal = intervention_inputs_match(av_at(*prefill32_baseline, layer),
+            *capture, &native_same_input, true);
+        const Metrics candidate_vs_canonical_av = compare(av_at(*prefill32_baseline, layer).canonical,
+            capture->native_output);
+        const Metrics candidate_vs_native_av = compare(av_at(*prefill32_baseline, layer).native,
+            capture->native_output);
+        if (layer == 0) require(av_inputs_equal && candidate_vs_native_av.changed == 0,
+            "layer-zero native prefill did not preserve exact QK/AV inputs and same-input native output");
+        const auto dims = [](const auto & values, size_t count) {
+            std::ostringstream out;
+            for (size_t i = 0; i < count; ++i) out << (i == 0 ? "" : "x") << values[i];
+            return out.str();
+        };
+        prefill_candidate_locality << layer << ',' << capture->positions.back() << ',' << capture->query_rows << ','
+            << (*std::max_element(capture->positions.begin(), capture->positions.end()) + 1) << ','
+            << (layer == 0 ? "V+P+Q+K+SCORE" : "V+P") << ',' << (av_inputs_equal ? "yes" : "no") << ','
+            << (candidate_vs_native_av.changed == 0 ? "yes" : "no") << ','
+            << candidate_vs_native_av.relative_rms << ',' << candidate_vs_canonical_av.relative_rms << ','
+            << m.relative_rms << ',' << (layer == 0 ? dims(capture->query_ne, 3) : "NA") << ','
+            << (layer == 0 ? dims(capture->key_ne, 2) : "NA") << ','
+            << (layer == 0 ? dims(capture->score_ne, 3) : "NA") << ','
+            << dims(capture->probability_ne, 3) << '\n';
     }
     const auto & prefill_final_reference = prefill_stopped_before_decode ?
         *prefill_output_baseline : position_baselines.at(32);

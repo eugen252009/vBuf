@@ -1,0 +1,7 @@
+fixture_id,repeat,capacity,prefix_tokens,position,input_token,prefix_token_hash,comparison,step_geometry_equal,native_selection_equal,hidden_bitwise_equal,logits_bitwise_equal,hidden_relative_rms,hidden_cosine,logits_relative_rms,logits_cosine,top1_equal
+baseline-existing-natural-repeat-p8-g25-cap512,1,512,9,8,5512,4f90affb8eb3026c,canonical_incremental_long_vs_short,yes,yes,yes,yes,0,1,0,1,yes
+baseline-existing-natural-repeat-p8-g25-cap512,1,512,9,8,5512,4f90affb8eb3026c,native_incremental_long_vs_short,yes,yes,yes,yes,0,1,0,1,yes
+baseline-existing-natural-repeat-p8-g25-cap512,1,512,9,8,5512,4f90affb8eb3026c,canonical_short_vs_native_short,yes,no,no,no,0.00982414763688,0.999952242089,0.0301165562508,0.999546393707,yes
+baseline-existing-natural-repeat-p8-g25-cap512,2,512,9,8,5512,4f90affb8eb3026c,canonical_incremental_long_vs_short,yes,yes,yes,yes,0,1,0,1,yes
+baseline-existing-natural-repeat-p8-g25-cap512,2,512,9,8,5512,4f90affb8eb3026c,native_incremental_long_vs_short,yes,yes,yes,yes,0,1,0,1,yes
+baseline-existing-natural-repeat-p8-g25-cap512,2,512,9,8,5512,4f90affb8eb3026c,canonical_short_vs_native_short,yes,no,no,no,0.00982414763688,0.999952242089,0.0301165562508,0.999546393707,yes

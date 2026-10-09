@@ -1,0 +1,17 @@
+experiment=qwen3-14b-native-av-numerical-propagation-v1
+smoke=yes
+model=sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31
+source_size=9000232144
+architecture=40-blocks,40-query-heads,8-kv-heads,head-dim-128
+placement=CUDA0-SM86-blocks-0..25;CUDA1-SM75-blocks-26..39,norm,head
+canonical_gemm_commit=2d191b5dee1a591c41ee8a653ce42bfcd9c8716d
+native_av_patch_sha256=6fe680adb0e659ef0f7f5bdc7eaa1efa64c879380026e74c45327e694e477813
+capacity=512-for-AV-interventions;canonical-capacity-sweep=512,1024,1032
+decode_positions=1,8,16,32;prefill=32-rows;native-eligible-blocks=0..25
+native_guard=capacity<=512,decode-context<=32,SM86;production-guard-unchanged=yes
+intervention_layers=8
+native_candidate_runs=decode-only-at-32;prefill32-only;prefill32-plus-decode32
+native_eligible_layers_per_candidate=early26-native,late14-canonical
+packed_v_copy_avoided_bytes_per_decode_step=27262976
+canonical_av_fallback=unchanged
+production_defaults=unchanged

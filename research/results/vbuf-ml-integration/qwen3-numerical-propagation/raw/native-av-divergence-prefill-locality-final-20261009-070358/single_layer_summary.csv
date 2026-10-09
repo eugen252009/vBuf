@@ -1,0 +1,2 @@
+position,intervention_layer,fed_token_equal,final_top1_equal,final_hidden_max_abs,final_hidden_rms,final_hidden_relative_rms,final_hidden_cosine,final_logits_max_abs,final_logits_rms,final_logits_relative_rms,final_logits_cosine,native_av_operations,inputs_bitwise_equal,native_same_input_bitwise,existing_numeric_gate
+32,8,yes,yes,5.06946,0.187253,0.00586893,0.999984,0.155696,0.0307727,0.0119043,0.999931,1,yes,yes,PASS

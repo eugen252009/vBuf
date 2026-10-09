@@ -1,0 +1,4 @@
+case,position,prompt_rows,decode_steps,native_av_steps,native_av_layers,packed_v_copy_bytes_avoided,fed_token_equal,top1_equal,final_hidden_relative_rms,final_hidden_cosine,final_logits_relative_rms,final_logits_cosine,numeric_gate
+decode-only,32,32,1,1,26,27262976,yes,yes,0.00652323,0.999979,0.0156915,0.99988,PASS
+prefill32-only,0,32,0,1,26,27262976,n/a,yes,0.0140981,0.999905,0.0243665,0.999703,FAIL
+prefill32-plus-decode32,32,32,1,2,52,54525952,yes,yes,0.0128155,0.999927,0.0179616,0.999847,PASS
