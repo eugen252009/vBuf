@@ -1,0 +1,14 @@
+ggml_cuda_init: found 2 CUDA devices (Total VRAM: 19996 MiB):
+  Device 0: NVIDIA GeForce RTX 3060, compute capability 8.6, VMM: yes, VRAM: 12037 MiB
+  Device 1: NVIDIA GeForce RTX 2080 SUPER, compute capability 7.5, VMM: yes, VRAM: 7959 MiB
+model=Qwen3 layers=40 hidden=5120 heads=40 kv_heads=8 head_dim=128 vocabulary=151936 tensors=443 source_size=9000232144 source_sha256=sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31 tokenizer_eos=151645 add_bos=NO
+ffn_down_tensor name=blk.0.ffn_down.weight shape=[17408,5120] representation=14 ggml_type=q6_K payload_bytes=73113600 row_bytes=14280 total_blocks=348160 source_offset=579061448 source_length=73113600
+matrix_start model=sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31 fixtures=20 capacities=64;256;512 placement=multi:0x26,1x14; production_selection=disabled; candidate=unvalidated_trial
+fixture_begin id=baseline-existing-natural-repeat-p8-g25-cap512 category=natural-repeat mode=BOTH prompt_rows=8 generated=25 capacity=512 repeats=2 input_mode=FREE
+fixture_repeat id=baseline-existing-natural-repeat-p8-g25-cap512 repeat=1 run=FREE_RUNNING status=PASS candidate_steps=33 selected=33 interventions=0 hidden_rms=0.00957307371 logits_rms=0.0170681818 token_equal=yes
+common_replay id=baseline-existing-natural-repeat-p8-g25-cap512 repeat=1 status=NUMERIC_GATE_FAIL common_tokens=33 native_steps=2 hidden_rms=0.0138161373 logits_rms=0.0236489647
+fixture_repeat id=baseline-existing-natural-repeat-p8-g25-cap512 repeat=2 run=FREE_RUNNING status=PASS candidate_steps=33 selected=33 interventions=0 hidden_rms=0.00957307371 logits_rms=0.0170681818 token_equal=yes
+common_replay id=baseline-existing-natural-repeat-p8-g25-cap512 repeat=2 status=NUMERIC_GATE_FAIL common_tokens=33 native_steps=2 hidden_rms=0.0138161373 logits_rms=0.0236489647
+matrix_stop_after_fixture id=baseline-existing-natural-repeat-p8-g25-cap512 reason=new failure or non-repeatable result; all remaining fixtures are not run
+matrix_result status=STOPPED_ON_FAILURE fixtures_run=1 fixtures_total=20 candidate_status=Candidate_NOT_Valid output=research/results/vbuf-ml-integration/qwen3-numerical-propagation/raw/autoregressive-fixture-matrix-20261009/matrix
+matrix_exit_status=2

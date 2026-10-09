@@ -1275,6 +1275,10 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
                     use_native_av = false;
                 }
             }
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+            const uint64_t native_layers_before = result.native_av_layers;
+            const uint64_t interventions_before = result.diagnostic_native_av_interventions;
+#endif
             try {
                 logits = impl_->run_step(static_cast<uint32_t>(offset), prompt.data() + offset,
                     step_rows, batch_prefill, &result, false, false, use_native_av);
@@ -1283,6 +1287,28 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
                     (void) impl_->runtime->execution_optimizer().invalidate_candidate(av_decision.candidate_identity);
                 throw;
             }
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+            Qwen3GenerationStepDiagnostic step_diagnostic;
+            step_diagnostic.position = static_cast<uint32_t>(offset + step_rows - 1);
+            step_diagnostic.rows = step_rows;
+            step_diagnostic.phase = step_phase;
+            step_diagnostic.native_candidate_requested = allow_native_av_prefill;
+            step_diagnostic.native_candidate_selected = av_decision.candidate_selected &&
+                av_decision.strategy == QwenCandidateStrategy::NativeLayoutAttentionAV;
+            step_diagnostic.native_av_executed = use_native_av;
+            step_diagnostic.native_av_layer_graphs = static_cast<uint32_t>(result.native_av_layers - native_layers_before);
+            step_diagnostic.diagnostic_native_av_interventions = static_cast<uint32_t>(
+                result.diagnostic_native_av_interventions - interventions_before);
+            result.attention_av_step_diagnostics.push_back(step_diagnostic);
+            Qwen3GenerationOutputCapture output_capture;
+            output_capture.position = step_diagnostic.position;
+            output_capture.rows = step_rows;
+            output_capture.phase = step_phase;
+            output_capture.input_token = prompt[offset + step_rows - 1];
+            output_capture.hidden = result.final_hidden;
+            output_capture.logits = logits;
+            result.attention_av_output_captures.push_back(std::move(output_capture));
+#endif
             offset += step_rows;
             ++result.completed_positions;
             if (on_progress) on_progress(impl_->session->current_length(), result.final_hidden);
@@ -1337,6 +1363,10 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
             }
             result.tokens.push_back(next);
             if (on_token && !on_token(next, decode_position)) { result.cancelled = true; break; }
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+            const uint64_t native_layers_before = result.native_av_layers;
+            const uint64_t interventions_before = result.diagnostic_native_av_interventions;
+#endif
             try {
                 logits = impl_->run_step(decode_position, &next, 1, false, &result,
                     use_prebound_dispatch, true, use_native_av);
@@ -1345,6 +1375,28 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
                     (void) impl_->runtime->execution_optimizer().invalidate_candidate(decode_decision.candidate_identity);
                 throw;
             }
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+            Qwen3GenerationStepDiagnostic step_diagnostic;
+            step_diagnostic.position = decode_position;
+            step_diagnostic.rows = 1;
+            step_diagnostic.phase = QwenExecutionPhase::Decode;
+            step_diagnostic.native_candidate_requested = allow_native_av_decode;
+            step_diagnostic.native_candidate_selected = decode_decision.candidate_selected &&
+                decode_decision.strategy == QwenCandidateStrategy::NativeLayoutAttentionAV;
+            step_diagnostic.native_av_executed = use_native_av;
+            step_diagnostic.native_av_layer_graphs = static_cast<uint32_t>(result.native_av_layers - native_layers_before);
+            step_diagnostic.diagnostic_native_av_interventions = static_cast<uint32_t>(
+                result.diagnostic_native_av_interventions - interventions_before);
+            result.attention_av_step_diagnostics.push_back(step_diagnostic);
+            Qwen3GenerationOutputCapture output_capture;
+            output_capture.position = decode_position;
+            output_capture.rows = 1;
+            output_capture.phase = QwenExecutionPhase::Decode;
+            output_capture.input_token = next;
+            output_capture.hidden = result.final_hidden;
+            output_capture.logits = logits;
+            result.attention_av_output_captures.push_back(std::move(output_capture));
+#endif
             if (!use_prebound_dispatch && !use_native_av) ++result.canonical_decode_steps;
             if (impl_->capture_decode_profile)
                 result.decode_profile.outer_token_wall_samples_ns.push_back(elapsed_ns(outer_step_start, Clock::now()));

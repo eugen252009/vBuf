@@ -229,7 +229,6 @@ if(VBUF_BUILD_PROBES)
     add_executable(vbuf_qwen3_native_av_sequence_qualification
         qualification/qwen3_native_av_sequence_qualification.cpp)
     target_compile_features(vbuf_qwen3_native_av_sequence_qualification PRIVATE cxx_std_17)
-    target_link_libraries(vbuf_qwen3_native_av_sequence_qualification PRIVATE vbuf_qwen3_cuda_core)
     add_library(vbuf_qwen3_cuda_core_av_diagnostic STATIC ${VBUF_QWEN3_CUDA_CORE_SOURCES})
     target_compile_features(vbuf_qwen3_cuda_core_av_diagnostic PUBLIC cxx_std_17)
     target_include_directories(vbuf_qwen3_cuda_core_av_diagnostic PUBLIC include)
@@ -240,6 +239,8 @@ if(VBUF_BUILD_PROBES)
         target_link_libraries(vbuf_qwen3_cuda_core_av_diagnostic PUBLIC CUDA::cudart)
         target_compile_definitions(vbuf_qwen3_cuda_core_av_diagnostic PRIVATE VBUF_QWEN3_HAS_CUDA_RUNTIME=1)
     endif()
+    target_link_libraries(vbuf_qwen3_native_av_sequence_qualification
+        PRIVATE vbuf_qwen3_cuda_core_av_diagnostic)
     add_executable(vbuf_qwen3_native_av_boundary_diagnostic
         qualification/qwen3_native_av_boundary_diagnostic.cpp)
     target_compile_features(vbuf_qwen3_native_av_boundary_diagnostic PRIVATE cxx_std_17)

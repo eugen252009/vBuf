@@ -1,0 +1,2 @@
+fixture_id,mode,cancelled_length,reused_length,cancelled_at_prompt_boundary,reentered_cleanly,session_reset_verified,tokens_equal_fresh,captures_equal_fresh,token_hash,capture_hash,status
+session-reentry-baseline-p8-g1-cap512,BOTH,8,9,yes,yes,yes,yes,yes,f793d497297f0b5b,5a3eb2b7f4e92b34,PASS

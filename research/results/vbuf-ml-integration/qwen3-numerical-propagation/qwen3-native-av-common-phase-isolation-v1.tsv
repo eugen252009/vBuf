@@ -1,0 +1,10 @@
+# qwen3-native-av-common-phase-isolation-v1
+# model_sha256=f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31
+# input history is the canonical 8+25 free-running token sequence recorded in raw/autoregressive-fixture-matrix-20261009/matrix/token_sequences.csv
+# candidate and reference receive the same 33 token IDs; processing is prefill32 followed by decode at position 32, then cancel at the prompt boundary
+# local prompt tokens use the same offline tokenizer settings and model identity as qwen3-native-av-fixture-matrix-v1.tsv
+# tokenizer_gguf_sha256=915913e22399475dbe6c968ac014d9f1fbe08975e489279aede9d5c7b2c98eb6; natural_repeat_fixture_sha256=23891eeb02382f8c8d517ccd0d039bbd3e3c72f6ef428ed13946798279a6ad44
+# thresholds unchanged: final hidden/logits relative RMS<=0.02 and cosine>=0.9998
+fixture_id|category|description|prompt_text|prompt_ids|generated_tokens|capacity|mode|input_mode|repeats|prior_result|common_replay|session_reuse
+baseline-history-native-prefill-only|phase-isolation-after-common-replay-failure|native 32-row prefill, canonical decode at context 32; fixed canonical 8+25 token history|The archival test proceeds in measured stages. Each checkpoint records the current position, verifies the cached keys and values, and preserves the earlier history. No conclusion is inferred from allocated capacity alone.|785,93947,1273,33455,304,16878,17628,13,5512,11,279,31085,1969,8253,279,6891,315,279,2390,13,1096,17601,24588,279,3151,7424,429,525,9760,311,279,3412,3405|1|512|PREFILL_ONLY|COMMON_INPUT|2|FAIL|no|no
+baseline-history-native-decode-only|phase-isolation-after-common-replay-failure|canonical 32-row prefill, native decode at context 32; identical fixed canonical 8+25 token history|The archival test proceeds in measured stages. Each checkpoint records the current position, verifies the cached keys and values, and preserves the earlier history. No conclusion is inferred from allocated capacity alone.|785,93947,1273,33455,304,16878,17628,13,5512,11,279,31085,1969,8253,279,6891,315,279,2390,13,1096,17601,24588,279,3151,7424,429,525,9760,311,279,3412,3405|1|512|DECODE_ONLY|COMMON_INPUT|2|UNQUALIFIED|no|no

@@ -1,0 +1,7 @@
+# qwen3-native-av-session-reuse-smoke-v1
+# Same model SHA and local tokenizer evidence as qwen3-native-av-fixture-matrix-v1.tsv.
+# natural_repeat_fixture_sha256=23891eeb02382f8c8d517ccd0d039bbd3e3c72f6ef428ed13946798279a6ad44
+# Bounded session lifecycle check only: cancel at prompt boundary, then re-enter the same executor/session and compare with a fresh-session reference.
+# This does not expand the native AV numerical qualification set or enable production selection.
+fixture_id|category|description|prompt_text|prompt_ids|generated_tokens|capacity|mode|input_mode|repeats|prior_result|common_replay|session_reuse
+session-reentry-baseline-p8-g1-cap512|session-lifecycle|same-executor re-entry after prompt-boundary cancellation using the existing baseline prompt prefix|The archival test proceeds in measured stages. Each checkpoint records the current position, verifies the cached keys and values, and preserves the earlier history.|785,93947,1273,33455,304,16878,17628,13|1|512|BOTH|FREE|2|UNQUALIFIED|no|yes

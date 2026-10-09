@@ -137,6 +137,26 @@ measured memory traffic or bandwidth. At capacity 1032 the old diagnostic trial
 reported 109,903,872 logical copy bytes avoided, but failed numeric
 qualification.
 
+## Multi-fixture sequence qualification update
+
+The original 8-token plus 25-generated-token free-running baseline reproduced
+twice with identical token IDs and passed the existing final gate. A common-token
+replay of the same 33-token history, processed as a 32-row prefill plus decode
+at context 32, failed the logits gate (`0.0236490` relative RMS). Phase-isolated
+replay showed native prefill alone failed (`0.0225540` final logits relative
+RMS), while native decode alone passed (`0.0146598`) on that exact fixed input.
+A separate 8+1 full-candidate sequence also failed (`0.0301166` logits relative
+RMS) with its generated token unchanged. Each result repeated deterministically.
+
+The planned 20-fixture matrix stopped after the first new common-token failure;
+only the baseline fixture ran from that matrix. Its other prompts, token patterns,
+and capacities were not tested. The targeted session-reuse smoke confirmed
+cancel-at-prompt-boundary followed by same-executor re-entry returns the same
+captures as a fresh session, but this does not resolve the numerical failure.
+No guard, threshold, production setting, or canonical fallback was changed, and
+no speedup is claimed. Detailed per-position evidence and the exact manifests are
+in [`../qwen3-numerical-propagation/README.md`](../qwen3-numerical-propagation/README.md).
+
 ## Reproduction
 
 Configure/build with the pinned patched GGML preparation and local vBuf-ML

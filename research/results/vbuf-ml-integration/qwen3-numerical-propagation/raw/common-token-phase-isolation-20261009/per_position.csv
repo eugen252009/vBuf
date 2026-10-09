@@ -1,0 +1,9 @@
+fixture_id,repeat,run_kind,position,rows,phase,input_token,canonical_next_top1,candidate_next_top1,next_top1_equal,candidate_requested,candidate_selected,native_av_executed,native_av_layer_graphs,diagnostic_interventions,canonical_av_layer_graphs,hidden_max_abs,hidden_relative_rms,hidden_cosine,logits_max_abs,logits_relative_rms,logits_cosine
+baseline-history-native-prefill-only,1,PHASE_COMMON_TOKEN,31,32,PREFILL,3412,3405,3405,yes,yes,yes,yes,26,0,14,2.40813446045,0.0190157316659,0.999820658186,0.355557084084,0.0244611899675,0.99970314539
+baseline-history-native-prefill-only,1,PHASE_COMMON_TOKEN,32,1,DECODE,3405,13,13,yes,no,no,no,0,0,40,2.50639343262,0.0133640331431,0.999911886317,0.334114551544,0.0225540207714,0.999753754539
+baseline-history-native-prefill-only,2,PHASE_COMMON_TOKEN,31,32,PREFILL,3412,3405,3405,yes,yes,yes,yes,26,0,14,2.40813446045,0.0190157316659,0.999820658186,0.355557084084,0.0244611899675,0.99970314539
+baseline-history-native-prefill-only,2,PHASE_COMMON_TOKEN,32,1,DECODE,3405,13,13,yes,no,no,no,0,0,40,2.50639343262,0.0133640331431,0.999911886317,0.334114551544,0.0225540207714,0.999753754539
+baseline-history-native-decode-only,1,PHASE_COMMON_TOKEN,31,32,PREFILL,3412,3405,3405,yes,no,no,no,0,0,40,0,0,1,0,0,1
+baseline-history-native-decode-only,1,PHASE_COMMON_TOKEN,32,1,DECODE,3405,13,13,yes,yes,yes,yes,26,0,14,4.91345214844,0.00892133431226,0.99996109983,0.247925758362,0.0146598361825,0.999893132461
+baseline-history-native-decode-only,2,PHASE_COMMON_TOKEN,31,32,PREFILL,3412,3405,3405,yes,no,no,no,0,0,40,0,0,1,0,0,1
+baseline-history-native-decode-only,2,PHASE_COMMON_TOKEN,32,1,DECODE,3405,13,13,yes,yes,yes,yes,26,0,14,4.91345214844,0.00892133431226,0.99996109983,0.247925758362,0.0146598361825,0.999893132461

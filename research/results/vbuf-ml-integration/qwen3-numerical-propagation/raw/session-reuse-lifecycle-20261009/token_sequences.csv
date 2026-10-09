@@ -1,0 +1,3 @@
+fixture_id,repeat,run_kind,input_token_ids,canonical_generated_tokens,candidate_generated_tokens,canonical_token_hash,candidate_token_hash,trajectory_equal
+session-reentry-baseline-p8-g1-cap512,1,FREE_RUNNING,785;93947;1273;33455;304;16878;17628;13,5512,5512,f793d497297f0b5b,f793d497297f0b5b,yes
+session-reentry-baseline-p8-g1-cap512,2,FREE_RUNNING,785;93947;1273;33455;304;16878;17628;13,5512,5512,f793d497297f0b5b,f793d497297f0b5b,yes

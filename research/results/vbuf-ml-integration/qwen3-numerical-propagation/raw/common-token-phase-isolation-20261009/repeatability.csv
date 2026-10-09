@@ -1,0 +1,3 @@
+fixture_id,run_kind,attempts,canonical_tokens_repeatable,candidate_tokens_repeatable,canonical_capture_repeatable,candidate_capture_repeatable,status
+baseline-history-native-prefill-only,PHASE_COMMON_TOKEN,2,yes,yes,yes,yes,PASS
+baseline-history-native-decode-only,PHASE_COMMON_TOKEN,2,yes,yes,yes,yes,PASS

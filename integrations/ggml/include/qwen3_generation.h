@@ -1,6 +1,7 @@
 #pragma once
 
 #include "qwen3_cuda_core.h"
+#include "qwen3_execution_plan.h"
 
 #include <array>
 #include <cstdint>
@@ -43,6 +44,27 @@ struct Qwen3LayerActivationCapture {
     uint32_t rows = 0;
     bool prefill = false;
     std::vector<float> hidden;
+};
+
+// Qualification-only step/output snapshots, compiled into the diagnostic core.
+struct Qwen3GenerationStepDiagnostic {
+    uint32_t position = 0;
+    uint32_t rows = 0;
+    QwenExecutionPhase phase = QwenExecutionPhase::Decode;
+    bool native_candidate_requested = false;
+    bool native_candidate_selected = false;
+    bool native_av_executed = false;
+    uint32_t native_av_layer_graphs = 0;
+    uint32_t diagnostic_native_av_interventions = 0;
+};
+
+struct Qwen3GenerationOutputCapture {
+    uint32_t position = 0;
+    uint32_t rows = 0;
+    QwenExecutionPhase phase = QwenExecutionPhase::Decode;
+    uint32_t input_token = 0;
+    std::vector<float> hidden;
+    std::vector<float> logits;
 };
 
 struct Qwen3AttentionAVBoundaryCapture {
@@ -88,6 +110,8 @@ struct Qwen3GenerationExecution {
 #ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
     std::vector<Qwen3AttentionAVBoundaryCapture> attention_av_boundary_captures;
     std::vector<Qwen3LayerActivationCapture> layer_activation_captures;
+    std::vector<Qwen3GenerationStepDiagnostic> attention_av_step_diagnostics;
+    std::vector<Qwen3GenerationOutputCapture> attention_av_output_captures;
     uint64_t diagnostic_native_av_interventions = 0;
 #endif
     uint64_t prefill_ns = 0;
