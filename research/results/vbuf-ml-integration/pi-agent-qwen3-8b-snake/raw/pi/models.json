@@ -1,0 +1,21 @@
+{
+  "providers": {
+    "vbuf-local": {
+      "baseUrl": "http://127.0.0.1:18088/v1",
+      "apiKey": "vbuf-local",
+      "api": "openai-completions",
+      "models": [
+        {
+          "id": "qwen3-8b",
+          "name": "Qwen3-8B (vBuf local qualification)",
+          "reasoning": false,
+          "input": ["text"],
+          "contextWindow": 8192,
+          "maxTokens": 2048,
+          "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+          "compat": {"supportsStore": false, "supportsUsageInStreaming": false}
+        }
+      ]
+    }
+  }
+}

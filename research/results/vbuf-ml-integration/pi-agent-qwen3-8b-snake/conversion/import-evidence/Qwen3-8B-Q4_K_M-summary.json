@@ -1,0 +1,10 @@
+{
+  "artifact": "Qwen3-8B-Q4_K_M.vbuf",
+  "source": "Qwen3-8B-Q4_K_M.gguf",
+  "source_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+  "target_sha256": "cc85fa7afd90808484485de0e0a09e88ff5b98b58d1fb69c7083f64916417cb5",
+  "target_size": 5026262216,
+  "integrity": "none",
+  "tool": "vbuf-ml-convert",
+  "manifest": "model-manifest.json"
+}

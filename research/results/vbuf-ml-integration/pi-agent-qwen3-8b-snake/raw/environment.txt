@@ -1,0 +1,15 @@
+Observed qualification environment (2026-10-09)
+
+Pi: 1.1.0 (/home/eugen/.bun/bin/pi)
+Pi agent directory: isolated /tmp/pi-qwen3-8b-agent; no global model configuration or authentication used.
+Pi provider/model: vbuf-local / qwen3-8b; OpenAI Completions SSE; supportsStore=false; supportsUsageInStreaming=false; contextWindow=8192; maxTokens=2048; zero cost metadata; dummy local API key.
+Pi flags: --offline --no-session --no-mcp --no-extensions --no-skills --no-context-files --no-approve --thinking off.
+Pi coding workspace: /tmp/pi-qwen3-8b-snake-cli (outside the vBuf and GGML worktrees).
+Server: vbuf_compat_server --experimental-qwen3-8b --blocks 36 --qwen-context-capacity 8192 --max-new-tokens 4000 --host 127.0.0.1 --port 18088 --model-alias qwen3-8b.
+Source range server: 127.0.0.1:18318 serving the converted Qwen3-8B .vbuf payload.
+CUDA visibility: CUDA_VISIBLE_DEVICES=0, NVIDIA GeForce RTX 3060 12 GiB. RTX 2080 SUPER was not selected or disturbed.
+Pinned original GGUF SHA-256: d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785.
+Runtime vBuf source SHA-256: cc85fa7afd90808484485de0e0a09e88ff5b98b58d1fb69c7083f64916417cb5.
+Converted semantic sidecar SHA-256: 99f2892dbe58d427605457729a6edcfa037d67f8ec1ff7f325953345b5d11212.
+
+The server's capacity is 8,192, not the model metadata's native 40,960 tokens. Pi config reports 8,192 accordingly. Model artifacts are external to the Git repository. A first malformed client config omitted supportsStore and received HTTP 400 before inference; the recorded final config explicitly disables that unsupported field. A first coding attempt tried sudo apt-get after a missing ncurses header; sudo denied because no terminal/authentication was available, the command made no system changes, and later runs used a PATH guard that blocks sudo. No package was installed.

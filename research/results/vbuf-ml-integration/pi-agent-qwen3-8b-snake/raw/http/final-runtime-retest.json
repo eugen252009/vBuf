@@ -1,0 +1,1 @@
+{"id":"chatcmpl-vbuf-1","object":"chat.completion","created":1791539219,"model":"qwen3-8b","choices":[{"index":0,"message":{"role":"assistant","content":"<think>\n\n</think>\n\nFINAL_RUNTIME_RETEST_OK"},"finish_reason":"stop"}],"usage":{"prompt_tokens":23,"completion_tokens":9,"total_tokens":32}}

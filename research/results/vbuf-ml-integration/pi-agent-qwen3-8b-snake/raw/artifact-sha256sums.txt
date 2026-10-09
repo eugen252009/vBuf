@@ -1,0 +1,3 @@
+d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785  /home/eugen/.cache/vbuf-agent-qualification/qwen3-8b/Qwen3-8B-Q4_K_M.gguf
+cc85fa7afd90808484485de0e0a09e88ff5b98b58d1fb69c7083f64916417cb5  /home/eugen/.cache/vbuf-agent-qualification/qwen3-8b/Qwen3-8B-Q4_K_M.vbuf
+99f2892dbe58d427605457729a6edcfa037d67f8ec1ff7f325953345b5d11212  /home/eugen/.cache/vbuf-agent-qualification/qwen3-8b/Qwen3-8B-Q4_K_M.semantic.vbuf

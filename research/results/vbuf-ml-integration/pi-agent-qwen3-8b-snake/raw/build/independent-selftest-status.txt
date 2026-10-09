@@ -1,0 +1,16 @@
+Independent command (the generated project could not build with its documented strict flags because `usleep` was undeclared):
+
+  cc -D_DEFAULT_SOURCE -std=c11 -Wall -Wextra -Wpedantic -Werror -o /tmp/pi-qwen3-8b-snake-independent snake.c
+  /tmp/pi-qwen3-8b-snake-independent --self-test
+
+Output:
+  Test 1 passed
+  Test 2 passed
+  Test 3 failed: Growth not correct
+  Test 4 passed
+  Test 5 passed
+  Test 6 passed
+
+Exit status: 0
+
+This is a false-green self-test: it prints a failed growth check but returns success. The `-D_DEFAULT_SOURCE` compile is only a diagnostic workaround to execute the test body; the required `make test` remains a compile failure. The test source also uses `srand(time(NULL))`, so food placement is not repeatable despite the README contract. No Pi code was manually repaired before this independent check.

@@ -105,6 +105,8 @@ class VbufModelRuntime : public std::enable_shared_from_this<VbufModelRuntime> {
 public:
     VbufModelRuntime(const std::string & semantic_model, uint32_t block_count);
     VbufModelRuntime(const std::string & semantic_model, uint32_t block_count,
+        bool allow_experimental_qwen3_8b);
+    VbufModelRuntime(const std::string & semantic_model, uint32_t block_count,
         std::shared_ptr<TensorResidencyStore> shared_residency);
     ~VbufModelRuntime();
     VbufModelRuntime(const VbufModelRuntime &) = delete;

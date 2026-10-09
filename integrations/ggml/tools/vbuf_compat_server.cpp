@@ -93,6 +93,8 @@ struct ServerConfig {
     uint32_t blocks = 2;
     uint64_t capacity = 268435456;
     uint32_t max_new_tokens = 4;
+    uint32_t qwen_context_capacity = 0;
+    bool experimental_qwen3_8b = false;
     uint32_t source_failure_requests = 0;
     bool qualification_faults = false;
     bool detailed_trace = false;
@@ -932,11 +934,19 @@ struct TokenizerInitializer {
 
 struct ServerRuntime {
     explicit ServerRuntime(const ServerConfig & config) : config(config), tokenizer(config.semantic_model),
-        model_runtime(std::make_shared<vbuf_ggml::VbufModelRuntime>(config.semantic_model, config.blocks)),
+        model_runtime(std::make_shared<vbuf_ggml::VbufModelRuntime>(config.semantic_model, config.blocks,
+            config.experimental_qwen3_8b)),
         qwen3(vbuf_ggml::is_qwen3_semantic_artifact(config.semantic_model)),
-        context_capacity(qwen3 ? 1032u : 4096u) {
-        if (qwen3 && config.blocks != 40)
+        context_capacity(qwen3 ? (config.qwen_context_capacity != 0 ? config.qwen_context_capacity :
+            (config.experimental_qwen3_8b ? 8192u : 1032u)) : 4096u) {
+        if (qwen3 && config.experimental_qwen3_8b && config.blocks != 36)
+            fail("experimental Qwen3-8B HTTP execution requires all 36 layers");
+        if (qwen3 && !config.experimental_qwen3_8b && config.blocks != 40)
             fail("the admitted Qwen3 HTTP runtime requires all 40 layers");
+        if (qwen3 && config.experimental_qwen3_8b && (context_capacity == 0 || context_capacity > 32768))
+            fail("experimental Qwen3-8B context capacity must be in 1..32768");
+        if (qwen3 && !config.experimental_qwen3_8b && (context_capacity == 0 || context_capacity > 1032))
+            fail("qualified Qwen3 context capacity must be in 1..1032");
         if (qwen3) model_runtime->prepare_qwen3_cuda(config.source_url);
     }
     ServerConfig config;
@@ -1679,6 +1689,8 @@ static ServerConfig parse_args(int argc, char ** argv) {
                 "  --blocks N                 Number of model blocks to execute\n"
                 "  --capacity BYTES           Payload residency budget\n"
                 "  --max-new-tokens N         Generation bound\n"
+                "  --experimental-qwen3-8b    Explicitly admit only the pinned Qwen3-8B artifact\n"
+                "  --qwen-context-capacity N  Qwen KV capacity (1032 qualified; experimental opt-in up to 32768)\n"
                 "  --expert-workers N         Independent selected-expert workers (1..6; default 1)\n"
                 "  --expert-threads N         Threads per parallel expert (1..8; default 1)\n"
                 "                             Product must not exceed 32\n"
@@ -1702,6 +1714,9 @@ static ServerConfig parse_args(int argc, char ** argv) {
         }
         else if (arg == "--capacity") config.capacity = std::stoull(value());
         else if (arg == "--max-new-tokens") config.max_new_tokens = static_cast<uint32_t>(std::stoul(value()));
+        else if (arg == "--experimental-qwen3-8b") config.experimental_qwen3_8b = true;
+        else if (arg == "--qwen-context-capacity")
+            config.qwen_context_capacity = static_cast<uint32_t>(std::stoul(value()));
         else if (arg == "--source-failure-requests")
             config.source_failure_requests = static_cast<uint32_t>(std::stoul(value()));
         else if (arg == "--enable-qualification-faults") config.qualification_faults = true;
@@ -1722,11 +1737,19 @@ static ServerConfig parse_args(int argc, char ** argv) {
         } else fail("unknown argument: " + arg);
     }
     if (config.semantic_model.empty() || config.source_url.empty())
-        fail("usage: --semantic-model PATH --source-url URL [--model-alias ID --host HOST --port PORT --blocks N --capacity BYTES --max-new-tokens N --expert-workers N --expert-threads N --runtime-trace --source-failure-requests N --enable-qualification-faults]; see --help");
+        fail("usage: --semantic-model PATH --source-url URL [--model-alias ID --host HOST --port PORT --blocks N --capacity BYTES --max-new-tokens N --experimental-qwen3-8b --qwen-context-capacity N --expert-workers N --expert-threads N --runtime-trace --source-failure-requests N --enable-qualification-faults]; see --help");
     if (vbuf_ggml::is_qwen3_semantic_artifact(config.semantic_model)) {
-        if (blocks_were_specified && config.blocks != 40)
-            fail("the admitted Qwen3 HTTP runtime requires --blocks 40");
-        config.blocks = 40;
+        if (config.experimental_qwen3_8b) {
+            if (blocks_were_specified && config.blocks != 36)
+                fail("experimental Qwen3-8B HTTP execution requires --blocks 36");
+            config.blocks = 36;
+        } else {
+            if (blocks_were_specified && config.blocks != 40)
+                fail("the admitted Qwen3 HTTP runtime requires --blocks 40");
+            config.blocks = 40;
+        }
+    } else if (config.experimental_qwen3_8b) {
+        fail("--experimental-qwen3-8b requires a Qwen3 semantic model");
     }
     if (config.max_new_tokens == 0 || config.blocks == 0) fail("generation bounds must be positive");
     if (config.expert_workers * config.expert_threads > 32) fail("expert compute thread budget exceeds 32");

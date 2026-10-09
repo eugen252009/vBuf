@@ -76,6 +76,10 @@ bool qwen3_artifact_identity_is_qualified(const std::string & source_sha256) noe
     return source_sha256 == QWEN3_14B_Q4_K_M_SHA256;
 }
 
+bool qwen3_artifact_identity_is_experimental_8b(const std::string & source_sha256) noexcept {
+    return source_sha256 == QWEN3_8B_VBUF_SOURCE_SHA256;
+}
+
 bool is_qwen3_semantic_artifact(const std::string & semantic_artifact) {
     VbufMlConsumerHandle * handle = vbuf_ml_consumer_open_metadata(semantic_artifact.c_str());
     if (handle == nullptr) return false;
@@ -114,7 +118,7 @@ void configure_qwen3_model_source(Qwen3Model & model, const std::string & source
 }
 
 void open_qwen3_model(const std::string & semantic_artifact, const std::string & source_endpoint,
-    Qwen3Model * model, bool require_exact_qualified_artifact) {
+    Qwen3Model * model, bool require_exact_qualified_artifact, bool allow_experimental_qwen3_8b) {
     if (model == nullptr) throw std::invalid_argument("Qwen3 model output is null");
     if (model->handle != nullptr) throw std::invalid_argument("Qwen3 model output is already initialized");
     model->handle = vbuf_ml_consumer_open_metadata(semantic_artifact.c_str());
@@ -179,8 +183,9 @@ void open_qwen3_model(const std::string & semantic_artifact, const std::string &
     const std::string source_sha256 = hex_sha(identity.full_source_hash, identity.hash_len);
     model->source_size = identity.declared_size;
     model->artifact_identity = "sha256:" + source_sha256;
-    if (require_exact_qualified_artifact && !qwen3_artifact_identity_is_qualified(source_sha256))
-        throw std::runtime_error("Qwen3 production supports only the qualified Qwen3-14B Q4_K_M artifact");
+    if (require_exact_qualified_artifact && !qwen3_artifact_identity_is_qualified(source_sha256) &&
+        !(allow_experimental_qwen3_8b && qwen3_artifact_identity_is_experimental_8b(source_sha256)))
+        throw std::runtime_error("Qwen3 production supports only the qualified Qwen3-14B Q4_K_M artifact; source_sha256=" + source_sha256);
 
     for (uint8_t kind = 0; kind < model->special_tokens.size(); ++kind) {
         uint64_t value = 0;

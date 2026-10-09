@@ -258,9 +258,11 @@ def build_manifest(root: Path, label: str, source_override: Path | None = None) 
     if not readiness:
         readiness.append("READY_FOR_CONVERSION")
     source_read = source_range_summary(artifact, [source_by_name[plan["source_name"]] for plan in plans])
+    source_filename = path.name
+    source_path = f"research-models/{source_filename}" if source_override is None else str(path)
     manifest = {
         "manifest_version": 1,
-        "source_identity": {"path": f"research-models/{filename}", "filename": filename, "size": artifact.size,
+        "source_identity": {"path": source_path, "filename": source_filename, "size": artifact.size,
                              "sha256": actual_hash, "gguf_version": artifact.version, "architecture": architecture,
                              "metadata_kv_count": artifact.metadata_count, "tensor_count": artifact.tensor_count},
         "consumer_revision": {"repository": "https://github.com/ggml-org/llama.cpp.git", "commit": PINNED_COMMIT},

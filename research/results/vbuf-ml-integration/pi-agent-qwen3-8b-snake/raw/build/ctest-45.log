@@ -1,0 +1,96 @@
+Internal ctest changing into directory: /tmp/vbuf-qwen-native-matrix-build
+Test project /tmp/vbuf-qwen-native-matrix-build
+      Start 14: vbuf_qwen3_native_attention_av_contract
+      Start 10: vbuf_qwen3_reference_capture_qualification
+ 1/45 Test #10: vbuf_qwen3_reference_capture_qualification ...   Passed    0.30 sec
+      Start 43: vbuf_deepseek_semantics_contract
+ 2/45 Test #14: vbuf_qwen3_native_attention_av_contract ......   Passed    0.59 sec
+      Start 41: vbuf_softmax_compute_extent_contract
+ 3/45 Test #43: vbuf_deepseek_semantics_contract .............   Passed    0.44 sec
+      Start 13: vbuf_numerical_contract_policy_validation
+ 4/45 Test #41: vbuf_softmax_compute_extent_contract .........   Passed    0.16 sec
+      Start  6: vbuf_qwen3_cuda_ownership_contract
+ 5/45 Test  #6: vbuf_qwen3_cuda_ownership_contract ...........   Passed    0.03 sec
+      Start 12: vbuf_numerical_contract_json_contract
+ 6/45 Test #12: vbuf_numerical_contract_json_contract ........   Passed    0.03 sec
+      Start 19: vbuf_tensor_wave_dependency_contract
+ 7/45 Test #19: vbuf_tensor_wave_dependency_contract .........   Passed    0.03 sec
+      Start 18: vbuf_tensor_adapter_qualification
+ 8/45 Test #13: vbuf_numerical_contract_policy_validation ....   Passed    0.11 sec
+      Start 16: vbuf_ggml_smoke
+ 9/45 Test #18: vbuf_tensor_adapter_qualification ............   Passed    0.03 sec
+      Start 17: vbuf_borrowed_cpu_buffer_probe
+10/45 Test #16: vbuf_ggml_smoke ..............................   Passed    0.03 sec
+      Start  9: vbuf_high_precision_reference_contract
+11/45 Test  #9: vbuf_high_precision_reference_contract .......   Passed    0.02 sec
+      Start  7: vbuf_qwen3_execution_plan_contract
+12/45 Test #17: vbuf_borrowed_cpu_buffer_probe ...............   Passed    0.03 sec
+      Start  1: vbuf_qwen3_model_admission_contract
+13/45 Test  #1: vbuf_qwen3_model_admission_contract ..........   Passed    0.02 sec
+      Start 44: vbuf_portable_graph_adapter_contract
+14/45 Test  #7: vbuf_qwen3_execution_plan_contract ...........   Passed    0.03 sec
+      Start 45: vbuf_portable_graph_neutrality
+15/45 Test #44: vbuf_portable_graph_adapter_contract .........   Passed    0.02 sec
+      Start 39: vbuf_batched_prefill_contract
+16/45 Test #45: vbuf_portable_graph_neutrality ...............   Passed    0.02 sec
+      Start 11: vbuf_numerical_contract_evidence_replay
+17/45 Test #11: vbuf_numerical_contract_evidence_replay ......   Passed    0.01 sec
+      Start 24: vbuf_progressive_range_source_contract
+18/45 Test #24: vbuf_progressive_range_source_contract .......   Passed    0.01 sec
+      Start 15: vbuf_runtime_trace_contract
+19/45 Test #39: vbuf_batched_prefill_contract ................   Passed    0.02 sec
+      Start  8: vbuf_numerical_contracts_contract
+20/45 Test #15: vbuf_runtime_trace_contract ..................   Passed    0.01 sec
+      Start 40: vbuf_qwen3_kv_cache_contract
+21/45 Test  #8: vbuf_numerical_contracts_contract ............   Passed    0.01 sec
+      Start  2: vbuf_agent_protocol_contract
+22/45 Test #40: vbuf_qwen3_kv_cache_contract .................   Passed    0.01 sec
+      Start  3: vbuf_model_architecture_contract
+23/45 Test  #2: vbuf_agent_protocol_contract .................   Passed    0.00 sec
+      Start 42: vbuf_qwen3_query_groups_contract
+24/45 Test  #3: vbuf_model_architecture_contract .............   Passed    0.00 sec
+      Start  4: vbuf_parallel_executor_contract
+25/45 Test #42: vbuf_qwen3_query_groups_contract .............   Passed    0.00 sec
+      Start 22: vbuf_materializer_page_lifetime_contract
+26/45 Test  #4: vbuf_parallel_executor_contract ..............   Passed    0.00 sec
+      Start 27: vbuf_shared_residency_concurrency_contract
+27/45 Test #22: vbuf_materializer_page_lifetime_contract .....   Passed    0.00 sec
+      Start 20: vbuf_prefetch_planner_contract
+28/45 Test #27: vbuf_shared_residency_concurrency_contract ...   Passed    0.00 sec
+      Start 28: vbuf_device_residency_contract
+29/45 Test #20: vbuf_prefetch_planner_contract ...............   Passed    0.00 sec
+      Start 21: vbuf_materializer_contract
+30/45 Test #28: vbuf_device_residency_contract ...............   Passed    0.00 sec
+      Start 26: vbuf_residency_contract
+31/45 Test #21: vbuf_materializer_contract ...................   Passed    0.00 sec
+      Start 29: vbuf_residency_policy_poc17_contract
+32/45 Test #26: vbuf_residency_contract ......................   Passed    0.00 sec
+      Start 23: vbuf_range_source_contract
+33/45 Test #29: vbuf_residency_policy_poc17_contract .........   Passed    0.00 sec
+      Start 25: vbuf_source_selection_contract
+34/45 Test #23: vbuf_range_source_contract ...................   Passed    0.00 sec
+      Start 31: vbuf_striped_materializer_contract
+35/45 Test #25: vbuf_source_selection_contract ...............   Passed    0.00 sec
+      Start 35: vbuf_runtime_state_contract
+36/45 Test #31: vbuf_striped_materializer_contract ...........   Passed    0.00 sec
+      Start 30: vbuf_tiered_residency_poc18_contract
+37/45 Test #35: vbuf_runtime_state_contract ..................   Passed    0.00 sec
+      Start 33: vbuf_indexed_expert_lowering_contract
+38/45 Test #30: vbuf_tiered_residency_poc18_contract .........   Passed    0.00 sec
+      Start 34: vbuf_weighted_merge_contract
+39/45 Test #33: vbuf_indexed_expert_lowering_contract ........   Passed    0.00 sec
+      Start 36: vbuf_source_selection_fallback_contract
+40/45 Test #34: vbuf_weighted_merge_contract .................   Passed    0.00 sec
+      Start 37: vbuf_multi_layer_state_contract
+41/45 Test #36: vbuf_source_selection_fallback_contract ......   Passed    0.00 sec
+      Start  5: vbuf_qwen3_execution_policy_contract
+42/45 Test #37: vbuf_multi_layer_state_contract ..............   Passed    0.00 sec
+      Start 32: vbuf_topk_contract
+43/45 Test  #5: vbuf_qwen3_execution_policy_contract .........   Passed    0.00 sec
+      Start 38: vbuf_runtime_mode_contract
+44/45 Test #32: vbuf_topk_contract ...........................   Passed    0.00 sec
+45/45 Test #38: vbuf_runtime_mode_contract ...................   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 45
+
+Total Test time (real) =   0.99 sec

@@ -70,13 +70,17 @@ struct Qwen3Model {
 
 inline constexpr const char * QWEN3_14B_Q4_K_M_SHA256 =
     "f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31";
+inline constexpr const char * QWEN3_8B_VBUF_SOURCE_SHA256 =
+    "cc85fa7afd90808484485de0e0a09e88ff5b98b58d1fb69c7083f64916417cb5";
 
 Qwen3Tensor & qwen3_tensor(Qwen3Model & model, const std::string & name);
 const Qwen3Tensor & qwen3_tensor(const Qwen3Model & model, const std::string & name);
 bool qwen3_artifact_identity_is_qualified(const std::string & source_sha256) noexcept;
+bool qwen3_artifact_identity_is_experimental_8b(const std::string & source_sha256) noexcept;
 bool is_qwen3_semantic_artifact(const std::string & semantic_artifact);
 void open_qwen3_model(const std::string & semantic_artifact, const std::string & source_endpoint,
-    Qwen3Model * model, bool require_exact_qualified_artifact = false);
+    Qwen3Model * model, bool require_exact_qualified_artifact = false,
+    bool allow_experimental_qwen3_8b = false);
 void configure_qwen3_model_source(Qwen3Model & model, const std::string & source_endpoint);
 
 } // namespace vbuf_ggml

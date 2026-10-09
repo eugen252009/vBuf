@@ -18,6 +18,13 @@ int main(int argc, char ** argv) {
             "exact qualified Qwen3 identity was rejected");
         require(!qwen3_artifact_identity_is_qualified("sha256:other"),
             "unsupported Qwen3 identity was admitted");
+        require(qwen3_artifact_identity_is_experimental_8b(QWEN3_8B_VBUF_SOURCE_SHA256),
+            "exact experimental Qwen3-8B source identity was rejected");
+        require(!qwen3_artifact_identity_is_qualified(QWEN3_8B_VBUF_SOURCE_SHA256),
+            "experimental Qwen3-8B identity entered default production admission");
+        require(!qwen3_artifact_identity_is_experimental_8b(QWEN3_14B_Q4_K_M_SHA256) &&
+            !qwen3_artifact_identity_is_experimental_8b("sha256:other"),
+            "non-Qwen3-8B identity entered experimental admission");
         if (argc == 1) return 0;
         Qwen3Model model;
         open_qwen3_model(argv[1], "http://127.0.0.1:1", &model, true);

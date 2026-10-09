@@ -60,7 +60,7 @@ struct QwenCudaPlacement {
     uint32_t output_norm_device_id = 0;
     uint32_t output_head_device_id = 0;
 
-    static QwenCudaPlacement single_device(uint32_t device_id = 0);
+    static QwenCudaPlacement single_device(uint32_t device_id = 0, uint32_t layer_count = 40);
     static QwenCudaPlacement contiguous_split(uint32_t early_device_id,
         uint32_t late_device_id, uint32_t early_block_count);
     void validate(const Qwen3Model & model) const;
@@ -89,6 +89,7 @@ struct QwenCudaRuntimeConfig {
     size_t prefill_scratch_bytes = 64 * 1024 * 1024;
     size_t decode_scratch_bytes = 32 * 1024 * 1024;
     bool allow_experimental_capacity = false;
+    bool allow_experimental_qwen3_8b = false;
     QwenCudaFailurePoint inject_failure = QwenCudaFailurePoint::None;
 };
 
@@ -142,6 +143,7 @@ public:
     size_t resident_tensor_count(uint32_t device_id) const;
     uint32_t prefill_chunk_size() const noexcept;
     bool experimental_capacity_enabled() const noexcept;
+    bool experimental_qwen3_8b_enabled() const noexcept;
     QwenExecutionPlanOptimizer & execution_optimizer() noexcept;
 
 private:

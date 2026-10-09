@@ -112,6 +112,12 @@ struct Qwen3GenerationExecutor::Impl {
     std::shared_ptr<QwenCudaSessionState> session;
     ggml_backend_t backend;
     uint32_t capacity;
+    uint32_t embed_width;
+    uint32_t heads;
+    uint32_t kv_heads;
+    uint32_t head_dim;
+    uint32_t layers;
+    uint32_t prefill_chunk;
     std::optional<QwenExecutionPlan> optimizer_plan;
     uint64_t graph_allocation_vram_bytes = 0;
     bool capture_final_hidden = false;
@@ -142,14 +148,21 @@ struct Qwen3GenerationExecutor::Impl {
     explicit Impl(Qwen3Model & admitted, std::shared_ptr<QwenCudaRuntimeState> runtime_state,
         std::shared_ptr<QwenCudaSessionState> session_state, bool capture_hidden)
         : model(&admitted), runtime(std::move(runtime_state)), session(std::move(session_state)),
-          backend(runtime->backend()), capacity(session->capacity()), capture_final_hidden(capture_hidden),
-          embedding(runtime->embedding()) {
-        if (model->layer_count != layers || runtime->metadata() == nullptr || embedding == nullptr ||
+          backend(runtime->backend()), capacity(session->capacity()),
+          embed_width(static_cast<uint32_t>(admitted.metadata.embedding_length)),
+          heads(static_cast<uint32_t>(admitted.metadata.head_count)),
+          kv_heads(static_cast<uint32_t>(admitted.metadata.kv_head_count)),
+          head_dim(static_cast<uint32_t>(admitted.metadata.key_head_dimension)),
+          layers(admitted.layer_count), prefill_chunk(runtime->prefill_chunk_size()),
+          capture_final_hidden(capture_hidden), embedding(runtime->embedding()) {
+        if (model->layer_count == 0 || runtime->metadata() == nullptr || embedding == nullptr ||
+            runtime->metadata()->embedding_length != model->metadata.embedding_length ||
             session->runtime().get() != runtime.get())
             throw std::invalid_argument("canonical Qwen executor requires matching admitted runtime/session state");
-        if (capacity == 0 || capacity > executable_capacity_limit)
-            throw std::invalid_argument("Qwen executable session capacity must be in 1..1032; larger KV allocations are not prefill-qualified");
-        if (runtime->prefill_chunk_size() != prefill_chunk)
+        const uint32_t capacity_limit = runtime->experimental_qwen3_8b_enabled() ? 32768U : executable_capacity_limit;
+        if (capacity == 0 || capacity > capacity_limit)
+            throw std::invalid_argument("Qwen executable session capacity exceeds the explicit runtime qualification limit");
+        if (prefill_chunk != 32)
             throw std::invalid_argument("canonical Qwen execution requires 32-token prefill chunks");
         const uint64_t score_bytes = static_cast<uint64_t>(capacity) * prefill_chunk * heads * sizeof(float);
         const uint64_t conservative_prefill_bytes = score_bytes * 3 + 8 * 1024 * 1024;

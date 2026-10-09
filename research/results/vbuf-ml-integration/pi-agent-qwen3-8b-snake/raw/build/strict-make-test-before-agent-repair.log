@@ -1,0 +1,8 @@
+rm -f snake
+gcc -std=c11 -Wall -Wextra -Wpedantic -Werror -o snake snake.c
+snake.c: In function ‘run_demo’:
+snake.c:158:10: error: implicit declaration of function ‘usleep’; did you mean ‘sleep’? [-Wimplicit-function-declaration]
+  158 |          usleep(100000);
+      |          ^~~~~~
+      |          sleep
+make: *** [Makefile:7: snake] Fehler 1

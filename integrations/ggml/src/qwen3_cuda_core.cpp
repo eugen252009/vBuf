@@ -53,9 +53,10 @@ void inject(QwenCudaFailurePoint actual, QwenCudaFailurePoint target, const char
 }
 } // namespace
 
-QwenCudaPlacement QwenCudaPlacement::single_device(uint32_t device_id) {
+QwenCudaPlacement QwenCudaPlacement::single_device(uint32_t device_id, uint32_t layer_count) {
+    if (layer_count == 0) throw std::invalid_argument("Qwen CUDA placement requires at least one transformer block");
     QwenCudaPlacement result;
-    result.block_device_ids.assign(qwen3_layers, device_id);
+    result.block_device_ids.assign(layer_count, device_id);
     result.embedding_device_id = device_id;
     result.output_norm_device_id = device_id;
     result.output_head_device_id = device_id;
@@ -104,7 +105,7 @@ std::vector<uint32_t> QwenCudaPlacement::device_ids() const {
 }
 
 void QwenCudaPlacement::validate(const Qwen3Model & model) const {
-    if (model.layer_count != qwen3_layers || block_device_ids.size() != model.layer_count)
+    if (model.layer_count == 0 || block_device_ids.size() != model.layer_count)
         throw std::invalid_argument("Qwen CUDA placement must map every admitted transformer block exactly once");
     const uint32_t early = block_device_ids.front();
     const auto cut_it = std::find_if(block_device_ids.begin(), block_device_ids.end(),
@@ -166,12 +167,20 @@ Qwen3CudaLayerGraph qwen3_cuda_build_layer(ggml_context * context,
     require_tensor(w.gate, "FFN gate weight");
     require_tensor(w.up, "FFN up weight");
     require_tensor(w.down, "FFN down weight");
-    if (query_count == 0 || query_count > capacity ||
-        hidden->ne[0] != embedding_width || position_ids->ne[0] != query_count ||
+    const int64_t model_width = hidden->ne[0];
+    const int64_t head_dimension = w.q_norm->ne[0];
+    if (head_dimension <= 0 || w.q->ne[1] <= 0 || w.k->ne[1] <= 0 || w.v->ne[1] != w.k->ne[1] ||
+        w.q->ne[1] % head_dimension != 0 || w.k->ne[1] % head_dimension != 0)
+        throw std::invalid_argument("Qwen CUDA layer projection geometry is invalid");
+    const int64_t attention_heads = w.q->ne[1] / head_dimension;
+    const int64_t kv_head_count = w.k->ne[1] / head_dimension;
+    if (query_count == 0 || query_count > capacity || model_width <= 0 ||
+        hidden->ne[0] != w.attn_norm->ne[0] || position_ids->ne[0] != query_count ||
         causal_mask->ne[0] != capacity || causal_mask->ne[1] != query_count ||
-        cache_rows->ne[0] != static_cast<int64_t>(kv_heads) * query_count ||
-        key_cache->ne[0] != head_dimension || key_cache->ne[1] != static_cast<int64_t>(kv_heads) * capacity ||
-        value_cache->ne[0] != head_dimension || value_cache->ne[1] != static_cast<int64_t>(kv_heads) * capacity)
+        cache_rows->ne[0] != kv_head_count * query_count ||
+        key_cache->ne[0] != head_dimension || key_cache->ne[1] != kv_head_count * capacity ||
+        value_cache->ne[0] != head_dimension || value_cache->ne[1] != kv_head_count * capacity ||
+        w.q_norm->ne[0] != w.k_norm->ne[0] || w.attn_out->ne[1] != model_width)
         throw std::invalid_argument("Qwen CUDA layer graph geometry mismatch");
 
     const auto emit = [&](const char * name, ggml_tensor * tensor) {
@@ -188,8 +197,8 @@ Qwen3CudaLayerGraph qwen3_cuda_build_layer(ggml_context * context,
     emit("k_projection", k_linear);
     emit("v_projection", v_linear);
     ggml_tensor * q_heads = ggml_reshape_3d(context, q_linear, head_dimension, attention_heads, query_count);
-    ggml_tensor * k_heads = ggml_reshape_3d(context, k_linear, head_dimension, kv_heads, query_count);
-    ggml_tensor * v_heads = ggml_reshape_3d(context, v_linear, head_dimension, kv_heads, query_count);
+    ggml_tensor * k_heads = ggml_reshape_3d(context, k_linear, head_dimension, kv_head_count, query_count);
+    ggml_tensor * v_heads = ggml_reshape_3d(context, v_linear, head_dimension, kv_head_count, query_count);
     ggml_tensor * q_norm = ggml_mul(context, ggml_rms_norm(context, q_heads, 1e-6f), w.q_norm);
     ggml_tensor * k_norm = ggml_mul(context, ggml_rms_norm(context, k_heads, 1e-6f), w.k_norm);
     emit("q_norm", q_norm);
@@ -201,9 +210,9 @@ Qwen3CudaLayerGraph qwen3_cuda_build_layer(ggml_context * context,
         head_dimension, GGML_ROPE_TYPE_NEOX, 0, 1000000.0f,
         1.0f, 0.0f, 1.0f, 0.0f, 0.0f);
     ggml_tensor * k_current = ggml_reshape_2d(context,
-        ggml_cast(context, k_rope, GGML_TYPE_F16), head_dimension, kv_heads * query_count);
+        ggml_cast(context, k_rope, GGML_TYPE_F16), head_dimension, kv_head_count * query_count);
     ggml_tensor * v_current = ggml_reshape_2d(context,
-        ggml_cast(context, v_heads, GGML_TYPE_F16), head_dimension, kv_heads * query_count);
+        ggml_cast(context, v_heads, GGML_TYPE_F16), head_dimension, kv_head_count * query_count);
     emit("q_rope", q_rope);
     emit("k_rope", k_rope);
     emit("k_cache_f16", k_current);
@@ -211,7 +220,7 @@ Qwen3CudaLayerGraph qwen3_cuda_build_layer(ggml_context * context,
     ggml_tensor * k_updated = ggml_set_rows(context, key_cache, k_current, cache_rows);
     ggml_tensor * v_updated = ggml_set_rows(context, value_cache, v_current, cache_rows);
     ggml_tensor * q_batched = ggml_permute(context, q_rope, 0, 2, 1, 3);
-    ggml_tensor * k_reshaped = ggml_reshape_3d(context, k_updated, head_dimension, kv_heads, capacity);
+    ggml_tensor * k_reshaped = ggml_reshape_3d(context, k_updated, head_dimension, kv_head_count, capacity);
     ggml_tensor * k_batched = ggml_permute(context, k_reshaped, 0, 2, 1, 3);
     ggml_tensor * scores = checked_mul_mat(context, k_batched, q_batched, "attention scores");
     ggml_tensor * probabilities = ggml_soft_max_ext(context, scores, causal_mask,
@@ -224,7 +233,7 @@ Qwen3CudaLayerGraph qwen3_cuda_build_layer(ggml_context * context,
         emit("v_attention_input_native_layout", v_updated);
         context_heads = ggml_attention_av(context, v_updated, probabilities, position_ids);
     } else {
-        ggml_tensor * v_reshaped = ggml_reshape_3d(context, v_updated, head_dimension, kv_heads, capacity);
+        ggml_tensor * v_reshaped = ggml_reshape_3d(context, v_updated, head_dimension, kv_head_count, capacity);
         // Layers execute in dependency order; each consumes packed V before the
         // next layer overwrites this session-owned scratch tensor.
         ggml_tensor * v_batched = ggml_cpy(context,
@@ -233,7 +242,7 @@ Qwen3CudaLayerGraph qwen3_cuda_build_layer(ggml_context * context,
         context_heads = checked_mul_mat(context, v_batched, probabilities, "attention values");
     }
     ggml_tensor * context_layout = ggml_permute(context, context_heads, 0, 2, 1, 3);
-    ggml_tensor * attention_context = ggml_cont_2d(context, context_layout, embedding_width, query_count);
+    ggml_tensor * attention_context = ggml_cont_2d(context, context_layout, model_width, query_count);
     emit("attention_context", attention_context);
     ggml_tensor * projected = checked_mul_mat(context, w.attn_out, attention_context, "attention output");
     ggml_tensor * residual = ggml_add(context, projected, hidden);
@@ -349,10 +358,17 @@ QwenCudaRuntimeState::~QwenCudaRuntimeState() = default;
 
 std::shared_ptr<QwenCudaRuntimeState> QwenCudaRuntimeState::create(
     Qwen3Model & model, QwenCudaRuntimeConfig config) {
-    if (model.handle == nullptr || model.materializer == nullptr || model.layer_count != qwen3_layers ||
-        model.catalog.tensors.size() != model.count ||
-        !qwen3_artifact_identity_is_qualified(model.artifact_identity.substr(model.artifact_identity.find(':') + 1)))
-        throw std::invalid_argument("Qwen CUDA runtime requires admitted exact Qwen3-14B Q4_K_M metadata and source");
+    const std::string source_sha256 = model.artifact_identity.rfind("sha256:", 0) == 0 ?
+        model.artifact_identity.substr(7) : std::string{};
+    const bool admitted_14b = qwen3_artifact_identity_is_qualified(source_sha256);
+    const bool admitted_experimental_8b = config.allow_experimental_qwen3_8b &&
+        qwen3_artifact_identity_is_experimental_8b(source_sha256) && config.allow_experimental_capacity &&
+        model.layer_count == 36 && model.metadata.embedding_length == 4096 &&
+        model.metadata.head_count == 32 && model.metadata.kv_head_count == 8 &&
+        model.metadata.key_head_dimension == 128 && model.metadata.value_head_dimension == 128;
+    if (model.handle == nullptr || model.materializer == nullptr || model.layer_count == 0 ||
+        model.catalog.tensors.size() != model.count || (!admitted_14b && !admitted_experimental_8b))
+        throw std::invalid_argument("Qwen CUDA runtime requires exact Qwen3-14B admission or explicit exact-identity Qwen3-8B experimental admission");
     const bool multi_device = config.placement.device_ids().size() == 2;
     if ((config.prefill_chunk_size != 32 && !(multi_device && config.prefill_chunk_size == 16)) ||
         config.prefill_scratch_bytes == 0 || config.decode_scratch_bytes == 0)
@@ -535,26 +551,36 @@ std::shared_ptr<QwenCudaSessionState> QwenCudaRuntimeState::create_session(
     state->capacity = capacity;
     state->inject_failure = fail_at;
     const std::vector<uint32_t> device_ids = impl_->config.placement.device_ids();
+    const ModelMetadataDescriptor * metadata = impl_->model == nullptr ? nullptr : &impl_->model->metadata;
+    const uint32_t session_layers = metadata == nullptr ? qwen3_layers : impl_->model->layer_count;
+    const uint32_t session_width = metadata == nullptr ? embedding_width : static_cast<uint32_t>(metadata->embedding_length);
+    const uint32_t session_kv_heads = metadata == nullptr ? kv_heads : static_cast<uint32_t>(metadata->kv_head_count);
+    const uint32_t session_head_dimension = metadata == nullptr ? head_dimension :
+        static_cast<uint32_t>(metadata->key_head_dimension);
+    const uint32_t session_attention_heads = metadata == nullptr ? attention_heads :
+        static_cast<uint32_t>(metadata->head_count);
+    if (impl_->config.placement.block_device_ids.size() != session_layers)
+        throw std::invalid_argument("Qwen session placement does not match the model layer count");
     for (uint32_t id : device_ids) {
         state->devices.emplace_back();
         auto & local = state->devices.back();
         local.device_id = id;
-        local.keys.assign(qwen3_layers, nullptr);
-        local.values.assign(qwen3_layers, nullptr);
+        local.keys.assign(session_layers, nullptr);
+        local.values.assign(session_layers, nullptr);
         ggml_init_params params{ 8 * 1024 * 1024, nullptr, true };
         local.context = ggml_init(params);
         if (local.context == nullptr) throw std::runtime_error("Qwen CUDA session context allocation failed");
-        for (uint32_t layer = 0; layer < qwen3_layers; ++layer) {
+        for (uint32_t layer = 0; layer < session_layers; ++layer) {
             if (impl_->config.placement.block_device_ids[layer] != id) continue;
             local.keys[layer] = ggml_new_tensor_2d(local.context, GGML_TYPE_F16,
-                head_dimension, kv_heads * capacity);
+                session_head_dimension, session_kv_heads * capacity);
             local.values[layer] = ggml_new_tensor_2d(local.context, GGML_TYPE_F16,
-                head_dimension, kv_heads * capacity);
+                session_head_dimension, session_kv_heads * capacity);
             if (local.keys[layer] == nullptr || local.values[layer] == nullptr)
                 throw std::runtime_error("Qwen CUDA session KV tensor creation failed");
         }
         local.packed_value = ggml_new_tensor_3d(local.context, GGML_TYPE_F16,
-            capacity, head_dimension, kv_heads);
+            capacity, session_head_dimension, session_kv_heads);
         if (local.packed_value == nullptr) throw std::runtime_error("Qwen CUDA packed-V scratch creation failed");
         local.allocation = ggml_backend_alloc_ctx_tensors(local.context, backend(id));
         if (local.allocation == nullptr)
@@ -563,8 +589,8 @@ std::shared_ptr<QwenCudaSessionState> QwenCudaRuntimeState::create_session(
     inject(fail_at, QwenCudaFailurePoint::SessionAfterKvAllocation, "session KV allocation");
 
     const uint64_t score_bytes = static_cast<uint64_t>(capacity) * impl_->config.prefill_chunk_size *
-        attention_heads * sizeof(float);
-    if (capacity != 0 && score_bytes / capacity != static_cast<uint64_t>(impl_->config.prefill_chunk_size) * attention_heads * sizeof(float))
+        session_attention_heads * sizeof(float);
+    if (capacity != 0 && score_bytes / capacity != static_cast<uint64_t>(impl_->config.prefill_chunk_size) * session_attention_heads * sizeof(float))
         throw std::overflow_error("Qwen prefill scratch geometry overflow");
     const uint64_t graph_overhead = impl_->config.allow_experimental_capacity ?
         (impl_->config.prefill_chunk_size == 16 ? 48ULL : 40ULL) * 1024 * 1024 : 8ULL * 1024 * 1024;
@@ -593,7 +619,7 @@ std::shared_ptr<QwenCudaSessionState> QwenCudaRuntimeState::create_session(
             throw std::runtime_error("Qwen CUDA boundary requires a pinned host buffer supported by the source device");
         ggml_backend_buffer_type_t host_buft = ggml_backend_dev_host_buffer_type(device(device_ids.front()));
         if (host_buft == nullptr) throw std::runtime_error("Qwen CUDA pinned host buffer type is unavailable");
-        state->boundary_host_bytes = static_cast<size_t>(impl_->config.prefill_chunk_size) * embedding_width * sizeof(float);
+        state->boundary_host_bytes = static_cast<size_t>(impl_->config.prefill_chunk_size) * session_width * sizeof(float);
         state->boundary_host_buffer = ggml_backend_buft_alloc_buffer(host_buft, state->boundary_host_bytes);
         if (state->boundary_host_buffer == nullptr || !ggml_backend_buffer_is_host(state->boundary_host_buffer))
             throw std::runtime_error("Qwen CUDA pinned boundary host allocation failed");
@@ -693,6 +719,9 @@ size_t QwenCudaRuntimeState::resident_tensor_count(uint32_t id) const {
 }
 uint32_t QwenCudaRuntimeState::prefill_chunk_size() const noexcept { return impl_->config.prefill_chunk_size; }
 bool QwenCudaRuntimeState::experimental_capacity_enabled() const noexcept { return impl_->config.allow_experimental_capacity; }
+bool QwenCudaRuntimeState::experimental_qwen3_8b_enabled() const noexcept {
+    return impl_->config.allow_experimental_qwen3_8b;
+}
 QwenExecutionPlanOptimizer & QwenCudaRuntimeState::execution_optimizer() noexcept { return impl_->execution_optimizer; }
 
 QwenCudaSessionState::QwenCudaSessionState(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -777,20 +806,24 @@ ggml_backend_buffer_t QwenCudaSessionState::prefill_scratch(uint32_t id) const {
 ggml_backend_buffer_t QwenCudaSessionState::decode_scratch() const noexcept { return decode_scratch(impl_->devices.front().device_id); }
 ggml_backend_buffer_t QwenCudaSessionState::decode_scratch(uint32_t id) const { return impl_->by_id(id).decode_scratch; }
 ggml_tensor * QwenCudaSessionState::key_cache(uint32_t layer) const {
-    if (layer >= qwen3_layers) throw std::out_of_range("Qwen CUDA KV layer is out of range");
+    if (layer >= impl_->runtime->placement().block_device_ids.size())
+        throw std::out_of_range("Qwen CUDA KV layer is out of range");
     return key_cache(layer, impl_->runtime->placement().block_device_ids[layer]);
 }
 ggml_tensor * QwenCudaSessionState::key_cache(uint32_t layer, uint32_t id) const {
-    if (layer >= qwen3_layers) throw std::out_of_range("Qwen CUDA KV layer is out of range");
+    if (layer >= impl_->runtime->placement().block_device_ids.size())
+        throw std::out_of_range("Qwen CUDA KV layer is out of range");
     if (impl_->runtime->placement().block_device_ids[layer] != id) return nullptr;
     return impl_->by_id(id).keys[layer];
 }
 ggml_tensor * QwenCudaSessionState::value_cache(uint32_t layer) const {
-    if (layer >= qwen3_layers) throw std::out_of_range("Qwen CUDA KV layer is out of range");
+    if (layer >= impl_->runtime->placement().block_device_ids.size())
+        throw std::out_of_range("Qwen CUDA KV layer is out of range");
     return value_cache(layer, impl_->runtime->placement().block_device_ids[layer]);
 }
 ggml_tensor * QwenCudaSessionState::value_cache(uint32_t layer, uint32_t id) const {
-    if (layer >= qwen3_layers) throw std::out_of_range("Qwen CUDA KV layer is out of range");
+    if (layer >= impl_->runtime->placement().block_device_ids.size())
+        throw std::out_of_range("Qwen CUDA KV layer is out of range");
     if (impl_->runtime->placement().block_device_ids[layer] != id) return nullptr;
     return impl_->by_id(id).values[layer];
 }

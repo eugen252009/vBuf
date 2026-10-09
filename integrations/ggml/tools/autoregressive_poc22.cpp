@@ -284,6 +284,7 @@ private:
 struct VbufModelRuntime::Impl {
     Metadata metadata;
     std::shared_ptr<Qwen3Model> qwen3_model;
+    bool experimental_qwen3_8b = false;
     std::shared_ptr<QwenCudaRuntimeState> qwen_cuda_runtime;
     QwenCudaRuntimeConfig qwen_cuda_config{};
     std::string semantic_model_path;
@@ -315,16 +316,26 @@ struct VbufGenerationSession::SessionState {
 };
 
 VbufModelRuntime::VbufModelRuntime(const std::string & semantic_model, uint32_t block_count)
+    : VbufModelRuntime(semantic_model, block_count, false) {}
+
+VbufModelRuntime::VbufModelRuntime(const std::string & semantic_model, uint32_t block_count,
+    bool allow_experimental_qwen3_8b)
     : impl_(std::make_shared<Impl>()) {
     if (block_count == 0) throw std::runtime_error("block count must be positive");
     impl_->semantic_model_path = semantic_model;
+    impl_->experimental_qwen3_8b = allow_experimental_qwen3_8b;
     if (is_qwen3_semantic_artifact(semantic_model)) {
         impl_->qwen3_model = std::make_shared<Qwen3Model>();
-        open_qwen3_model(semantic_model, "", impl_->qwen3_model.get(), true);
+        open_qwen3_model(semantic_model, "", impl_->qwen3_model.get(), true, allow_experimental_qwen3_8b);
+        if (allow_experimental_qwen3_8b && !qwen3_artifact_identity_is_experimental_8b(
+                impl_->qwen3_model->artifact_identity.substr(7)))
+            throw std::runtime_error("experimental Qwen3-8B runtime requires the exact pinned Q4_K_M source identity");
         if (block_count != impl_->qwen3_model->layer_count)
-            throw std::runtime_error("qualified Qwen3 runtime requires all model layers");
+            throw std::runtime_error("Qwen3 runtime requires every model layer");
         return;
     }
+    if (allow_experimental_qwen3_8b)
+        throw std::runtime_error("experimental Qwen3-8B admission cannot be used with another architecture");
     load_metadata(semantic_model, &impl_->metadata);
     for (uint32_t block = 0; block < block_count; ++block)
         impl_->plans.push_back(make_plan(impl_->metadata, block, (block + 1) * 10000));
@@ -355,8 +366,9 @@ VbufModelRuntime::~VbufModelRuntime() = default;
 std::unique_ptr<VbufGenerationSession> VbufModelRuntime::create_session(uint32_t context_capacity) {
     std::shared_ptr<VbufModelRuntime> owner = weak_from_this().lock();
     if (!owner) throw std::runtime_error("model runtime must be shared-owned before creating sessions");
-    if (context_capacity == 0 || context_capacity > 4096)
-        throw std::invalid_argument("generation session capacity must be in 1..4096");
+    const uint32_t capacity_limit = impl_->experimental_qwen3_8b ? 32768U : 4096U;
+    if (context_capacity == 0 || context_capacity > capacity_limit)
+        throw std::invalid_argument("generation session capacity exceeds its explicitly admitted runtime limit");
     return std::make_unique<VbufGenerationSession>(std::move(owner), context_capacity);
 }
 
@@ -368,8 +380,15 @@ void VbufModelRuntime::prepare_qwen3_cuda(const std::string & source_endpoint) {
     } else if (impl_->qwen3_model->source_endpoint != source_endpoint) {
         throw std::runtime_error("Qwen model runtime source endpoint cannot change after initialization");
     }
-    if (!impl_->qwen_cuda_runtime)
+    if (!impl_->qwen_cuda_runtime) {
+        if (impl_->experimental_qwen3_8b) {
+            impl_->qwen_cuda_config.allow_experimental_qwen3_8b = true;
+            impl_->qwen_cuda_config.allow_experimental_capacity = true;
+            impl_->qwen_cuda_config.placement = QwenCudaPlacement::single_device(0,
+                impl_->qwen3_model->layer_count);
+        }
         impl_->qwen_cuda_runtime = QwenCudaRuntimeState::create(*impl_->qwen3_model, impl_->qwen_cuda_config);
+    }
 }
 
 void VbufModelRuntime::prepare_qwen3_cuda_multigpu_26_14(const std::string & source_endpoint,
@@ -432,8 +451,9 @@ VbufGenerationSession::VbufGenerationSession(std::shared_ptr<VbufModelRuntime> r
     uint32_t context_capacity)
     : runtime_(std::move(runtime)), session_state_(std::make_unique<SessionState>()) {
     if (!runtime_) throw std::runtime_error("model runtime must not be null");
-    if (context_capacity == 0 || context_capacity > 4096)
-        throw std::invalid_argument("generation session capacity must be in 1..4096");
+    const uint32_t capacity_limit = runtime_->impl_->experimental_qwen3_8b ? 32768U : 4096U;
+    if (context_capacity == 0 || context_capacity > capacity_limit)
+        throw std::invalid_argument("generation session capacity exceeds its explicitly admitted runtime limit");
     session_state_->configured_context_capacity = context_capacity;
     impl_ = runtime_->impl_;
 }
@@ -498,15 +518,16 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
         if (config.block_count == 0 || config.max_new_tokens == 0)
             throw std::runtime_error("generation bounds must be positive");
         if (impl_->qwen3_model) {
-            if (config.block_count != impl_->qwen3_model->layer_count || config.block_count != 40)
-                throw std::runtime_error("canonical Qwen CUDA execution requires the admitted 40-layer model");
+            if (config.block_count != impl_->qwen3_model->layer_count)
+                throw std::runtime_error("canonical Qwen CUDA execution requires every admitted model layer");
             if (config.expert_workers != 1 || config.expert_threads != 1)
                 throw std::runtime_error("Qwen CUDA session currently requires serial generation scheduling");
             if (config.source_endpoint.empty())
                 throw std::runtime_error("canonical Qwen execution requires a payload source endpoint");
+            const uint32_t qwen_capacity_limit = impl_->experimental_qwen3_8b ? 32768U : 1032U;
             if (config.context_capacity != session_state_->configured_context_capacity ||
-                config.context_capacity == 0 || config.context_capacity > 1032)
-                throw std::runtime_error("Qwen executable context capacity must match the session and be in 1..1032");
+                config.context_capacity == 0 || config.context_capacity > qwen_capacity_limit)
+                throw std::runtime_error("Qwen executable context capacity exceeds its explicitly admitted runtime limit");
             const uint64_t requested_positions = static_cast<uint64_t>(config.prompt_tokens.size()) +
                 config.max_new_tokens;
             if (requested_positions > config.context_capacity)
@@ -543,7 +564,7 @@ VbufGenerationResult VbufGenerationSession::run(const VbufGenerationConfig & con
             result.cancelled = execution.cancelled;
             result.prompt_tokens = config.prompt_tokens.size();
             result.completed_positions = execution.completed_positions;
-            result.completed_layers = execution.completed_positions == 0 ? 0 : 40;
+            result.completed_layers = execution.completed_positions == 0 ? 0 : impl_->qwen3_model->layer_count;
             result.prefill_ns = execution.prefill_ns;
             result.decode_ns = execution.decode_ns;
             result.peak_vram_bytes = execution.peak_vram_bytes;
