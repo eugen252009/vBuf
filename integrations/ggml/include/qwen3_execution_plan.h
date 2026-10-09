@@ -121,7 +121,7 @@ struct QwenExecutionCandidate {
     std::vector<QwenExecutionGuard> guards;
     QwenCandidateStatus status = QwenCandidateStatus::Candidate;
     std::string validation_note;
-    std::vector<std::string> required_numerical_contracts;
+    std::vector<vbuf_ml::numerics::NumericalContractRequirement> required_numerical_contracts;
     std::vector<vbuf_ml::numerics::NumericalEvaluation> numerical_qualifications;
 };
 
@@ -148,6 +148,8 @@ struct QwenOptimizerDecision {
     bool qualification_trial = false;
     QwenCandidateStrategy strategy = QwenCandidateStrategy::PreboundDecodeDispatch;
     bool canonical_selected = true;
+    vbuf_ml::numerics::EvidenceRejectionReason evidence_rejection =
+        vbuf_ml::numerics::EvidenceRejectionReason::None;
 };
 
 struct QwenOptimizerProfileRecord {
@@ -198,9 +200,10 @@ public:
         uint64_t elapsed_ns) noexcept;
     void record_optimizer_failure() noexcept;
     bool register_candidate(QwenExecutionCandidate candidate) noexcept;
-    bool mark_candidate_valid(const std::string & identity, const std::string & validation_note) noexcept;
+    bool register_candidate(QwenExecutionCandidate candidate, const QwenExecutionPlan & plan) noexcept;
     bool mark_candidate_valid(const std::string & identity, const std::string & validation_note,
-        std::vector<vbuf_ml::numerics::NumericalEvaluation> numerical_qualifications) noexcept;
+        std::vector<vbuf_ml::numerics::NumericalEvaluation> numerical_qualifications,
+        const QwenExecutionPlan & plan, const QwenRuntimeFacts & facts) noexcept;
     bool invalidate_candidate(const std::string & identity) noexcept;
     void set_unvalidated_trial_for_testing(bool enabled) noexcept;
     bool consume_candidate_execution_fault_for_testing() noexcept;
@@ -208,6 +211,7 @@ public:
     QwenOptimizerSnapshot snapshot() const;
 
 private:
+    bool store_candidate(QwenExecutionCandidate candidate) noexcept;
     mutable std::mutex mutex_;
     std::atomic<QwenOptimizerMode> mode_{QwenOptimizerMode::Shadow};
     QwenOptimizerFault test_fault_ = QwenOptimizerFault::None;

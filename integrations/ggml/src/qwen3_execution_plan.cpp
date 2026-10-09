@@ -24,6 +24,7 @@ constexpr uint32_t qwen_layer_count = 40;
 namespace numerical = vbuf_ml::numerics;
 constexpr const char * final_hidden_contract = "qwen3.final_hidden.canonical_compatibility";
 constexpr const char * final_logits_contract = "qwen3.final_logits.canonical_compatibility";
+constexpr uint32_t final_output_contract_version = 2;
 
 std::string phase_name(QwenExecutionPhase phase) {
     return phase == QwenExecutionPhase::Prefill ? "prefill" : "decode";
@@ -31,8 +32,9 @@ std::string phase_name(QwenExecutionPhase phase) {
 
 numerical::RuntimeQualificationContext runtime_qualification_context(
         const QwenExecutionPlan & plan, const QwenRuntimeFacts & facts,
-        const std::string & implementation_identity) {
+        const std::string & candidate_identity, const std::string & implementation_identity) {
     numerical::RuntimeQualificationContext context;
+    context.candidate_identity = candidate_identity;
     context.model_identity = plan.model_identity;
     context.backend_family = plan.backend_family;
     context.implementation_identity = implementation_identity;
@@ -51,49 +53,91 @@ numerical::RuntimeQualificationContext runtime_qualification_context(
     return context;
 }
 
-numerical::RuntimeQualificationContext evidence_context(const numerical::NumericalEvaluation & evidence) {
-    numerical::RuntimeQualificationContext context;
-    context.model_identity = evidence.context.model_identity;
-    context.backend_family = evidence.context.backend_family;
-    context.implementation_identity = evidence.context.implementation_identity;
-    context.device_family = evidence.context.device_family;
-    context.placement_identity = evidence.context.placement_identity;
-    context.activation_dtype = evidence.context.output_dtype;
-    context.kv_dtype = evidence.context.input_dtype;
-    context.phase = evidence.context.phase;
-    context.capacity = evidence.context.capacity;
-    context.context_length = evidence.context.context_length;
-    context.rows = evidence.context.rows;
-    context.device_identities = evidence.context.device_identities;
-    context.device_sm_versions = evidence.context.device_sm_versions;
-    context.execution_topology = evidence.context.execution_topology;
-    context.fixture_identity = evidence.context.fixture_identity;
-    context.input_identity = evidence.context.input_identity;
-    context.token_sequence_identity = evidence.context.token_sequence_identity;
-    return context;
-}
-
-bool has_required_numerical_evidence(const QwenExecutionCandidate & candidate,
-        const QwenExecutionPlan & plan, const QwenRuntimeFacts & facts) {
-    const auto runtime = runtime_qualification_context(plan, facts, candidate.execution_plan_identity);
-    for (const auto & contract_id : candidate.required_numerical_contracts) {
+numerical::EvidenceRejectionReason has_required_numerical_evidence(
+        const QwenExecutionCandidate & candidate, const QwenExecutionPlan & plan,
+        const QwenRuntimeFacts & facts) {
+    const auto runtime = runtime_qualification_context(plan, facts, candidate.identity,
+        candidate.execution_plan_identity);
+    for (const auto & required : candidate.required_numerical_contracts) {
         const auto found = std::find_if(candidate.numerical_qualifications.begin(),
             candidate.numerical_qualifications.end(), [&](const numerical::NumericalEvaluation & evidence) {
-                return evidence.contract_id == contract_id &&
-                    numerical::numerical_evidence_matches_runtime(evidence, runtime);
+                return evidence.contract_id == required.contract_id && evidence.contract_version == required.version;
             });
-        if (found == candidate.numerical_qualifications.end()) return false;
+        if (found == candidate.numerical_qualifications.end()) {
+            const bool wrong_version = std::any_of(candidate.numerical_qualifications.begin(),
+                candidate.numerical_qualifications.end(), [&](const numerical::NumericalEvaluation & evidence) {
+                    return evidence.contract_id == required.contract_id;
+                });
+            return wrong_version ? numerical::EvidenceRejectionReason::ContractVersionMismatch :
+                numerical::EvidenceRejectionReason::MissingEvidence;
+        }
+        const auto rejection = numerical::numerical_evidence_rejection_reason(*found, runtime);
+        if (rejection != numerical::EvidenceRejectionReason::None) return rejection;
+    }
+    return numerical::EvidenceRejectionReason::None;
+}
+
+bool same_guard(const QwenExecutionGuard & left, const QwenExecutionGuard & right) {
+    return left.field == right.field && left.op == right.op && left.lower == right.lower &&
+        left.upper == right.upper && left.device_index == right.device_index && left.expected == right.expected;
+}
+
+bool same_executable_candidate_definition(const QwenExecutionCandidate & candidate,
+        const QwenExecutionCandidate & expected) {
+    if (candidate.identity != expected.identity || candidate.strategy != expected.strategy ||
+        candidate.base_plan_identity != expected.base_plan_identity ||
+        candidate.execution_plan_identity != expected.execution_plan_identity ||
+        candidate.status != QwenCandidateStatus::Candidate ||
+        candidate.guards.size() != expected.guards.size() ||
+        candidate.required_numerical_contracts.size() != expected.required_numerical_contracts.size()) return false;
+    for (size_t i = 0; i < candidate.guards.size(); ++i)
+        if (!same_guard(candidate.guards[i], expected.guards[i])) return false;
+    for (size_t i = 0; i < candidate.required_numerical_contracts.size(); ++i) {
+        const auto & actual = candidate.required_numerical_contracts[i];
+        const auto & required = expected.required_numerical_contracts[i];
+        if (actual.contract_id != required.contract_id || actual.version != required.version) return false;
     }
     return true;
 }
 
+bool is_canonical_native_candidate(const QwenExecutionCandidate & candidate, const QwenExecutionPlan & plan) {
+    for (QwenExecutionPhase phase : {QwenExecutionPhase::Prefill, QwenExecutionPhase::Decode}) {
+        try {
+            const auto expected = make_qwen3_native_attention_av_candidate(plan, phase);
+            if (same_executable_candidate_definition(candidate, expected)) return true;
+        } catch (...) {}
+    }
+    return false;
+}
+
+bool same_qualification_run(const numerical::EvaluationContext & left,
+        const numerical::EvaluationContext & right) {
+    return !left.qualification_run_identity.empty() &&
+        left.qualification_run_identity == right.qualification_run_identity &&
+        left.candidate_identity == right.candidate_identity &&
+        left.reference_kind == right.reference_kind && left.reference_identity == right.reference_identity &&
+        left.model_identity == right.model_identity && left.backend_family == right.backend_family &&
+        left.implementation_identity == right.implementation_identity && left.device_family == right.device_family &&
+        left.device_identities == right.device_identities && left.device_sm_versions == right.device_sm_versions &&
+        left.placement_identity == right.placement_identity && left.phase == right.phase &&
+        left.execution_topology == right.execution_topology && left.fixture_identity == right.fixture_identity &&
+        left.input_identity == right.input_identity && left.token_sequence_identity == right.token_sequence_identity &&
+        left.output_dtype == right.output_dtype && left.input_dtype == right.input_dtype &&
+        left.capacity == right.capacity && left.context_length == right.context_length && left.rows == right.rows &&
+        left.logical_inputs_equivalent == right.logical_inputs_equivalent &&
+        left.reference_tokens == right.reference_tokens && left.candidate_tokens == right.candidate_tokens &&
+        left.invariant_values == right.invariant_values;
+}
+
 bool authoritative_active_evidence(const numerical::NumericalEvaluation & evidence,
-        const std::string & required_contract_id) {
-    if (evidence.contract_id != required_contract_id || evidence.status != numerical::EvaluationStatus::Pass ||
-        evidence.replayed_metrics_only) return false;
+        const numerical::NumericalContractRequirement & required, const std::string & candidate_identity,
+        const numerical::RuntimeQualificationContext & runtime) {
+    if (evidence.contract_id != required.contract_id || evidence.contract_version != required.version ||
+        evidence.status != numerical::EvaluationStatus::Pass || evidence.replayed_metrics_only ||
+        evidence.context.candidate_identity != candidate_identity) return false;
     const auto * contract = numerical::find_contract(evidence.contract_id, evidence.contract_version);
-    if (contract == nullptr || contract->status != numerical::ContractStatus::Active) return false;
-    return numerical::numerical_evidence_matches_runtime(evidence, evidence_context(evidence));
+    return contract != nullptr && contract->status == numerical::ContractStatus::Active &&
+        numerical::numerical_evidence_matches_runtime(evidence, runtime);
 }
 
 uint64_t fnv1a(const std::string & value) {
@@ -353,7 +397,10 @@ std::optional<QwenExecutionCandidate> QwenExecutionPlanOptimizer::make_prebound_
     candidate.strategy = QwenCandidateStrategy::PreboundDecodeDispatch;
     candidate.status = QwenCandidateStatus::Candidate;
     candidate.validation_note = "awaiting canonical/optimized exact decode comparison";
-    candidate.required_numerical_contracts = {final_hidden_contract, final_logits_contract};
+    candidate.required_numerical_contracts = {
+        {final_hidden_contract, final_output_contract_version},
+        {final_logits_contract, final_output_contract_version},
+    };
     candidate.guards = {
         {QwenGuardField::Phase, QwenGuardOperator::Equal, static_cast<uint8_t>(QwenExecutionPhase::Decode)},
         {QwenGuardField::Rows, QwenGuardOperator::Equal, 1},
@@ -496,6 +543,7 @@ QwenOptimizerDecision QwenExecutionPlanOptimizer::select(const QwenExecutionPlan
         decision.candidate_found = true;
         decision.candidate_identity = candidate.identity;
         if (candidate.status == QwenCandidateStatus::Invalidated) {
+            decision.evidence_rejection = numerical::EvidenceRejectionReason::EvidenceInvalidated;
             decision.fallback = QwenOptimizerFallback::Invalidated;
             last_decision_ = decision;
             return decision;
@@ -540,15 +588,17 @@ QwenOptimizerDecision QwenExecutionPlanOptimizer::select(const QwenExecutionPlan
         }
         ++guard_passes_;
         decision.guards_passed = true;
-        if (candidate.status == QwenCandidateStatus::Valid &&
-            !has_required_numerical_evidence(candidate, canonical, facts)) {
-            decision.candidate_validated = false;
-            decision.candidate_eligible = false;
-            decision.fallback = QwenOptimizerFallback::NumericalQualificationMissing;
-            last_decision_ = decision;
-            return decision;
+        if (candidate.status == QwenCandidateStatus::Valid) {
+            decision.evidence_rejection = has_required_numerical_evidence(candidate, canonical, facts);
+            if (decision.evidence_rejection != numerical::EvidenceRejectionReason::None) {
+                decision.candidate_validated = false;
+                decision.candidate_eligible = false;
+                decision.fallback = QwenOptimizerFallback::NumericalQualificationMissing;
+                last_decision_ = decision;
+                return decision;
+            }
         }
-        decision.candidate_eligible = true;
+        decision.candidate_eligible = candidate.status == QwenCandidateStatus::Valid;
         if (decision.mode == QwenOptimizerMode::Enabled) {
             if (candidate.strategy != QwenCandidateStrategy::PreboundDecodeDispatch &&
                 candidate.strategy != QwenCandidateStrategy::NativeLayoutAttentionAV) {
@@ -557,7 +607,11 @@ QwenOptimizerDecision QwenExecutionPlanOptimizer::select(const QwenExecutionPlan
                 last_decision_ = decision;
                 return decision;
             }
-            if (candidate.status == QwenCandidateStatus::Valid || allow_unvalidated_trial_for_testing_) {
+            bool trial_override = false;
+#if defined(VBUF_QWEN3_ENABLE_QUALIFICATION_TRIALS)
+            trial_override = allow_unvalidated_trial_for_testing_;
+#endif
+            if (candidate.status == QwenCandidateStatus::Valid || trial_override) {
                 decision.candidate_selected = true;
                 decision.qualification_trial = candidate.status != QwenCandidateStatus::Valid;
                 decision.canonical_selected = false;
@@ -629,18 +683,30 @@ void QwenExecutionPlanOptimizer::record_execution(const QwenExecutionPlan & cano
 }
 
 bool QwenExecutionPlanOptimizer::register_candidate(QwenExecutionCandidate candidate) noexcept {
+    if (candidate.strategy != QwenCandidateStrategy::GuardProbe) return false;
+    return store_candidate(std::move(candidate));
+}
+
+bool QwenExecutionPlanOptimizer::register_candidate(QwenExecutionCandidate candidate,
+        const QwenExecutionPlan & plan) noexcept {
+    if (candidate.strategy != QwenCandidateStrategy::NativeLayoutAttentionAV ||
+        candidate.base_plan_identity != plan.stable_identity || !is_canonical_native_candidate(candidate, plan))
+        return false;
+    return store_candidate(std::move(candidate));
+}
+
+bool QwenExecutionPlanOptimizer::store_candidate(QwenExecutionCandidate candidate) noexcept {
     try {
         if (candidate.identity.empty() || candidate.base_plan_identity.empty() ||
-            candidate.execution_plan_identity.empty()) return false;
-        if (candidate.strategy == QwenCandidateStrategy::PreboundDecodeDispatch ||
-            candidate.strategy == QwenCandidateStrategy::NativeLayoutAttentionAV) {
-            for (const char * required : {final_hidden_contract, final_logits_contract}) {
-                if (std::find(candidate.required_numerical_contracts.begin(),
-                        candidate.required_numerical_contracts.end(), required) ==
-                    candidate.required_numerical_contracts.end())
-                    candidate.required_numerical_contracts.emplace_back(required);
-            }
+            candidate.execution_plan_identity.empty() || candidate.status != QwenCandidateStatus::Candidate)
+            return false;
+        std::set<std::pair<std::string, uint32_t>> unique_requirements;
+        for (const auto & required : candidate.required_numerical_contracts) {
+            if (required.contract_id.empty() || required.version == 0 ||
+                !unique_requirements.emplace(required.contract_id, required.version).second) return false;
         }
+        candidate.numerical_qualifications.clear();
+        candidate.validation_note.clear();
         std::lock_guard<std::mutex> lock(mutex_);
         auto existing = candidates_.find(candidate.identity);
         if (existing == candidates_.end() && candidates_.size() >= max_cached_candidates) {
@@ -653,25 +719,39 @@ bool QwenExecutionPlanOptimizer::register_candidate(QwenExecutionCandidate candi
 }
 
 bool QwenExecutionPlanOptimizer::mark_candidate_valid(const std::string & identity,
-    const std::string & validation_note) noexcept {
-    return mark_candidate_valid(identity, validation_note, {});
-}
-
-bool QwenExecutionPlanOptimizer::mark_candidate_valid(const std::string & identity,
     const std::string & validation_note,
-    std::vector<vbuf_ml::numerics::NumericalEvaluation> numerical_qualifications) noexcept {
+    std::vector<vbuf_ml::numerics::NumericalEvaluation> numerical_qualifications,
+    const QwenExecutionPlan & plan, const QwenRuntimeFacts & facts) noexcept {
     try {
-        if (validation_note.empty()) return false;
+        if (validation_note.empty() || plan.stable_identity.empty()) return false;
         std::lock_guard<std::mutex> lock(mutex_);
         const auto found = candidates_.find(identity);
-        if (found == candidates_.end() || found->second.status != QwenCandidateStatus::Candidate) return false;
+        if (found == candidates_.end() || found->second.status != QwenCandidateStatus::Candidate ||
+            found->second.base_plan_identity != plan.stable_identity ||
+            (found->second.strategy != QwenCandidateStrategy::PreboundDecodeDispatch &&
+                found->second.strategy != QwenCandidateStrategy::NativeLayoutAttentionAV) ||
+            found->second.required_numerical_contracts.empty()) return false;
+        const auto runtime = runtime_qualification_context(plan, facts, found->second.identity,
+            found->second.execution_plan_identity);
+        const numerical::EvaluationContext * common_run = nullptr;
+        std::vector<numerical::NumericalEvaluation> accepted_qualifications;
+        accepted_qualifications.reserve(found->second.required_numerical_contracts.size());
         for (const auto & required_contract : found->second.required_numerical_contracts) {
+            const auto evidence_count = std::count_if(numerical_qualifications.begin(), numerical_qualifications.end(),
+                [&](const auto & item) {
+                    return item.contract_id == required_contract.contract_id &&
+                        item.contract_version == required_contract.version;
+                });
+            if (evidence_count != 1) return false;
             const auto evidence = std::find_if(numerical_qualifications.begin(), numerical_qualifications.end(),
                 [&](const auto & item) {
-                    return authoritative_active_evidence(item, required_contract) &&
-                        item.context.implementation_identity == found->second.execution_plan_identity;
+                    return authoritative_active_evidence(item, required_contract, found->second.identity, runtime);
                 });
-            if (evidence == numerical_qualifications.end()) return false;
+            if (evidence == numerical_qualifications.end() || evidence->context.qualification_run_identity.empty())
+                return false;
+            if (common_run == nullptr) common_run = &evidence->context;
+            else if (!same_qualification_run(*common_run, evidence->context)) return false;
+            accepted_qualifications.push_back(*evidence);
         }
         uint64_t hotness = 0;
         for (const auto & entry : profiles_) {
@@ -681,7 +761,7 @@ bool QwenExecutionPlanOptimizer::mark_candidate_valid(const std::string & identi
                 hotness = saturated_add(hotness, profile.execution_count);
         }
         if (hotness < min_candidate_hotness_observations) return false;
-        found->second.numerical_qualifications = std::move(numerical_qualifications);
+        found->second.numerical_qualifications = std::move(accepted_qualifications);
         found->second.status = QwenCandidateStatus::Valid;
         found->second.validation_note = validation_note;
         return true;
@@ -693,13 +773,18 @@ bool QwenExecutionPlanOptimizer::invalidate_candidate(const std::string & identi
         std::lock_guard<std::mutex> lock(mutex_);
         const auto found = candidates_.find(identity);
         if (found == candidates_.end()) return false;
+        found->second.numerical_qualifications.clear();
         found->second.status = QwenCandidateStatus::Invalidated;
         return true;
     } catch (...) { return false; }
 }
 
 void QwenExecutionPlanOptimizer::set_unvalidated_trial_for_testing(bool enabled) noexcept {
+#if defined(VBUF_QWEN3_ENABLE_QUALIFICATION_TRIALS)
     try { std::lock_guard<std::mutex> lock(mutex_); allow_unvalidated_trial_for_testing_ = enabled; } catch (...) {}
+#else
+    (void) enabled;
+#endif
 }
 
 bool QwenExecutionPlanOptimizer::consume_candidate_execution_fault_for_testing() noexcept {

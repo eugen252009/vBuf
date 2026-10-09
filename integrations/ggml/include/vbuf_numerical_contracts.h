@@ -30,6 +30,13 @@ enum class ReferenceKind : uint8_t {
 
 enum class ContractStatus : uint8_t { Active, Provisional, NeedsCalibration, Deprecated };
 enum class EvaluationStatus : uint8_t { Pass, Fail, NotApplicable, NotTested, InvalidEvaluation };
+enum class EvidenceRejectionReason : uint8_t {
+    None, MissingEvidence, InvalidEvidence, FailedQualification, ReplayOnly,
+    PolicyMismatch, ContractUnknown, ContractVersionMismatch, ContractNotActive,
+    CandidateIdentityMismatch, ReferenceMismatch, ModelArtifactMismatch, BackendMismatch, ImplementationMismatch,
+    DeviceMismatch, PlacementMismatch, DTypeMismatch, ShapeMismatch, RuntimeFactsMismatch,
+    ExecutionScopeMismatch, RequiredMetricMissing, RequiredMetricFailed, EvidenceInvalidated,
+};
 enum class DataType : uint8_t { F32, F64, Other };
 enum class Metric : uint8_t {
     MaxAbsoluteError,
@@ -81,6 +88,11 @@ struct ContractScope {
     std::string empirical_scope;
 };
 
+struct NumericalContractRequirement {
+    std::string contract_id;
+    uint32_t version = 0;
+};
+
 struct NumericalContract {
     std::string contract_id;
     uint32_t version = 0;
@@ -119,6 +131,8 @@ struct EvaluationContext {
     std::string output_name;
     ReferenceKind reference_kind = ReferenceKind::InvariantReference;
     std::string reference_identity;
+    std::string candidate_identity;
+    std::string qualification_run_identity;
     std::string model_identity;
     std::string backend_family;
     std::string implementation_identity;
@@ -165,6 +179,8 @@ struct CriterionResult {
     bool available = false;
 };
 
+class NumericalEvaluationAuthority;
+
 struct NumericalEvaluation {
     std::string contract_id;
     uint32_t contract_version = 0;
@@ -185,9 +201,14 @@ struct NumericalEvaluation {
     std::vector<CriterionResult> criteria;
     std::vector<std::string> failure_reasons;
     bool replayed_metrics_only = false;
+
+private:
+    std::string authority_snapshot_;
+    friend class NumericalEvaluationAuthority;
 };
 
 struct RuntimeQualificationContext {
+    std::string candidate_identity;
     std::string model_identity;
     std::string backend_family;
     std::string implementation_identity;
@@ -227,8 +248,11 @@ NumericalEvaluation evaluate_invariants(const std::string & contract_id, uint32_
     const EvaluationContext & context);
 NumericalEvaluation evaluate_recorded_metrics(const std::string & contract_id, uint32_t version,
     const EvaluationContext & context, const NumericalMetrics & recorded_metrics);
+EvidenceRejectionReason numerical_evidence_rejection_reason(const NumericalEvaluation & evaluation,
+    const RuntimeQualificationContext & runtime_context);
 bool numerical_evidence_matches_runtime(const NumericalEvaluation & evaluation,
     const RuntimeQualificationContext & runtime_context);
+const char * evidence_rejection_reason_name(EvidenceRejectionReason reason) noexcept;
 std::string evaluation_status_name(EvaluationStatus status);
 std::string contract_status_name(ContractStatus status);
 std::string metric_name(Metric metric);

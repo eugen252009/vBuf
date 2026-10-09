@@ -11,6 +11,18 @@
 
 namespace vbuf_ml::numerics {
 
+class NumericalEvaluationAuthority {
+public:
+    static void seal(NumericalEvaluation & evaluation) {
+        evaluation.authority_snapshot_ = evaluation_json(evaluation);
+    }
+
+    static bool authentic(const NumericalEvaluation & evaluation) {
+        return !evaluation.authority_snapshot_.empty() &&
+            evaluation.authority_snapshot_ == evaluation_json(evaluation);
+    }
+};
+
 std::vector<NumericalContract> generated_contracts();
 const char * generated_policy_id() noexcept;
 uint32_t generated_policy_version() noexcept;
@@ -596,6 +608,8 @@ NumericalEvaluation evaluate_contract(const std::string & contract_id, uint32_t 
     } else {
         result.status = EvaluationStatus::Pass;
     }
+    if (result.status == EvaluationStatus::Pass && contract->status == ContractStatus::Active)
+        NumericalEvaluationAuthority::seal(result);
     return result;
 }
 
@@ -723,66 +737,145 @@ NumericalEvaluation evaluate_recorded_metrics(const std::string & contract_id, u
     return result;
 }
 
-bool numerical_evidence_matches_runtime(const NumericalEvaluation & evaluation,
+EvidenceRejectionReason numerical_evidence_rejection_reason(const NumericalEvaluation & evaluation,
         const RuntimeQualificationContext & runtime_context) {
-    if (evaluation.status != EvaluationStatus::Pass || evaluation.replayed_metrics_only ||
-        evaluation.policy_id != project_policy_id() || evaluation.policy_version != project_policy_version() ||
-        evaluation.policy_digest != project_policy_digest()) return false;
+    if (evaluation.replayed_metrics_only) return EvidenceRejectionReason::ReplayOnly;
+    if (evaluation.status == EvaluationStatus::Fail) return EvidenceRejectionReason::FailedQualification;
+    if (evaluation.status != EvaluationStatus::Pass || !NumericalEvaluationAuthority::authentic(evaluation))
+        return EvidenceRejectionReason::InvalidEvidence;
+    if (runtime_context.candidate_identity.empty() || evaluation.context.candidate_identity.empty())
+        return EvidenceRejectionReason::CandidateIdentityMismatch;
+    if (evaluation.context.qualification_run_identity.empty())
+        return EvidenceRejectionReason::InvalidEvidence;
+    if (evaluation.policy_id != project_policy_id() || evaluation.policy_version != project_policy_version() ||
+        evaluation.policy_digest != project_policy_digest()) return EvidenceRejectionReason::PolicyMismatch;
     const NumericalContract * contract = find_contract(evaluation.contract_id, evaluation.contract_version);
-    if (contract == nullptr || contract->status != ContractStatus::Active ||
-        evaluation.contract_status != contract->status || evaluation.category != contract->category ||
-        evaluation.reference_kind != contract->reference_kind) return false;
+    if (contract == nullptr) {
+        return std::any_of(project_contracts().begin(), project_contracts().end(), [&](const NumericalContract & item) {
+            return item.contract_id == evaluation.contract_id;
+        }) ? EvidenceRejectionReason::ContractVersionMismatch : EvidenceRejectionReason::ContractUnknown;
+    }
+    if (contract->status != ContractStatus::Active || evaluation.contract_status != contract->status)
+        return EvidenceRejectionReason::ContractNotActive;
+    if (evaluation.category != contract->category || evaluation.reference_kind != contract->reference_kind)
+        return EvidenceRejectionReason::InvalidEvidence;
+
     const auto & context = evaluation.context;
+    if (context.candidate_identity != runtime_context.candidate_identity)
+        return EvidenceRejectionReason::CandidateIdentityMismatch;
     if (context.reference_kind != contract->reference_kind ||
         evaluation.reference_identity != context.reference_identity ||
-        !contract_reference_matches(*contract, context)) return false;
+        !contract_reference_matches(*contract, context)) return EvidenceRejectionReason::ReferenceMismatch;
+    if (context.model_identity.empty() || context.model_identity != runtime_context.model_identity)
+        return EvidenceRejectionReason::ModelArtifactMismatch;
+    if (context.backend_family != runtime_context.backend_family || context.device_family != runtime_context.device_family)
+        return EvidenceRejectionReason::BackendMismatch;
+    if (context.implementation_identity != runtime_context.implementation_identity)
+        return EvidenceRejectionReason::ImplementationMismatch;
+    if (context.device_identities != runtime_context.device_identities ||
+        context.device_sm_versions != runtime_context.device_sm_versions)
+        return EvidenceRejectionReason::DeviceMismatch;
+    if (context.placement_identity != runtime_context.placement_identity)
+        return EvidenceRejectionReason::PlacementMismatch;
+    if (context.output_dtype != runtime_context.activation_dtype || context.input_dtype != runtime_context.kv_dtype ||
+        evaluation.candidate_dtype != context.output_dtype ||
+        (contract->reference_kind == ReferenceKind::CanonicalExecution &&
+            evaluation.reference_dtype != context.output_dtype))
+        return EvidenceRejectionReason::DTypeMismatch;
+    if (evaluation.candidate_shape != context.output_shape || evaluation.reference_shape.empty() ||
+        evaluation.reference_shape != evaluation.candidate_shape ||
+        (evaluation.candidate_shape.empty() && !contract->scope.shapes.empty() &&
+            std::find(contract->scope.shapes.begin(), contract->scope.shapes.end(), "*") == contract->scope.shapes.end()))
+        return EvidenceRejectionReason::ShapeMismatch;
+    if (!evaluation.candidate_shape.empty() &&
+        !list_match(contract->scope.shapes, shape_identity(evaluation.candidate_shape)) &&
+        std::find(contract->scope.shapes.begin(), contract->scope.shapes.end(), "same_as_reference") ==
+            contract->scope.shapes.end()) return EvidenceRejectionReason::ShapeMismatch;
+    if (context.phase != runtime_context.phase || context.capacity != runtime_context.capacity ||
+        context.context_length != runtime_context.context_length || context.rows != runtime_context.rows)
+        return EvidenceRejectionReason::RuntimeFactsMismatch;
+    if (contract->scope.requires_logical_inputs_equivalent && !context.logical_inputs_equivalent)
+        return EvidenceRejectionReason::ExecutionScopeMismatch;
+    if (!list_match(contract->scope.execution_topologies, "*") &&
+        context.execution_topology != runtime_context.execution_topology)
+        return EvidenceRejectionReason::ExecutionScopeMismatch;
+    if (!list_match(contract->scope.fixture_identities, "*") &&
+        context.fixture_identity != runtime_context.fixture_identity)
+        return EvidenceRejectionReason::ExecutionScopeMismatch;
+    if (!list_match(contract->scope.input_identities, "*") && context.input_identity != runtime_context.input_identity)
+        return EvidenceRejectionReason::ExecutionScopeMismatch;
+    if (!list_match(contract->scope.token_sequence_identities, "*") &&
+        context.token_sequence_identity != runtime_context.token_sequence_identity)
+        return EvidenceRejectionReason::ExecutionScopeMismatch;
+    std::string scope_error;
+    if (!scope_matches(*contract, context, nullptr, nullptr, &scope_error))
+        return scope_error.find("shape") != std::string::npos ? EvidenceRejectionReason::ShapeMismatch :
+            EvidenceRejectionReason::ExecutionScopeMismatch;
+    for (Metric metric : contract->measurement_metrics)
+        if (evaluation.measured_metrics.values.count(metric) == 0)
+            return EvidenceRejectionReason::RequiredMetricMissing;
     for (const auto & invariant : contract->required_invariants) {
         bool available = false;
         if (!invariant_value(invariant, *contract, context, evaluation.measured_metrics, &available) || !available)
-            return false;
+            return EvidenceRejectionReason::InvalidEvidence;
     }
-    if (evaluation.criteria.size() != contract->criteria.size()) return false;
+    if (evaluation.criteria.size() != contract->criteria.size()) return EvidenceRejectionReason::InvalidEvidence;
     for (size_t i = 0; i < contract->criteria.size(); ++i) {
         const auto & criterion = contract->criteria[i];
         const auto & recorded = evaluation.criteria[i];
         if (recorded.metric != criterion.metric || recorded.comparison != criterion.comparison ||
             recorded.required != criterion.required || recorded.declared_limit != criterion.value ||
-            recorded.declared_unit != criterion.unit) return false;
+            recorded.declared_unit != criterion.unit) return EvidenceRejectionReason::InvalidEvidence;
         const auto found = evaluation.measured_metrics.values.find(criterion.metric);
         const MetricObservation unavailable;
         const auto & observation = found == evaluation.measured_metrics.values.end() ? unavailable : found->second;
         try {
             const auto checked = evaluate_metric_criterion(criterion, observation);
+            if (!checked.available && criterion.required) return EvidenceRejectionReason::RequiredMetricMissing;
+            if (checked.available && !checked.passed && criterion.required)
+                return EvidenceRejectionReason::RequiredMetricFailed;
             if (recorded.available != checked.available || recorded.passed != checked.passed ||
                 recorded.observed_value != checked.observed_value ||
                 recorded.observed_boolean != checked.observed_boolean ||
-                recorded.normalized_limit != checked.normalized_limit ||
-                (criterion.required && (!checked.available || !checked.passed))) return false;
-        } catch (...) { return false; }
+                recorded.normalized_limit != checked.normalized_limit)
+                return EvidenceRejectionReason::InvalidEvidence;
+        } catch (...) { return EvidenceRejectionReason::InvalidEvidence; }
     }
-    if (contract->scope.requires_logical_inputs_equivalent && !context.logical_inputs_equivalent) return false;
-    if (!list_match(contract->scope.execution_topologies, "*") &&
-        context.execution_topology != runtime_context.execution_topology) return false;
-    if (!list_match(contract->scope.fixture_identities, "*") &&
-        context.fixture_identity != runtime_context.fixture_identity) return false;
-    if (!list_match(contract->scope.input_identities, "*") &&
-        context.input_identity != runtime_context.input_identity) return false;
-    if (!list_match(contract->scope.token_sequence_identities, "*") &&
-        context.token_sequence_identity != runtime_context.token_sequence_identity) return false;
-    return context.model_identity == runtime_context.model_identity &&
-        context.backend_family == runtime_context.backend_family &&
-        context.implementation_identity == runtime_context.implementation_identity &&
-        context.device_family == runtime_context.device_family &&
-        context.placement_identity == runtime_context.placement_identity &&
-        context.output_dtype == runtime_context.activation_dtype &&
-        context.input_dtype == runtime_context.kv_dtype &&
-        context.phase == runtime_context.phase &&
-        context.capacity == runtime_context.capacity &&
-        context.context_length == runtime_context.context_length &&
-        context.rows == runtime_context.rows &&
-        context.device_identities == runtime_context.device_identities &&
-        context.device_sm_versions == runtime_context.device_sm_versions &&
-        scope_matches(*contract, context, nullptr, nullptr, nullptr);
+    return EvidenceRejectionReason::None;
+}
+
+bool numerical_evidence_matches_runtime(const NumericalEvaluation & evaluation,
+        const RuntimeQualificationContext & runtime_context) {
+    return numerical_evidence_rejection_reason(evaluation, runtime_context) == EvidenceRejectionReason::None;
+}
+
+const char * evidence_rejection_reason_name(EvidenceRejectionReason reason) noexcept {
+    switch (reason) {
+        case EvidenceRejectionReason::None: return "NONE";
+        case EvidenceRejectionReason::MissingEvidence: return "MISSING_EVIDENCE";
+        case EvidenceRejectionReason::InvalidEvidence: return "EVIDENCE_INVALID";
+        case EvidenceRejectionReason::FailedQualification: return "REQUIRED_METRIC_FAIL";
+        case EvidenceRejectionReason::ReplayOnly: return "REPLAY_ONLY";
+        case EvidenceRejectionReason::PolicyMismatch: return "POLICY_MISMATCH";
+        case EvidenceRejectionReason::ContractUnknown: return "UNKNOWN_CONTRACT";
+        case EvidenceRejectionReason::ContractVersionMismatch: return "CONTRACT_VERSION_MISMATCH";
+        case EvidenceRejectionReason::ContractNotActive: return "CONTRACT_NOT_ACTIVE";
+        case EvidenceRejectionReason::CandidateIdentityMismatch: return "CANDIDATE_IDENTITY_MISMATCH";
+        case EvidenceRejectionReason::ReferenceMismatch: return "REFERENCE_MISMATCH";
+        case EvidenceRejectionReason::ModelArtifactMismatch: return "MODEL_ARTIFACT_MISMATCH";
+        case EvidenceRejectionReason::BackendMismatch: return "BACKEND_SCOPE_MISMATCH";
+        case EvidenceRejectionReason::ImplementationMismatch: return "IMPLEMENTATION_IDENTITY_MISMATCH";
+        case EvidenceRejectionReason::DeviceMismatch: return "DEVICE_SCOPE_MISMATCH";
+        case EvidenceRejectionReason::PlacementMismatch: return "PLACEMENT_SCOPE_MISMATCH";
+        case EvidenceRejectionReason::DTypeMismatch: return "DTYPE_SCOPE_MISMATCH";
+        case EvidenceRejectionReason::ShapeMismatch: return "SHAPE_SCOPE_MISMATCH";
+        case EvidenceRejectionReason::RuntimeFactsMismatch: return "RUNTIME_FACTS_MISMATCH";
+        case EvidenceRejectionReason::ExecutionScopeMismatch: return "EXECUTION_SCOPE_MISMATCH";
+        case EvidenceRejectionReason::RequiredMetricMissing: return "REQUIRED_METRIC_MISSING";
+        case EvidenceRejectionReason::RequiredMetricFailed: return "REQUIRED_METRIC_FAIL";
+        case EvidenceRejectionReason::EvidenceInvalidated: return "EVIDENCE_INVALIDATED";
+    }
+    return "EVIDENCE_INVALID";
 }
 
 std::string evaluation_status_name(EvaluationStatus status) {
@@ -833,7 +926,10 @@ std::string evaluation_json(const NumericalEvaluation & evaluation) {
         << ",\"policy_version\":" << evaluation.policy_version
         << ",\"policy_sha256\":" << json_escape(evaluation.policy_digest)
         << ",\"reference_kind\":" << json_escape(reference_kind_name(evaluation.reference_kind))
+        << ",\"context_reference_kind\":" << json_escape(reference_kind_name(evaluation.context.reference_kind))
         << ",\"reference_identity\":" << json_escape(evaluation.reference_identity)
+        << ",\"candidate_identity\":" << json_escape(evaluation.context.candidate_identity)
+        << ",\"qualification_run_identity\":" << json_escape(evaluation.context.qualification_run_identity)
         << ",\"model_identity\":" << json_escape(evaluation.context.model_identity)
         << ",\"backend_family\":" << json_escape(evaluation.context.backend_family)
         << ",\"implementation_identity\":" << json_escape(evaluation.context.implementation_identity)
@@ -877,6 +973,9 @@ std::string evaluation_json(const NumericalEvaluation & evaluation) {
     out << "],\"candidate_shape\":[";
     for (size_t i = 0; i < evaluation.candidate_shape.size(); ++i)
         out << (i == 0 ? "" : ",") << evaluation.candidate_shape[i];
+    out << "],\"context_output_shape\":[";
+    for (size_t i = 0; i < evaluation.context.output_shape.size(); ++i)
+        out << (i == 0 ? "" : ",") << evaluation.context.output_shape[i];
     out << "],\"measured_metrics\":";
     append_metric_json(out, evaluation.measured_metrics);
     out << ",\"criteria\":[";

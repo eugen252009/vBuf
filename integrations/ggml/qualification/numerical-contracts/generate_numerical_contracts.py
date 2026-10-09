@@ -124,18 +124,19 @@ def _validate_policy(policy: Any) -> None:
     contracts = policy["contracts"]
     if not isinstance(contracts, list) or not contracts:
         fail("policy.contracts must be a non-empty array")
-    seen_ids = set()
+    seen_versions = set()
     for contract in contracts:
         required = {"contract_id", "version", "category", "operation", "reference", "measurement_metrics",
                     "required_invariants", "scope", "qualification_tests", "status", "threshold_provenance"}
         _require_keys(contract, required, {"tolerance_profile"}, "contract")
         contract_id = contract["contract_id"]
         _string(contract_id, "contract.contract_id")
-        if contract_id in seen_ids:
-            fail(f"duplicate contract_id {contract_id}")
-        seen_ids.add(contract_id)
         if not isinstance(contract["version"], int) or contract["version"] < 1:
             fail(f"contract {contract_id} has invalid version")
+        version_key = (contract_id, contract["version"])
+        if version_key in seen_versions:
+            fail(f"duplicate contract version {contract_id} v{contract['version']}")
+        seen_versions.add(version_key)
         if contract["category"] not in CATEGORY or contract["status"] not in STATUS:
             fail(f"contract {contract_id} has unknown category/status")
         _string(contract["operation"], f"contract {contract_id}.operation")
@@ -254,7 +255,7 @@ def _contract_cpp(contract: dict[str, Any], profiles: dict[str, Any]) -> str:
 
 def generate(policy: dict[str, Any], policy_digest: str) -> str:
     entries = ",\n        ".join(_contract_cpp(c, policy["tolerance_profiles"]) for c in policy["contracts"])
-    return f'''// Generated from policy-v1.json. Do not edit this generated file.\n#include "vbuf_numerical_contracts.h"\n\nnamespace vbuf_ml::numerics {{\nconst char * generated_policy_id() noexcept {{ return {cpp_string(policy["policy_id"])}; }}\nuint32_t generated_policy_version() noexcept {{ return {policy["policy_version"]}; }}\nconst char * generated_policy_digest() noexcept {{ return {cpp_string(policy_digest)}; }}\nstd::vector<NumericalContract> generated_contracts() {{\n    return {{\n        {entries}\n    }};\n}}\n}} // namespace vbuf_ml::numerics\n'''
+    return f'''// Generated from the configured versioned policy JSON. Do not edit this generated file.\n#include "vbuf_numerical_contracts.h"\n\nnamespace vbuf_ml::numerics {{\nconst char * generated_policy_id() noexcept {{ return {cpp_string(policy["policy_id"])}; }}\nuint32_t generated_policy_version() noexcept {{ return {policy["policy_version"]}; }}\nconst char * generated_policy_digest() noexcept {{ return {cpp_string(policy_digest)}; }}\nstd::vector<NumericalContract> generated_contracts() {{\n    return {{\n        {entries}\n    }};\n}}\n}} // namespace vbuf_ml::numerics\n'''
 
 
 def main() -> int:

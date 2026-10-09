@@ -63,17 +63,47 @@ NumericalEvaluation evaluate_qwen_output(const std::string & operation,
 
 void test_registry_and_policy_versions() {
     require(project_policy_id() == std::string("vbuf.numerical-contracts"), "wrong numerical policy identity");
-    require(project_policy_version() == 1 && std::string(project_policy_digest()).size() == 64,
+    require(project_policy_version() == 2 && std::string(project_policy_digest()).size() == 64,
         "policy version/digest is missing");
-    require(project_contracts().size() == 14, "generated policy contract count changed unexpectedly");
+    require(project_contracts().size() == 16, "generated policy contract version history changed unexpectedly");
     for (const auto & contract : project_contracts()) {
         require(find_contract(contract.contract_id, contract.version) != nullptr,
             "generated contract was not registered: " + contract.contract_id);
         if (contract.status == ContractStatus::NeedsCalibration)
             require(contract.criteria.empty(), "NEEDS_CALIBRATION contract unexpectedly has authorizing criteria");
     }
-    require(find_contract("qwen3.final_logits.canonical_compatibility", 2) == nullptr,
+    const auto * historical_logits = find_contract("qwen3.final_logits.canonical_compatibility", 1);
+    const auto * active_logits = find_contract("qwen3.final_logits.canonical_compatibility", 2);
+    require(historical_logits != nullptr && active_logits != nullptr &&
+        historical_logits->scope.shapes == std::vector<std::string>{"*"} &&
+        active_logits->scope.shapes == std::vector<std::string>{"151936"},
+        "final logits contract history/current shape scope is not explicit");
+    require(find_contract("qwen3.final_logits.canonical_compatibility", 3) == nullptr,
         "unknown contract version resolved to the active contract");
+}
+
+void test_versioned_output_shape_scopes() {
+    auto context = qwen_context("final_logits");
+    std::vector<float> reference_values(151936, 1.0f);
+    std::vector<float> candidate_values = reference_values;
+    candidate_values.back() += 0.001f;
+    context.output_shape = {151936};
+    const auto reference = make_tensor_view(reference_values, context.output_shape);
+    const auto candidate = make_tensor_view(candidate_values, context.output_shape);
+    auto result = evaluate_contract("qwen3.final_logits.canonical_compatibility", 2,
+        &reference, &candidate, context);
+    require(result.status == EvaluationStatus::Pass,
+        "v2 final-logits contract rejected its exact declared output shape");
+
+    const std::vector<float> short_reference{1.0f, 2.0f};
+    const std::vector<float> short_candidate{1.0f, 2.0f};
+    context.output_shape = {2};
+    auto short_ref = make_tensor_view(short_reference, context.output_shape);
+    auto short_cand = make_tensor_view(short_candidate, context.output_shape);
+    result = evaluate_contract("qwen3.final_logits.canonical_compatibility", 2,
+        &short_ref, &short_cand, context);
+    require(result.status == EvaluationStatus::NotApplicable,
+        "v2 final-logits contract accepted a different output shape");
 }
 
 void test_units_and_criterion_boundaries() {
@@ -266,6 +296,8 @@ void test_lifecycle_invariants_are_hard_and_unqualified() {
 void test_recorded_metrics_cannot_authorize_runtime() {
     auto context = qwen_context("final_logits");
     context.output_shape = {2};
+    context.candidate_identity = "candidate-A";
+    context.qualification_run_identity = "unit-run-A";
     context.invariant_values["same_shape"] = true;
     context.invariant_values["finite_outputs"] = true;
     NumericalMetrics recorded;
@@ -295,6 +327,7 @@ void test_recorded_metrics_cannot_authorize_runtime() {
     runtime.device_identities = context.device_identities;
     runtime.device_sm_versions = context.device_sm_versions;
     runtime.execution_topology = context.execution_topology;
+    runtime.candidate_identity = context.candidate_identity;
     runtime.fixture_identity = context.fixture_identity;
     runtime.input_identity = context.input_identity;
     runtime.token_sequence_identity = context.token_sequence_identity;
@@ -308,6 +341,43 @@ void test_recorded_metrics_cannot_authorize_runtime() {
     wrong_reference.reference_identity = "unapproved-reference";
     require(!numerical_evidence_matches_runtime(wrong_reference, runtime),
         "active output evidence with a forged reference identity authorized a candidate");
+    NumericalEvaluation default_constructed;
+    default_constructed.contract_id = active.contract_id;
+    default_constructed.contract_version = active.contract_version;
+    default_constructed.policy_id = active.policy_id;
+    default_constructed.policy_version = active.policy_version;
+    default_constructed.policy_digest = active.policy_digest;
+    default_constructed.status = EvaluationStatus::Pass;
+    default_constructed.context = active.context;
+    default_constructed.reference_shape = active.reference_shape;
+    default_constructed.candidate_shape = active.candidate_shape;
+    default_constructed.candidate_dtype = active.candidate_dtype;
+    default_constructed.measured_metrics = active.measured_metrics;
+    default_constructed.criteria = active.criteria;
+    require(!numerical_evidence_matches_runtime(default_constructed, runtime),
+        "caller-constructed PASS object acquired in-process qualification authority");
+    auto candidate_b_runtime = runtime;
+    candidate_b_runtime.candidate_identity = "candidate-B";
+    require(!numerical_evidence_matches_runtime(active, candidate_b_runtime),
+        "evidence for candidate A authorized candidate B with the same implementation family");
+    auto wrong_implementation_runtime = runtime;
+    wrong_implementation_runtime.implementation_identity = "another-candidate-build";
+    require(numerical_evidence_rejection_reason(active, wrong_implementation_runtime) ==
+            EvidenceRejectionReason::ImplementationMismatch,
+        "implementation identity mismatch was not distinguished at the admission boundary");
+    const std::vector<double> double_reference_values{1.0, 0.0};
+    const std::vector<float> float_candidate_values{1.0f, 0.001f};
+    const auto double_reference = make_tensor_view(double_reference_values, {2});
+    const auto float_candidate = make_tensor_view(float_candidate_values, {2});
+    const auto wrong_reference_dtype = evaluate_contract("qwen3.final_logits.canonical_compatibility", 1,
+        &double_reference, &float_candidate, context);
+    require(wrong_reference_dtype.status == EvaluationStatus::Pass &&
+        numerical_evidence_rejection_reason(wrong_reference_dtype, runtime) == EvidenceRejectionReason::DTypeMismatch,
+        "canonical compatibility evidence with a non-runtime reference dtype was accepted");
+    auto tampered_metrics = active;
+    tampered_metrics.criteria.clear();
+    require(!numerical_evidence_matches_runtime(tampered_metrics, runtime),
+        "mutated or incomplete active evidence retained its qualification authority");
 }
 
 void test_accuracy_and_compatibility_are_independent() {
@@ -420,7 +490,8 @@ void test_json_record_is_self_describing() {
     const std::string json = evaluation_json(result);
     for (const std::string & field : {"contract_id", "contract_version", "policy_sha256", "reference_identity",
              "model_identity", "fixture_identity", "input_identity", "token_sequence_identity", "output_dtype", "reference_shape",
-             "candidate_shape", "capacity", "context_length", "device_sm_versions", "measured_metrics",
+             "candidate_shape", "candidate_identity", "qualification_run_identity", "capacity", "context_length",
+             "device_sm_versions", "measured_metrics",
              "normalized_limit", "evaluation_status"})
         require(json.find("\"" + field + "\"") != std::string::npos,
             "qualification result JSON omits " + field);
@@ -430,6 +501,7 @@ void test_json_record_is_self_describing() {
 int main() {
     try {
         test_registry_and_policy_versions();
+        test_versioned_output_shape_scopes();
         test_units_and_criterion_boundaries();
         test_metric_definitions_and_edge_values();
         test_fail_closed_statuses();
@@ -438,7 +510,7 @@ int main() {
         test_accuracy_and_compatibility_are_independent();
         test_model_boundary_observation_scope();
         test_json_record_is_self_describing();
-        std::cout << "vbuf_numerical_contracts_contract=PASS policy=v1 metrics=9 scope=fail-closed "
+        std::cout << "vbuf_numerical_contracts_contract=PASS policy=v2 metrics=9 scope=fail-closed "
             << "accuracy-vs-compatibility=separate tolerance-units=explicit lifecycle=typed\n";
         return 0;
     } catch (const std::exception & error) {

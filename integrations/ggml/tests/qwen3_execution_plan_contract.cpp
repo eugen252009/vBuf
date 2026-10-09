@@ -48,16 +48,22 @@ QwenRuntimeFacts decode_facts(const QwenExecutionPlan & plan, uint32_t context =
 }
 
 vbuf_ml::numerics::NumericalEvaluation make_output_evidence(const QwenExecutionPlan & plan,
-        const QwenRuntimeFacts & facts, const std::string & implementation_identity,
-        const std::string & operation) {
+        const QwenRuntimeFacts & facts, const std::string & candidate_identity,
+        const std::string & implementation_identity, const std::string & operation,
+        uint32_t contract_version = 2, const std::string & run_identity = "qwen3-execution-plan-contract-run-v1",
+        bool force_failure = false) {
     using namespace vbuf_ml::numerics;
-    const std::vector<float> reference_values{1.0f, 2.0f};
-    const std::vector<float> candidate_values{1.0f, 2.0f};
+    const size_t elements = operation == "final_hidden" ? 5120 : 151936;
+    const std::vector<float> reference_values(elements, 1.0f);
+    std::vector<float> candidate_values(elements, 1.0f);
+    if (force_failure) candidate_values.front() += 1000.0f;
     EvaluationContext context;
     context.operation = operation;
     context.output_name = operation;
     context.reference_kind = ReferenceKind::CanonicalExecution;
     context.reference_identity = "canonical-packed-v-v1:unit-fixture";
+    context.candidate_identity = candidate_identity;
+    context.qualification_run_identity = run_identity;
     context.model_identity = plan.model_identity;
     context.backend_family = plan.backend_family;
     context.implementation_identity = implementation_identity;
@@ -69,7 +75,7 @@ vbuf_ml::numerics::NumericalEvaluation make_output_evidence(const QwenExecutionP
     context.input_identity = "same-input-fixture";
     context.output_dtype = facts.activation_dtype;
     context.input_dtype = facts.kv_dtype;
-    context.output_shape = {2};
+    context.output_shape = {elements};
     context.capacity = facts.capacity;
     context.context_length = facts.context_length;
     context.rows = facts.rows;
@@ -84,7 +90,7 @@ vbuf_ml::numerics::NumericalEvaluation make_output_evidence(const QwenExecutionP
     const auto candidate = make_tensor_view(candidate_values, context.output_shape);
     const std::string contract = operation == "final_hidden" ?
         "qwen3.final_hidden.canonical_compatibility" : "qwen3.final_logits.canonical_compatibility";
-    return evaluate_contract(contract, 1, &reference, &candidate, context);
+    return evaluate_contract(contract, contract_version, &reference, &candidate, context);
 }
 
 QwenExecutionCandidate manual_candidate(const QwenExecutionPlan & plan, std::string suffix,
@@ -215,12 +221,12 @@ void test_shadow_guards_cache_and_profiler() {
     const auto facts = decode_facts(plan);
     decision = optimizer.select(plan, facts);
     require(decision.candidate_found && decision.cache_hit && decision.guards_passed &&
-        decision.candidate_eligible && decision.canonical_selected &&
+        !decision.candidate_eligible && decision.canonical_selected &&
         decision.fallback == QwenOptimizerFallback::None,
         "prebound decode candidate did not pass guards in shadow mode");
     const auto repeated = optimizer.select(plan, facts);
-    require(repeated.cache_hit && repeated.candidate_eligible && repeated.canonical_selected,
-        "shadow candidate cache hit did not retain canonical selection");
+    require(repeated.cache_hit && !repeated.candidate_eligible && repeated.canonical_selected,
+        "unvalidated shadow cache hit was reported as eligible or selected");
     const auto failed_context = optimizer.select(plan, decode_facts(plan, 31));
     require(failed_context.fallback == QwenOptimizerFallback::GuardFailed &&
         failed_context.canonical_selected, "lower context guard failure did not fall back");
@@ -231,7 +237,7 @@ void test_shadow_guards_cache_and_profiler() {
     optimizer.record_execution(plan, prefill, 256, 1000);
     optimizer.record_execution(plan, facts, 8, 2000);
     const std::string prebound_identity = decision.candidate_identity;
-    require(!optimizer.mark_candidate_valid(prebound_identity, "premature validation"),
+    require(!optimizer.mark_candidate_valid(prebound_identity, "premature validation", {}, plan, facts),
         "candidate became valid below the hotness threshold");
     optimizer.record_execution(plan, facts, 24, 3000);
     auto stats = optimizer.snapshot();
@@ -240,32 +246,79 @@ void test_shadow_guards_cache_and_profiler() {
         "shadow cache/guard counters mismatch");
     require(stats.observations == 288 && stats.profile_key_count == 2 && stats.profile_records.size() == 2,
         "bounded profiler did not record phase hotness");
-    require(!optimizer.mark_candidate_valid(prebound_identity, "exact parity without numerical records"),
+    require(!optimizer.mark_candidate_valid(prebound_identity, "exact parity without numerical records", {}, plan, facts),
         "candidate became valid without numerical contract evidence");
-    auto hidden_evidence = make_output_evidence(plan, facts,
+    auto hidden_evidence = make_output_evidence(plan, facts, prebound_identity,
         plan.stable_identity + "|strategy=prebound-decode-dispatch-v1", "final_hidden");
-    auto logits_evidence = make_output_evidence(plan, facts,
+    auto logits_evidence = make_output_evidence(plan, facts, prebound_identity,
         plan.stable_identity + "|strategy=prebound-decode-dispatch-v1", "final_logits");
     require(hidden_evidence.status == vbuf_ml::numerics::EvaluationStatus::Pass &&
         logits_evidence.status == vbuf_ml::numerics::EvaluationStatus::Pass,
         "test fixture failed to create active final-output contract records");
+    auto failed_evidence = make_output_evidence(plan, facts, prebound_identity,
+        plan.stable_identity + "|strategy=prebound-decode-dispatch-v1", "final_hidden", 2,
+        "qwen3-execution-plan-contract-run-v1", true);
+    require(failed_evidence.status == vbuf_ml::numerics::EvaluationStatus::Fail &&
+        !optimizer.mark_candidate_valid(prebound_identity, "failed output criterion",
+            {failed_evidence, logits_evidence}, plan, facts),
+        "a genuine numerical FAIL was admitted");
+    auto wrong_candidate_evidence = make_output_evidence(plan, facts, "different-candidate",
+        plan.stable_identity + "|strategy=prebound-decode-dispatch-v1", "final_hidden");
+    require(!optimizer.mark_candidate_valid(prebound_identity, "wrong candidate identity",
+        {wrong_candidate_evidence, logits_evidence}, plan, facts),
+        "evidence issued for another candidate authorized this candidate");
+    auto historical_contract_evidence = make_output_evidence(plan, facts, prebound_identity,
+        plan.stable_identity + "|strategy=prebound-decode-dispatch-v1", "final_hidden", 1);
+    require(!optimizer.mark_candidate_valid(prebound_identity, "wrong contract version",
+        {historical_contract_evidence, logits_evidence}, plan, facts),
+        "historical v1 evidence authorized a v2 candidate requirement");
+    auto split_run_logits = make_output_evidence(plan, facts, prebound_identity,
+        plan.stable_identity + "|strategy=prebound-decode-dispatch-v1", "final_logits", 2, "different-run");
+    require(!optimizer.mark_candidate_valid(prebound_identity, "split run bundle",
+        {hidden_evidence, split_run_logits}, plan, facts),
+        "evidence from separate qualification runs was combined into one admission");
+    auto tampered_evidence = hidden_evidence;
+    tampered_evidence.measured_metrics.values[vbuf_ml::numerics::Metric::RelativeRmsError].numeric_value = 1.0;
+    require(!optimizer.mark_candidate_valid(prebound_identity, "mutated evidence",
+        {tampered_evidence, logits_evidence}, plan, facts),
+        "mutated sealed metric evidence authorized a candidate");
+    auto wrong_runtime_facts = facts;
+    --wrong_runtime_facts.context_length;
+    require(!optimizer.mark_candidate_valid(prebound_identity, "wrong runtime facts",
+        {hidden_evidence, logits_evidence}, plan, wrong_runtime_facts),
+        "evidence scoped to another runtime context authorized this candidate");
+    require(!optimizer.mark_candidate_valid(prebound_identity, "ambiguous duplicate evidence",
+        {hidden_evidence, logits_evidence, logits_evidence}, plan, facts),
+        "duplicate records for one required contract were silently resolved by order");
     require(optimizer.mark_candidate_valid(prebound_identity, "exact decode parity with active numerical contracts",
-        {hidden_evidence, logits_evidence}),
+        {hidden_evidence, logits_evidence}, plan, facts),
         "candidate could not transition Candidate->Valid with hotness and both numerical records");
     optimizer.set_mode(QwenOptimizerMode::Enabled);
     const auto enabled = optimizer.select(plan, facts);
-    require(enabled.candidate_found && enabled.candidate_validated && enabled.candidate_selected &&
+    require(enabled.candidate_found && enabled.candidate_validated && enabled.candidate_eligible &&
+        enabled.candidate_selected &&
+        enabled.evidence_rejection == vbuf_ml::numerics::EvidenceRejectionReason::None &&
         !enabled.canonical_selected && enabled.fallback == QwenOptimizerFallback::None,
         "ENABLED mode did not select the Valid guarded candidate");
     const auto unqualified_context = optimizer.select(plan, decode_facts(plan, 8193));
     require(unqualified_context.fallback == QwenOptimizerFallback::NumericalQualificationMissing &&
+        unqualified_context.evidence_rejection == vbuf_ml::numerics::EvidenceRejectionReason::RuntimeFactsMismatch &&
         unqualified_context.canonical_selected && !unqualified_context.candidate_eligible,
         "candidate numerical evidence was reused outside its exact qualified runtime context");
     optimizer.set_mode(QwenOptimizerMode::Shadow);
+    require(optimizer.invalidate_candidate(prebound_identity),
+        "could not invalidate the validated cached execution-plan candidate");
+    const auto invalidated_valid = optimizer.select(plan, facts, prebound_identity);
+    require(invalidated_valid.fallback == QwenOptimizerFallback::Invalidated &&
+        invalidated_valid.evidence_rejection == vbuf_ml::numerics::EvidenceRejectionReason::EvidenceInvalidated &&
+        invalidated_valid.canonical_selected && !invalidated_valid.candidate_selected,
+        "invalidated validated candidate remained selected from the cache");
 
     auto unsupported = manual_candidate(plan, "prebound-decode-dispatch-v1",
         {QwenGuardField::TensorMin, QwenGuardOperator::Less, 1});
     require(optimizer.register_candidate(unsupported), "could not register test unsupported guard");
+    require(!optimizer.mark_candidate_valid(unsupported.identity, "probe is not executable", {}, plan, facts),
+        "non-executable GuardProbe transitioned to Valid");
     const auto unsupported_result = optimizer.select(plan, facts);
     require(unsupported_result.fallback == QwenOptimizerFallback::UnsupportedGuard &&
         unsupported_result.canonical_selected, "unsupported fact did not fail closed");
@@ -319,8 +372,15 @@ void test_optimizer_faults_fail_closed() {
         "ENABLED mode selected an unvalidated candidate outside trial mode");
     trial.set_unvalidated_trial_for_testing(true);
     const auto trial_decision = trial.select(plan, facts);
+#if defined(VBUF_QWEN3_ENABLE_QUALIFICATION_TRIALS)
     require(trial_decision.qualification_trial && trial_decision.candidate_selected &&
-        !trial_decision.canonical_selected, "explicit qualification trial did not select the candidate");
+        !trial_decision.candidate_eligible && !trial_decision.canonical_selected,
+        "explicit qualification trial was confused with production eligibility");
+#else
+    require(!trial_decision.candidate_selected && trial_decision.canonical_selected &&
+        trial_decision.fallback == QwenOptimizerFallback::CandidateNotValidated,
+        "production build allowed an unvalidated qualification trial");
+#endif
     trial.set_unvalidated_trial_for_testing(false);
     trial.set_fault_for_testing(QwenOptimizerFault::CandidateExecution);
     require(trial.consume_candidate_execution_fault_for_testing() &&
@@ -333,31 +393,38 @@ void test_optimizer_faults_fail_closed() {
         {QwenGuardField::Rows, QwenGuardOperator::Equal, 1});
     prevalidated_without_records.status = QwenCandidateStatus::Valid;
     prevalidated_without_records.required_numerical_contracts = {
-        "qwen3.final_hidden.canonical_compatibility",
-        "qwen3.final_logits.canonical_compatibility",
+        {"qwen3.final_hidden.canonical_compatibility", 2},
+        {"qwen3.final_logits.canonical_compatibility", 2},
     };
-    require(forged.register_candidate(prevalidated_without_records),
-        "could not register fail-closed numerical-qualification probe");
+    require(!forged.register_candidate(prevalidated_without_records),
+        "registration accepted caller-supplied VALID state without a qualification transition");
     const auto missing_evidence = forged.select(plan, facts, prevalidated_without_records.identity);
-    require(missing_evidence.fallback == QwenOptimizerFallback::NumericalQualificationMissing &&
-        missing_evidence.canonical_selected && !missing_evidence.candidate_eligible,
-        "directly registered VALID candidate bypassed numerical qualification records");
+    require(missing_evidence.fallback == QwenOptimizerFallback::NoCandidate &&
+        missing_evidence.canonical_selected && !missing_evidence.candidate_selected,
+        "rejected caller-supplied VALID candidate was later selectable");
 
     QwenExecutionPlanOptimizer unannotated;
     unannotated.set_mode(QwenOptimizerMode::Enabled);
-    auto executable_without_requirements = manual_candidate(plan, "prebound-decode-dispatch-v1",
+    const auto automatic_candidate = unannotated.select(plan, facts);
+    require(automatic_candidate.fallback == QwenOptimizerFallback::CandidateNotValidated &&
+        !automatic_candidate.candidate_identity.empty(),
+        "built-in executable candidate was not available for fail-closed admission testing");
+    auto only_hidden = make_output_evidence(plan, facts, automatic_candidate.candidate_identity,
+        plan.stable_identity + "|strategy=prebound-decode-dispatch-v1", "final_hidden");
+    require(!unannotated.mark_candidate_valid(automatic_candidate.candidate_identity,
+        "incomplete output evidence", {only_hidden}, plan, facts),
+        "built-in executable candidate omitted its default mandatory logits contract");
+    const auto auto_required = unannotated.select(plan, facts, automatic_candidate.candidate_identity);
+    require(auto_required.fallback == QwenOptimizerFallback::CandidateNotValidated &&
+        auto_required.canonical_selected && !auto_required.candidate_eligible,
+        "candidate became eligible without both active model-output contracts");
+
+    auto forged_prebound = manual_candidate(plan, "prebound-decode-dispatch-v1",
         {QwenGuardField::Rows, QwenGuardOperator::Equal, 1});
-    executable_without_requirements.strategy = QwenCandidateStrategy::PreboundDecodeDispatch;
-    executable_without_requirements.execution_plan_identity =
-        plan.stable_identity + "|strategy=prebound-decode-dispatch-v1";
-    executable_without_requirements.status = QwenCandidateStatus::Valid;
-    executable_without_requirements.required_numerical_contracts.clear();
-    require(unannotated.register_candidate(executable_without_requirements),
-        "could not register unannotated executable candidate probe");
-    const auto auto_required = unannotated.select(plan, facts, executable_without_requirements.identity);
-    require(auto_required.fallback == QwenOptimizerFallback::NumericalQualificationMissing &&
-        auto_required.canonical_selected,
-        "executable candidate without declared contract IDs bypassed default model-output requirements");
+    forged_prebound.strategy = QwenCandidateStrategy::PreboundDecodeDispatch;
+    forged_prebound.execution_plan_identity = plan.stable_identity + "|strategy=prebound-decode-dispatch-v1";
+    require(!unannotated.register_candidate(forged_prebound),
+        "external registration replaced the canonical prebound definition with caller-selected guards");
 
     QwenExecutionPlanOptimizer profiler;
     profiler.set_mode(QwenOptimizerMode::Shadow);

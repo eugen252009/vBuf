@@ -1,0 +1,984 @@
+{
+  "schema_version": 1,
+  "policy_id": "vbuf.numerical-contracts",
+  "policy_version": 2,
+  "tolerance_profiles": {
+    "qwen3.synthetic-av-absolute.v1": {
+      "version": 1,
+      "criteria": [
+        {
+          "metric": "max_absolute_error",
+          "comparison": "less_than",
+          "value": 0.001,
+          "unit": "absolute",
+          "required": true
+        }
+      ],
+      "provenance": "Existing synthetic AV direct test shared ceiling; canonical packed AV historically uses strict max_abs < 1e-3. Native AV also retains its stricter 3e-6 assertion."
+    },
+    "qwen3.native-av-synthetic-strict.v1": {
+      "version": 1,
+      "criteria": [
+        {
+          "metric": "max_absolute_error",
+          "comparison": "less_than",
+          "value": 3e-06,
+          "unit": "absolute",
+          "required": true
+        }
+      ],
+      "provenance": "Retains the existing strict native AV assertion (< 3e-6 absolute error) on the deterministic FP64-oracle direct-test fixtures only."
+    },
+    "qwen3.final-output.compatibility.v1": {
+      "version": 1,
+      "criteria": [
+        {
+          "metric": "relative_rms_error",
+          "comparison": "less_equal",
+          "value": 0.02,
+          "unit": "fraction",
+          "required": true
+        },
+        {
+          "metric": "cosine_similarity",
+          "comparison": "greater_equal",
+          "value": 0.9998,
+          "unit": "fraction",
+          "required": true
+        }
+      ],
+      "provenance": "Preserves the existing small-context Qwen canonical/native and cross-device gate: relative RMS <= 0.02 and cosine >= 0.9998. Not a universal tensor tolerance."
+    }
+  },
+  "contracts": [
+    {
+      "contract_id": "qwen3.attention_av.fp64_operation_accuracy",
+      "version": 1,
+      "category": "OPERATION_ACCURACY",
+      "operation": "attention_av",
+      "reference": {
+        "kind": "FP64_OPERATION_ORACLE",
+        "identity": "fp64-qwen3-gqa-av-oracle-v1",
+        "semantics": "Binary64 product and accumulation for each output, rounded once to F32; high precision, not exact real arithmetic."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "mean_absolute_error",
+        "rms_error",
+        "relative_rms_error",
+        "cosine_similarity",
+        "finite_outputs",
+        "bitwise_equality"
+      ],
+      "tolerance_profile": "qwen3.synthetic-av-absolute.v1",
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent"
+      ],
+      "scope": {
+        "model_identity": "synthetic:qwen3-gqa-40q-8kv-d128",
+        "backend_family": "*",
+        "implementation_identity": "*",
+        "device_family": "*",
+        "device_sm_versions": "*",
+        "placement_identity": "*",
+        "output_dtype": "F32",
+        "input_dtype": [
+          "F16",
+          "F32"
+        ],
+        "shapes": [
+          "128x1x40",
+          "128x32x40"
+        ],
+        "capacity": {
+          "minimum": 37,
+          "maximum": 1032
+        },
+        "context_length": {
+          "minimum": 1,
+          "maximum": 1032
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 32
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Deterministic synthetic Qwen3 GQA AV fixtures only; tested capacities 37, 64, 512, 1032 and rows 1/32. This is not a bound for arbitrary inputs."
+      },
+      "qualification_tests": [
+        "vbuf_qwen3_native_attention_av_contract"
+      ],
+      "status": "ACTIVE",
+      "threshold_provenance": "The existing direct contract test requires native AV max absolute error < 3e-6 and canonical packed AV < 1e-3 on deterministic FP64-oracle fixtures. The shared 1e-3 strict ceiling is the already-enforced canonical ceiling and applies only to those fixtures; native is also checked against its stricter historical assertion. No model-level compatibility is implied."
+    },
+    {
+      "contract_id": "qwen3.attention_av.native_fp64_synthetic_accuracy",
+      "version": 1,
+      "category": "OPERATION_ACCURACY",
+      "operation": "attention_av",
+      "reference": {
+        "kind": "FP64_OPERATION_ORACLE",
+        "identity": "fp64-qwen3-gqa-av-oracle-v1",
+        "semantics": "Binary64 product and accumulation for each output, rounded once to F32; high precision, not exact real arithmetic."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "finite_outputs"
+      ],
+      "tolerance_profile": "qwen3.native-av-synthetic-strict.v1",
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent"
+      ],
+      "scope": {
+        "model_identity": "synthetic:qwen3-gqa-40q-8kv-d128",
+        "backend_family": "*",
+        "implementation_identity": "ggml-native-layout-av",
+        "device_family": "*",
+        "device_sm_versions": "*",
+        "placement_identity": "*",
+        "output_dtype": "F32",
+        "input_dtype": [
+          "F16",
+          "F32"
+        ],
+        "shapes": [
+          "128x1x40",
+          "128x32x40"
+        ],
+        "capacity": {
+          "minimum": 37,
+          "maximum": 1032
+        },
+        "context_length": {
+          "minimum": 1,
+          "maximum": 1032
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 32
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Strict native AV error assertion on the deterministic synthetic direct-test fixtures only; not a worst-case bound."
+      },
+      "qualification_tests": [
+        "vbuf_qwen3_native_attention_av_contract"
+      ],
+      "status": "ACTIVE",
+      "threshold_provenance": "Preserves the existing native AV direct-test ceiling max_abs < 3e-6 against the same FP64 oracle. The common operation contract separately preserves the canonical < 1e-3 ceiling."
+    },
+    {
+      "contract_id": "qwen3.attention_av.packed_native.synthetic_compatibility",
+      "version": 1,
+      "category": "NUMERICAL_COMPATIBILITY",
+      "operation": "attention_av",
+      "reference": {
+        "kind": "CANONICAL_EXECUTION",
+        "identity": "packed-av-v1:",
+        "semantics": "Canonical packed-V AV on the same V, probabilities, positions, and visible extent."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "finite_outputs",
+        "bitwise_equality"
+      ],
+      "tolerance_profile": "qwen3.synthetic-av-absolute.v1",
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent"
+      ],
+      "scope": {
+        "model_identity": "synthetic:qwen3-gqa-40q-8kv-d128",
+        "backend_family": "*",
+        "implementation_identity": "ggml-native-layout-av",
+        "device_family": "*",
+        "device_sm_versions": "*",
+        "placement_identity": "*",
+        "output_dtype": "F32",
+        "input_dtype": [
+          "F16",
+          "F32"
+        ],
+        "shapes": [
+          "128x1x40",
+          "128x32x40"
+        ],
+        "capacity": {
+          "minimum": 37,
+          "maximum": 1032
+        },
+        "context_length": {
+          "minimum": 1,
+          "maximum": 1032
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 32
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Canonical/native compatibility on deterministic synthetic AV direct-test inputs only; not full-model compatibility."
+      },
+      "qualification_tests": [
+        "vbuf_qwen3_native_attention_av_contract"
+      ],
+      "status": "ACTIVE",
+      "threshold_provenance": "Preserves the direct-test native-versus-packed maximum absolute parity assertion < 1e-3, independently of FP64 mathematical accuracy."
+    },
+    {
+      "contract_id": "qwen3.attention_av.fp64_model_boundary_observation",
+      "version": 1,
+      "category": "OPERATION_ACCURACY",
+      "operation": "attention_av",
+      "reference": {
+        "kind": "FP64_OPERATION_ORACLE",
+        "identity": "qwen3-av-boundary-fp64-oracle-v1",
+        "semantics": "Binary64 accumulation from captured Qwen3 V and probabilities over the actual visible extent, rounded to F32."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "rms_error",
+        "relative_rms_error",
+        "cosine_similarity",
+        "finite_outputs",
+        "bitwise_equality"
+      ],
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent"
+      ],
+      "scope": {
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "ggml-native-layout-av",
+        "device_family": "CUDA",
+        "device_sm_versions": [
+          86
+        ],
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "output_dtype": "F32",
+        "input_dtype": "F16",
+        "shapes": [
+          "128x1x40",
+          "128x32x40"
+        ],
+        "phases": [
+          "decode",
+          "prefill"
+        ],
+        "execution_topologies": [
+          "native-av-side-branch"
+        ],
+        "fixture_identities": [
+          "qwen3-native-av-prefill32-cap512-layer0",
+          "qwen3-native-av-decode32-cap512-layer0"
+        ],
+        "input_identities": [
+          "*"
+        ],
+        "token_sequence_identities": [
+          "*"
+        ],
+        "capacity": {
+          "minimum": 512,
+          "maximum": 512
+        },
+        "context_length": {
+          "minimum": 32,
+          "maximum": 33
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 32
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Captured Qwen3-14B Q4_K_M layer-0 AV boundaries from the exact two-GPU 26/14 placement at capacity 512 and visible contexts 32/33. Metrics are replayed diagnostics and do not authorize model-output selection or establish a worst-case operation bound."
+      },
+      "qualification_tests": [
+        "vbuf_qwen3_native_av_boundary_diagnostic",
+        "vbuf_numerical_contract_evidence_replay"
+      ],
+      "status": "NEEDS_CALIBRATION",
+      "threshold_provenance": "The captured oracle metrics are preserved, but no model-input-independent threshold is approved. Historical metric replay remains diagnostic-only."
+    },
+    {
+      "contract_id": "qwen3.final_hidden.canonical_compatibility",
+      "version": 1,
+      "category": "NUMERICAL_COMPATIBILITY",
+      "operation": "final_hidden",
+      "reference": {
+        "kind": "CANONICAL_EXECUTION",
+        "identity": "canonical-packed-v-v1:",
+        "semantics": "Canonical packed-V execution on the same exact model artifact and equivalent logical token history."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "mean_absolute_error",
+        "rms_error",
+        "relative_rms_error",
+        "cosine_similarity",
+        "finite_outputs",
+        "bitwise_equality"
+      ],
+      "tolerance_profile": "qwen3.final-output.compatibility.v1",
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent"
+      ],
+      "scope": {
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "*",
+        "device_family": "CUDA",
+        "device_sm_versions": [
+          86,
+          75
+        ],
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "output_dtype": "F32",
+        "input_dtype": "F16",
+        "shapes": [
+          "*"
+        ],
+        "capacity": {
+          "minimum": 512,
+          "maximum": 32768
+        },
+        "context_length": {
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 32
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Qwen3-14B Q4_K_M CUDA 26/14 qualification comparisons only. A passing fixture is not a worst-case bound for untested contexts or prompts."
+      },
+      "qualification_tests": [
+        "vbuf_qwen3_native_av_sequence_qualification",
+        "vbuf_qwen3_multigpu_qualification"
+      ],
+      "status": "ACTIVE",
+      "threshold_provenance": "The exact historical final hidden gate was relative RMS <= 0.02 AND cosine >= 0.9998. It is retained only for this admitted Qwen3 artifact, CUDA backend, and 26/14 placement. Existing cross-device and candidate tests consumed this gate."
+    },
+    {
+      "contract_id": "qwen3.final_hidden.canonical_compatibility",
+      "version": 2,
+      "category": "NUMERICAL_COMPATIBILITY",
+      "operation": "final_hidden",
+      "reference": {
+        "kind": "CANONICAL_EXECUTION",
+        "identity": "canonical-packed-v-v1:",
+        "semantics": "Canonical packed-V execution on the same exact model artifact and equivalent logical token history."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "mean_absolute_error",
+        "rms_error",
+        "relative_rms_error",
+        "cosine_similarity",
+        "finite_outputs",
+        "bitwise_equality"
+      ],
+      "tolerance_profile": "qwen3.final-output.compatibility.v1",
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent"
+      ],
+      "scope": {
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "*",
+        "device_family": "CUDA",
+        "device_sm_versions": [
+          86,
+          75
+        ],
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "output_dtype": "F32",
+        "input_dtype": "F16",
+        "shapes": [
+          "5120"
+        ],
+        "capacity": {
+          "minimum": 512,
+          "maximum": 32768
+        },
+        "context_length": {
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 32
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Qwen3-14B Q4_K_M CUDA 26/14 qualification comparisons only. A passing fixture is not a worst-case bound for untested contexts or prompts. Contract v2 requires the exact admitted model output vector shape 5120; contract v1 is retained for historical replay and is not an admission requirement."
+      },
+      "qualification_tests": [
+        "vbuf_qwen3_native_av_sequence_qualification",
+        "vbuf_qwen3_multigpu_qualification"
+      ],
+      "status": "ACTIVE",
+      "threshold_provenance": "The exact historical final hidden gate was relative RMS <= 0.02 AND cosine >= 0.9998. It is retained only for this admitted Qwen3 artifact, CUDA backend, and 26/14 placement. Existing cross-device and candidate tests consumed this gate. Contract v2 tightens only the output-shape scope; thresholds and metric semantics are unchanged."
+    },
+    {
+      "contract_id": "qwen3.final_logits.canonical_compatibility",
+      "version": 1,
+      "category": "NUMERICAL_COMPATIBILITY",
+      "operation": "final_logits",
+      "reference": {
+        "kind": "CANONICAL_EXECUTION",
+        "identity": "canonical-packed-v-v1:",
+        "semantics": "Canonical packed-V execution on the same exact model artifact and equivalent logical token history."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "mean_absolute_error",
+        "rms_error",
+        "relative_rms_error",
+        "cosine_similarity",
+        "finite_outputs",
+        "bitwise_equality",
+        "top1_equality",
+        "token_sequence_equality"
+      ],
+      "tolerance_profile": "qwen3.final-output.compatibility.v1",
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent"
+      ],
+      "scope": {
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "*",
+        "device_family": "CUDA",
+        "device_sm_versions": [
+          86,
+          75
+        ],
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "output_dtype": "F32",
+        "input_dtype": "F16",
+        "shapes": [
+          "*"
+        ],
+        "capacity": {
+          "minimum": 512,
+          "maximum": 32768
+        },
+        "context_length": {
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 32
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Qwen3-14B Q4_K_M CUDA 26/14 qualification comparisons only. A passing fixture is not a worst-case bound for untested contexts or prompts."
+      },
+      "qualification_tests": [
+        "vbuf_qwen3_native_av_sequence_qualification",
+        "vbuf_qwen3_multigpu_qualification"
+      ],
+      "status": "ACTIVE",
+      "threshold_provenance": "The exact historical final logits gate was relative RMS <= 0.02 AND cosine >= 0.9998. This is the known compatibility threshold for the scoped Qwen qualification path, not an allowance for every element or operation."
+    },
+    {
+      "contract_id": "qwen3.final_logits.canonical_compatibility",
+      "version": 2,
+      "category": "NUMERICAL_COMPATIBILITY",
+      "operation": "final_logits",
+      "reference": {
+        "kind": "CANONICAL_EXECUTION",
+        "identity": "canonical-packed-v-v1:",
+        "semantics": "Canonical packed-V execution on the same exact model artifact and equivalent logical token history."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "mean_absolute_error",
+        "rms_error",
+        "relative_rms_error",
+        "cosine_similarity",
+        "finite_outputs",
+        "bitwise_equality",
+        "top1_equality",
+        "token_sequence_equality"
+      ],
+      "tolerance_profile": "qwen3.final-output.compatibility.v1",
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent"
+      ],
+      "scope": {
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "GGML_CUDA",
+        "implementation_identity": "*",
+        "device_family": "CUDA",
+        "device_sm_versions": [
+          86,
+          75
+        ],
+        "placement_identity": "multi:0x26,1x14;emb=0;norm=1;head=1",
+        "output_dtype": "F32",
+        "input_dtype": "F16",
+        "shapes": [
+          "151936"
+        ],
+        "capacity": {
+          "minimum": 512,
+          "maximum": 32768
+        },
+        "context_length": {
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 32
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Qwen3-14B Q4_K_M CUDA 26/14 qualification comparisons only. A passing fixture is not a worst-case bound for untested contexts or prompts. Contract v2 requires the exact admitted model output vector shape 151936; contract v1 is retained for historical replay and is not an admission requirement."
+      },
+      "qualification_tests": [
+        "vbuf_qwen3_native_av_sequence_qualification",
+        "vbuf_qwen3_multigpu_qualification"
+      ],
+      "status": "ACTIVE",
+      "threshold_provenance": "The exact historical final logits gate was relative RMS <= 0.02 AND cosine >= 0.9998. This is the known compatibility threshold for the scoped Qwen qualification path, not an allowance for every element or operation. Contract v2 tightens only the output-shape scope; thresholds and metric semantics are unchanged."
+    },
+    {
+      "contract_id": "vbuf.qk_matmul.fp64.operation_accuracy",
+      "version": 1,
+      "category": "OPERATION_ACCURACY",
+      "operation": "qk_matmul",
+      "reference": {
+        "kind": "FP64_OPERATION_ORACLE",
+        "identity": "declared-per-fixture-fp64-qk-oracle",
+        "semantics": "Binary64 dot-product reference over captured equivalent Q/K values; FP64 remains rounded."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "mean_absolute_error",
+        "rms_error",
+        "relative_rms_error",
+        "cosine_similarity",
+        "finite_outputs"
+      ],
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent"
+      ],
+      "scope": {
+        "model_identity": "*",
+        "backend_family": "*",
+        "implementation_identity": "*",
+        "device_family": "*",
+        "device_sm_versions": "*",
+        "placement_identity": "*",
+        "output_dtype": "*",
+        "input_dtype": "*",
+        "shapes": [
+          "same_as_reference"
+        ],
+        "capacity": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "context_length": {
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Operation-specific evidence must record capacity and selected CUDA kernel family; no universal threshold is approved."
+      },
+      "qualification_tests": [],
+      "status": "NEEDS_CALIBRATION",
+      "threshold_provenance": "Capacity-dependent MMVF/MMF/cuBLAS drift is measured, but no portable operation tolerance is approved."
+    },
+    {
+      "contract_id": "vbuf.softmax.fp64.operation_accuracy",
+      "version": 1,
+      "category": "OPERATION_ACCURACY",
+      "operation": "softmax",
+      "reference": {
+        "kind": "FP64_OPERATION_ORACLE",
+        "identity": "declared-per-fixture-fp64-softmax-oracle",
+        "semantics": "Independent stable max-subtracted FP64 softmax over the declared visible extent."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "mean_absolute_error",
+        "rms_error",
+        "relative_rms_error",
+        "cosine_similarity",
+        "finite_outputs"
+      ],
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent",
+        "probabilities_in_unit_interval",
+        "probability_rows_normalized",
+        "masked_positions_zero"
+      ],
+      "scope": {
+        "model_identity": "*",
+        "backend_family": "*",
+        "implementation_identity": "*",
+        "device_family": "*",
+        "device_sm_versions": "*",
+        "placement_identity": "*",
+        "output_dtype": "*",
+        "input_dtype": "*",
+        "shapes": [
+          "same_as_reference"
+        ],
+        "capacity": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "context_length": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Visible extent, mask, row axis, and dtype must be part of each evidence record; no universal threshold is approved."
+      },
+      "qualification_tests": [],
+      "status": "NEEDS_CALIBRATION",
+      "threshold_provenance": "Probability range, row normalization, and mask correctness are distinct invariants. Error limits require representative tails and near-zero probability analysis."
+    },
+    {
+      "contract_id": "vbuf.rmsnorm.fp64.operation_accuracy",
+      "version": 1,
+      "category": "OPERATION_ACCURACY",
+      "operation": "rmsnorm",
+      "reference": {
+        "kind": "FP64_OPERATION_ORACLE",
+        "identity": "declared-per-fixture-fp64-rmsnorm-oracle",
+        "semantics": "FP64 mean-square accumulation and normalization using the explicitly captured epsilon and scale."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "mean_absolute_error",
+        "rms_error",
+        "relative_rms_error",
+        "cosine_similarity",
+        "finite_outputs"
+      ],
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent",
+        "epsilon_semantics_match"
+      ],
+      "scope": {
+        "model_identity": "*",
+        "backend_family": "*",
+        "implementation_identity": "*",
+        "device_family": "*",
+        "device_sm_versions": "*",
+        "placement_identity": "*",
+        "output_dtype": "*",
+        "input_dtype": "*",
+        "shapes": [
+          "same_as_reference"
+        ],
+        "capacity": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "context_length": {
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Capture normalization dimension, epsilon, and scale identity; no universal threshold is approved."
+      },
+      "qualification_tests": [],
+      "status": "NEEDS_CALIBRATION",
+      "threshold_provenance": "RMSNorm requires epsilon-specific references and error-tail analysis; no approved numeric tolerance is available."
+    },
+    {
+      "contract_id": "vbuf.general_matmul.fp64.operation_accuracy",
+      "version": 1,
+      "category": "OPERATION_ACCURACY",
+      "operation": "general_matmul",
+      "reference": {
+        "kind": "FP64_OPERATION_ORACLE",
+        "identity": "declared-per-fixture-fp64-matmul-oracle",
+        "semantics": "Binary64 accumulation over dequantized represented operands; this measures kernel arithmetic relative to represented weights."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "mean_absolute_error",
+        "rms_error",
+        "relative_rms_error",
+        "cosine_similarity",
+        "finite_outputs"
+      ],
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "logical_inputs_equivalent"
+      ],
+      "scope": {
+        "model_identity": "*",
+        "backend_family": "*",
+        "implementation_identity": "*",
+        "device_family": "*",
+        "device_sm_versions": "*",
+        "placement_identity": "*",
+        "output_dtype": "*",
+        "input_dtype": "*",
+        "shapes": [
+          "same_as_reference"
+        ],
+        "capacity": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "context_length": {
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Weight type, quantized reconstruction identity, activation dtype, and kernel family must be recorded; no universal threshold is approved."
+      },
+      "qualification_tests": [],
+      "status": "NEEDS_CALIBRATION",
+      "threshold_provenance": "Separate Q8_K/Q8_1 activation paths and CUDA kernel families require per-operation evidence. No universal tolerance is approved."
+    },
+    {
+      "contract_id": "vbuf.quantization.weight_reconstruction_accuracy",
+      "version": 1,
+      "category": "QUANTIZATION_ACCURACY",
+      "operation": "weight_reconstruction",
+      "reference": {
+        "kind": "UNQUANTIZED_WEIGHT_REFERENCE",
+        "identity": "verified-source-artifact-required",
+        "semantics": "Compare dequantized quantized weights against the verified original unquantized source tensor; never substitute a different quantized artifact."
+      },
+      "measurement_metrics": [
+        "max_absolute_error",
+        "mean_absolute_error",
+        "rms_error",
+        "relative_rms_error",
+        "finite_outputs"
+      ],
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "verified_source_artifact"
+      ],
+      "scope": {
+        "model_identity": "*",
+        "backend_family": "*",
+        "implementation_identity": "*",
+        "device_family": "*",
+        "device_sm_versions": "*",
+        "placement_identity": "*",
+        "output_dtype": "F32",
+        "input_dtype": "quantized-weight-format",
+        "shapes": [
+          "same_as_reference"
+        ],
+        "capacity": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "context_length": {
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "Per quantization format and verified original source artifact; no original unquantized Qwen3 artifact is registered in this policy."
+      },
+      "qualification_tests": [],
+      "status": "NEEDS_CALIBRATION",
+      "threshold_provenance": "No unquantized Qwen3-14B source tensor artifact is admitted here. Quantization loss is NOT TESTED; FP32 reconstruction only defines the represented quantized weights."
+    },
+    {
+      "contract_id": "qwen3.model_output_accuracy.unquantized_reference",
+      "version": 1,
+      "category": "MODEL_OUTPUT_ACCURACY",
+      "operation": "model_output",
+      "reference": {
+        "kind": "UNQUANTIZED_WEIGHT_REFERENCE",
+        "identity": "verified-unquantized-model-artifact-required",
+        "semantics": "A model-level accuracy comparison requires the verified unquantized model weights and a reproducible reference execution."
+      },
+      "measurement_metrics": [
+        "relative_rms_error",
+        "cosine_similarity",
+        "top1_equality"
+      ],
+      "required_invariants": [
+        "same_shape",
+        "finite_outputs",
+        "verified_source_artifact"
+      ],
+      "scope": {
+        "model_identity": "sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31",
+        "backend_family": "*",
+        "implementation_identity": "*",
+        "device_family": "*",
+        "device_sm_versions": "*",
+        "placement_identity": "*",
+        "output_dtype": "F32",
+        "input_dtype": "*",
+        "shapes": [
+          "same_as_reference"
+        ],
+        "capacity": {
+          "minimum": 1,
+          "maximum": 32768
+        },
+        "context_length": {
+          "minimum": 1,
+          "maximum": 32768
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 32
+        },
+        "requires_logical_inputs_equivalent": true,
+        "empirical_scope": "No unquantized Qwen3-14B reference artifact is admitted; contract is intentionally non-authorizing."
+      },
+      "qualification_tests": [],
+      "status": "NEEDS_CALIBRATION",
+      "threshold_provenance": "Must remain NOT TESTED unless a verified unquantized reference artifact is supplied. Canonical Q4_K_M execution is not a substitute."
+    },
+    {
+      "contract_id": "vbuf.execution.finite_tensor_invariant",
+      "version": 1,
+      "category": "EXECUTION_INVARIANTS",
+      "operation": "tensor_output",
+      "reference": {
+        "kind": "INVARIANT_REFERENCE",
+        "identity": "vbuf-finite-output-invariant-v1",
+        "semantics": "All required tensor values must be finite."
+      },
+      "measurement_metrics": [
+        "finite_outputs"
+      ],
+      "required_invariants": [
+        "finite_outputs"
+      ],
+      "scope": {
+        "model_identity": "*",
+        "backend_family": "*",
+        "implementation_identity": "*",
+        "device_family": "*",
+        "device_sm_versions": "*",
+        "placement_identity": "*",
+        "output_dtype": "*",
+        "input_dtype": "*",
+        "shapes": [
+          "same_as_reference"
+        ],
+        "capacity": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "context_length": {
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "requires_logical_inputs_equivalent": false,
+        "empirical_scope": "Generic numeric output invariant; shape and finite checks only."
+      },
+      "qualification_tests": [
+        "vbuf_numerical_contracts_contract"
+      ],
+      "status": "ACTIVE",
+      "threshold_provenance": "Invariant, not an error tolerance."
+    },
+    {
+      "contract_id": "vbuf.lifecycle.session_atomicity",
+      "version": 1,
+      "category": "LIFECYCLE_CORRECTNESS",
+      "operation": "session_lifecycle",
+      "reference": {
+        "kind": "INVARIANT_REFERENCE",
+        "identity": "vbuf-session-lifecycle-invariants-v1",
+        "semantics": "Lifecycle requirements are hard boolean invariants, not floating-point tolerances."
+      },
+      "measurement_metrics": [],
+      "required_invariants": [
+        "session_reset_verified",
+        "logical_progress_atomic",
+        "failure_recovery_canonical"
+      ],
+      "scope": {
+        "model_identity": "*",
+        "backend_family": "*",
+        "implementation_identity": "*",
+        "device_family": "*",
+        "device_sm_versions": "*",
+        "placement_identity": "*",
+        "output_dtype": "*",
+        "input_dtype": "*",
+        "shapes": [
+          "*"
+        ],
+        "capacity": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "context_length": {
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "rows": {
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "requires_logical_inputs_equivalent": false,
+        "empirical_scope": "Must be established by lifecycle and injected-failure tests for the candidate runtime scope."
+      },
+      "qualification_tests": [
+        "generation_lifecycle_contract",
+        "qwen3_execution_plan_contract"
+      ],
+      "status": "NEEDS_CALIBRATION",
+      "threshold_provenance": "Existing lifecycle tests are useful evidence but have not yet been registered as scoped records in this policy; no candidate authorization implied."
+    }
+  ]
+}

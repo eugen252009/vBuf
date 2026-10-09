@@ -95,7 +95,7 @@ NumericalEvaluation evaluate_output(const std::string & operation,
     const auto candidate = make_tensor_view(candidate_values, context.output_shape);
     return evaluate_contract(operation == "final_hidden" ?
         "qwen3.final_hidden.canonical_compatibility" : "qwen3.final_logits.canonical_compatibility",
-        1, &reference, &candidate, context);
+        2, &reference, &candidate, context);
 }
 
 Metrics compare(const std::vector<float> & reference, const std::vector<float> & candidate) {
@@ -196,9 +196,9 @@ int run(const std::string & semantic, const std::string & source, const std::str
         return build_qwen_execution_plan(model, *runtime, *plan_session, QwenExecutionPlanPath::MultiGpu);
     }();
     require(runtime->execution_optimizer().register_candidate(
-        make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Prefill)) &&
+        make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Prefill), plan) &&
         runtime->execution_optimizer().register_candidate(
-        make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Decode)),
+        make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Decode), plan),
         "could not register guarded native AV qualification candidates");
 
     std::printf("sequence_qualification model=%s capacity=%u prompt_rows=%u decode_steps=%u "
@@ -941,9 +941,9 @@ int run_matrix(const std::string & semantic, const std::string & source,
         auto plan_session = runtime->create_session(capacity);
         const auto plan = build_qwen_execution_plan(model, *runtime, *plan_session, QwenExecutionPlanPath::MultiGpu);
         require(runtime->execution_optimizer().register_candidate(
-            make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Prefill)) &&
+            make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Prefill), plan) &&
             runtime->execution_optimizer().register_candidate(
-            make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Decode)),
+            make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Decode), plan),
             "could not register guarded native AV candidates for capacity " + std::to_string(capacity));
         plan_session->reset();
     }

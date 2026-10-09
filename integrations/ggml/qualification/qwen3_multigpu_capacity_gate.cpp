@@ -461,6 +461,10 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
             context.reference_kind = numerical::ReferenceKind::CanonicalExecution;
             context.reference_identity = "canonical-packed-v-v1:" + std::string(gate.label) +
                 ":tokens=" + std::to_string(fnv1a(seed)) + "-" + std::to_string(fnv1a(canonical.tokens));
+            context.candidate_identity = observed.last_decision.candidate_identity;
+            context.qualification_run_identity = "prebound-qualification:" + std::string(gate.label) +
+                ":seed=" + std::to_string(fnv1a(seed)) + ":tokens=" +
+                std::to_string(fnv1a(canonical.tokens));
             context.model_identity = validated_plan.model_identity;
             context.backend_family = validated_plan.backend_family;
             context.implementation_identity = implementation_identity;
@@ -490,7 +494,7 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
             const std::string contract_id = operation == "final_hidden" ?
                 "qwen3.final_hidden.canonical_compatibility" :
                 "qwen3.final_logits.canonical_compatibility";
-            return numerical::evaluate_contract(contract_id, 1, &reference_view, &candidate_view, context);
+            return numerical::evaluate_contract(contract_id, 2, &reference_view, &candidate_view, context);
         };
         auto hidden_evidence = evaluate_output("final_hidden", canonical.final_hidden, trial.value.final_hidden);
         auto logits_evidence = evaluate_output("final_logits", canonical.final_logits, trial.value.final_logits);
@@ -503,7 +507,7 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
             "prebound candidate failed the active final hidden/logits numerical contracts");
         require(runtime->execution_optimizer().mark_candidate_valid(observed.last_decision.candidate_identity,
             "exact token/hidden/logit/sampled-KV match with active numerical contracts",
-            {std::move(hidden_evidence), std::move(logits_evidence)}),
+            {std::move(hidden_evidence), std::move(logits_evidence)}, validated_plan, validated_facts),
             "candidate failed hotness/equivalence/numerical-contract validation transition");
         const auto validated_decision = runtime->execution_optimizer().select(validated_plan, validated_facts);
         require(validated_decision.candidate_validated &&

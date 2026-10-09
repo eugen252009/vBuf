@@ -258,7 +258,13 @@ void test_optimizer_candidate_guards() {
         "native AV candidate factory accepted a capacity above its numeric qualification limit");
     const auto candidate = make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Decode);
     QwenExecutionPlanOptimizer optimizer;
-    require(optimizer.register_candidate(candidate), "native AV candidate registration failed");
+    auto altered_guards = candidate;
+    altered_guards.guards.clear();
+    require(!optimizer.register_candidate(altered_guards, plan),
+        "candidate registration accepted an identity with altered native-AV guards");
+    require(!optimizer.register_candidate(candidate),
+        "executable native candidate was registered without its qualifying plan");
+    require(optimizer.register_candidate(candidate, plan), "native AV candidate registration failed");
     auto facts = QwenRuntimeFacts{};
     facts.rows = 1;
     facts.context_length = 31;
@@ -277,7 +283,7 @@ void test_optimizer_candidate_guards() {
         "unvalidated native candidate did not fail closed");
     optimizer.set_mode(QwenOptimizerMode::Shadow);
     optimizer.record_execution(plan, facts, QwenExecutionPlanOptimizer::min_candidate_hotness_observations, 1);
-    require(!optimizer.mark_candidate_valid(candidate.identity, "operation-only AV accuracy"),
+    require(!optimizer.mark_candidate_valid(candidate.identity, "operation-only AV accuracy", {}, plan, facts),
         "operation-level AV accuracy alone authorized model-level candidate selection");
     optimizer.set_mode(QwenOptimizerMode::Enabled);
     decision = optimizer.select(plan, facts, candidate.identity);
@@ -286,9 +292,14 @@ void test_optimizer_candidate_guards() {
         "native AV candidate was selectable without model-output contract evidence");
     optimizer.set_unvalidated_trial_for_testing(true);
     decision = optimizer.select(plan, facts, candidate.identity);
-    require(decision.candidate_selected && decision.qualification_trial && !decision.canonical_selected &&
-        decision.strategy == QwenCandidateStrategy::NativeLayoutAttentionAV,
-        "explicit diagnostic trial did not remain available for bounded qualification");
+#if defined(VBUF_QWEN3_ENABLE_QUALIFICATION_TRIALS)
+    require(decision.candidate_selected && decision.qualification_trial && !decision.candidate_eligible &&
+        !decision.canonical_selected && decision.strategy == QwenCandidateStrategy::NativeLayoutAttentionAV,
+        "explicit diagnostic trial was confused with production eligibility");
+#else
+    require(!decision.candidate_selected && !decision.candidate_eligible && decision.canonical_selected,
+        "production build allowed an unvalidated native AV qualification trial");
+#endif
     optimizer.set_unvalidated_trial_for_testing(false);
     facts.context_length = 33;
     decision = optimizer.select(plan, facts, candidate.identity);

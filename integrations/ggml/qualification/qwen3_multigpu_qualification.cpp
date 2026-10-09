@@ -109,7 +109,7 @@ NumericalEvaluation evaluate_model_output(const std::string & operation,
     const auto candidate = make_tensor_view(candidate_values, context.output_shape);
     const std::string contract_id = operation == "final_hidden" ?
         "qwen3.final_hidden.canonical_compatibility" : "qwen3.final_logits.canonical_compatibility";
-    return evaluate_contract(contract_id, 1, &reference, &candidate, context);
+    return evaluate_contract(contract_id, 2, &reference, &candidate, context);
 }
 
 void require(bool value, const std::string & message) {

@@ -141,7 +141,7 @@ NumericalEvaluation evaluate_qwen_output(const std::string & operation,
     const auto candidate = make_tensor_view(candidate_values, context.output_shape);
     return evaluate_contract(operation == "final_hidden" ?
         "qwen3.final_hidden.canonical_compatibility" : "qwen3.final_logits.canonical_compatibility",
-        1, &reference, &candidate, context);
+        2, &reference, &candidate, context);
 }
 
 float value_as_float(const uint8_t * ptr, ggml_type type) {
@@ -1005,7 +1005,7 @@ int run_propagation(const std::string & semantic, const std::string & source,
     const QwenExecutionPlan plan = build_qwen_execution_plan(model, *runtime, *session512,
         QwenExecutionPlanPath::MultiGpu);
     const auto decode_candidate = make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Decode);
-    require(optimizer.register_candidate(decode_candidate), "could not register decode-only all-native diagnostic candidate");
+    require(optimizer.register_candidate(decode_candidate, plan), "could not register decode-only all-native diagnostic candidate");
     optimizer.set_unvalidated_trial_for_testing(true);
     optimizer.set_mode(QwenOptimizerMode::Enabled);
     const uint64_t copy_bytes_per_native_step = static_cast<uint64_t>(capacity) * kv_heads * dim *
@@ -1082,7 +1082,7 @@ int run_propagation(const std::string & semantic, const std::string & source,
     require(prefill32_baseline.has_value() && prefill_output_baseline.has_value(),
         "propagation run is missing its isolated 32-row prefill baseline");
     const auto prefill_candidate = make_qwen3_native_attention_av_candidate(plan, QwenExecutionPhase::Prefill);
-    require(optimizer.register_candidate(prefill_candidate), "could not register all-native prefill diagnostic candidate");
+    require(optimizer.register_candidate(prefill_candidate, plan), "could not register all-native prefill diagnostic candidate");
     executor512->configure_attention_av_diagnostic(0, true, -1, true, false);
     auto native_prefill = executor512->run(prompt, 1, prefill32_baseline->tokens.front());
     const bool prefill_stopped_before_decode = native_prefill.tokens.empty();

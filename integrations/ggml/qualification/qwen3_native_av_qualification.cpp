@@ -118,7 +118,7 @@ NumericalEvaluation evaluate_model_output(const std::string & operation,
     const auto candidate = make_tensor_view(candidate_values, context.output_shape);
     const std::string contract_id = operation == "final_hidden" ?
         "qwen3.final_hidden.canonical_compatibility" : "qwen3.final_logits.canonical_compatibility";
-    return evaluate_contract(contract_id, 1, &reference, &candidate, context);
+    return evaluate_contract(contract_id, 2, &reference, &candidate, context);
 }
 
 bool bitwise_equal(const std::vector<float> & a, const std::vector<float> & b) {
@@ -268,7 +268,7 @@ int run(const std::string & semantic, const std::string & source, const std::str
     optimizer.set_mode(QwenOptimizerMode::Disabled);
     Snapshot canonical = run_once(model, runtime, capacity, prompt, false);
 
-    require(optimizer.register_candidate(prefill_candidate) && optimizer.register_candidate(decode_candidate),
+    require(optimizer.register_candidate(prefill_candidate, plan) && optimizer.register_candidate(decode_candidate, plan),
         "could not register explicit native AV trial candidates");
     optimizer.set_unvalidated_trial_for_testing(true);
     optimizer.set_mode(QwenOptimizerMode::Enabled);
