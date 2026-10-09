@@ -131,6 +131,11 @@ struct EvaluationContext {
     std::string output_name;
     ReferenceKind reference_kind = ReferenceKind::InvariantReference;
     std::string reference_identity;
+    std::string reference_implementation_revision;
+    std::string reference_accumulation_precision;
+    std::string reference_input_representation;
+    std::string reference_output_representation;
+    std::map<std::string, std::string> reference_operation_parameters;
     std::string candidate_identity;
     std::string qualification_run_identity;
     std::string model_identity;
@@ -205,6 +210,7 @@ struct NumericalEvaluation {
 private:
     std::string authority_snapshot_;
     friend class NumericalEvaluationAuthority;
+    friend NumericalEvaluation mark_numerical_evaluation_replay_only(NumericalEvaluation evaluation);
 };
 
 struct RuntimeQualificationContext {
@@ -248,6 +254,7 @@ NumericalEvaluation evaluate_invariants(const std::string & contract_id, uint32_
     const EvaluationContext & context);
 NumericalEvaluation evaluate_recorded_metrics(const std::string & contract_id, uint32_t version,
     const EvaluationContext & context, const NumericalMetrics & recorded_metrics);
+NumericalEvaluation mark_numerical_evaluation_replay_only(NumericalEvaluation evaluation);
 EvidenceRejectionReason numerical_evidence_rejection_reason(const NumericalEvaluation & evaluation,
     const RuntimeQualificationContext & runtime_context);
 bool numerical_evidence_matches_runtime(const NumericalEvaluation & evaluation,

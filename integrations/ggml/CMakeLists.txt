@@ -188,6 +188,13 @@ target_include_directories(vbuf_numerical_contracts
     PUBLIC include
     PRIVATE "${VBUF_NUMERICAL_POLICY_GENERATED_DIR}")
 
+add_library(vbuf_high_precision_reference STATIC src/vbuf_high_precision_reference.cpp)
+target_compile_features(vbuf_high_precision_reference PUBLIC cxx_std_17)
+target_include_directories(vbuf_high_precision_reference
+    PUBLIC include
+    PRIVATE "${GGML_SOURCE_DIR}/src")
+target_link_libraries(vbuf_high_precision_reference PUBLIC ggml vbuf_numerical_contracts)
+
 add_library(vbuf_model_architecture STATIC src/vbuf_model_architecture.cpp)
 target_compile_features(vbuf_model_architecture PUBLIC cxx_std_17)
 target_include_directories(vbuf_model_architecture PUBLIC include)
@@ -241,6 +248,16 @@ if(VBUF_BUILD_PROBES)
     add_executable(vbuf_numerical_contracts_contract tests/vbuf_numerical_contracts_contract.cpp)
     target_compile_features(vbuf_numerical_contracts_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_numerical_contracts_contract PRIVATE vbuf_numerical_contracts)
+
+    add_executable(vbuf_high_precision_reference_contract tests/vbuf_high_precision_reference_contract.cpp)
+    target_compile_features(vbuf_high_precision_reference_contract PRIVATE cxx_std_17)
+    target_include_directories(vbuf_high_precision_reference_contract PRIVATE "${GGML_SOURCE_DIR}/src")
+    target_link_libraries(vbuf_high_precision_reference_contract PRIVATE vbuf_high_precision_reference)
+
+    add_executable(vbuf_qwen3_reference_capture_qualification
+        qualification/qwen3_reference_capture_qualification.cpp)
+    target_compile_features(vbuf_qwen3_reference_capture_qualification PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_qwen3_reference_capture_qualification PRIVATE vbuf_high_precision_reference)
 
     add_executable(vbuf_numerical_contract_evidence_replay tests/vbuf_numerical_contract_evidence_replay.cpp)
     target_compile_features(vbuf_numerical_contract_evidence_replay PRIVATE cxx_std_17)
@@ -468,6 +485,10 @@ if(VBUF_BUILD_PROBES)
     add_test(NAME vbuf_qwen3_cuda_ownership_contract COMMAND vbuf_qwen3_cuda_ownership_contract)
     add_test(NAME vbuf_qwen3_execution_plan_contract COMMAND vbuf_qwen3_execution_plan_contract)
     add_test(NAME vbuf_numerical_contracts_contract COMMAND vbuf_numerical_contracts_contract)
+    add_test(NAME vbuf_high_precision_reference_contract COMMAND vbuf_high_precision_reference_contract)
+    add_test(NAME vbuf_qwen3_reference_capture_qualification
+        COMMAND vbuf_qwen3_reference_capture_qualification
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk")
     add_test(NAME vbuf_numerical_contract_evidence_replay
         COMMAND vbuf_numerical_contract_evidence_replay
             "${CMAKE_CURRENT_SOURCE_DIR}/../../research/results/vbuf-ml-integration/qwen3-numerical-propagation/raw/native-av-divergence-topology-final-20261009-070840/topology_comparison.csv"

@@ -737,6 +737,12 @@ NumericalEvaluation evaluate_recorded_metrics(const std::string & contract_id, u
     return result;
 }
 
+NumericalEvaluation mark_numerical_evaluation_replay_only(NumericalEvaluation evaluation) {
+    evaluation.replayed_metrics_only = true;
+    evaluation.authority_snapshot_.clear();
+    return evaluation;
+}
+
 EvidenceRejectionReason numerical_evidence_rejection_reason(const NumericalEvaluation & evaluation,
         const RuntimeQualificationContext & runtime_context) {
     if (evaluation.replayed_metrics_only) return EvidenceRejectionReason::ReplayOnly;
@@ -928,6 +934,10 @@ std::string evaluation_json(const NumericalEvaluation & evaluation) {
         << ",\"reference_kind\":" << json_escape(reference_kind_name(evaluation.reference_kind))
         << ",\"context_reference_kind\":" << json_escape(reference_kind_name(evaluation.context.reference_kind))
         << ",\"reference_identity\":" << json_escape(evaluation.reference_identity)
+        << ",\"reference_implementation_revision\":" << json_escape(evaluation.context.reference_implementation_revision)
+        << ",\"reference_accumulation_precision\":" << json_escape(evaluation.context.reference_accumulation_precision)
+        << ",\"reference_input_representation\":" << json_escape(evaluation.context.reference_input_representation)
+        << ",\"reference_output_representation\":" << json_escape(evaluation.context.reference_output_representation)
         << ",\"candidate_identity\":" << json_escape(evaluation.context.candidate_identity)
         << ",\"qualification_run_identity\":" << json_escape(evaluation.context.qualification_run_identity)
         << ",\"model_identity\":" << json_escape(evaluation.context.model_identity)
@@ -950,7 +960,15 @@ std::string evaluation_json(const NumericalEvaluation & evaluation) {
         << ",\"placement_identity\":" << json_escape(evaluation.context.placement_identity)
         << ",\"device_family\":" << json_escape(evaluation.context.device_family)
         << ",\"logical_inputs_equivalent\":" << (evaluation.context.logical_inputs_equivalent ? "true" : "false")
-        << ",\"reference_tokens\":";
+        << ",\"reference_operation_parameters\":";
+    out << '{';
+    bool first_parameter = true;
+    for (const auto & parameter : evaluation.context.reference_operation_parameters) {
+        if (!first_parameter) out << ',';
+        first_parameter = false;
+        out << json_escape(parameter.first) << ':' << json_escape(parameter.second);
+    }
+    out << "},\"reference_tokens\":";
     append_tokens_json(out, evaluation.context.reference_tokens);
     out << ",\"candidate_tokens\":";
     append_tokens_json(out, evaluation.context.candidate_tokens);

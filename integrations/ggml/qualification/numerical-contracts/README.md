@@ -134,6 +134,60 @@ have not passed the active model-output contracts. Production capacity 1,032,
 prefill chunk 32, single-GPU default, optimizer `SHADOW`, thresholds, and
 canonical fallback are unchanged.
 
+## Independent tensor-operation reference layer
+
+`include/vbuf_high_precision_reference.h` and
+`src/vbuf_high_precision_reference.cpp` provide a bounded, host-only independent
+reference implementation for raw QK dot products, stable scaled/masked softmax,
+GQA attention AV, last-axis RMSNorm, and general 2-D matmul. Views carry logical
+shapes plus signed byte strides; outputs are owned, contiguous tensors and are
+rounded explicitly to F32 or F64. Default output allocation is capped at 16M
+elements. Matmul/QK/AV support explicit F32 or F64 left-to-right accumulation;
+FP64 products and additions are separately rounded (contraction is prevented).
+Softmax and RMSNorm use binary64. Qwen3 QK returns raw dot products and records
+the `1/sqrt(head_dimension)` scale separately at softmax. GQA maps each query
+head to `floor(query_head / (query_heads / kv_heads))`. Causal logical extents
+and masks are explicit; excluded softmax positions are exactly zero and an
+all-masked row is rejected.
+
+`decode_ggml_rows` uses pinned GGML type traits for F16 and supported quantized
+types (including Q4_K), plus the upstream Q8_K dequantizer where this GGML
+revision exposes no public type-trait decoder. It verifies exact row byte
+geometry and upstream row validation, and returns represented values as F32.
+Matmul over those values measures arithmetic on the represented quantized
+weights; it does not
+attribute quantization error to the kernel. The GGML Q4_K test compares the
+shared decoder output with the pinned `to_float` trait, routes a deterministic
+F32-source/Q4_K reconstruction through the existing
+`vbuf.quantization.weight_reconstruction_accuracy` contract, and exercises the
+dequantized values in a binary64-accumulated matmul. That reconstruction
+contract remains `NEEDS_CALIBRATION`; the synthetic source test does not qualify
+Qwen quantization loss.
+
+Reference evaluations continue to use the existing policy/contract identity.
+Additional record fields bind each result to the reference implementation
+revision, accumulation precision, input/output representation, and operation
+parameters. These fields are part of the live evaluation integrity snapshot and
+serialized JSON. Historical tensor captures are explicitly converted to
+`replayed_metrics_only`; their result cannot authorize an ExecutionPlan. The
+QK, softmax, RMSNorm, and general matmul contracts remain `NEEDS_CALIBRATION`;
+no threshold, contract status, admission requirement, or production behavior was
+changed. This provenance is qualification metadata, not cryptographic
+attestation: the runner, input tensor provenance, and native process remain
+inside the documented trust boundary.
+
+The probability-row normalization diagnostic uses the explicit bound
+`8 * F32 epsilon * sqrt(active_count)`; this is not a numerical-accuracy gate.
+
+`tests/vbuf_high_precision_reference_contract.cpp` covers strided/transposed
+views, F32-vs-F64 accumulation, GQA mapping, causal extents, masks and invalid
+rows, RMSNorm epsilon, Q4_K decoding, output bounds, and contract integration.
+`qualification/qwen3_reference_capture_qualification.cpp` recomputes QK,
+softmax, and AV from the saved actual-model layer-0 prefill/decode captures,
+checks the saved FP64 AV oracle bitwise, and emits replay-only policy-v2 JSON
+records. Results and scope are documented in
+[`qwen3-independent-tensor-reference-qualification.md`](../../../../research/results/vbuf-ml-integration/qwen3-independent-tensor-reference-qualification.md).
+
 ## Executable qualification
 
 The C++ metric evaluator is in `src/vbuf_numerical_contracts.cpp`; direct
