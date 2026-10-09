@@ -22,11 +22,11 @@
 #include <vector>
 
 using namespace vbuf_ggml;
+using namespace vbuf_ml::numerics;
 namespace {
 constexpr uint64_t expected_source_size = 9000232144ULL;
 constexpr uint32_t max_candidate_context = 32;
-constexpr double max_relative_rms = 0.02;
-constexpr double min_cosine = 0.9998;
+uint64_t token_hash(const std::vector<uint32_t> & tokens);
 
 void require(bool condition, const std::string & message) {
     if (!condition) throw std::runtime_error(message);
@@ -55,21 +55,63 @@ struct Metrics {
     double cosine = 0.0;
 };
 
+EvaluationContext sequence_output_context(const std::string & phase, uint32_t capacity,
+        uint32_t context_length, uint32_t rows, const std::string & fixture_identity,
+        const std::string & input_identity, bool logical_inputs_equivalent,
+        const std::vector<uint32_t> & reference_tokens, const std::vector<uint32_t> & candidate_tokens) {
+    EvaluationContext context;
+    context.reference_kind = ReferenceKind::CanonicalExecution;
+    context.reference_identity = "canonical-packed-v-v1:qwen3-native-av-sequence";
+    context.model_identity = "sha256:" + std::string(QWEN3_14B_Q4_K_M_SHA256);
+    context.backend_family = "GGML_CUDA";
+    context.implementation_identity = "qwen3-native-av-sequence-candidate";
+    context.device_family = "CUDA";
+    context.device_identities = {"CUDA0@0000:04:00.0", "CUDA1@0000:07:00.0"};
+    context.device_sm_versions = {86, 75};
+    context.placement_identity = "multi:0x26,1x14;emb=0;norm=1;head=1";
+    context.phase = phase;
+    context.execution_topology = "qwen3-native-av-sequence-" + phase;
+    context.fixture_identity = fixture_identity;
+    context.input_identity = input_identity;
+    context.token_sequence_identity = input_identity;
+    context.output_dtype = "F32";
+    context.input_dtype = "F16";
+    context.capacity = capacity;
+    context.context_length = context_length;
+    context.rows = rows;
+    context.logical_inputs_equivalent = logical_inputs_equivalent;
+    context.reference_tokens = reference_tokens;
+    context.candidate_tokens = candidate_tokens;
+    return context;
+}
+
+NumericalEvaluation evaluate_output(const std::string & operation,
+        const std::vector<float> & reference_values, const std::vector<float> & candidate_values,
+        EvaluationContext context) {
+    context.operation = operation;
+    context.output_name = operation;
+    context.output_shape = {reference_values.size()};
+    const auto reference = make_tensor_view(reference_values, context.output_shape);
+    const auto candidate = make_tensor_view(candidate_values, context.output_shape);
+    return evaluate_contract(operation == "final_hidden" ?
+        "qwen3.final_hidden.canonical_compatibility" : "qwen3.final_logits.canonical_compatibility",
+        1, &reference, &candidate, context);
+}
+
 Metrics compare(const std::vector<float> & reference, const std::vector<float> & candidate) {
     require(reference.size() == candidate.size() && !reference.empty(), "activation comparison shape mismatch");
-    double error2 = 0.0, reference2 = 0.0, candidate2 = 0.0, dot = 0.0;
+    EvaluationContext context;
+    context.output_shape = {reference.size()};
+    const auto measured = measure_tensor_pair(make_tensor_view(reference, context.output_shape),
+        make_tensor_view(candidate, context.output_shape), context);
+    require(*measured.values.at(Metric::FiniteOutputs).boolean_value,
+        "activation comparison has non-finite values");
     Metrics result;
-    for (size_t i = 0; i < reference.size(); ++i) {
-        require(std::isfinite(reference[i]) && std::isfinite(candidate[i]), "activation comparison has non-finite values");
-        const double a = reference[i], b = candidate[i], delta = b - a;
-        result.max_abs = std::max(result.max_abs, std::abs(delta));
-        error2 += delta * delta;
-        reference2 += a * a;
-        candidate2 += b * b;
-        dot += a * b;
-    }
-    result.relative_rms = std::sqrt(error2 / std::max(reference2, 1e-300));
-    result.cosine = dot / std::max(std::sqrt(reference2 * candidate2), 1e-300);
+    result.max_abs = *measured.values.at(Metric::MaxAbsoluteError).numeric_value;
+    result.relative_rms = measured.values.at(Metric::RelativeRmsError).numeric_value.value_or(
+        std::numeric_limits<double>::quiet_NaN());
+    result.cosine = measured.values.at(Metric::CosineSimilarity).numeric_value.value_or(
+        std::numeric_limits<double>::quiet_NaN());
     return result;
 }
 
@@ -215,8 +257,20 @@ int run(const std::string & semantic, const std::string & source, const std::str
     if (complete_same_sequence) {
         hidden = compare(canonical.execution.final_hidden, candidate.execution.final_hidden);
         logits = compare(canonical.execution.final_logits, candidate.execution.final_logits);
-        numeric_gate = hidden.relative_rms <= 0.02 && hidden.cosine >= 0.9998 &&
-            logits.relative_rms <= max_relative_rms && logits.cosine >= min_cosine;
+        const auto context = sequence_output_context("decode", capacity,
+            canonical.current_length - 1, 1,
+            "single-sequence-prompt-" + std::to_string(prompt_rows),
+            "prompt-token-hash=" + std::to_string(token_hash(prompt)) +
+                ";generated-token-hash=" + std::to_string(token_hash(canonical.execution.tokens)),
+            true, canonical.execution.tokens, candidate.execution.tokens);
+        const auto hidden_contract = evaluate_output("final_hidden", canonical.execution.final_hidden,
+            candidate.execution.final_hidden, context);
+        const auto logits_contract = evaluate_output("final_logits", canonical.execution.final_logits,
+            candidate.execution.final_logits, context);
+        numeric_gate = hidden_contract.status == EvaluationStatus::Pass &&
+            logits_contract.status == EvaluationStatus::Pass;
+        std::printf("numerical_contract_live_result %s\n", evaluation_json(hidden_contract).c_str());
+        std::printf("numerical_contract_live_result %s\n", evaluation_json(logits_contract).c_str());
     }
     const bool full_native_coverage = complete_same_sequence &&
         candidate.execution.native_av_steps == expected_native_steps &&
@@ -565,8 +619,23 @@ PairSummary compare_pair(std::ostream & positions_out, std::ostream & tokens_out
     if (summary.numeric_comparable) {
         summary.hidden = compare(canonical.execution.final_hidden, candidate.execution.final_hidden);
         summary.logits = compare(canonical.execution.final_logits, candidate.execution.final_logits);
-        summary.numeric_gate = summary.hidden.relative_rms <= 0.02 && summary.hidden.cosine >= 0.9998 &&
-            summary.logits.relative_rms <= max_relative_rms && summary.logits.cosine >= min_cosine;
+        const bool prefill_output = mode == RunMode::PrefillOnly;
+        const std::string phase = prefill_output ? "prefill" : "decode";
+        const auto context = sequence_output_context(phase, fixture.capacity,
+            prefill_output ? candidate.current_length :
+                (candidate.current_length == 0 ? 0 : candidate.current_length - 1),
+            prefill_output ? std::min<uint32_t>(candidate.current_length, 32) : 1,
+            fixture.id + ":" + run_kind + ":repeat=" + std::to_string(repeat),
+            "input-token-hash=" + std::to_string(token_hash(input_tokens)), summary.same_history,
+            canonical.execution.tokens, candidate.execution.tokens);
+        const auto hidden_contract = evaluate_output("final_hidden", canonical.execution.final_hidden,
+            candidate.execution.final_hidden, context);
+        const auto logits_contract = evaluate_output("final_logits", canonical.execution.final_logits,
+            candidate.execution.final_logits, context);
+        summary.numeric_gate = hidden_contract.status == EvaluationStatus::Pass &&
+            logits_contract.status == EvaluationStatus::Pass;
+        std::printf("numerical_contract_live_result %s\n", evaluation_json(hidden_contract).c_str());
+        std::printf("numerical_contract_live_result %s\n", evaluation_json(logits_contract).c_str());
     }
 
     const size_t aligned = std::min(canonical.execution.attention_av_output_captures.size(),

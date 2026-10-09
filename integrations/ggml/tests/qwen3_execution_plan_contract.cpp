@@ -47,6 +47,46 @@ QwenRuntimeFacts decode_facts(const QwenExecutionPlan & plan, uint32_t context =
     return facts;
 }
 
+vbuf_ml::numerics::NumericalEvaluation make_output_evidence(const QwenExecutionPlan & plan,
+        const QwenRuntimeFacts & facts, const std::string & implementation_identity,
+        const std::string & operation) {
+    using namespace vbuf_ml::numerics;
+    const std::vector<float> reference_values{1.0f, 2.0f};
+    const std::vector<float> candidate_values{1.0f, 2.0f};
+    EvaluationContext context;
+    context.operation = operation;
+    context.output_name = operation;
+    context.reference_kind = ReferenceKind::CanonicalExecution;
+    context.reference_identity = "canonical-packed-v-v1:unit-fixture";
+    context.model_identity = plan.model_identity;
+    context.backend_family = plan.backend_family;
+    context.implementation_identity = implementation_identity;
+    context.device_family = "CUDA";
+    context.placement_identity = plan.placement_identity;
+    context.phase = "decode";
+    context.execution_topology = "single-row-decode";
+    context.fixture_identity = "qwen3-execution-plan-contract";
+    context.input_identity = "same-input-fixture";
+    context.output_dtype = facts.activation_dtype;
+    context.input_dtype = facts.kv_dtype;
+    context.output_shape = {2};
+    context.capacity = facts.capacity;
+    context.context_length = facts.context_length;
+    context.rows = facts.rows;
+    context.logical_inputs_equivalent = true;
+    for (const auto & device : facts.devices) {
+        context.device_identities.push_back(device.stable_identity);
+        if (device.sm_version) context.device_sm_versions.push_back(*device.sm_version);
+    }
+    context.reference_tokens = std::vector<uint32_t>{7, 8};
+    context.candidate_tokens = std::vector<uint32_t>{7, 8};
+    const auto reference = make_tensor_view(reference_values, context.output_shape);
+    const auto candidate = make_tensor_view(candidate_values, context.output_shape);
+    const std::string contract = operation == "final_hidden" ?
+        "qwen3.final_hidden.canonical_compatibility" : "qwen3.final_logits.canonical_compatibility";
+    return evaluate_contract(contract, 1, &reference, &candidate, context);
+}
+
 QwenExecutionCandidate manual_candidate(const QwenExecutionPlan & plan, std::string suffix,
     QwenExecutionGuard guard) {
     QwenExecutionCandidate candidate;
@@ -54,7 +94,7 @@ QwenExecutionCandidate manual_candidate(const QwenExecutionPlan & plan, std::str
     candidate.base_plan_identity = plan.stable_identity;
     candidate.execution_plan_identity = plan.stable_identity;
     candidate.strategy = QwenCandidateStrategy::GuardProbe;
-    candidate.status = QwenCandidateStatus::Valid;
+    candidate.status = QwenCandidateStatus::Candidate;
     candidate.guards.push_back(std::move(guard));
     return candidate;
 }
@@ -200,13 +240,27 @@ void test_shadow_guards_cache_and_profiler() {
         "shadow cache/guard counters mismatch");
     require(stats.observations == 288 && stats.profile_key_count == 2 && stats.profile_records.size() == 2,
         "bounded profiler did not record phase hotness");
-    require(optimizer.mark_candidate_valid(prebound_identity, "exact decode parity contract passed"),
-        "candidate could not transition Candidate->Valid after hotness and validation evidence");
+    require(!optimizer.mark_candidate_valid(prebound_identity, "exact parity without numerical records"),
+        "candidate became valid without numerical contract evidence");
+    auto hidden_evidence = make_output_evidence(plan, facts,
+        plan.stable_identity + "|strategy=prebound-decode-dispatch-v1", "final_hidden");
+    auto logits_evidence = make_output_evidence(plan, facts,
+        plan.stable_identity + "|strategy=prebound-decode-dispatch-v1", "final_logits");
+    require(hidden_evidence.status == vbuf_ml::numerics::EvaluationStatus::Pass &&
+        logits_evidence.status == vbuf_ml::numerics::EvaluationStatus::Pass,
+        "test fixture failed to create active final-output contract records");
+    require(optimizer.mark_candidate_valid(prebound_identity, "exact decode parity with active numerical contracts",
+        {hidden_evidence, logits_evidence}),
+        "candidate could not transition Candidate->Valid with hotness and both numerical records");
     optimizer.set_mode(QwenOptimizerMode::Enabled);
     const auto enabled = optimizer.select(plan, facts);
     require(enabled.candidate_found && enabled.candidate_validated && enabled.candidate_selected &&
         !enabled.canonical_selected && enabled.fallback == QwenOptimizerFallback::None,
         "ENABLED mode did not select the Valid guarded candidate");
+    const auto unqualified_context = optimizer.select(plan, decode_facts(plan, 8193));
+    require(unqualified_context.fallback == QwenOptimizerFallback::NumericalQualificationMissing &&
+        unqualified_context.canonical_selected && !unqualified_context.candidate_eligible,
+        "candidate numerical evidence was reused outside its exact qualified runtime context");
     optimizer.set_mode(QwenOptimizerMode::Shadow);
 
     auto unsupported = manual_candidate(plan, "prebound-decode-dispatch-v1",
@@ -272,6 +326,38 @@ void test_optimizer_faults_fail_closed() {
     require(trial.consume_candidate_execution_fault_for_testing() &&
         !trial.consume_candidate_execution_fault_for_testing(),
         "candidate execution fault was not one-shot");
+
+    QwenExecutionPlanOptimizer forged;
+    forged.set_mode(QwenOptimizerMode::Shadow);
+    auto prevalidated_without_records = manual_candidate(plan, "forged-valid",
+        {QwenGuardField::Rows, QwenGuardOperator::Equal, 1});
+    prevalidated_without_records.status = QwenCandidateStatus::Valid;
+    prevalidated_without_records.required_numerical_contracts = {
+        "qwen3.final_hidden.canonical_compatibility",
+        "qwen3.final_logits.canonical_compatibility",
+    };
+    require(forged.register_candidate(prevalidated_without_records),
+        "could not register fail-closed numerical-qualification probe");
+    const auto missing_evidence = forged.select(plan, facts, prevalidated_without_records.identity);
+    require(missing_evidence.fallback == QwenOptimizerFallback::NumericalQualificationMissing &&
+        missing_evidence.canonical_selected && !missing_evidence.candidate_eligible,
+        "directly registered VALID candidate bypassed numerical qualification records");
+
+    QwenExecutionPlanOptimizer unannotated;
+    unannotated.set_mode(QwenOptimizerMode::Enabled);
+    auto executable_without_requirements = manual_candidate(plan, "prebound-decode-dispatch-v1",
+        {QwenGuardField::Rows, QwenGuardOperator::Equal, 1});
+    executable_without_requirements.strategy = QwenCandidateStrategy::PreboundDecodeDispatch;
+    executable_without_requirements.execution_plan_identity =
+        plan.stable_identity + "|strategy=prebound-decode-dispatch-v1";
+    executable_without_requirements.status = QwenCandidateStatus::Valid;
+    executable_without_requirements.required_numerical_contracts.clear();
+    require(unannotated.register_candidate(executable_without_requirements),
+        "could not register unannotated executable candidate probe");
+    const auto auto_required = unannotated.select(plan, facts, executable_without_requirements.identity);
+    require(auto_required.fallback == QwenOptimizerFallback::NumericalQualificationMissing &&
+        auto_required.canonical_selected,
+        "executable candidate without declared contract IDs bypassed default model-output requirements");
 
     QwenExecutionPlanOptimizer profiler;
     profiler.set_mode(QwenOptimizerMode::Shadow);

@@ -445,13 +445,66 @@ Qwen3GenerationExecution run_gate(Qwen3Model & model,
             "prebound candidate trial changed selected appended KV rows");
         compare_samples(*session, canonical_historical);
         compare_samples(*session, canonical_progressive);
-        require(runtime->execution_optimizer().mark_candidate_valid(observed.last_decision.candidate_identity,
-            "exact token/hidden/logit/sampled-KV match against canonical decode"),
-            "candidate failed hotness/equivalence validation transition");
         const auto validated_plan = build_qwen_execution_plan(model, *runtime, *session,
             QwenExecutionPlanPath::MultiGpu);
+        require(session->current_length() > 0, "numerical qualification has no completed decode position");
         const auto validated_facts = collect_qwen_runtime_facts(validated_plan, *runtime, 1,
-            session->current_length(), QwenExecutionPhase::Decode);
+            session->current_length() - 1, QwenExecutionPhase::Decode);
+        const std::string implementation_identity = validated_plan.stable_identity +
+            "|strategy=prebound-decode-dispatch-v1";
+        const auto evaluate_output = [&](const std::string & operation,
+                const std::vector<float> & reference_values, const std::vector<float> & candidate_values) {
+            namespace numerical = vbuf_ml::numerics;
+            numerical::EvaluationContext context;
+            context.operation = operation;
+            context.output_name = operation;
+            context.reference_kind = numerical::ReferenceKind::CanonicalExecution;
+            context.reference_identity = "canonical-packed-v-v1:" + std::string(gate.label) +
+                ":tokens=" + std::to_string(fnv1a(seed)) + "-" + std::to_string(fnv1a(canonical.tokens));
+            context.model_identity = validated_plan.model_identity;
+            context.backend_family = validated_plan.backend_family;
+            context.implementation_identity = implementation_identity;
+            context.device_family = "CUDA";
+            context.placement_identity = validated_plan.placement_identity;
+            context.phase = "decode";
+            context.execution_topology = "chunked-prefill-" + std::to_string(gate.chunk) + "-then-decode";
+            context.fixture_identity = gate.label;
+            context.input_identity = "seed-fnv64=" + std::to_string(fnv1a(seed)) +
+                ";generated-fnv64=" + std::to_string(fnv1a(canonical.tokens));
+            context.token_sequence_identity = "generated-fnv64=" + std::to_string(fnv1a(canonical.tokens));
+            context.output_dtype = validated_plan.activation_dtype;
+            context.input_dtype = validated_plan.kv_dtype;
+            context.output_shape = {reference_values.size()};
+            context.capacity = validated_facts.capacity;
+            context.context_length = validated_facts.context_length;
+            context.rows = validated_facts.rows;
+            context.logical_inputs_equivalent = canonical.tokens == trial.value.tokens;
+            context.reference_tokens = canonical.tokens;
+            context.candidate_tokens = trial.value.tokens;
+            for (const auto & device : validated_facts.devices) {
+                context.device_identities.push_back(device.stable_identity);
+                if (device.sm_version) context.device_sm_versions.push_back(*device.sm_version);
+            }
+            const auto reference_view = numerical::make_tensor_view(reference_values, context.output_shape);
+            const auto candidate_view = numerical::make_tensor_view(candidate_values, context.output_shape);
+            const std::string contract_id = operation == "final_hidden" ?
+                "qwen3.final_hidden.canonical_compatibility" :
+                "qwen3.final_logits.canonical_compatibility";
+            return numerical::evaluate_contract(contract_id, 1, &reference_view, &candidate_view, context);
+        };
+        auto hidden_evidence = evaluate_output("final_hidden", canonical.final_hidden, trial.value.final_hidden);
+        auto logits_evidence = evaluate_output("final_logits", canonical.final_logits, trial.value.final_logits);
+        std::printf("numerical_contract_result %s\n",
+            vbuf_ml::numerics::evaluation_json(hidden_evidence).c_str());
+        std::printf("numerical_contract_result %s\n",
+            vbuf_ml::numerics::evaluation_json(logits_evidence).c_str());
+        require(hidden_evidence.status == vbuf_ml::numerics::EvaluationStatus::Pass &&
+            logits_evidence.status == vbuf_ml::numerics::EvaluationStatus::Pass,
+            "prebound candidate failed the active final hidden/logits numerical contracts");
+        require(runtime->execution_optimizer().mark_candidate_valid(observed.last_decision.candidate_identity,
+            "exact token/hidden/logit/sampled-KV match with active numerical contracts",
+            {std::move(hidden_evidence), std::move(logits_evidence)}),
+            "candidate failed hotness/equivalence/numerical-contract validation transition");
         const auto validated_decision = runtime->execution_optimizer().select(validated_plan, validated_facts);
         require(validated_decision.candidate_validated &&
             (validated_decision.candidate_selected || validated_decision.fallback == QwenOptimizerFallback::GuardFailed),

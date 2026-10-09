@@ -18,12 +18,11 @@
 #include <vector>
 
 using namespace vbuf_ggml;
+using namespace vbuf_ml::numerics;
 namespace {
 constexpr uint32_t prompt_rows = 32;
 constexpr uint64_t expected_source_size = 9000232144ULL;
 constexpr uint64_t bytes_per_v_copy = 8ULL * 128 * sizeof(ggml_fp16_t);
-constexpr double max_relative_rms = 0.02;
-constexpr double min_cosine = 0.9998;
 using Clock = std::chrono::steady_clock;
 
 void require(bool condition, const std::string & message) {
@@ -32,6 +31,19 @@ void require(bool condition, const std::string & message) {
 
 uint64_t elapsed_ns(Clock::time_point begin, Clock::time_point end) {
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
+}
+
+uint64_t token_hash(const std::vector<uint32_t> & tokens) {
+    uint64_t hash = 14695981039346656037ULL;
+    const auto update = [&](uint32_t value, uint64_t * current) {
+        for (uint32_t shift = 0; shift < 32; shift += 8) {
+            *current ^= static_cast<uint8_t>(value >> shift);
+            *current *= 1099511628211ULL;
+        }
+    };
+    update(static_cast<uint32_t>(tokens.size()), &hash);
+    for (uint32_t token : tokens) update(token, &hash);
+    return hash;
 }
 
 std::vector<uint32_t> read_tokens(const std::string & path) {
@@ -55,20 +67,58 @@ std::vector<uint32_t> read_tokens(const std::string & path) {
 struct Metrics { double max_abs = 0.0, relative_rms = 0.0, cosine = 0.0; };
 Metrics compare(const std::vector<float> & reference, const std::vector<float> & candidate) {
     require(reference.size() == candidate.size() && !reference.empty(), "activation comparison shape mismatch");
-    double error2 = 0.0, reference2 = 0.0, candidate2 = 0.0, dot = 0.0;
+    EvaluationContext context;
+    context.output_shape = {reference.size()};
+    const auto measured = measure_tensor_pair(make_tensor_view(reference, context.output_shape),
+        make_tensor_view(candidate, context.output_shape), context);
+    require(*measured.values.at(Metric::FiniteOutputs).boolean_value,
+        "activation comparison has non-finite values");
     Metrics result;
-    for (size_t i = 0; i < reference.size(); ++i) {
-        require(std::isfinite(reference[i]) && std::isfinite(candidate[i]), "activation comparison has non-finite values");
-        const double a = reference[i], b = candidate[i], delta = b - a;
-        result.max_abs = std::max(result.max_abs, std::abs(delta));
-        error2 += delta * delta;
-        reference2 += a * a;
-        candidate2 += b * b;
-        dot += a * b;
-    }
-    result.relative_rms = std::sqrt(error2 / std::max(reference2, 1e-300));
-    result.cosine = dot / std::max(std::sqrt(reference2 * candidate2), 1e-300);
+    result.max_abs = *measured.values.at(Metric::MaxAbsoluteError).numeric_value;
+    result.relative_rms = measured.values.at(Metric::RelativeRmsError).numeric_value.value_or(
+        std::numeric_limits<double>::quiet_NaN());
+    result.cosine = measured.values.at(Metric::CosineSimilarity).numeric_value.value_or(
+        std::numeric_limits<double>::quiet_NaN());
     return result;
+}
+
+NumericalEvaluation evaluate_model_output(const std::string & operation,
+        const std::vector<float> & reference_values, const std::vector<float> & candidate_values,
+        const QwenExecutionPlan & plan, uint32_t capacity, const std::vector<uint32_t> & prompt,
+        const std::vector<uint32_t> & reference_tokens, const std::vector<uint32_t> & candidate_tokens) {
+    EvaluationContext context;
+    context.operation = operation;
+    context.output_name = operation;
+    context.reference_kind = ReferenceKind::CanonicalExecution;
+    context.reference_identity = "canonical-packed-v-v1:native-av-qualification-control";
+    context.model_identity = plan.model_identity;
+    context.backend_family = plan.backend_family;
+    context.implementation_identity = "qwen3-native-av-qualification-trial";
+    context.device_family = "CUDA";
+    context.device_identities = plan.stable_device_identities;
+    for (const auto & sm : plan.stable_device_sm_versions) if (sm) context.device_sm_versions.push_back(*sm);
+    context.placement_identity = plan.placement_identity;
+    context.phase = "decode";
+    context.execution_topology = "32-row-prefill-then-single-decode";
+    context.fixture_identity = "native-av-qualification-prompt32";
+    context.input_identity = "prompt-token-hash=" + std::to_string(token_hash(prompt)) +
+        ";prompt-token-count=" + std::to_string(prompt.size());
+    context.token_sequence_identity = "prompt-fnv64=" + std::to_string(token_hash(prompt)) +
+        ";generated-fnv64=" + std::to_string(token_hash(reference_tokens));
+    context.output_dtype = plan.activation_dtype;
+    context.input_dtype = plan.kv_dtype;
+    context.output_shape = {reference_values.size()};
+    context.capacity = capacity;
+    context.context_length = prompt_rows;
+    context.rows = 1;
+    context.logical_inputs_equivalent = true;
+    context.reference_tokens = reference_tokens;
+    context.candidate_tokens = candidate_tokens;
+    const auto reference = make_tensor_view(reference_values, context.output_shape);
+    const auto candidate = make_tensor_view(candidate_values, context.output_shape);
+    const std::string contract_id = operation == "final_hidden" ?
+        "qwen3.final_hidden.canonical_compatibility" : "qwen3.final_logits.canonical_compatibility";
+    return evaluate_contract(contract_id, 1, &reference, &candidate, context);
 }
 
 bool bitwise_equal(const std::vector<float> & a, const std::vector<float> & b) {
@@ -232,8 +282,16 @@ int run(const std::string & semantic, const std::string & source, const std::str
     const Metrics logits = compare(canonical.execution.final_logits, candidate.execution.final_logits);
     require(canonical.execution.tokens == candidate.execution.tokens,
         "canonical and native AV generated different token IDs");
-    const bool numeric_gate_pass = hidden.relative_rms <= max_relative_rms && hidden.cosine >= min_cosine &&
-        logits.relative_rms <= max_relative_rms && logits.cosine >= min_cosine;
+    const auto hidden_contract = evaluate_model_output("final_hidden", canonical.execution.final_hidden,
+        candidate.execution.final_hidden, plan, capacity, prompt, canonical.execution.tokens,
+        candidate.execution.tokens);
+    const auto logits_contract = evaluate_model_output("final_logits", canonical.execution.final_logits,
+        candidate.execution.final_logits, plan, capacity, prompt, canonical.execution.tokens,
+        candidate.execution.tokens);
+    const bool numeric_gate_pass = hidden_contract.status == EvaluationStatus::Pass &&
+        logits_contract.status == EvaluationStatus::Pass;
+    std::printf("numerical_contract_live_result %s\n", evaluation_json(hidden_contract).c_str());
+    std::printf("numerical_contract_live_result %s\n", evaluation_json(logits_contract).c_str());
     std::printf("native_trial_numeric_probe tokens_equal=%s hidden_max_abs=%.9g hidden_rel_rms=%.9g hidden_cosine=%.12g "
         "logits_max_abs=%.9g logits_rel_rms=%.9g logits_cosine=%.12g numeric_gate=%s qualification_trial=yes\n",
         canonical.execution.tokens == candidate.execution.tokens ? "yes" : "no",
@@ -273,9 +331,15 @@ int run(const std::string & semantic, const std::string & source, const std::str
             native_repeat.execution.final_hidden);
         const Metrics repeated_logits = compare(canonical_repeat.execution.final_logits,
             native_repeat.execution.final_logits);
-        require(repeated_hidden.relative_rms <= max_relative_rms && repeated_hidden.cosine >= min_cosine &&
-            repeated_logits.relative_rms <= max_relative_rms && repeated_logits.cosine >= min_cosine,
-            "repeated canonical/native execution exceeded the small-context numeric gate");
+        const auto repeated_hidden_contract = evaluate_model_output("final_hidden",
+            canonical_repeat.execution.final_hidden, native_repeat.execution.final_hidden, plan, capacity,
+            prompt, canonical_repeat.execution.tokens, native_repeat.execution.tokens);
+        const auto repeated_logits_contract = evaluate_model_output("final_logits",
+            canonical_repeat.execution.final_logits, native_repeat.execution.final_logits, plan, capacity,
+            prompt, canonical_repeat.execution.tokens, native_repeat.execution.tokens);
+        require(repeated_hidden_contract.status == EvaluationStatus::Pass &&
+            repeated_logits_contract.status == EvaluationStatus::Pass,
+            "repeated canonical/native execution exceeded the centralized small-context numeric gate");
         canonical_wall.push_back(canonical_repeat.wall_ns);
         native_wall.push_back(native_repeat.wall_ns);
         canonical_setup.push_back(canonical_repeat.graph_setup_ns);

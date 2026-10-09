@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vbuf.dev/schemas/numerical-contract-policy-v1.schema.json",
+  "title": "vBuf Numerical Contract Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_id", "policy_version", "tolerance_profiles", "contracts"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "policy_id": {"type": "string", "minLength": 1},
+    "policy_version": {"type": "integer", "minimum": 1},
+    "tolerance_profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "criteria", "provenance"],
+        "properties": {
+          "version": {"type": "integer", "minimum": 1},
+          "provenance": {"type": "string", "minLength": 1},
+          "criteria": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"$ref": "#/$defs/criterion"}
+          }
+        }
+      }
+    },
+    "contracts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/contract"}
+    }
+  },
+  "$defs": {
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "identity", "semantics"],
+      "properties": {
+        "kind": {"enum": ["FP64_OPERATION_ORACLE", "FP32_OPERATION_REFERENCE", "CANONICAL_EXECUTION", "UNQUANTIZED_WEIGHT_REFERENCE", "QUANTIZED_WEIGHT_REFERENCE", "INVARIANT_REFERENCE"]},
+        "identity": {"type": "string", "minLength": 1},
+        "semantics": {"type": "string", "minLength": 1}
+      }
+    },
+    "criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "comparison", "value", "unit", "required"],
+      "properties": {
+        "metric": {"enum": ["max_absolute_error", "mean_absolute_error", "rms_error", "relative_rms_error", "cosine_similarity"]},
+        "comparison": {"enum": ["less_than", "less_equal", "greater_than", "greater_equal", "equal"]},
+        "value": {"type": "number"},
+        "unit": {"enum": ["absolute", "fraction", "percent", "permille"]},
+        "required": {"type": "boolean"}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_identity", "backend_family", "implementation_identity", "device_family", "device_sm_versions", "placement_identity", "output_dtype", "input_dtype", "shapes", "capacity", "context_length", "rows", "requires_logical_inputs_equivalent", "empirical_scope"],
+      "properties": {
+        "model_identity": {"type": "string", "minLength": 1},
+        "backend_family": {"type": "string", "minLength": 1},
+        "implementation_identity": {"type": "string", "minLength": 1},
+        "device_family": {"type": "string", "minLength": 1},
+        "device_sm_versions": {
+          "oneOf": [
+            {"const": "*"},
+            {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": true}
+          ]
+        },
+        "placement_identity": {"type": "string", "minLength": 1},
+        "output_dtype": {"type": "string", "minLength": 1},
+        "input_dtype": {
+          "oneOf": [
+            {"type": "string", "minLength": 1},
+            {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+          ]
+        },
+        "shapes": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "phases": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "execution_topologies": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "fixture_identities": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "input_identities": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "token_sequence_identities": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "capacity": {"$ref": "#/$defs/range"},
+        "context_length": {"$ref": "#/$defs/range"},
+        "rows": {"$ref": "#/$defs/range"},
+        "requires_logical_inputs_equivalent": {"type": "boolean"},
+        "empirical_scope": {"type": "string", "minLength": 1}
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum"],
+      "properties": {
+        "minimum": {"type": "integer", "minimum": 0},
+        "maximum": {"type": "integer", "minimum": 0}
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_id", "version", "category", "operation", "reference", "measurement_metrics", "required_invariants", "scope", "qualification_tests", "status", "threshold_provenance"],
+      "properties": {
+        "contract_id": {"type": "string", "minLength": 1},
+        "version": {"type": "integer", "minimum": 1},
+        "category": {"enum": ["OPERATION_ACCURACY", "QUANTIZATION_ACCURACY", "NUMERICAL_COMPATIBILITY", "MODEL_OUTPUT_ACCURACY", "EXECUTION_INVARIANTS", "LIFECYCLE_CORRECTNESS"]},
+        "operation": {"type": "string", "minLength": 1},
+        "reference": {"$ref": "#/$defs/reference"},
+        "measurement_metrics": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["max_absolute_error", "mean_absolute_error", "rms_error", "relative_rms_error", "cosine_similarity", "finite_outputs", "bitwise_equality", "top1_equality", "token_sequence_equality"]}
+        },
+        "tolerance_profile": {"type": "string", "minLength": 1},
+        "required_invariants": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "scope": {"$ref": "#/$defs/scope"},
+        "qualification_tests": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "status": {"enum": ["ACTIVE", "PROVISIONAL", "NEEDS_CALIBRATION", "DEPRECATED"]},
+        "threshold_provenance": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

@@ -163,6 +163,29 @@ if(TARGET vbuf_ml)
     target_link_libraries(vbuf_region_executor PUBLIC vbuf_ml)
 endif()
 
+set(VBUF_NUMERICAL_CONTRACT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/qualification/numerical-contracts")
+set(VBUF_NUMERICAL_POLICY_JSON "${VBUF_NUMERICAL_CONTRACT_DIR}/policy-v1.json")
+set(VBUF_NUMERICAL_POLICY_SCHEMA "${VBUF_NUMERICAL_CONTRACT_DIR}/policy-v1.schema.json")
+set(VBUF_NUMERICAL_POLICY_GENERATOR "${VBUF_NUMERICAL_CONTRACT_DIR}/generate_numerical_contracts.py")
+set(VBUF_NUMERICAL_POLICY_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated-numerical-contracts")
+set(VBUF_NUMERICAL_POLICY_GENERATED_CPP "${VBUF_NUMERICAL_POLICY_GENERATED_DIR}/numerical_contracts_generated.cpp")
+add_custom_command(
+    OUTPUT "${VBUF_NUMERICAL_POLICY_GENERATED_CPP}"
+    COMMAND "${Python3_EXECUTABLE}" "${VBUF_NUMERICAL_POLICY_GENERATOR}"
+        --policy "${VBUF_NUMERICAL_POLICY_JSON}"
+        --schema "${VBUF_NUMERICAL_POLICY_SCHEMA}"
+        --output "${VBUF_NUMERICAL_POLICY_GENERATED_CPP}"
+    DEPENDS "${VBUF_NUMERICAL_POLICY_JSON}" "${VBUF_NUMERICAL_POLICY_SCHEMA}" "${VBUF_NUMERICAL_POLICY_GENERATOR}"
+    COMMENT "Validating and compiling the project numerical contract policy"
+    VERBATIM)
+add_library(vbuf_numerical_contracts STATIC
+    src/vbuf_numerical_contracts.cpp
+    "${VBUF_NUMERICAL_POLICY_GENERATED_CPP}")
+target_compile_features(vbuf_numerical_contracts PUBLIC cxx_std_17)
+target_include_directories(vbuf_numerical_contracts
+    PUBLIC include
+    PRIVATE "${VBUF_NUMERICAL_POLICY_GENERATED_DIR}")
+
 add_library(vbuf_model_architecture STATIC src/vbuf_model_architecture.cpp)
 target_compile_features(vbuf_model_architecture PUBLIC cxx_std_17)
 target_include_directories(vbuf_model_architecture PUBLIC include)
@@ -180,7 +203,7 @@ set(VBUF_QWEN3_CUDA_CORE_SOURCES
 add_library(vbuf_qwen3_cuda_core STATIC ${VBUF_QWEN3_CUDA_CORE_SOURCES})
 target_compile_features(vbuf_qwen3_cuda_core PUBLIC cxx_std_17)
 target_include_directories(vbuf_qwen3_cuda_core PUBLIC include)
-target_link_libraries(vbuf_qwen3_cuda_core PUBLIC ggml vbuf_qwen3_model)
+target_link_libraries(vbuf_qwen3_cuda_core PUBLIC ggml vbuf_qwen3_model vbuf_numerical_contracts)
 if(VBUF_ENABLE_CUDA)
     target_link_libraries(vbuf_qwen3_cuda_core PUBLIC CUDA::cudart)
     target_compile_definitions(vbuf_qwen3_cuda_core PRIVATE VBUF_QWEN3_HAS_CUDA_RUNTIME=1)
@@ -210,6 +233,14 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_qwen3_execution_plan_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_qwen3_execution_plan_contract PRIVATE vbuf_qwen3_cuda_core)
 
+    add_executable(vbuf_numerical_contracts_contract tests/vbuf_numerical_contracts_contract.cpp)
+    target_compile_features(vbuf_numerical_contracts_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_numerical_contracts_contract PRIVATE vbuf_numerical_contracts)
+
+    add_executable(vbuf_numerical_contract_evidence_replay tests/vbuf_numerical_contract_evidence_replay.cpp)
+    target_compile_features(vbuf_numerical_contract_evidence_replay PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_numerical_contract_evidence_replay PRIVATE vbuf_numerical_contracts)
+
     add_executable(vbuf_qwen3_native_attention_av_contract tests/qwen3_native_attention_av_contract.cpp)
     target_compile_features(vbuf_qwen3_native_attention_av_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_qwen3_native_attention_av_contract PRIVATE vbuf_qwen3_cuda_core)
@@ -234,7 +265,7 @@ if(VBUF_BUILD_PROBES)
     target_include_directories(vbuf_qwen3_cuda_core_av_diagnostic PUBLIC include)
     target_compile_definitions(vbuf_qwen3_cuda_core_av_diagnostic
         PUBLIC VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC=1)
-    target_link_libraries(vbuf_qwen3_cuda_core_av_diagnostic PUBLIC ggml vbuf_qwen3_model)
+    target_link_libraries(vbuf_qwen3_cuda_core_av_diagnostic PUBLIC ggml vbuf_qwen3_model vbuf_numerical_contracts)
     if(VBUF_ENABLE_CUDA)
         target_link_libraries(vbuf_qwen3_cuda_core_av_diagnostic PUBLIC CUDA::cudart)
         target_compile_definitions(vbuf_qwen3_cuda_core_av_diagnostic PRIVATE VBUF_QWEN3_HAS_CUDA_RUNTIME=1)
@@ -428,6 +459,20 @@ if(VBUF_BUILD_PROBES)
     add_test(NAME vbuf_qwen3_execution_policy_contract COMMAND vbuf_qwen3_execution_policy_contract)
     add_test(NAME vbuf_qwen3_cuda_ownership_contract COMMAND vbuf_qwen3_cuda_ownership_contract)
     add_test(NAME vbuf_qwen3_execution_plan_contract COMMAND vbuf_qwen3_execution_plan_contract)
+    add_test(NAME vbuf_numerical_contracts_contract COMMAND vbuf_numerical_contracts_contract)
+    add_test(NAME vbuf_numerical_contract_evidence_replay
+        COMMAND vbuf_numerical_contract_evidence_replay
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../research/results/vbuf-ml-integration/qwen3-numerical-propagation/raw/native-av-divergence-topology-final-20261009-070840/topology_comparison.csv"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../research/results/vbuf-ml-integration/qwen3-numerical-propagation/raw/native-av-divergence-prefill-locality-final-20261009-070358/local_av_metrics.csv")
+    add_test(NAME vbuf_numerical_contract_json_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/vbuf_numerical_contract_json_contract.py"
+            "$<TARGET_FILE:vbuf_numerical_contract_evidence_replay>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../research/results/vbuf-ml-integration/qwen3-numerical-propagation/raw/native-av-divergence-topology-final-20261009-070840/topology_comparison.csv"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../research/results/vbuf-ml-integration/qwen3-numerical-propagation/raw/native-av-divergence-prefill-locality-final-20261009-070358/local_av_metrics.csv")
+    add_test(NAME vbuf_numerical_contract_policy_validation
+        COMMAND "${Python3_EXECUTABLE}" "${VBUF_NUMERICAL_POLICY_GENERATOR}"
+            --policy "${VBUF_NUMERICAL_POLICY_JSON}"
+            --schema "${VBUF_NUMERICAL_POLICY_SCHEMA}" --validate-only)
     add_test(NAME vbuf_qwen3_native_attention_av_contract COMMAND vbuf_qwen3_native_attention_av_contract)
     set_tests_properties(vbuf_qwen3_native_attention_av_contract PROPERTIES SKIP_RETURN_CODE 77)
     add_test(NAME vbuf_runtime_trace_contract COMMAND vbuf_runtime_trace_contract)

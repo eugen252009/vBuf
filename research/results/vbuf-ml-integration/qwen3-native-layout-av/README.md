@@ -46,7 +46,7 @@ the native path. These are small-context exploratory timings, not production
 performance qualification or a speedup claim.
 
 Direct CPU/CUDA synthetic tests cover F16/F32 V, 40:8 GQA, one-row and
-32-row cases, and capacities 37, 64, and 1032. Native output agrees with the
+32-row cases, and capacities 37, 64, 512, and 1032. Native output agrees with the
 ascending-position mathematical reference; packed CUDA AV differs by up to
 about `9.52e-4` in this fixture. The real-model capacity-64 failure-injection
 test also confirmed that a pre-boundary execution failure invalidates the
@@ -230,4 +230,7 @@ CUDA_VISIBLE_DEVICES=0,1 /tmp/vbuf-native-av-build/vbuf_qwen3_native_av_boundary
 The follow-up all-40-block propagation, isolated intervention, and candidate lifecycle results are documented in [`../qwen3-numerical-propagation/README.md`](../qwen3-numerical-propagation/README.md); its authoritative raw output is under `../qwen3-numerical-propagation/raw/propagation-20261008-final/`.
 
 Keep qualification mode explicit; do not mark this candidate valid or enable it
-for production based on the smaller-capacity passes.
+for production based on the smaller-capacity passes. The centralized numerical
+policy retains synthetic FP64 AV accuracy separately from canonical compatibility;
+actual-model boundary observations remain non-authorizing until calibrated. See
+[`numerical-contracts/README.md`](../../../../integrations/ggml/qualification/numerical-contracts/README.md).

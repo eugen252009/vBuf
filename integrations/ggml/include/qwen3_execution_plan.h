@@ -1,5 +1,7 @@
 #pragma once
 
+#include "vbuf_numerical_contracts.h"
+
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -119,6 +121,8 @@ struct QwenExecutionCandidate {
     std::vector<QwenExecutionGuard> guards;
     QwenCandidateStatus status = QwenCandidateStatus::Candidate;
     std::string validation_note;
+    std::vector<std::string> required_numerical_contracts;
+    std::vector<vbuf_ml::numerics::NumericalEvaluation> numerical_qualifications;
 };
 
 enum class QwenOptimizerMode : uint8_t { Disabled, Shadow, Enabled };
@@ -127,7 +131,7 @@ enum class QwenOptimizerFault : uint8_t {
 };
 enum class QwenOptimizerFallback : uint8_t {
     None, Disabled, NoCandidate, GuardFailed, UnsupportedGuard, Invalidated,
-    CandidateMismatch, CandidateNotValidated, InternalFailure
+    CandidateMismatch, CandidateNotValidated, InternalFailure, NumericalQualificationMissing
 };
 
 struct QwenOptimizerDecision {
@@ -195,6 +199,8 @@ public:
     void record_optimizer_failure() noexcept;
     bool register_candidate(QwenExecutionCandidate candidate) noexcept;
     bool mark_candidate_valid(const std::string & identity, const std::string & validation_note) noexcept;
+    bool mark_candidate_valid(const std::string & identity, const std::string & validation_note,
+        std::vector<vbuf_ml::numerics::NumericalEvaluation> numerical_qualifications) noexcept;
     bool invalidate_candidate(const std::string & identity) noexcept;
     void set_unvalidated_trial_for_testing(bool enabled) noexcept;
     bool consume_candidate_execution_fault_for_testing() noexcept;

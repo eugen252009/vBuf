@@ -10,19 +10,30 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
-#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 using namespace vbuf_ggml;
+using namespace vbuf_ml::numerics;
 namespace {
 constexpr uint64_t expected_source_size = 9000232144ULL;
 constexpr uint64_t expected_payload = 8995793920ULL;
 constexpr uint64_t row_kv_bytes = 2048;
 constexpr uint64_t boundary_bytes_per_position = 5120ULL * sizeof(float);
-constexpr double max_relative_rms = 0.02;
-constexpr double min_cosine = 0.9998;
+
+uint64_t token_hash(const std::vector<uint32_t> & tokens) {
+    uint64_t hash = 14695981039346656037ULL;
+    const auto update = [&](uint32_t value) {
+        for (uint32_t shift = 0; shift < 32; shift += 8) {
+            hash ^= static_cast<uint8_t>(value >> shift);
+            hash *= 1099511628211ULL;
+        }
+    };
+    update(static_cast<uint32_t>(tokens.size()));
+    for (uint32_t token : tokens) update(token);
+    return hash;
+}
 
 std::vector<uint32_t> parse_tokens(const std::string & text) {
     std::vector<uint32_t> result;
@@ -43,24 +54,64 @@ std::vector<uint32_t> parse_tokens(const std::string & text) {
 struct Metrics { double max_abs = 0, rel_rms = 0, cosine = 0; };
 Metrics compare(const std::vector<float> & a, const std::vector<float> & b) {
     if (a.size() != b.size() || a.empty()) throw std::runtime_error("comparison vector geometry mismatch");
-    double err2 = 0, ref2 = 0, dot = 0;
+    EvaluationContext context;
+    context.output_shape = {a.size()};
+    const auto measured = measure_tensor_pair(make_tensor_view(a, context.output_shape),
+        make_tensor_view(b, context.output_shape), context);
+    if (!*measured.values.at(Metric::FiniteOutputs).boolean_value)
+        throw std::runtime_error("non-finite comparison value");
     Metrics result;
-    for (size_t i = 0; i < a.size(); ++i) {
-        if (!std::isfinite(a[i]) || !std::isfinite(b[i])) throw std::runtime_error("non-finite comparison value");
-        const double d = static_cast<double>(b[i]) - a[i];
-        result.max_abs = std::max(result.max_abs, std::abs(d));
-        err2 += d * d; ref2 += static_cast<double>(a[i]) * a[i];
-        dot += static_cast<double>(a[i]) * b[i];
-    }
-    result.rel_rms = std::sqrt(err2 / std::max(ref2, 1e-300));
-    result.cosine = dot / std::max(std::sqrt(ref2) * std::sqrt(std::inner_product(
-        b.begin(), b.end(), b.begin(), 0.0)), 1e-300);
+    result.max_abs = *measured.values.at(Metric::MaxAbsoluteError).numeric_value;
+    result.rel_rms = measured.values.at(Metric::RelativeRmsError).numeric_value.value_or(
+        std::numeric_limits<double>::quiet_NaN());
+    result.cosine = measured.values.at(Metric::CosineSimilarity).numeric_value.value_or(
+        std::numeric_limits<double>::quiet_NaN());
     return result;
 }
 
 bool same(const std::vector<float> & a, const std::vector<float> & b) {
     return a.size() == b.size() && (a.empty() || std::memcmp(a.data(), b.data(), a.size() * sizeof(float)) == 0);
 }
+
+NumericalEvaluation evaluate_model_output(const std::string & operation,
+        const std::vector<float> & reference_values, const std::vector<float> & candidate_values,
+        const QwenExecutionPlan & plan, const QwenRuntimeFacts & facts,
+        const std::vector<uint32_t> & reference_tokens, const std::vector<uint32_t> & candidate_tokens,
+        const std::string & fixture_identity, const std::string & input_identity) {
+    EvaluationContext context;
+    context.operation = operation;
+    context.output_name = operation;
+    context.reference_kind = ReferenceKind::CanonicalExecution;
+    context.reference_identity = "canonical-packed-v-v1:single-device-reference";
+    context.model_identity = plan.model_identity;
+    context.backend_family = plan.backend_family;
+    context.implementation_identity = "qwen3-multigpu-generation";
+    context.device_family = "CUDA";
+    context.device_identities = plan.stable_device_identities;
+    for (const auto & sm_version : plan.stable_device_sm_versions)
+        if (sm_version) context.device_sm_versions.push_back(*sm_version);
+    context.placement_identity = plan.placement_identity;
+    context.phase = "decode";
+    context.execution_topology = "prefill-then-single-decode";
+    context.fixture_identity = fixture_identity;
+    context.input_identity = input_identity;
+    context.token_sequence_identity = input_identity;
+    context.output_dtype = plan.activation_dtype;
+    context.input_dtype = plan.kv_dtype;
+    context.output_shape = {reference_values.size()};
+    context.capacity = facts.capacity;
+    context.context_length = facts.context_length;
+    context.rows = facts.rows;
+    context.logical_inputs_equivalent = true;
+    context.reference_tokens = reference_tokens;
+    context.candidate_tokens = candidate_tokens;
+    const auto reference = make_tensor_view(reference_values, context.output_shape);
+    const auto candidate = make_tensor_view(candidate_values, context.output_shape);
+    const std::string contract_id = operation == "final_hidden" ?
+        "qwen3.final_hidden.canonical_compatibility" : "qwen3.final_logits.canonical_compatibility";
+    return evaluate_contract(contract_id, 1, &reference, &candidate, context);
+}
+
 void require(bool value, const std::string & message) {
     if (!value) throw std::runtime_error(message);
 }
@@ -223,9 +274,25 @@ int run(const char * semantic, const char * source, const char * token_text, uin
         require(static_cast<size_t>(std::max_element(actual.final_logits.begin(), actual.final_logits.end()) - actual.final_logits.begin()) ==
             static_cast<size_t>(std::max_element(expected.final_logits.begin(), expected.final_logits.end()) - expected.final_logits.begin()),
             "post-decode greedy token differs from canonical single-device runtime");
-        require(hidden.rel_rms <= max_relative_rms && hidden.cosine >= min_cosine &&
-            logits.rel_rms <= max_relative_rms && logits.cosine >= min_cosine,
-            "cross-device hidden/logit comparison exceeded the declared small-context qualification tolerance");
+        const auto qualification_plan = build_qwen_execution_plan(model, *runtime, *session,
+            QwenExecutionPlanPath::MultiGpu);
+        const auto qualification_facts = collect_qwen_runtime_facts(qualification_plan, *runtime, 1,
+            prefix, QwenExecutionPhase::Decode);
+        const std::string fixture_identity = "qwen3-multigpu-prefix-" + std::to_string(prefix);
+        const std::string input_identity = "prompt-token-hash=" + std::to_string(token_hash(prompt)) +
+            ";prefix=" + std::to_string(prefix);
+        const auto hidden_contract = evaluate_model_output("final_hidden", expected.final_hidden,
+            actual.final_hidden, qualification_plan, qualification_facts, expected.tokens, actual.tokens,
+            fixture_identity, input_identity);
+        const auto logits_contract = evaluate_model_output("final_logits", expected.final_logits,
+            actual.final_logits, qualification_plan, qualification_facts, expected.tokens, actual.tokens,
+            fixture_identity, input_identity);
+        require(hidden_contract.status == EvaluationStatus::Pass && logits_contract.status == EvaluationStatus::Pass &&
+            *logits_contract.measured_metrics.values.at(Metric::Top1Equality).boolean_value &&
+            *logits_contract.measured_metrics.values.at(Metric::TokenSequenceEquality).boolean_value,
+            "cross-device output failed the scoped numerical contract or exact generated-token check");
+        std::printf("numerical_contract_live_result %s\n", evaluation_json(hidden_contract).c_str());
+        std::printf("numerical_contract_live_result %s\n", evaluation_json(logits_contract).c_str());
         require(actual.final_logits.size() == expected.final_logits.size(), "logit output geometry differs");
         require(std::all_of(actual.final_logits.begin(), actual.final_logits.end(), [](float v) { return std::isfinite(v); }),
             "multi-device logits are non-finite");

@@ -22,6 +22,7 @@
 #include <vector>
 
 using namespace vbuf_ggml;
+using namespace vbuf_ml::numerics;
 namespace {
 constexpr uint32_t rows = 32;
 constexpr uint32_t dim = 128;
@@ -34,6 +35,16 @@ constexpr const char * expected_identity =
 
 void require(bool ok, const std::string & message) {
     if (!ok) throw std::runtime_error(message);
+}
+
+uint64_t token_hash(const std::vector<uint32_t> & tokens) {
+    uint64_t hash = 14695981039346656037ULL;
+    const auto * bytes = reinterpret_cast<const uint8_t *>(tokens.data());
+    for (size_t i = 0; i < tokens.size() * sizeof(uint32_t); ++i) {
+        hash ^= bytes[i];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
 }
 
 std::vector<uint32_t> read_tokens(const std::string & path) {
@@ -73,24 +84,64 @@ struct Metrics {
 
 Metrics compare(const std::vector<float> & a, const std::vector<float> & b) {
     require(a.size() == b.size() && !a.empty(), "comparison vector geometry mismatch");
-    double error2 = 0.0, a2 = 0.0, b2 = 0.0, dot = 0.0;
+    EvaluationContext context;
+    context.output_shape = {a.size()};
+    const auto measured = measure_tensor_pair(make_tensor_view(a, context.output_shape),
+        make_tensor_view(b, context.output_shape), context);
+    require(*measured.values.at(Metric::FiniteOutputs).boolean_value,
+        "non-finite AV diagnostic value");
     Metrics m;
+    m.max_abs = *measured.values.at(Metric::MaxAbsoluteError).numeric_value;
+    m.rms = *measured.values.at(Metric::RmsError).numeric_value;
+    m.relative_rms = measured.values.at(Metric::RelativeRmsError).numeric_value.value_or(
+        std::numeric_limits<double>::quiet_NaN());
+    m.cosine = measured.values.at(Metric::CosineSimilarity).numeric_value.value_or(
+        std::numeric_limits<double>::quiet_NaN());
+    double reference_square = 0.0, candidate_square = 0.0;
     for (size_t i = 0; i < a.size(); ++i) {
-        require(std::isfinite(a[i]) && std::isfinite(b[i]), "non-finite AV diagnostic value");
-        const double delta = static_cast<double>(b[i]) - a[i];
-        m.max_abs = std::max(m.max_abs, std::abs(delta));
-        error2 += delta * delta;
-        a2 += static_cast<double>(a[i]) * a[i];
-        b2 += static_cast<double>(b[i]) * b[i];
-        dot += static_cast<double>(a[i]) * b[i];
+        reference_square += static_cast<double>(a[i]) * a[i];
+        candidate_square += static_cast<double>(b[i]) * b[i];
         m.changed += std::memcmp(&a[i], &b[i], sizeof(float)) != 0;
     }
-    m.rms = std::sqrt(error2 / static_cast<double>(a.size()));
-    m.reference_rms = std::sqrt(a2 / static_cast<double>(a.size()));
-    m.candidate_rms = std::sqrt(b2 / static_cast<double>(a.size()));
-    m.relative_rms = std::sqrt(error2 / std::max(a2, 1e-300));
-    m.cosine = dot / std::max(std::sqrt(a2 * b2), 1e-300);
+    m.reference_rms = std::sqrt(reference_square / static_cast<double>(a.size()));
+    m.candidate_rms = std::sqrt(candidate_square / static_cast<double>(b.size()));
     return m;
+}
+
+NumericalEvaluation evaluate_qwen_output(const std::string & operation,
+        const std::vector<float> & reference_values, const std::vector<float> & candidate_values,
+        uint32_t capacity, uint32_t context_length, uint32_t rows, const std::string & phase,
+        const std::string & fixture_identity, const std::string & input_identity,
+        bool logical_inputs_equivalent) {
+    EvaluationContext context;
+    context.operation = operation;
+    context.output_name = operation;
+    context.reference_kind = ReferenceKind::CanonicalExecution;
+    context.reference_identity = "canonical-packed-v-v1:qwen3-native-av-diagnostic";
+    context.model_identity = expected_identity;
+    context.backend_family = "GGML_CUDA";
+    context.implementation_identity = "qwen3-native-av-diagnostic";
+    context.device_family = "CUDA";
+    context.device_identities = {"CUDA0@0000:04:00.0", "CUDA1@0000:07:00.0"};
+    context.device_sm_versions = {86, 75};
+    context.placement_identity = "multi:0x26,1x14;emb=0;norm=1;head=1";
+    context.phase = phase;
+    context.execution_topology = "qwen3-native-av-diagnostic-" + phase;
+    context.fixture_identity = fixture_identity;
+    context.input_identity = input_identity;
+    context.token_sequence_identity = input_identity;
+    context.output_dtype = "F32";
+    context.input_dtype = "F16";
+    context.output_shape = {reference_values.size()};
+    context.capacity = capacity;
+    context.context_length = context_length;
+    context.rows = rows;
+    context.logical_inputs_equivalent = logical_inputs_equivalent;
+    const auto reference = make_tensor_view(reference_values, context.output_shape);
+    const auto candidate = make_tensor_view(candidate_values, context.output_shape);
+    return evaluate_contract(operation == "final_hidden" ?
+        "qwen3.final_hidden.canonical_compatibility" : "qwen3.final_logits.canonical_compatibility",
+        1, &reference, &candidate, context);
 }
 
 float value_as_float(const uint8_t * ptr, ggml_type type) {
@@ -912,8 +963,19 @@ int run_propagation(const std::string & semantic, const std::string & source,
                 inputs_equal, native_output_equal, local);
             const Metrics hidden = compare(baseline.final_hidden, intervention.final_hidden);
             const Metrics logits = compare(baseline.final_logits, intervention.final_logits);
-            const bool numeric_gate = hidden.relative_rms <= 0.02 && hidden.cosine >= 0.9998 &&
-                logits.relative_rms <= 0.02 && logits.cosine >= 0.9998;
+            const std::string input_identity = "prompt-fnv64=" + std::to_string(token_hash(prompt));
+            const auto hidden_contract = evaluate_qwen_output("final_hidden", baseline.final_hidden,
+                intervention.final_hidden, 512, position, 1, "decode",
+                "single-layer-intervention-position=" + std::to_string(position) + "-layer=" + std::to_string(layer),
+                input_identity, fed_token_equal);
+            const auto logits_contract = evaluate_qwen_output("final_logits", baseline.final_logits,
+                intervention.final_logits, 512, position, 1, "decode",
+                "single-layer-intervention-position=" + std::to_string(position) + "-layer=" + std::to_string(layer),
+                input_identity, fed_token_equal);
+            const bool numeric_gate = hidden_contract.status == EvaluationStatus::Pass &&
+                logits_contract.status == EvaluationStatus::Pass;
+            std::printf("numerical_contract_live_result %s\n", evaluation_json(hidden_contract).c_str());
+            std::printf("numerical_contract_live_result %s\n", evaluation_json(logits_contract).c_str());
             intervention_summary << position << ',' << layer << ',' << (fed_token_equal ? "yes" : "no") << ','
                 << (baseline.final_top1 == intervention.final_top1 ? "yes" : "no") << ','
                 << hidden.max_abs << ',' << hidden.rms << ',' << hidden.relative_rms << ',' << hidden.cosine << ','
@@ -958,8 +1020,18 @@ int run_propagation(const std::string & semantic, const std::string & source,
         const uint32_t candidate_top1 = static_cast<uint32_t>(std::max_element(candidate.final_logits.begin(),
             candidate.final_logits.end()) - candidate.final_logits.begin());
         const bool top1_equal = reference_top1 == candidate_top1;
-        const bool numeric_gate = hidden.relative_rms <= 0.02 && hidden.cosine >= 0.9998 &&
-            logits.relative_rms <= 0.02 && logits.cosine >= 0.9998;
+        const bool prefill_only = decode_steps == 0;
+        const std::string phase = prefill_only ? "prefill" : "decode";
+        const auto hidden_contract = evaluate_qwen_output("final_hidden", reference_hidden,
+            candidate.final_hidden, 512, prefill_only ? rows : position, prefill_only ? rows : 1,
+            phase, name, "prompt-fnv64=" + std::to_string(token_hash(prompt)), true);
+        const auto logits_contract = evaluate_qwen_output("final_logits", reference_logits,
+            candidate.final_logits, 512, prefill_only ? rows : position, prefill_only ? rows : 1,
+            phase, name, "prompt-fnv64=" + std::to_string(token_hash(prompt)), true);
+        const bool numeric_gate = hidden_contract.status == EvaluationStatus::Pass &&
+            logits_contract.status == EvaluationStatus::Pass;
+        std::printf("numerical_contract_live_result %s\n", evaluation_json(hidden_contract).c_str());
+        std::printf("numerical_contract_live_result %s\n", evaluation_json(logits_contract).c_str());
         native_candidate_summary << name << ',' << position << ',' << prompt_rows << ',' << decode_steps << ','
             << native_steps << ',' << native_layers << ',' << copy_bytes << ','
             << (fed_token_known ? (fed_token_equal ? "yes" : "no") : "n/a") << ','
@@ -1167,6 +1239,46 @@ int run(const std::string & semantic, const std::string & source, const std::str
         double max_same_input_rel = 0.0;
         uint32_t first_prefill_divergence = UINT32_MAX, first_decode_divergence = UINT32_MAX;
         for (const auto & layer : current.layers) {
+            if (current.capacity == 512 && layer.layer == 0) {
+                EvaluationContext context;
+                context.operation = "attention_av";
+                context.output_name = "native_av_output";
+                context.reference_kind = ReferenceKind::Fp64OperationOracle;
+                context.reference_identity = "qwen3-av-boundary-fp64-oracle-v1";
+                context.model_identity = expected_identity;
+                context.backend_family = "GGML_CUDA";
+                context.implementation_identity = "ggml-native-layout-av";
+                context.device_family = "CUDA";
+                context.device_identities = {"CUDA0@0000:04:00.0"};
+                context.device_sm_versions = {86};
+                context.placement_identity = "multi:0x26,1x14;emb=0;norm=1;head=1";
+                context.phase = layer.prefill ? "prefill" : "decode";
+                context.execution_topology = "native-av-side-branch";
+                context.fixture_identity = std::string("qwen3-native-av-") + context.phase +
+                    "32-cap512-layer0";
+                std::ostringstream token_identity;
+                token_identity << "fnv64:" << std::hex << std::setw(16) << std::setfill('0') << token_hash(prompt);
+                context.input_identity = "prompt-token-sequence:" + token_identity.str();
+                context.token_sequence_identity = token_identity.str();
+                context.output_dtype = "F32";
+                context.input_dtype = "F16";
+                context.output_shape = {dim, layer.query_rows, query_heads};
+                context.capacity = layer.capacity;
+                context.context_length = layer.visible_context;
+                context.rows = layer.query_rows;
+                context.logical_inputs_equivalent = true;
+                const auto reference_view = make_tensor_view(layer.oracle, context.output_shape);
+                const auto candidate_view = make_tensor_view(layer.native, context.output_shape);
+                const auto numerical_observation = evaluate_contract(
+                    "qwen3.attention_av.fp64_model_boundary_observation", 1,
+                    &reference_view, &candidate_view, context);
+                require(numerical_observation.status == EvaluationStatus::NotTested &&
+                    numerical_observation.contract_status == ContractStatus::NeedsCalibration &&
+                    !numerical_observation.replayed_metrics_only,
+                    "model AV capture was not retained as a live, non-authorizing observation");
+                std::printf("numerical_contract_live_observation %s\n",
+                    evaluation_json(numerical_observation).c_str());
+            }
             const Metrics canonical_native = compare(layer.canonical, layer.native);
             const Metrics canonical_oracle = compare(layer.oracle, layer.canonical);
             const Metrics native_oracle = compare(layer.oracle, layer.native);

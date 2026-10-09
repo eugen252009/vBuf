@@ -81,6 +81,10 @@ QwenExecutionCandidate make_qwen3_native_attention_av_candidate(
     candidate.strategy = QwenCandidateStrategy::NativeLayoutAttentionAV;
     candidate.status = QwenCandidateStatus::Candidate;
     candidate.validation_note = "awaiting canonical/native AV parity qualification";
+    candidate.required_numerical_contracts = {
+        "qwen3.final_hidden.canonical_compatibility",
+        "qwen3.final_logits.canonical_compatibility",
+    };
     const uint32_t rows = phase == QwenExecutionPhase::Prefill ? plan.prefill_chunk_size : 1;
     candidate.guards = {
         {QwenGuardField::Phase, QwenGuardOperator::Equal, static_cast<uint8_t>(phase)},
