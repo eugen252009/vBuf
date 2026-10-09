@@ -1,0 +1,13 @@
+format=qwen3-native-av-intervention-input-v1
+layer=24
+position=16
+capacity=512
+query_rows=1
+visible_context=17
+value_ne=128,4096
+value_nb=2,256
+probability_ne=512,1,40
+probability_nb=4,2048,2048
+inputs_bitwise_equal=yes
+native_output_matches_local_side_branch=yes
+section_order=V_F16_full,P_F32_full,positions_I32,native_output_F32

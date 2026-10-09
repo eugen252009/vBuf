@@ -3,6 +3,7 @@
 #include "ggml-backend.h"
 #include "ggml.h"
 #include "qwen3_model.h"
+#include "qwen3_attention_av.h"
 #include "vbuf_residency.h"
 
 #include <cstddef>
@@ -34,6 +35,12 @@ struct Qwen3CudaLayerGraph {
     ggml_tensor * hidden = nullptr;
     ggml_tensor * scores = nullptr;
     ggml_tensor * probabilities = nullptr;
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+    ggml_tensor * value_cache = nullptr;
+    ggml_tensor * attention_av_output = nullptr;
+    ggml_tensor * query = nullptr;
+    ggml_tensor * key_cache = nullptr;
+#endif
 };
 
 using Qwen3CudaCaptureTensor = std::function<void(const char *, ggml_tensor *)>;
@@ -44,7 +51,8 @@ Qwen3CudaLayerGraph qwen3_cuda_build_layer(ggml_context * context,
     const Qwen3CudaLayerWeights & weights, ggml_tensor * hidden,
     ggml_tensor * position_ids, ggml_tensor * causal_mask, ggml_tensor * cache_rows,
     ggml_tensor * key_cache, ggml_tensor * value_cache, ggml_tensor * packed_value_scratch,
-    uint32_t query_count, uint32_t capacity, const Qwen3CudaCaptureTensor & capture = {});
+    uint32_t query_count, uint32_t capacity, const Qwen3CudaCaptureTensor & capture = {},
+    Qwen3AttentionAVPath av_path = Qwen3AttentionAVPath::PackedCanonical);
 
 struct QwenCudaPlacement {
     std::vector<uint32_t> block_device_ids;

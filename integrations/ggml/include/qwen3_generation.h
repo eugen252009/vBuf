@@ -2,6 +2,7 @@
 
 #include "qwen3_cuda_core.h"
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -34,14 +35,68 @@ struct Qwen3DecodeProfile {
     std::vector<uint64_t> outer_token_wall_samples_ns;
 };
 
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+struct Qwen3LayerActivationCapture {
+    uint32_t layer = 0;
+    uint32_t device_id = 0;
+    uint32_t position = 0;
+    uint32_t rows = 0;
+    bool prefill = false;
+    std::vector<float> hidden;
+};
+
+struct Qwen3AttentionAVBoundaryCapture {
+    uint32_t layer = 0;
+    uint32_t device_id = 0;
+    bool prefill = false;
+    bool native_intervention = false;
+    uint32_t capacity = 0;
+    uint32_t query_rows = 0;
+    ggml_type value_type = GGML_TYPE_COUNT;
+    ggml_type probability_type = GGML_TYPE_COUNT;
+    ggml_type position_type = GGML_TYPE_COUNT;
+    ggml_type score_type = GGML_TYPE_COUNT;
+    ggml_type query_type = GGML_TYPE_COUNT;
+    ggml_type key_type = GGML_TYPE_COUNT;
+    std::array<int64_t, 4> value_ne{};
+    std::array<size_t, 4> value_nb{};
+    std::array<int64_t, 4> probability_ne{};
+    std::array<size_t, 4> probability_nb{};
+    std::array<int64_t, 4> output_ne{};
+    std::array<size_t, 4> output_nb{};
+    std::array<int64_t, 4> score_ne{};
+    std::array<size_t, 4> score_nb{};
+    std::array<int64_t, 4> query_ne{};
+    std::array<size_t, 4> query_nb{};
+    std::array<int64_t, 4> key_ne{};
+    std::array<size_t, 4> key_nb{};
+    std::vector<uint8_t> value_bytes;
+    std::vector<uint8_t> key_bytes;
+    std::vector<float> scores;
+    std::vector<float> query;
+    std::vector<float> probabilities;
+    std::vector<int32_t> positions;
+    std::vector<float> canonical_output;
+    std::vector<float> native_output;
+};
+#endif
+
 struct Qwen3GenerationExecution {
     std::vector<uint32_t> tokens;
     std::vector<float> final_logits;
     std::vector<float> final_hidden;
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+    std::vector<Qwen3AttentionAVBoundaryCapture> attention_av_boundary_captures;
+    std::vector<Qwen3LayerActivationCapture> layer_activation_captures;
+    uint64_t diagnostic_native_av_interventions = 0;
+#endif
     uint64_t prefill_ns = 0;
     uint64_t decode_ns = 0;
     uint64_t canonical_decode_steps = 0;
     uint64_t specialized_decode_steps = 0;
+    uint64_t native_av_steps = 0;
+    uint64_t native_av_layers = 0;
+    uint64_t packed_v_copy_bytes_avoided = 0;
     Qwen3DecodeProfile decode_profile;
     uint64_t h2d_calls = 0;
     uint64_t h2d_bytes = 0;
@@ -66,7 +121,17 @@ public:
     Qwen3MultiDeviceGenerationExecutor(Qwen3Model & model,
         std::shared_ptr<QwenCudaRuntimeState> runtime,
         std::shared_ptr<QwenCudaSessionState> session,
-        bool capture_decode_profile = false);
+        bool capture_decode_profile = false,
+        bool enable_native_attention_av_candidate = false
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+        , bool capture_attention_av_boundary = false
+#endif
+        );
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+    void configure_attention_av_diagnostic(uint32_t capture_position, bool capture_local_av,
+        int32_t native_intervention_layer = -1, bool allow_native_prefill = true,
+        bool allow_native_decode = true);
+#endif
     ~Qwen3MultiDeviceGenerationExecutor();
     Qwen3MultiDeviceGenerationExecutor(const Qwen3MultiDeviceGenerationExecutor &) = delete;
     Qwen3MultiDeviceGenerationExecutor & operator=(const Qwen3MultiDeviceGenerationExecutor &) = delete;

@@ -1,0 +1,22 @@
+format=qwen3-native-av-boundary-v1
+capacity=1024
+layer=0
+device_id=0
+phase=prefill
+query_rows=32
+visible_context=32
+query_heads=40
+kv_heads=8
+head_dim=128
+value_type=F16
+probability_type=F32
+canonical_op=GGML_OP_MUL_MAT
+native_op=GGML_OP_ATTENTION_AV
+value_ne=128,8192
+value_nb=2,256
+probability_ne=1024,32,40
+probability_nb=4,4096,131072
+output_ne=128,32,40
+output_nb=4,512,16384
+compact_value_shape=[128,32,8] compact_probability_shape=[32,32,40]
+oracle=ascending-visible-position-FP64-accumulator-output-F32

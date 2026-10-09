@@ -30,7 +30,8 @@ uint64_t elapsed_ns(Clock::time_point start, Clock::time_point end) {
 QwenOptimizerDecision safe_select_plan(std::optional<QwenExecutionPlan> & plan,
     Qwen3Model & model, const std::shared_ptr<QwenCudaRuntimeState> & runtime,
     const std::shared_ptr<QwenCudaSessionState> & session, QwenExecutionPlanPath path,
-    uint32_t rows, uint32_t context_length, QwenExecutionPhase phase) noexcept {
+    uint32_t rows, uint32_t context_length, QwenExecutionPhase phase,
+    bool request_native_attention_av = false) noexcept {
     auto & optimizer = runtime->execution_optimizer();
     QwenOptimizerDecision fallback;
     fallback.mode = optimizer.mode();
@@ -42,7 +43,9 @@ QwenOptimizerDecision safe_select_plan(std::optional<QwenExecutionPlan> & plan,
     try {
         if (!plan) plan = build_qwen_execution_plan(model, *runtime, *session, path);
         const auto facts = collect_qwen_runtime_facts(*plan, *runtime, rows, context_length, phase);
-        return optimizer.select(*plan, facts);
+        const std::string candidate_identity = request_native_attention_av ?
+            qwen3_native_attention_av_candidate_identity(*plan, phase) : std::string{};
+        return optimizer.select(*plan, facts, candidate_identity);
     } catch (...) {
         optimizer.record_optimizer_failure();
         fallback.fallback = QwenOptimizerFallback::InternalFailure;
@@ -484,6 +487,16 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
         ggml_tensor * hidden_input = nullptr;
         ggml_tensor * hidden_output = nullptr;
         ggml_tensor * logits = nullptr;
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+        ggml_tensor * diagnostic_value = nullptr;
+        ggml_tensor * diagnostic_probabilities = nullptr;
+        ggml_tensor * diagnostic_positions = nullptr;
+        ggml_tensor * diagnostic_canonical_output = nullptr;
+        ggml_tensor * diagnostic_native_output = nullptr;
+        ggml_tensor * diagnostic_scores = nullptr;
+        ggml_tensor * diagnostic_query = nullptr;
+        ggml_tensor * diagnostic_key = nullptr;
+#endif
     };
     struct DeviceGraphs {
         uint32_t id = 0;
@@ -501,6 +514,8 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
         ggml_tensor * prefill_pong = nullptr;
         std::vector<LayerGraph> decode_layers;
         std::vector<LayerGraph> prefill_layers;
+        std::vector<LayerGraph> native_decode_layers;
+        std::vector<LayerGraph> native_prefill_layers;
     };
     struct PreboundDecodeDispatch {
         ggml_backend_t backend = nullptr;
@@ -517,19 +532,46 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
     uint32_t late_device;
     uint32_t cut;
     bool capture_decode_profile = false;
+    bool enable_native_attention_av_candidate = false;
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+    bool capture_attention_av_boundary = false;
+    bool diagnostic_av_side_branch_built = false;
+    bool capture_layer_activations = false;
+    uint32_t diagnostic_capture_position = UINT32_MAX;
+    int32_t diagnostic_native_av_layer = -1;
+    bool diagnostic_allow_native_prefill = true;
+    bool diagnostic_allow_native_decode = true;
+#endif
+    bool native_av_graphs_ready = false;
+    std::vector<uint32_t> native_av_device_ids;
     bool prebound_decode_dispatch_attempted = false;
     bool prebound_decode_dispatch_ready = false;
     std::vector<PreboundDecodeDispatch> prebound_decode_dispatch;
     ggml_tensor * final_decode_hidden = nullptr;
     ggml_tensor * final_decode_logits = nullptr;
+    ggml_tensor * native_final_decode_hidden = nullptr;
+    ggml_tensor * native_final_decode_logits = nullptr;
     ggml_tensor * final_prefill_hidden = nullptr;
     ggml_tensor * final_prefill_logits = nullptr;
+    ggml_tensor * native_final_prefill_hidden = nullptr;
+    ggml_tensor * native_final_prefill_logits = nullptr;
     std::vector<DeviceGraphs> devices;
 
     Impl(Qwen3Model & admitted, std::shared_ptr<QwenCudaRuntimeState> runtime_state,
-        std::shared_ptr<QwenCudaSessionState> session_state, bool profile_decode)
+        std::shared_ptr<QwenCudaSessionState> session_state, bool profile_decode,
+        bool enable_native_av_candidate
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+        , bool capture_av_boundary
+#endif
+        )
         : model(&admitted), runtime(std::move(runtime_state)), session(std::move(session_state)),
-          capture_decode_profile(profile_decode),
+          capture_decode_profile(profile_decode), enable_native_attention_av_candidate(enable_native_av_candidate)
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+          , capture_attention_av_boundary(capture_av_boundary),
+          diagnostic_av_side_branch_built(capture_av_boundary),
+#else
+          ,
+#endif
           capacity(session->capacity()), prefill_chunk(runtime->prefill_chunk_size()),
           early_device(runtime->placement().block_device_ids.front()),
           late_device(runtime->placement().block_device_ids.back()) {
@@ -621,6 +663,21 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
                 const auto graph = qwen3_cuda_build_layer(item.context, layer_weights(layer, owner),
                     item.hidden_input, positions, mask, rows, session->key_cache(layer),
                     session->value_cache(layer), session->packed_value_scratch(owner), qcount, capacity);
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+                if (capture_attention_av_boundary && layer < cut) {
+                    item.diagnostic_value = graph.value_cache;
+                    item.diagnostic_probabilities = graph.probabilities;
+                    item.diagnostic_positions = positions;
+                    item.diagnostic_canonical_output = graph.attention_av_output;
+                    item.diagnostic_native_output = ggml_attention_av(item.context, graph.value_cache,
+                        graph.probabilities, positions);
+                    if (layer == 0) {
+                        item.diagnostic_scores = graph.scores;
+                        item.diagnostic_query = graph.query;
+                        item.diagnostic_key = graph.key_cache;
+                    }
+                }
+#endif
                 ggml_tensor * committed = ggml_cpy(item.context, graph.hidden, item.hidden_output);
                 ggml_tensor * root = committed;
                 if (last) {
@@ -637,6 +694,10 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
                 if (item.graph == nullptr) throw std::runtime_error("Qwen per-layer graph allocation failed");
                 ggml_build_forward_expand(item.graph, root);
                 if (last) ggml_build_forward_expand(item.graph, committed);
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+                if (item.diagnostic_native_output != nullptr)
+                    ggml_build_forward_expand(item.graph, item.diagnostic_native_output);
+#endif
                 (prefill ? d.prefill_layers : d.decode_layers).push_back(item);
             }
         }
@@ -658,6 +719,115 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
             // Decode and prefill reuse this larger scratch sequentially.
             for (const auto & layer : d.decode_layers) bind_context_to_buffer(layer.context, session->prefill_scratch(d.id));
             for (const auto & layer : d.prefill_layers) bind_context_to_buffer(layer.context, session->prefill_scratch(d.id));
+        }
+        if (enable_native_attention_av_candidate) build_native_attention_av_graphs();
+    }
+
+    bool native_av_supported_on_device(const QwenExecutionPlan & plan, uint32_t id) const {
+        if (id != early_device || id >= plan.stable_device_sm_versions.size() ||
+            !plan.stable_device_sm_versions[id]) return false;
+        for (uint32_t rows : {1U, prefill_chunk}) {
+            Qwen3AttentionAVFacts facts;
+            facts.sm_version = *plan.stable_device_sm_versions[id];
+            facts.capacity = capacity;
+            facts.visible_context = capacity;
+            facts.query_rows = rows;
+            facts.kv_heads = kv_heads;
+            facts.query_heads = heads;
+            facts.head_dimension = head_dim;
+            facts.value_type = GGML_TYPE_F16;
+            facts.probability_type = GGML_TYPE_F32;
+            facts.position_type = GGML_TYPE_I32;
+            facts.canonical_position_major_v = true;
+            if (!resolve_qwen3_attention_av(facts, true).native_supported) return false;
+        }
+        return true;
+    }
+
+    void build_native_attention_av_graphs() noexcept {
+        try {
+            const QwenExecutionPlan plan = build_qwen_execution_plan(
+                *model, *runtime, *session, QwenExecutionPlanPath::MultiGpu);
+            for (auto & d : devices) {
+                if (!native_av_supported_on_device(plan, d.id)) continue;
+                native_av_device_ids.push_back(d.id);
+                const uint32_t first_layer = d.id == early_device ? 0 : cut;
+                for (bool prefill : {false, true}) {
+                    const auto & canonical = prefill ? d.prefill_layers : d.decode_layers;
+                    auto & native = prefill ? d.native_prefill_layers : d.native_decode_layers;
+                    native.reserve(canonical.size());
+                    const uint32_t query_count = prefill ? prefill_chunk : 1;
+                    for (size_t local = 0; local < canonical.size(); ++local) {
+                        const uint32_t layer = first_layer + static_cast<uint32_t>(local);
+                        const bool last = layer + 1 == layers;
+                        LayerGraph item;
+                        item.context = session->create_auxiliary_context(d.id, 2 * 1024 * 1024);
+                        item.hidden_input = canonical[local].hidden_input;
+                        item.hidden_output = canonical[local].hidden_output;
+                        const auto graph = qwen3_cuda_build_layer(item.context, layer_weights(layer, d.id),
+                            item.hidden_input, prefill ? d.prefill_positions : d.decode_positions,
+                            prefill ? d.prefill_mask : d.decode_mask,
+                            prefill ? d.prefill_rows : d.decode_rows, session->key_cache(layer, d.id),
+                            session->value_cache(layer, d.id), session->packed_value_scratch(d.id),
+                            query_count, capacity, {}, Qwen3AttentionAVPath::NativeLayout);
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+                        item.diagnostic_value = graph.value_cache;
+                        item.diagnostic_probabilities = graph.probabilities;
+                        item.diagnostic_positions = prefill ? d.prefill_positions : d.decode_positions;
+                        item.diagnostic_native_output = graph.attention_av_output;
+                        item.diagnostic_scores = graph.scores;
+                        item.diagnostic_query = graph.query;
+                        item.diagnostic_key = graph.key_cache;
+#endif
+                        ggml_tensor * committed = ggml_cpy(item.context, graph.hidden, item.hidden_output);
+                        ggml_tensor * root = committed;
+                        if (last) {
+                            ggml_tensor * output_norm = model_tensor("output_norm.weight", late_device);
+                            ggml_tensor * output_weight = model_tensor("output.weight", late_device);
+                            ggml_tensor * normalized = ggml_mul(item.context,
+                                ggml_rms_norm(item.context, graph.hidden, 1e-6f), output_norm);
+                            item.logits = ggml_mul_mat(item.context, output_weight, normalized);
+                            root = item.logits;
+                            if (prefill) {
+                                native_final_prefill_hidden = item.hidden_output;
+                                native_final_prefill_logits = item.logits;
+                            } else {
+                                native_final_decode_hidden = item.hidden_output;
+                                native_final_decode_logits = item.logits;
+                            }
+                        }
+                        item.graph = ggml_new_graph_custom(item.context, 1024, false);
+                        if (item.graph == nullptr)
+                            throw std::runtime_error("native AV Qwen layer graph allocation failed");
+                        ggml_build_forward_expand(item.graph, root);
+                        if (last) ggml_build_forward_expand(item.graph, committed);
+                        native.push_back(item);
+                    }
+                    if (native.size() != canonical.size())
+                        throw std::runtime_error("native AV graph set has incomplete layer coverage");
+                    ggml_backend_buffer_type_t buft = ggml_backend_get_default_buffer_type(runtime->backend(d.id));
+                    size_t required = 0;
+                    for (const auto & item : native)
+                        required = std::max(required, ggml_backend_alloc_ctx_tensors_from_buft_size(item.context, buft));
+                    if (required > session->prefill_scratch_bytes(d.id))
+                        throw std::runtime_error("native AV layer graph exceeds reusable device scratch");
+                    for (const auto & item : native)
+                        bind_context_to_buffer(item.context, session->prefill_scratch(d.id));
+                }
+            }
+            native_av_graphs_ready = !native_av_device_ids.empty();
+        } catch (...) {
+            for (auto & d : devices) {
+                d.native_decode_layers.clear();
+                d.native_prefill_layers.clear();
+            }
+            native_av_device_ids.clear();
+            native_final_decode_hidden = nullptr;
+            native_final_decode_logits = nullptr;
+            native_final_prefill_hidden = nullptr;
+            native_final_prefill_logits = nullptr;
+            native_av_graphs_ready = false;
+            runtime->execution_optimizer().record_optimizer_failure();
         }
     }
 
@@ -767,7 +937,7 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
 
     std::vector<float> run_step(uint32_t position, const uint32_t * tokens, uint32_t rows,
         bool prefill, Qwen3GenerationExecution * result, bool use_prebound_dispatch = false,
-        bool actual_decode_step = false) {
+        bool actual_decode_step = false, bool use_native_attention_av = false) {
         if (position != session->current_length() || position + rows > capacity ||
             rows == 0 || (prefill && rows != prefill_chunk) || (!prefill && rows != 1))
             throw std::logic_error("Qwen multi-device step disagrees with global logical position/capacity");
@@ -801,7 +971,10 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
         }
         if (use_prebound_dispatch && (!prebound_decode_dispatch_ready || prefill || rows != 1))
             throw std::logic_error("prebound Qwen decode dispatch selected outside its guarded geometry");
-        const auto execute_layer = [&](uint32_t layer, ggml_backend_t layer_backend, ggml_cgraph * layer_graph) {
+        if (use_native_attention_av && !native_av_graphs_ready)
+            throw std::logic_error("native AV candidate selected without a complete guarded graph set");
+        const auto execute_layer = [&](uint32_t layer, ggml_backend_t layer_backend, ggml_cgraph * layer_graph,
+                const LayerGraph * diagnostic_graph) {
             if (layer == cut) session->inject_execution_failure(QwenCudaFailurePoint::ExecutionBeforeLateBlock,
                 "before late-device execution");
             if (layer + 1 == layers) session->inject_execution_failure(QwenCudaFailurePoint::ExecutionBeforeFinalBlock,
@@ -811,29 +984,145 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
             if (profile) result->decode_profile.graph_submit_cpu_ns += elapsed_ns(submit_start, Clock::now());
             if (status != GGML_STATUS_SUCCESS)
                 throw std::runtime_error("Qwen multi-device layer graph execution failed at block " + std::to_string(layer));
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+            if (capture_attention_av_boundary && !use_native_attention_av && layer < cut &&
+                diagnostic_graph != nullptr &&
+                (diagnostic_capture_position == UINT32_MAX || diagnostic_capture_position == position)) {
+                ggml_backend_synchronize(layer_backend);
+                const LayerGraph & diagnostic = *diagnostic_graph;
+                if (diagnostic.diagnostic_value == nullptr || diagnostic.diagnostic_probabilities == nullptr ||
+                    diagnostic.diagnostic_positions == nullptr || diagnostic.diagnostic_native_output == nullptr)
+                    throw std::logic_error("requested AV boundary diagnostic was not built");
+                const ggml_tensor * canonical_output = diagnostic.diagnostic_canonical_output;
+                const ggml_tensor * output_metadata = canonical_output != nullptr ?
+                    canonical_output : diagnostic.diagnostic_native_output;
+                Qwen3AttentionAVBoundaryCapture capture;
+                capture.layer = layer;
+                capture.device_id = runtime->placement().block_device_ids[layer];
+                capture.prefill = prefill;
+                capture.native_intervention = canonical_output == nullptr;
+                capture.capacity = capacity;
+                capture.query_rows = rows;
+                const auto save_metadata = [](const ggml_tensor * tensor, auto & ne, auto & nb) {
+                    if (tensor == nullptr) throw std::logic_error("null AV boundary diagnostic tensor");
+                    for (size_t i = 0; i < 4; ++i) {
+                        ne[i] = tensor->ne[i];
+                        nb[i] = tensor->nb[i];
+                    }
+                };
+                capture.value_type = diagnostic.diagnostic_value->type;
+                capture.probability_type = diagnostic.diagnostic_probabilities->type;
+                capture.position_type = diagnostic.diagnostic_positions->type;
+                save_metadata(diagnostic.diagnostic_value, capture.value_ne, capture.value_nb);
+                save_metadata(diagnostic.diagnostic_probabilities, capture.probability_ne, capture.probability_nb);
+                save_metadata(output_metadata, capture.output_ne, capture.output_nb);
+                if (layer == 0) {
+                    capture.score_type = diagnostic.diagnostic_scores->type;
+                    capture.query_type = diagnostic.diagnostic_query->type;
+                    capture.key_type = diagnostic.diagnostic_key->type;
+                    save_metadata(diagnostic.diagnostic_scores, capture.score_ne, capture.score_nb);
+                    save_metadata(diagnostic.diagnostic_query, capture.query_ne, capture.query_nb);
+                    save_metadata(diagnostic.diagnostic_key, capture.key_ne, capture.key_nb);
+                }
+                capture.value_bytes.resize(ggml_nbytes(diagnostic.diagnostic_value));
+                capture.probabilities.resize(ggml_nbytes(diagnostic.diagnostic_probabilities) / sizeof(float));
+                capture.positions.resize(rows);
+                if (canonical_output != nullptr)
+                    capture.canonical_output.resize(ggml_nbytes(canonical_output) / sizeof(float));
+                capture.native_output.resize(ggml_nbytes(diagnostic.diagnostic_native_output) / sizeof(float));
+                if (layer == 0) {
+                    capture.scores.resize(ggml_nbytes(diagnostic.diagnostic_scores) / sizeof(float));
+                    capture.query.resize(ggml_nbytes(diagnostic.diagnostic_query) / sizeof(float));
+                    capture.key_bytes.resize(ggml_nbytes(diagnostic.diagnostic_key));
+                }
+                ggml_backend_tensor_get(diagnostic.diagnostic_value, capture.value_bytes.data(), 0,
+                    capture.value_bytes.size());
+                ggml_backend_tensor_get(diagnostic.diagnostic_probabilities, capture.probabilities.data(), 0,
+                    capture.probabilities.size() * sizeof(float));
+                ggml_backend_tensor_get(diagnostic.diagnostic_positions, capture.positions.data(), 0,
+                    capture.positions.size() * sizeof(int32_t));
+                if (canonical_output != nullptr)
+                    ggml_backend_tensor_get(canonical_output, capture.canonical_output.data(), 0,
+                        capture.canonical_output.size() * sizeof(float));
+                ggml_backend_tensor_get(diagnostic.diagnostic_native_output, capture.native_output.data(), 0,
+                    capture.native_output.size() * sizeof(float));
+                if (layer == 0) {
+                    ggml_backend_tensor_get(diagnostic.diagnostic_scores, capture.scores.data(), 0,
+                        capture.scores.size() * sizeof(float));
+                    ggml_backend_tensor_get(diagnostic.diagnostic_query, capture.query.data(), 0,
+                        capture.query.size() * sizeof(float));
+                    ggml_backend_tensor_get(diagnostic.diagnostic_key, capture.key_bytes.data(), 0,
+                        capture.key_bytes.size());
+                }
+                result->attention_av_boundary_captures.push_back(std::move(capture));
+            }
+#endif
             if (layer + 1 == cut) {
                 const auto boundary_start = profile ? Clock::now() : Clock::time_point{};
                 transfer_hidden(position, rows, prefill, result, profile);
                 if (profile) result->decode_profile.boundary_wait_transfer_ns += elapsed_ns(boundary_start, Clock::now());
             }
         };
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+        const auto capture_layer_activation = [&](uint32_t layer, ggml_backend_t layer_backend,
+                ggml_tensor * hidden_output) {
+            if (!capture_layer_activations || diagnostic_capture_position != position) return;
+            ggml_backend_synchronize(layer_backend);
+            Qwen3LayerActivationCapture capture;
+            capture.layer = layer;
+            capture.device_id = runtime->placement().block_device_ids[layer];
+            capture.position = position;
+            capture.rows = rows;
+            capture.prefill = prefill;
+            capture.hidden.resize(static_cast<size_t>(rows) * embed_width);
+            const size_t bytes = capture.hidden.size() * sizeof(float);
+            ggml_backend_tensor_get(hidden_output, capture.hidden.data(), 0, bytes);
+            result->layer_activation_captures.push_back(std::move(capture));
+        };
+#endif
         if (use_prebound_dispatch) {
             ++result->specialized_decode_steps;
             for (uint32_t layer = 0; layer < layers; ++layer) {
                 const auto dispatch_start = profile ? Clock::now() : Clock::time_point{};
                 const auto & binding = prebound_decode_dispatch[layer];
                 if (profile) result->decode_profile.candidate_dispatch_cpu_ns += elapsed_ns(dispatch_start, Clock::now());
-                execute_layer(layer, binding.backend, binding.graph);
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+                const uint32_t owner = runtime->placement().block_device_ids[layer];
+                const size_t local_index = layer < cut ? layer : layer - cut;
+                const auto & canonical_graphs = prefill ? device(owner).prefill_layers : device(owner).decode_layers;
+                execute_layer(layer, binding.backend, binding.graph, &canonical_graphs[local_index]);
+                capture_layer_activation(layer, binding.backend, canonical_graphs[local_index].hidden_output);
+#else
+                execute_layer(layer, binding.backend, binding.graph, nullptr);
+#endif
             }
         } else {
             for (uint32_t layer = 0; layer < layers; ++layer) {
                 const auto resolve_start = profile ? Clock::now() : Clock::time_point{};
                 const uint32_t owner = runtime->placement().block_device_ids[layer];
                 auto & d = device(owner);
-                auto & graph = (prefill ? d.prefill_layers : d.decode_layers)[layer < cut ? layer : layer - cut];
+                const size_t local_index = layer < cut ? layer : layer - cut;
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+                const bool diagnostic_intervention = diagnostic_native_av_layer == static_cast<int32_t>(layer) &&
+                    !prefill && diagnostic_capture_position == position;
+                if (diagnostic_intervention && !native_av_graphs_ready)
+                    throw std::logic_error("diagnostic AV intervention lacks native layer graphs");
+                const bool native_on_device = diagnostic_intervention || (use_native_attention_av &&
+                    std::find(native_av_device_ids.begin(), native_av_device_ids.end(), owner) != native_av_device_ids.end());
+                if (diagnostic_intervention) ++result->diagnostic_native_av_interventions;
+#else
+                const bool native_on_device = use_native_attention_av &&
+                    std::find(native_av_device_ids.begin(), native_av_device_ids.end(), owner) != native_av_device_ids.end();
+#endif
+                auto & graphs = prefill ? d.prefill_layers : d.decode_layers;
+                auto & native_graphs = prefill ? d.native_prefill_layers : d.native_decode_layers;
+                auto & graph = native_on_device ? native_graphs[local_index] : graphs[local_index];
                 ggml_backend_t layer_backend = runtime->backend(owner);
                 if (profile) result->decode_profile.layer_resolve_cpu_ns += elapsed_ns(resolve_start, Clock::now());
-                execute_layer(layer, layer_backend, graph.graph);
+                execute_layer(layer, layer_backend, graph.graph, &graph);
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+                capture_layer_activation(layer, layer_backend, graph.hidden_output);
+#endif
             }
         }
         const uint32_t final_device = late_device;
@@ -842,8 +1131,12 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
         ggml_backend_synchronize(backend);
         if (profile) result->decode_profile.final_device_wait_ns += elapsed_ns(final_start, Clock::now());
         const auto output_start = profile ? Clock::now() : Clock::time_point{};
-        ggml_tensor * logits_tensor = prefill ? final_prefill_logits : final_decode_logits;
-        ggml_tensor * hidden_tensor = prefill ? final_prefill_hidden : final_decode_hidden;
+        ggml_tensor * logits_tensor = prefill ?
+            (use_native_attention_av && native_final_prefill_logits != nullptr ? native_final_prefill_logits : final_prefill_logits) :
+            (use_native_attention_av && native_final_decode_logits != nullptr ? native_final_decode_logits : final_decode_logits);
+        ggml_tensor * hidden_tensor = prefill ?
+            (use_native_attention_av && native_final_prefill_hidden != nullptr ? native_final_prefill_hidden : final_prefill_hidden) :
+            (use_native_attention_av && native_final_decode_hidden != nullptr ? native_final_decode_hidden : final_decode_hidden);
         std::vector<float> logits(static_cast<size_t>(logits_tensor->ne[0]));
         const size_t last_row = prefill ? rows - 1 : 0;
         const size_t logits_offset = last_row * logits.size() * sizeof(float);
@@ -854,6 +1147,12 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
         get(backend, hidden_tensor, result->final_hidden.data(), embed_width * sizeof(float), result, hidden_offset);
         ggml_backend_synchronize(backend);
         session->commit_tokens(rows);
+        if (use_native_attention_av) {
+            ++result->native_av_steps;
+            result->native_av_layers += cut;
+            result->packed_v_copy_bytes_avoided += static_cast<uint64_t>(capacity) * kv_heads *
+                head_dim * sizeof(ggml_fp16_t) * cut;
+        }
         if (profile) {
             result->decode_profile.final_output_readback_ns += elapsed_ns(output_start, Clock::now());
             result->decode_profile.final_sync_readback_ns += elapsed_ns(final_start, Clock::now());
@@ -868,8 +1167,46 @@ struct Qwen3MultiDeviceGenerationExecutor::Impl {
 
 Qwen3MultiDeviceGenerationExecutor::Qwen3MultiDeviceGenerationExecutor(Qwen3Model & model,
     std::shared_ptr<QwenCudaRuntimeState> runtime, std::shared_ptr<QwenCudaSessionState> session,
-    bool capture_decode_profile)
-    : impl_(std::make_unique<Impl>(model, std::move(runtime), std::move(session), capture_decode_profile)) {}
+    bool capture_decode_profile, bool enable_native_attention_av_candidate
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+    , bool capture_attention_av_boundary
+#endif
+    )
+    : impl_(std::make_unique<Impl>(model, std::move(runtime), std::move(session),
+        capture_decode_profile, enable_native_attention_av_candidate
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+        , capture_attention_av_boundary
+#endif
+        )) {}
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+void Qwen3MultiDeviceGenerationExecutor::configure_attention_av_diagnostic(uint32_t capture_position,
+        bool capture_local_av, int32_t native_intervention_layer, bool allow_native_prefill,
+        bool allow_native_decode) {
+    if (capture_position > 32 || capture_position >= impl_->capacity)
+        throw std::invalid_argument("diagnostic AV capture position is outside the qualified context window");
+    if (capture_local_av && !impl_->diagnostic_av_side_branch_built)
+        throw std::invalid_argument("local AV capture was not enabled when diagnostic graphs were built");
+    if (native_intervention_layer < -1 || native_intervention_layer >= static_cast<int32_t>(impl_->cut))
+        throw std::invalid_argument("diagnostic native AV intervention must target an early-device block");
+    if (native_intervention_layer >= 0) {
+        if (impl_->capacity > 512)
+            throw std::invalid_argument("diagnostic native AV intervention is bounded to capacity 512");
+        if (!impl_->native_av_graphs_ready) impl_->build_native_attention_av_graphs();
+        const uint32_t owner = impl_->runtime->placement().block_device_ids[
+            static_cast<uint32_t>(native_intervention_layer)];
+        const auto & device = impl_->device(owner);
+        if (!impl_->native_av_graphs_ready || device.native_decode_layers.size() != impl_->cut ||
+            device.native_prefill_layers.size() != impl_->cut)
+            throw std::runtime_error("native AV diagnostic graph set failed to initialize");
+    }
+    impl_->diagnostic_capture_position = capture_position;
+    impl_->capture_attention_av_boundary = capture_local_av;
+    impl_->capture_layer_activations = true;
+    impl_->diagnostic_native_av_layer = native_intervention_layer;
+    impl_->diagnostic_allow_native_prefill = allow_native_prefill;
+    impl_->diagnostic_allow_native_decode = allow_native_decode;
+}
+#endif
 Qwen3MultiDeviceGenerationExecutor::~Qwen3MultiDeviceGenerationExecutor() = default;
 
 Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vector<uint32_t> & prompt,
@@ -892,7 +1229,8 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
     const uint32_t request_rows = request_phase == QwenExecutionPhase::Prefill ? impl_->prefill_chunk : 1;
     const auto initial_select_start = impl_->capture_decode_profile ? Clock::now() : Clock::time_point{};
     (void) safe_select_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime, impl_->session,
-        QwenExecutionPlanPath::MultiGpu, request_rows, static_cast<uint32_t>(prompt.size()), request_phase);
+        QwenExecutionPlanPath::MultiGpu, request_rows, static_cast<uint32_t>(prompt.size()), request_phase,
+        impl_->enable_native_attention_av_candidate);
     if (impl_->capture_decode_profile)
         result.decode_profile.plan_select_ns += elapsed_ns(initial_select_start, Clock::now());
     for (const auto & d : impl_->devices) {
@@ -912,14 +1250,40 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
         while (offset < prompt.size()) {
             if (should_cancel && should_cancel()) { result.cancelled = true; break; }
             const size_t remaining = prompt.size() - offset;
-            if (remaining >= impl_->prefill_chunk) {
-                logits = impl_->run_step(static_cast<uint32_t>(offset), prompt.data() + offset,
-                    impl_->prefill_chunk, true, &result);
-                offset += impl_->prefill_chunk;
-            } else {
-                logits = impl_->run_step(static_cast<uint32_t>(offset), prompt.data() + offset, 1, false, &result);
-                ++offset;
+            const bool batch_prefill = remaining >= impl_->prefill_chunk;
+            const uint32_t step_rows = batch_prefill ? impl_->prefill_chunk : 1;
+            const QwenExecutionPhase step_phase = batch_prefill ?
+                QwenExecutionPhase::Prefill : QwenExecutionPhase::Decode;
+            QwenOptimizerDecision av_decision;
+            bool use_native_av = false;
+            bool allow_native_av_prefill = impl_->enable_native_attention_av_candidate;
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+            if (step_phase == QwenExecutionPhase::Prefill)
+                allow_native_av_prefill = allow_native_av_prefill && impl_->diagnostic_allow_native_prefill;
+            else
+                allow_native_av_prefill = allow_native_av_prefill && impl_->diagnostic_allow_native_decode;
+#endif
+            if (allow_native_av_prefill) {
+                av_decision = safe_select_plan(impl_->optimizer_plan, *impl_->model, impl_->runtime,
+                    impl_->session, QwenExecutionPlanPath::MultiGpu, step_rows,
+                    static_cast<uint32_t>(offset), step_phase, true);
+                use_native_av = av_decision.candidate_selected &&
+                    av_decision.strategy == QwenCandidateStrategy::NativeLayoutAttentionAV;
+                if (use_native_av && (!impl_->native_av_graphs_ready ||
+                    impl_->runtime->execution_optimizer().consume_candidate_execution_fault_for_testing())) {
+                    (void) impl_->runtime->execution_optimizer().invalidate_candidate(av_decision.candidate_identity);
+                    use_native_av = false;
+                }
             }
+            try {
+                logits = impl_->run_step(static_cast<uint32_t>(offset), prompt.data() + offset,
+                    step_rows, batch_prefill, &result, false, false, use_native_av);
+            } catch (...) {
+                if (use_native_av)
+                    (void) impl_->runtime->execution_optimizer().invalidate_candidate(av_decision.candidate_identity);
+                throw;
+            }
+            offset += step_rows;
             ++result.completed_positions;
             if (on_progress) on_progress(impl_->session->current_length(), result.final_hidden);
         }
@@ -940,13 +1304,24 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
             const auto outer_step_start = impl_->capture_decode_profile ? Clock::now() : Clock::time_point{};
             const uint32_t decode_position = impl_->session->current_length();
             const auto decode_select_start = impl_->capture_decode_profile ? Clock::now() : Clock::time_point{};
+            bool allow_native_av_decode = impl_->enable_native_attention_av_candidate;
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+            allow_native_av_decode = allow_native_av_decode && impl_->diagnostic_allow_native_decode;
+#endif
             QwenOptimizerDecision decode_decision = safe_select_plan(impl_->optimizer_plan, *impl_->model,
                 impl_->runtime, impl_->session, QwenExecutionPlanPath::MultiGpu, 1, decode_position,
-                QwenExecutionPhase::Decode);
+                QwenExecutionPhase::Decode, allow_native_av_decode);
             if (impl_->capture_decode_profile)
                 result.decode_profile.plan_select_ns += elapsed_ns(decode_select_start, Clock::now());
             bool use_prebound_dispatch = decode_decision.candidate_selected &&
                 decode_decision.strategy == QwenCandidateStrategy::PreboundDecodeDispatch;
+            bool use_native_av = decode_decision.candidate_selected &&
+                decode_decision.strategy == QwenCandidateStrategy::NativeLayoutAttentionAV;
+            if (use_native_av && (!impl_->native_av_graphs_ready ||
+                impl_->runtime->execution_optimizer().consume_candidate_execution_fault_for_testing())) {
+                (void) impl_->runtime->execution_optimizer().invalidate_candidate(decode_decision.candidate_identity);
+                use_native_av = false;
+            }
             if (use_prebound_dispatch && !impl_->prebound_decode_dispatch_attempted) {
                 const auto setup_start = impl_->capture_decode_profile ? Clock::now() : Clock::time_point{};
                 impl_->build_prebound_decode_dispatch();
@@ -963,13 +1338,14 @@ Qwen3GenerationExecution Qwen3MultiDeviceGenerationExecutor::run(const std::vect
             result.tokens.push_back(next);
             if (on_token && !on_token(next, decode_position)) { result.cancelled = true; break; }
             try {
-                logits = impl_->run_step(decode_position, &next, 1, false, &result, use_prebound_dispatch, true);
+                logits = impl_->run_step(decode_position, &next, 1, false, &result,
+                    use_prebound_dispatch, true, use_native_av);
             } catch (...) {
-                if (use_prebound_dispatch)
+                if (use_prebound_dispatch || use_native_av)
                     (void) impl_->runtime->execution_optimizer().invalidate_candidate(decode_decision.candidate_identity);
                 throw;
             }
-            if (!use_prebound_dispatch) ++result.canonical_decode_steps;
+            if (!use_prebound_dispatch && !use_native_av) ++result.canonical_decode_steps;
             if (impl_->capture_decode_profile)
                 result.decode_profile.outer_token_wall_samples_ns.push_back(elapsed_ns(outer_step_start, Clock::now()));
             ++result.completed_positions;

@@ -1,0 +1,11 @@
+ggml_cuda_init: found 2 CUDA devices (Total VRAM: 19996 MiB):
+  Device 0: NVIDIA GeForce RTX 3060, compute capability 8.6, VMM: yes, VRAM: 12037 MiB
+  Device 1: NVIDIA GeForce RTX 2080 SUPER, compute capability 7.5, VMM: yes, VRAM: 7959 MiB
+qwen3_native_av_qualification=FAIL: canonical/native full-model activation parity exceeded the existing small-context numeric gate
+model=Qwen3 layers=40 hidden=5120 heads=40 kv_heads=8 head_dim=128 vocabulary=151936 tensors=443 source_size=9000232144 source_sha256=sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31 tokenizer_eos=151645 add_bos=NO
+ffn_down_tensor name=blk.0.ffn_down.weight shape=[17408,5120] representation=14 ggml_type=q6_K payload_bytes=73113600 row_bytes=14280 total_blocks=348160 source_offset=579061448 source_length=73113600
+identity model=sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31 capacity=1024 placement=multi:0x26,1x14;emb=0;norm=1;head=1 devices=CUDA0/CUDA1
+av_contract cache=[dimension=128, position*8+head] physical=[position,kv_head,dimension] weights=[position,query,head] reduction=ascending-visible-position
+path=canonical-packed graph_setup_ns=3014506 wall_ns=217631267 prefill_ns=162212627 decode_ns=54293741 native_av_steps=0 native_av_layers=0 packed_v_copy_bytes_avoided=0 boundary_handoffs=2 current_length=33 completed=yes
+path=native-av-trial graph_setup_ns=3468096 wall_ns=93109823 prefill_ns=62427391 decode_ns=28954564 native_av_steps=2 native_av_layers=52 packed_v_copy_bytes_avoided=109051904 boundary_handoffs=2 current_length=33 completed=yes
+native_trial_numeric_probe tokens_equal=yes hidden_max_abs=11.9650879 hidden_rel_rms=0.0126135976 hidden_cosine=0.9999299537 logits_max_abs=0.261923313 logits_rel_rms=0.0204683115 logits_cosine=0.999803535727 numeric_gate=FAIL qualification_trial=yes

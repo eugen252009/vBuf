@@ -110,7 +110,7 @@ struct QwenExecutionGuard {
 };
 
 enum class QwenCandidateStatus : uint8_t { Candidate, Valid, Invalidated };
-enum class QwenCandidateStrategy : uint8_t { PreboundDecodeDispatch, GuardProbe };
+enum class QwenCandidateStrategy : uint8_t { PreboundDecodeDispatch, GuardProbe, NativeLayoutAttentionAV };
 struct QwenExecutionCandidate {
     std::string identity;
     QwenCandidateStrategy strategy = QwenCandidateStrategy::PreboundDecodeDispatch;
@@ -188,7 +188,7 @@ public:
     QwenOptimizerMode mode() const noexcept;
     void set_mode(QwenOptimizerMode mode) noexcept;
     QwenOptimizerDecision select(const QwenExecutionPlan & canonical,
-        const QwenRuntimeFacts & facts) noexcept;
+        const QwenRuntimeFacts & facts, const std::string & requested_candidate_identity = {}) noexcept;
     void record_execution(const QwenExecutionPlan & canonical,
         const QwenRuntimeFacts & facts, uint64_t execution_count,
         uint64_t elapsed_ns) noexcept;

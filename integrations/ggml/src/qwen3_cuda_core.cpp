@@ -145,14 +145,16 @@ Qwen3CudaLayerGraph qwen3_cuda_build_layer(ggml_context * context,
     const Qwen3CudaLayerWeights & w, ggml_tensor * hidden,
     ggml_tensor * position_ids, ggml_tensor * causal_mask, ggml_tensor * cache_rows,
     ggml_tensor * key_cache, ggml_tensor * value_cache, ggml_tensor * packed_value_scratch,
-    uint32_t query_count, uint32_t capacity, const Qwen3CudaCaptureTensor & capture) {
+    uint32_t query_count, uint32_t capacity, const Qwen3CudaCaptureTensor & capture,
+    Qwen3AttentionAVPath av_path) {
     require_tensor(context == nullptr ? nullptr : hidden, "hidden state");
     require_tensor(position_ids, "position IDs");
     require_tensor(causal_mask, "causal mask");
     require_tensor(cache_rows, "cache row indices");
     require_tensor(key_cache, "key cache");
     require_tensor(value_cache, "value cache");
-    require_tensor(packed_value_scratch, "packed V scratch");
+    if (av_path == Qwen3AttentionAVPath::PackedCanonical)
+        require_tensor(packed_value_scratch, "packed V scratch");
     require_tensor(w.attn_norm, "attention norm weight");
     require_tensor(w.q, "query weight");
     require_tensor(w.k, "key weight");
@@ -210,20 +212,26 @@ Qwen3CudaLayerGraph qwen3_cuda_build_layer(ggml_context * context,
     ggml_tensor * v_updated = ggml_set_rows(context, value_cache, v_current, cache_rows);
     ggml_tensor * q_batched = ggml_permute(context, q_rope, 0, 2, 1, 3);
     ggml_tensor * k_reshaped = ggml_reshape_3d(context, k_updated, head_dimension, kv_heads, capacity);
-    ggml_tensor * v_reshaped = ggml_reshape_3d(context, v_updated, head_dimension, kv_heads, capacity);
     ggml_tensor * k_batched = ggml_permute(context, k_reshaped, 0, 2, 1, 3);
-    // Layers execute in dependency order; each consumes packed V before the
-    // next layer overwrites this session-owned scratch tensor.
-    ggml_tensor * v_batched = ggml_cpy(context,
-        ggml_permute(context, v_reshaped, 1, 2, 0, 3), packed_value_scratch);
-    emit("k_attention_input", ggml_cont(context, k_batched));
-    emit("v_attention_input", ggml_cont(context, v_batched));
     ggml_tensor * scores = checked_mul_mat(context, k_batched, q_batched, "attention scores");
     ggml_tensor * probabilities = ggml_soft_max_ext(context, scores, causal_mask,
         1.0f / std::sqrt(static_cast<float>(head_dimension)), 0.0f);
+    emit("k_attention_input", ggml_cont(context, k_batched));
     emit("attention_scores", scores);
     emit("attention_probabilities", probabilities);
-    ggml_tensor * context_heads = checked_mul_mat(context, v_batched, probabilities, "attention values");
+    ggml_tensor * context_heads = nullptr;
+    if (av_path == Qwen3AttentionAVPath::NativeLayout) {
+        emit("v_attention_input_native_layout", v_updated);
+        context_heads = ggml_attention_av(context, v_updated, probabilities, position_ids);
+    } else {
+        ggml_tensor * v_reshaped = ggml_reshape_3d(context, v_updated, head_dimension, kv_heads, capacity);
+        // Layers execute in dependency order; each consumes packed V before the
+        // next layer overwrites this session-owned scratch tensor.
+        ggml_tensor * v_batched = ggml_cpy(context,
+            ggml_permute(context, v_reshaped, 1, 2, 0, 3), packed_value_scratch);
+        emit("v_attention_input", ggml_cont(context, v_batched));
+        context_heads = checked_mul_mat(context, v_batched, probabilities, "attention values");
+    }
     ggml_tensor * context_layout = ggml_permute(context, context_heads, 0, 2, 1, 3);
     ggml_tensor * attention_context = ggml_cont_2d(context, context_layout, embedding_width, query_count);
     emit("attention_context", attention_context);
@@ -243,7 +251,11 @@ Qwen3CudaLayerGraph qwen3_cuda_build_layer(ggml_context * context,
     emit("ffn_down", down);
     ggml_tensor * output = ggml_add(context, down, residual);
     emit("block_output", output);
+#ifdef VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC
+    return { output, scores, probabilities, v_updated, context_heads, q_rope, k_updated };
+#else
     return { output, scores, probabilities };
+#endif
 }
 
 struct QwenCudaRuntimeState::Impl {

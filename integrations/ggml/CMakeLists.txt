@@ -72,6 +72,24 @@ endif()
 if(NOT EXISTS "${GGML_SOURCE_DIR}/CMakeLists.txt")
     message(FATAL_ERROR "ggml source is missing: ${GGML_SOURCE_DIR}")
 endif()
+if(NOT Python3_Interpreter_FOUND)
+    message(FATAL_ERROR "Python 3 is required to prepare the pinned GGML native-AV build source")
+endif()
+find_package(Git REQUIRED)
+set(VBUF_GGML_UPSTREAM_SOURCE_DIR "${GGML_SOURCE_DIR}")
+set(GGML_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/vbuf-patched-ggml")
+set(VBUF_GGML_NATIVE_AV_CUDA_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/qwen3_attention_av_cuda.cu")
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_patched_ggml.py"
+        --source "${VBUF_GGML_UPSTREAM_SOURCE_DIR}"
+        --destination "${GGML_SOURCE_DIR}"
+        --commit "${VBUF_GGML_COMMIT}"
+        --patch-file "${CMAKE_CURRENT_SOURCE_DIR}/patches/ggml-native-attention-av.patch"
+    RESULT_VARIABLE VBUF_GGML_PATCH_RESULT
+    COMMAND_ECHO STDOUT)
+if(NOT VBUF_GGML_PATCH_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to prepare patched pinned GGML source tree")
+endif()
 if(VBUF_ENABLE_CUDA)
     find_package(CUDAToolkit REQUIRED)
 endif()
@@ -154,10 +172,12 @@ target_compile_features(vbuf_qwen3_model PUBLIC cxx_std_17)
 target_include_directories(vbuf_qwen3_model PUBLIC include)
 target_link_libraries(vbuf_qwen3_model PUBLIC vbuf_region_executor vbuf_model_architecture)
 
-add_library(vbuf_qwen3_cuda_core STATIC
+set(VBUF_QWEN3_CUDA_CORE_SOURCES
     src/qwen3_cuda_core.cpp
+    src/qwen3_attention_av.cpp
     src/qwen3_execution_plan.cpp
     src/qwen3_generation.cpp)
+add_library(vbuf_qwen3_cuda_core STATIC ${VBUF_QWEN3_CUDA_CORE_SOURCES})
 target_compile_features(vbuf_qwen3_cuda_core PUBLIC cxx_std_17)
 target_include_directories(vbuf_qwen3_cuda_core PUBLIC include)
 target_link_libraries(vbuf_qwen3_cuda_core PUBLIC ggml vbuf_qwen3_model)
@@ -190,6 +210,10 @@ if(VBUF_BUILD_PROBES)
     target_compile_features(vbuf_qwen3_execution_plan_contract PRIVATE cxx_std_17)
     target_link_libraries(vbuf_qwen3_execution_plan_contract PRIVATE vbuf_qwen3_cuda_core)
 
+    add_executable(vbuf_qwen3_native_attention_av_contract tests/qwen3_native_attention_av_contract.cpp)
+    target_compile_features(vbuf_qwen3_native_attention_av_contract PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_qwen3_native_attention_av_contract PRIVATE vbuf_qwen3_cuda_core)
+
     add_executable(vbuf_qwen3_multigpu_qualification qualification/qwen3_multigpu_qualification.cpp)
     target_compile_features(vbuf_qwen3_multigpu_qualification PRIVATE cxx_std_17)
     target_link_libraries(vbuf_qwen3_multigpu_qualification PRIVATE vbuf_qwen3_cuda_core)
@@ -197,6 +221,29 @@ if(VBUF_BUILD_PROBES)
     add_executable(vbuf_qwen3_multigpu_capacity_gate qualification/qwen3_multigpu_capacity_gate.cpp)
     target_compile_features(vbuf_qwen3_multigpu_capacity_gate PRIVATE cxx_std_17)
     target_link_libraries(vbuf_qwen3_multigpu_capacity_gate PRIVATE vbuf_qwen3_cuda_core)
+
+    add_executable(vbuf_qwen3_native_av_qualification qualification/qwen3_native_av_qualification.cpp)
+    target_compile_features(vbuf_qwen3_native_av_qualification PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_qwen3_native_av_qualification PRIVATE vbuf_qwen3_cuda_core)
+
+    add_executable(vbuf_qwen3_native_av_sequence_qualification
+        qualification/qwen3_native_av_sequence_qualification.cpp)
+    target_compile_features(vbuf_qwen3_native_av_sequence_qualification PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_qwen3_native_av_sequence_qualification PRIVATE vbuf_qwen3_cuda_core)
+    add_library(vbuf_qwen3_cuda_core_av_diagnostic STATIC ${VBUF_QWEN3_CUDA_CORE_SOURCES})
+    target_compile_features(vbuf_qwen3_cuda_core_av_diagnostic PUBLIC cxx_std_17)
+    target_include_directories(vbuf_qwen3_cuda_core_av_diagnostic PUBLIC include)
+    target_compile_definitions(vbuf_qwen3_cuda_core_av_diagnostic
+        PUBLIC VBUF_QWEN3_AV_BOUNDARY_DIAGNOSTIC=1)
+    target_link_libraries(vbuf_qwen3_cuda_core_av_diagnostic PUBLIC ggml vbuf_qwen3_model)
+    if(VBUF_ENABLE_CUDA)
+        target_link_libraries(vbuf_qwen3_cuda_core_av_diagnostic PUBLIC CUDA::cudart)
+        target_compile_definitions(vbuf_qwen3_cuda_core_av_diagnostic PRIVATE VBUF_QWEN3_HAS_CUDA_RUNTIME=1)
+    endif()
+    add_executable(vbuf_qwen3_native_av_boundary_diagnostic
+        qualification/qwen3_native_av_boundary_diagnostic.cpp)
+    target_compile_features(vbuf_qwen3_native_av_boundary_diagnostic PRIVATE cxx_std_17)
+    target_link_libraries(vbuf_qwen3_native_av_boundary_diagnostic PRIVATE vbuf_qwen3_cuda_core_av_diagnostic)
     if(VBUF_ENABLE_CUDA)
         target_compile_definitions(vbuf_qwen3_multigpu_capacity_gate PRIVATE VBUF_QWEN3_HAS_CUDA_PROFILER_API=1)
     endif()
@@ -380,6 +427,8 @@ if(VBUF_BUILD_PROBES)
     add_test(NAME vbuf_qwen3_execution_policy_contract COMMAND vbuf_qwen3_execution_policy_contract)
     add_test(NAME vbuf_qwen3_cuda_ownership_contract COMMAND vbuf_qwen3_cuda_ownership_contract)
     add_test(NAME vbuf_qwen3_execution_plan_contract COMMAND vbuf_qwen3_execution_plan_contract)
+    add_test(NAME vbuf_qwen3_native_attention_av_contract COMMAND vbuf_qwen3_native_attention_av_contract)
+    set_tests_properties(vbuf_qwen3_native_attention_av_contract PROPERTIES SKIP_RETURN_CODE 77)
     add_test(NAME vbuf_runtime_trace_contract COMMAND vbuf_runtime_trace_contract)
     add_test(NAME vbuf_ggml_smoke COMMAND vbuf_ggml_smoke)
     add_test(NAME vbuf_borrowed_cpu_buffer_probe

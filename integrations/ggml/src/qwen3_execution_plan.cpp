@@ -364,7 +364,7 @@ bool QwenExecutionPlanOptimizer::evaluate_guard(const QwenExecutionGuard & guard
 }
 
 QwenOptimizerDecision QwenExecutionPlanOptimizer::select(const QwenExecutionPlan & canonical,
-    const QwenRuntimeFacts & facts) noexcept {
+    const QwenRuntimeFacts & facts, const std::string & requested_candidate_identity) noexcept {
     QwenOptimizerDecision decision;
     decision.mode = mode();
     try {
@@ -385,7 +385,8 @@ QwenOptimizerDecision QwenExecutionPlanOptimizer::select(const QwenExecutionPlan
             test_fault_ = QwenOptimizerFault::None;
             throw std::runtime_error("injected optimizer cache lookup failure");
         }
-        const std::string key = candidate_identity(canonical);
+        const bool explicit_candidate = !requested_candidate_identity.empty();
+        const std::string key = explicit_candidate ? requested_candidate_identity : candidate_identity(canonical);
         auto found = candidates_.find(key);
         QwenExecutionCandidate candidate;
         if (found != candidates_.end()) {
@@ -397,6 +398,11 @@ QwenOptimizerDecision QwenExecutionPlanOptimizer::select(const QwenExecutionPlan
             if (test_fault_ == QwenOptimizerFault::CandidateConstruction) {
                 test_fault_ = QwenOptimizerFault::None;
                 throw std::runtime_error("injected optimizer candidate construction failure");
+            }
+            if (explicit_candidate) {
+                decision.fallback = QwenOptimizerFallback::NoCandidate;
+                last_decision_ = decision;
+                return decision;
             }
             auto made = make_prebound_decode_candidate(canonical);
             if (!made) {
@@ -418,11 +424,16 @@ QwenOptimizerDecision QwenExecutionPlanOptimizer::select(const QwenExecutionPlan
             last_decision_ = decision;
             return decision;
         }
+        const std::string native_candidate_prefix = canonical.stable_identity +
+            "|strategy=native-layout-av-v1|capacity=" + std::to_string(canonical.capacity) + "|phase=";
         const bool strategy_identity_matches =
             (candidate.strategy == QwenCandidateStrategy::PreboundDecodeDispatch &&
                 candidate.execution_plan_identity == canonical.stable_identity + "|strategy=prebound-decode-dispatch-v1") ||
             (candidate.strategy == QwenCandidateStrategy::GuardProbe &&
-                candidate.execution_plan_identity == canonical.stable_identity);
+                candidate.execution_plan_identity == canonical.stable_identity) ||
+            (candidate.strategy == QwenCandidateStrategy::NativeLayoutAttentionAV &&
+                (candidate.execution_plan_identity == native_candidate_prefix + "decode" ||
+                 candidate.execution_plan_identity == native_candidate_prefix + "prefill"));
         if ((candidate.status != QwenCandidateStatus::Candidate && candidate.status != QwenCandidateStatus::Valid) ||
             candidate.base_plan_identity != canonical.stable_identity || !strategy_identity_matches) {
             decision.fallback = QwenOptimizerFallback::CandidateMismatch;
@@ -455,7 +466,8 @@ QwenOptimizerDecision QwenExecutionPlanOptimizer::select(const QwenExecutionPlan
         decision.guards_passed = true;
         decision.candidate_eligible = true;
         if (decision.mode == QwenOptimizerMode::Enabled) {
-            if (candidate.strategy != QwenCandidateStrategy::PreboundDecodeDispatch) {
+            if (candidate.strategy != QwenCandidateStrategy::PreboundDecodeDispatch &&
+                candidate.strategy != QwenCandidateStrategy::NativeLayoutAttentionAV) {
                 decision.candidate_eligible = false;
                 decision.fallback = QwenOptimizerFallback::CandidateMismatch;
                 last_decision_ = decision;

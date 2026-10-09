@@ -1,0 +1,22 @@
+ggml_cuda_init: found 2 CUDA devices (Total VRAM: 19996 MiB):
+  Device 0: NVIDIA GeForce RTX 3060, compute capability 8.6, VMM: yes, VRAM: 12037 MiB
+  Device 1: NVIDIA GeForce RTX 2080 SUPER, compute capability 7.5, VMM: yes, VRAM: 7959 MiB
+model=Qwen3 layers=40 hidden=5120 heads=40 kv_heads=8 head_dim=128 vocabulary=151936 tensors=443 source_size=9000232144 source_sha256=sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31 tokenizer_eos=151645 add_bos=NO
+ffn_down_tensor name=blk.0.ffn_down.weight shape=[17408,5120] representation=14 ggml_type=q6_K payload_bytes=73113600 row_bytes=14280 total_blocks=348160 source_offset=579061448 source_length=73113600
+identity model=sha256:f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31 capacity=512 placement=multi:0x26,1x14;emb=0;norm=1;head=1 devices=CUDA0/CUDA1
+av_contract cache=[dimension=128, position*8+head] physical=[position,kv_head,dimension] weights=[position,query,head] reduction=ascending-visible-position
+path=canonical-packed graph_setup_ns=2788237 wall_ns=200400322 prefill_ns=151050013 decode_ns=48266811 native_av_steps=0 native_av_layers=0 packed_v_copy_bytes_avoided=0 boundary_handoffs=2 current_length=33 completed=yes
+path=native-av-trial graph_setup_ns=3551385 wall_ns=89751380 prefill_ns=59248737 decode_ns=28795755 native_av_steps=2 native_av_layers=52 packed_v_copy_bytes_avoided=54525952 boundary_handoffs=2 current_length=33 completed=yes
+native_trial_numeric_probe tokens_equal=yes hidden_max_abs=14.0977783 hidden_rel_rms=0.0128154731 hidden_cosine=0.999926725119 logits_max_abs=0.245014787 logits_rel_rms=0.0179616461 logits_cosine=0.999847054774 numeric_gate=PASS qualification_trial=yes
+real_qwen_compare tokens_equal=yes hidden_max_abs=14.0977783 hidden_rel_rms=0.0128154731 hidden_cosine=0.999926725119 logits_max_abs=0.245014787 logits_rel_rms=0.0179616461 logits_cosine=0.999847054774 sampled_kv_changed_bytes=15840/49152 numeric_gate=PASS qualification_trial=yes candidate_status=Candidate_NOT_Valid
+path=native-av-trial graph_setup_ns=3201095 wall_ns=88414742 prefill_ns=58039698 decode_ns=28591335 native_av_steps=2 native_av_layers=52 packed_v_copy_bytes_avoided=54525952 boundary_handoffs=2 current_length=33 completed=yes
+path=canonical-packed graph_setup_ns=1221369 wall_ns=91801326 prefill_ns=59699426 decode_ns=31018091 native_av_steps=0 native_av_layers=0 packed_v_copy_bytes_avoided=0 boundary_handoffs=2 current_length=33 completed=yes
+paired_sample=2 order=native-first canonical_wall_ns=91801326 native_wall_ns=88414742 canonical_setup_ns=1221369 native_setup_ns=3201095 hidden_rel_rms=0.0128154731 logits_rel_rms=0.0179616461 parity=PASS
+path=canonical-packed graph_setup_ns=1137898 wall_ns=91059067 prefill_ns=59779535 decode_ns=30272053 native_av_steps=0 native_av_layers=0 packed_v_copy_bytes_avoided=0 boundary_handoffs=2 current_length=33 completed=yes
+path=native-av-trial graph_setup_ns=2521377 wall_ns=89278300 prefill_ns=58757847 decode_ns=28792584 native_av_steps=2 native_av_layers=52 packed_v_copy_bytes_avoided=54525952 boundary_handoffs=2 current_length=33 completed=yes
+paired_sample=3 order=canonical-first canonical_wall_ns=91059067 native_wall_ns=89278300 canonical_setup_ns=1137898 native_setup_ns=2521377 hidden_rel_rms=0.0128154731 logits_rel_rms=0.0179616461 parity=PASS
+timing_summary samples=3 scope=executor_run_including_prefill_decode setup_excluded canonical_wall_median_ns=91801326 native_wall_median_ns=89278300 ratio_canonical_over_native=1.028260 canonical_graph_setup_median_ns=1221369 native_graph_setup_median_ns=3201095 performance_status=exploratory_small_capacity_not_production_qualification
+native_failure_injection error=injected Qwen CUDA resource failure: before boundary transfer
+native_failure_recovery logical_length=0 invalidated_candidates=1 PASS
+native_failure_recovery fresh_canonical_session=PASS
+QWEN_NATIVE_LAYOUT_AV_SMALL_GATE=PASS model_capacity=PASS direct_tests=see_ctest real_activations=PASS session_failure=PASS candidate=EXPERIMENTAL_NOT_PRODUCTION_VALIDATED
