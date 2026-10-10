@@ -187,6 +187,9 @@ with new raw topology captures under
 `../qwen3-numerical-propagation/raw/native-av-divergence-topology-final-20261009-070840/`
 and native-prefill locality evidence under
 `../qwen3-numerical-propagation/raw/native-av-divergence-prefill-locality-final-20261009-070358/`.
+The later [offline failure and capture audit](../qwen3-native-av-offline-failure-audit.md)
+adds bitwise QK/softmax/AV replay checks and machine-readable evidence inventory;
+it does not qualify or promote the candidate.
 
 ## Reproduction
 

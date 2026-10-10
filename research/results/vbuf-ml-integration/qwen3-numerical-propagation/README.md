@@ -101,6 +101,12 @@ A short natural-language fixture at capacity 64 also repeated with equal canonic
 
 All follow-up manifests and raw evidence are under `raw/post-stop-followup-20261010/`. The environment and run-level hashes are recorded beside each output; `raw/post-stop-followup-20261010/README.md` describes the evidence and scope. No timing or speedup claim is made. The candidate remains unvalidated and canonical packed-V AV remains authoritative.
 
+### 2c. Offline capture/reference integrity audit (2026-10-10)
+
+The follow-up [offline failure and capture audit](../qwen3-native-av-offline-failure-audit.md) adds a machine-readable 70-record fixture/comparison inventory and checks 18 boundary-capture records across capacities 256, 512, 1024, and 1032. It preserves all 19 original matrix rows as not run, distinguishes topology controls from identical-topology A/B comparisons, and records the corrected capacity-64 `NOT_APPLICABLE` classification without backfilling the stopped matrix. The inventory reports 35 PASS, 10 FAIL, 5 NOT_APPLICABLE, 19 NOT_TESTED, and one `INVALID_EVIDENCE` status-classification record; PASS counts include controls and repeated rows, not independent full-model qualifications.
+
+The capacity-512 primary/repeat/locality prefill and decode boundary files have matching hashes and expected geometry/lengths. A CPU-only FP64 replay bitwise reproduces the saved QK oracle, both softmax references, and AV oracle. Softmax is within `1.3e-7` relative RMS of FP64 softmax over the captured CUDA scores, while QK rounding accounts for the larger difference against FP64 QK softmax. Candidate and canonical layer-0 AV inputs remain bitwise identical; their outputs differ first at AV accumulation (`2.63736e-4` relative RMS). Native AV is within `4.24e-8` of the sampled FP64 AV result, while canonical packed-V is within `2.64e-4`. This confirms the capture/reference replay path and supports the existing reduction-order localization, but does not resolve full-model compatibility or qualify the candidate. A temporary one-bit softmax-capture corruption is rejected by the replay check. Raw inventory, hashes, full replay output, and the negative control are under [`raw/offline-capture-audit-20261010/`](raw/offline-capture-audit-20261010/).
+
 ### 3. Capacity-dependent QK dispatch is upstream of AV
 
 With canonical candidate selection disabled, capacity 512, 1024, and 1032 runs use the same prompt and fed decode token. At layer zero, active Q and K are bitwise identical across capacities, but decode QK scores change *before* softmax:

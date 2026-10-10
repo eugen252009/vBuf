@@ -1,0 +1,12 @@
+Repository: /home/eugen/projekte/vBuf
+Branch: vbuf-ml
+HEAD before this uncommitted audit: ac3e781ee87afadacb2a1b30adde065d7f6ee3643
+OS: Linux debian 6.12.111+deb13-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.12.111-1 (2026-09-28) x86_64 GNU/Linux
+Python: 3.13.5
+CMake: 3.31.6
+CMake build: /tmp/vbuf-qwen-native-matrix-build
+Model payload SHA-256: f409ec946faf59cb338647c47efc2f28e9bdec7e8bd33acacd0cd6a36f2eaa31
+Source GGUF SHA-256: 915913e22399475dbe6c968ac014d9f1fbe08975e489279aede9d5c7b2c98eb6
+GGML commit: 2d191b5dee1a591c41ee8a653ce42bfcd9c8716d
+Placement: multi:0x26,1x14;emb=0;norm=1;head=1
+CUDA_VISIBLE_DEVICES was set to the empty string for reference replay and CTest. No model inference, network access, or GPU workload was launched by the audit. Existing external GPU activity was left untouched.

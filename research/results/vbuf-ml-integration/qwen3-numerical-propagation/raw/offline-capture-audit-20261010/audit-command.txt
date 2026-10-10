@@ -1,0 +1,14 @@
+Offline inventory generation:
+python3 integrations/ggml/qualification/qwen3_native_av_evidence_audit.py --output-dir research/results/vbuf-ml-integration/qwen3-numerical-propagation/raw/offline-capture-audit-20261010
+
+Reference-capture replay (no visible CUDA device):
+CUDA_VISIBLE_DEVICES='' /tmp/vbuf-qwen-native-matrix-build/vbuf_qwen3_reference_capture_qualification research/results/vbuf-ml-integration/qwen3-native-layout-av/raw/av-boundary-qk 512
+
+Focused build:
+cmake --build /tmp/vbuf-qwen-native-matrix-build --target vbuf_qwen3_reference_capture_qualification vbuf_high_precision_reference_contract vbuf_numerical_contract_evidence_replay -j2
+
+Focused CTest (no visible CUDA device):
+CUDA_VISIBLE_DEVICES='' ctest --test-dir /tmp/vbuf-qwen-native-matrix-build -R 'vbuf_high_precision_reference_contract|vbuf_qwen3_reference_capture_qualification|vbuf_numerical_contract_evidence_replay|vbuf_qwen3_native_av_evidence_audit' --output-on-failure
+
+Tamper negative control:
+A temporary copy of the capacity-512 prefill capture had the low bit of the first softmax_from_scores F32 changed. The same reference-capture evaluator was expected to exit nonzero and report a bitwise mismatch. The committed capture was not modified.

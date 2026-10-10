@@ -166,6 +166,23 @@ Tensor make_f32_tensor(const std::vector<float> & values, std::vector<size_t> sh
     return result;
 }
 
+void require_bitwise_equal(const std::vector<float> & expected, const std::vector<float> & actual,
+        const std::string & name) {
+    require(expected.size() == actual.size(), name + " element count mismatch");
+    if (expected.empty() || std::memcmp(expected.data(), actual.data(), expected.size() * sizeof(float)) == 0)
+        return;
+    size_t first_difference = 0;
+    while (first_difference < expected.size() &&
+            std::memcmp(&expected[first_difference], &actual[first_difference], sizeof(float)) == 0)
+        ++first_difference;
+    std::ostringstream message;
+    message << name << " differs bitwise at element " << first_difference;
+    if (first_difference < expected.size())
+        message << " (expected=" << std::setprecision(9) << expected[first_difference]
+                << ", actual=" << actual[first_difference] << ')';
+    throw std::runtime_error(message.str());
+}
+
 std::vector<float> convert_legacy_matrix(const std::vector<float> & source,
         size_t rows, size_t heads, size_t positions) {
     std::vector<float> result(rows * heads * positions);
@@ -360,8 +377,8 @@ void qualify_capture(const fs::path & directory, size_t capacity, const std::str
         convert_legacy_matrix(capture.scores, rows, query_heads, visible), {rows, query_heads, visible});
     const Tensor saved_qk_oracle = make_f32_tensor(
         convert_legacy_matrix(capture.qk_oracle, rows, query_heads, visible), {rows, query_heads, visible});
-    require(qk_reference_result.f32 == saved_qk_oracle.f32,
-        "independent QK oracle did not reproduce the captured FP64 QK reference");
+    require_bitwise_equal(saved_qk_oracle.f32, qk_reference_result.f32,
+        "independent QK replay versus captured FP64 QK reference");
     const std::string qk_family = qk_dispatch_family(capture);
     auto qk_context = base_context(capture, "qk_matmul", "ggml-cuda-qk-" + qk_family, "F32+F16",
         {rows, query_heads, visible});
@@ -377,6 +394,18 @@ void qualify_capture(const fs::path & directory, size_t capacity, const std::str
                 {"dispatch_provenance", "derived from pinned GGML CUDA predicates and captured tensor geometry"},
                 {"key_capacity", std::to_string(capture.capacity)}}));
     require_diagnostic_only(qk_eval, phase + " QK");
+    std::vector<float> causal_qk_reference, causal_qk_candidate;
+    for (size_t q = 0; q < rows; ++q) for (size_t h = 0; h < query_heads; ++h)
+        for (size_t p = 0; p <= static_cast<size_t>(capture.positions[q]); ++p) {
+            const size_t index = (q * query_heads + h) * visible + p;
+            causal_qk_reference.push_back(qk_reference_result.f32[index]);
+            causal_qk_candidate.push_back(qk_candidate.f32[index]);
+        }
+    EvaluationContext causal_qk_context;
+    causal_qk_context.output_shape = {causal_qk_reference.size()};
+    const auto causal_qk_metrics = measure_tensor_pair(
+        make_tensor_view(causal_qk_reference, causal_qk_context.output_shape),
+        make_tensor_view(causal_qk_candidate, causal_qk_context.output_shape), causal_qk_context);
 
     std::vector<float> score_rows = qk_candidate.f32;
     std::vector<float> probability_rows(rows * query_heads * visible);
@@ -385,9 +414,26 @@ void qualify_capture(const fs::path & directory, size_t capacity, const std::str
             probability_rows[(q * query_heads + h) * visible + p] =
                 capture.probabilities[p + visible * (q + rows * h)];
     const std::vector<size_t> extents = causal_extents(capture, query_heads);
+    const double attention_scale = 1.0 / std::sqrt(static_cast<double>(head_dimension));
     const auto high_precision_softmax = softmax(
         contiguous_view(score_rows.data(), {rows * query_heads, visible}),
-        1.0 / std::sqrt(static_cast<double>(head_dimension)), extents, nullptr, ScalarType::F32);
+        attention_scale, extents, nullptr, ScalarType::F32);
+    const Tensor saved_softmax_from_scores = make_f32_tensor(
+        convert_legacy_matrix(capture.softmax_actual_scores, rows, query_heads, visible),
+        {rows * query_heads, visible});
+    const auto high_precision_softmax_from_qk_oracle = softmax(
+        contiguous_view(saved_qk_oracle.f32.data(), {rows * query_heads, visible}),
+        attention_scale, extents, nullptr, ScalarType::F32);
+    const Tensor saved_softmax_from_qk_oracle = make_f32_tensor(
+        convert_legacy_matrix(capture.softmax_oracle_scores, rows, query_heads, visible),
+        {rows * query_heads, visible});
+    require_bitwise_equal(saved_softmax_from_scores.f32, high_precision_softmax.f32,
+        "independent softmax replay from captured CUDA scores");
+    require_bitwise_equal(saved_softmax_from_qk_oracle.f32, high_precision_softmax_from_qk_oracle.f32,
+        "independent softmax replay from captured FP64 QK reference");
+    std::cout << "capture_replay_integrity phase=" << phase
+        << " layer=0 qk_oracle=BITWISE_MATCH softmax_from_scores=BITWISE_MATCH"
+        << " softmax_from_fp64_qk=BITWISE_MATCH\n";
     const Tensor probability_candidate = make_f32_tensor(probability_rows, {rows * query_heads, visible});
     auto softmax_context = base_context(capture, "softmax", "ggml-cuda-softmax-f32", "F32",
         {rows * query_heads, visible});
@@ -401,6 +447,15 @@ void qualify_capture(const fs::path & directory, size_t capacity, const std::str
                 {"logical_extents", "per-query-position+1"}, {"masked_output", "exact-zero"},
                 {"ggml_commit", "2d191b5dee1a591c41ee8a653ce42bfcd9c8716d"}}));
     require_diagnostic_only(softmax_eval, phase + " softmax");
+    const auto oracle_qk_probability_metrics = measure_tensor_pair(
+        numeric_view(high_precision_softmax_from_qk_oracle), numeric_view(probability_candidate), softmax_context);
+    std::cout << "qwen3_causal_active_diagnostic phase=" << phase << " layer=0"
+        << " qk_all_positions_relative_rms=" << metric_number(qk_eval.measured_metrics, Metric::RelativeRmsError)
+        << " qk_causal_positions_relative_rms=" << metric_number(causal_qk_metrics, Metric::RelativeRmsError)
+        << " cuda_probabilities_vs_fp64_softmax_of_cuda_qk_relative_rms="
+        << metric_number(softmax_eval.measured_metrics, Metric::RelativeRmsError)
+        << " cuda_probabilities_vs_fp64_softmax_of_fp64_qk_relative_rms="
+        << metric_number(oracle_qk_probability_metrics, Metric::RelativeRmsError) << '\n';
 
     const Tensor probabilities_qhp = make_f32_tensor(probability_rows, {rows, query_heads, visible});
     const Tensor av_reference_qhd = attention_av(view(probabilities_qhp), value_view,
@@ -413,8 +468,8 @@ void qualify_capture(const fs::path & directory, size_t capacity, const std::str
     const Tensor av_reference = legacy_av_output(av_reference_qhd);
     const Tensor saved_av_oracle = make_f32_tensor(capture.oracle,
         {head_dimension, rows, query_heads});
-    require(av_reference.f32 == saved_av_oracle.f32,
-        "independent AV oracle did not reproduce the captured ascending-position FP64 oracle");
+    require_bitwise_equal(saved_av_oracle.f32, av_reference.f32,
+        "independent AV replay versus captured ascending-position FP64 oracle");
     const Tensor native_candidate = make_f32_tensor(capture.native,
         {head_dimension, rows, query_heads});
     auto av_context = base_context(capture, "attention_av", "ggml-native-layout-av", "F16",

@@ -502,6 +502,9 @@ if(VBUF_BUILD_PROBES)
         COMMAND vbuf_numerical_contract_evidence_replay
             "${CMAKE_CURRENT_SOURCE_DIR}/../../research/results/vbuf-ml-integration/qwen3-numerical-propagation/raw/native-av-divergence-topology-final-20261009-070840/topology_comparison.csv"
             "${CMAKE_CURRENT_SOURCE_DIR}/../../research/results/vbuf-ml-integration/qwen3-numerical-propagation/raw/native-av-divergence-prefill-locality-final-20261009-070358/local_av_metrics.csv")
+    add_test(NAME vbuf_qwen3_native_av_evidence_audit
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/qualification/qwen3_native_av_evidence_audit.py" --check-only)
     add_test(NAME vbuf_numerical_contract_json_contract
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/vbuf_numerical_contract_json_contract.py"
             "$<TARGET_FILE:vbuf_numerical_contract_evidence_replay>"

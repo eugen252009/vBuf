@@ -1,0 +1,16 @@
+{
+  "baseline_exact_history_tokens": 33,
+  "boundary_capture_hash_groups": 8,
+  "boundary_capture_records": 18,
+  "inventory_records": 70,
+  "non_authorizing": true,
+  "original_matrix_planned": 20,
+  "original_matrix_unrun": 19,
+  "status_counts": {
+    "FAIL": 10,
+    "INVALID_EVIDENCE": 1,
+    "NOT_APPLICABLE": 5,
+    "NOT_TESTED": 19,
+    "PASS": 35
+  }
+}

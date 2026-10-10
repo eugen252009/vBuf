@@ -1,0 +1,5 @@
+tamper_negative_control=EXPECTED_REJECTION
+tampered_section=softmax_from_scores_F32 first element low bit flipped
+cuda_visible_devices=empty
+exit_status=1
+vbuf_qwen3_reference_capture_qualification=FAIL: independent softmax replay from captured CUDA scores differs bitwise at element 0 (expected=1.00000012, actual=1)
