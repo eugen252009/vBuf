@@ -1470,7 +1470,8 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
                 output = replace_invalid_utf8(output);
                 if (buffer_native_tool_stream) {
                     if (!result.cancelled && result.error.empty()) {
-                        auto assistant = vbuf_agent::parse_qwen3_native_tool_output(output, *parsed_chat, id);
+                        auto assistant = vbuf_agent::parse_qwen3_native_tool_output(output, *parsed_chat, id,
+                            {}, result.tokens.size() >= max_tokens);
                         if (assistant.tool_calls.empty() && result.tokens.size() >= max_tokens)
                             assistant.finish_reason = vbuf_agent::AssistantOutput::FinishReason::Length;
                         finish = assistant.finish_reason == vbuf_agent::AssistantOutput::FinishReason::ToolCalls
@@ -1602,7 +1603,8 @@ static void handle_request(int fd, ServerRuntime * runtime, uint64_t accepted_ns
         std::string body;
         if (status != 200) body = error_body(result.error, "server_error");
         else if (request.path == "/v1/chat/completions" && native_tool_request) {
-            auto assistant = vbuf_agent::parse_qwen3_native_tool_output(output, *parsed_chat, id);
+            auto assistant = vbuf_agent::parse_qwen3_native_tool_output(output, *parsed_chat, id,
+                {}, result.tokens.size() >= max_tokens);
             if (assistant.tool_calls.empty() && result.tokens.size() >= max_tokens)
                 assistant.finish_reason = vbuf_agent::AssistantOutput::FinishReason::Length;
             body = vbuf_agent::serialize_chat_response(id, runtime->config.model_alias, assistant,

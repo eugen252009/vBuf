@@ -1,0 +1,38 @@
+{
+  "run_id": "multiturn-vbuf-02",
+  "backend": "vbuf",
+  "bwrap_exit_code": 0,
+  "outer_cap_reason": null,
+  "supervisor_trial_end": {
+    "event": "trial_end",
+    "backend": "vbuf",
+    "agent_exit_code": 0,
+    "cap_reason": null,
+    "ready_ms": 18020.1,
+    "wall_seconds": 161.486,
+    "agent_stats": {
+      "elapsed_seconds": 142.904,
+      "turn_count": 5,
+      "tool_call_count": 4,
+      "http_exchange_count": 5,
+      "cap_reason": null
+    }
+  },
+  "generated_project_files": [
+    {
+      "path": "README.md",
+      "size": 120,
+      "sha256": "66720523b6903bbb3df08452d1fb562c9fe299b4231390186dc2ce333a37af76"
+    },
+    {
+      "path": "cycle-result.txt",
+      "size": 9,
+      "sha256": "4e9264d77d3feb7149552d79463a930d0329492d1ac07bf66b7ea3be68130f3d"
+    }
+  ],
+  "nvidia_after": {
+    "gpu_query": "0, GPU-888379f7-ab38-cd4e-7220-0f3ff2de5fca, NVIDIA GeForce RTX 3060, 12, 12288, 68\n1, GPU-9d8f11c5-7b23-4b91-9f41-9c1841bd4a0f, NVIDIA GeForce RTX 2080 SUPER, 611, 8192, 13",
+    "compute_apps": ""
+  },
+  "finished_at_utc": "2026-10-10T10:07:11.006874+00:00"
+}

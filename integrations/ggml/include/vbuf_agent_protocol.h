@@ -111,9 +111,11 @@ void validate_assistant_output_for_request(const ChatRequest & request,
 // Exact Qwen3-14B artifact-native, non-streaming tool conversation adapter.
 // The caller must first admit the exact artifact; this does not execute tools.
 std::string render_qwen3_native_tool_prompt(const ChatRequest & request);
+// Set generation_limit_reached only when the generation layer confirms its budget was exhausted;
+// incomplete native markup is then discarded and reported with finish_reason=length.
 AssistantOutput parse_qwen3_native_tool_output(const std::string & output,
     const ChatRequest & request, const std::string & request_id,
-    const Limits & limits = {});
+    const Limits & limits = {}, bool generation_limit_reached = false);
 std::string serialize_chat_response(const std::string & id, const std::string & model,
     const AssistantOutput & output, size_t prompt_tokens, size_t completion_tokens,
     const Limits & limits = {});

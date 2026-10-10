@@ -1,0 +1,15 @@
+{
+  "llama_tool_name": "write",
+  "llama_tool_arguments_chars": 9815,
+  "llama_generated_source_bytes": 9305,
+  "llama_terminal_finish_reasons": [
+    "tool_calls"
+  ],
+  "llama_generated_tokens_from_server_log": 2975,
+  "vbuf_prefix_source_chars": 11920,
+  "vbuf_first_char": "#include <stdio.h>\n#include <stdlib.h>\n#",
+  "vbuf_generated_tokens_at_limit": 6144,
+  "vbuf_repeated_d_literals": 1618,
+  "vbuf_contains_main_definition": false,
+  "vbuf_raw_tool_call_closed": false
+}

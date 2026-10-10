@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <map>
 #include <cstdlib>
 #include <set>
@@ -459,7 +460,8 @@ void validate_assistant_output_for_request(const ChatRequest & request,
     const AssistantOutput & output, const Limits & limits) {
     validate_assistant_output(output, limits);
     if (output.tool_calls.empty()) {
-        if (request.tool_choice.kind == ToolChoice::Kind::ForcedFunction)
+        if (request.tool_choice.kind == ToolChoice::Kind::ForcedFunction &&
+            output.finish_reason != AssistantOutput::FinishReason::Length)
             throw ProtocolError(ProtocolError::Category::Internal, "adapter did not honor forced tool_choice");
         return;
     }
@@ -714,16 +716,38 @@ std::string render_qwen3_native_tool_prompt(const ChatRequest & request) {
 }
 
 AssistantOutput parse_qwen3_native_tool_output(const std::string & output,
-    const ChatRequest & request, const std::string & request_id, const Limits & limits) {
+    const ChatRequest & request, const std::string & request_id, const Limits & limits,
+    bool generation_limit_reached) {
     constexpr const char * open = "<tool_call>";
     constexpr const char * close = "</tool_call>";
     AssistantOutput result;
     std::string text;
+    const auto truncated_output = [&]() {
+        result.has_content = true;
+        result.content.clear();
+        result.tool_calls.clear();
+        result.finish_reason = AssistantOutput::FinishReason::Length;
+        validate_assistant_output_for_request(request, result, limits);
+        return result;
+    };
+    const auto is_partial_marker_at_end = [&](size_t position, const char * marker) {
+        const size_t marker_size = std::char_traits<char>::length(marker);
+        const size_t remaining = output.size() - position;
+        return remaining < marker_size &&
+            std::memcmp(output.data() + position, marker, remaining) == 0;
+    };
     size_t cursor = 0;
     while (cursor < output.size()) {
         const size_t partial_open = output.find("<tool_call", cursor);
         const size_t partial_close = output.find("</tool_call", cursor);
         const size_t begin = output.find(open, cursor);
+        const bool incomplete_open = partial_open != std::string::npos && partial_open != begin &&
+            is_partial_marker_at_end(partial_open, open);
+        const bool incomplete_close = partial_close != std::string::npos &&
+            output.compare(partial_close, std::char_traits<char>::length(close), close) != 0 &&
+            is_partial_marker_at_end(partial_close, close);
+        if (generation_limit_reached && (incomplete_open || incomplete_close))
+            return truncated_output();
         if ((partial_open != std::string::npos && partial_open != begin) ||
             (partial_close != std::string::npos && output.compare(partial_close, std::char_traits<char>::length(close), close) != 0))
             throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen tool output: partial marker");
@@ -734,8 +758,10 @@ AssistantOutput parse_qwen3_native_tool_output(const std::string & output,
         text.append(output, cursor, begin - cursor);
         const size_t payload = begin + std::char_traits<char>::length(open);
         const size_t end = output.find(close, payload);
-        if (end == std::string::npos)
+        if (end == std::string::npos) {
+            if (generation_limit_reached) return truncated_output();
             throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen tool output: unterminated tool_call block");
+        }
         if (output.find(open, payload) < end)
             throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen tool output: nested tool_call block");
         JsonValue call;
@@ -758,8 +784,10 @@ AssistantOutput parse_qwen3_native_tool_output(const std::string & output,
     while (reasoning_start < text.size() && std::isspace(static_cast<unsigned char>(text[reasoning_start]))) ++reasoning_start;
     if (text.compare(reasoning_start, std::char_traits<char>::length("<think>"), "<think>") == 0) {
         const size_t reasoning_end = text.find("</think>", reasoning_start + std::char_traits<char>::length("<think>"));
-        if (reasoning_end == std::string::npos)
+        if (reasoning_end == std::string::npos) {
+            if (generation_limit_reached) return truncated_output();
             throw ProtocolError(ProtocolError::Category::Internal, "malformed Qwen output: unterminated reasoning block");
+        }
         text.erase(0, reasoning_end + std::char_traits<char>::length("</think>"));
     }
     if (result.tool_calls.empty()) {

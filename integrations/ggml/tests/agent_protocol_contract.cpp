@@ -78,6 +78,56 @@ int main() {
     assert(!native_call.has_content && native_call.tool_calls.size() == 1);
     assert(native_call.tool_calls[0].id == "call_req1_0" && native_call.tool_calls[0].name == "add");
     assert(parse_json(native_call.tool_calls[0].arguments).get("a")->scalar == "37");
+    const std::string truncated_native_call =
+        "<think>\n\n</think>\n\n<tool_call>\n{\"name\":\"add\",\"arguments\":{\"a\":37";
+    try {
+        (void)parse_qwen3_native_tool_output(truncated_native_call, one, "truncated_without_limit");
+        assert(false);
+    } catch (const ProtocolError & e) { assert(e.category == ProtocolError::Category::Internal); }
+    const auto truncated_native = parse_qwen3_native_tool_output(
+        truncated_native_call, one, "truncated_at_limit", {}, true);
+    assert(truncated_native.finish_reason == AssistantOutput::FinishReason::Length &&
+        truncated_native.has_content && truncated_native.content.empty() && truncated_native.tool_calls.empty());
+    const auto truncated_response = parse_json(serialize_chat_response(
+        "truncated_at_limit", "model", truncated_native, 916, 6144));
+    assert(truncated_response.get("choices")->array[0].get("finish_reason")->scalar == "length");
+    assert(truncated_response.get("choices")->array[0].get("message")->get("content")->scalar.empty());
+    assert(truncated_response.get("choices")->array[0].get("message")->get("tool_calls") == nullptr);
+    const auto truncated_sse = stream_chat_response("truncated_at_limit", "model", truncated_native);
+    const auto truncated_sse_result = reconstruct_stream(truncated_sse);
+    assert(truncated_sse_result.finish_reason == AssistantOutput::FinishReason::Length &&
+        truncated_sse_result.has_content && truncated_sse_result.content.empty() &&
+        truncated_sse_result.tool_calls.empty());
+    const auto partial_marker_at_limit = parse_qwen3_native_tool_output(
+        "<tool_call", one, "partial_marker_at_limit", {}, true);
+    assert(partial_marker_at_limit.finish_reason == AssistantOutput::FinishReason::Length &&
+        partial_marker_at_limit.tool_calls.empty() && partial_marker_at_limit.content.empty());
+    const auto partial_close_at_limit = parse_qwen3_native_tool_output(
+        R"(<tool_call>{"name":"add","arguments":{}}</tool_call)",
+        one, "partial_close_at_limit", {}, true);
+    assert(partial_close_at_limit.finish_reason == AssistantOutput::FinishReason::Length &&
+        partial_close_at_limit.tool_calls.empty());
+    const auto completed_call_at_limit = parse_qwen3_native_tool_output(
+        R"(<tool_call>{"name":"add","arguments":{}}</tool_call>)",
+        one, "completed_at_limit", {}, true);
+    assert(completed_call_at_limit.finish_reason == AssistantOutput::FinishReason::ToolCalls &&
+        completed_call_at_limit.tool_calls.size() == 1);
+    const auto complete_then_truncated = parse_qwen3_native_tool_output(
+        R"(<tool_call>{"name":"add","arguments":{}}</tool_call><tool_call>{"name":"add","arguments":{"a":)",
+        one, "complete_then_truncated", {}, true);
+    assert(complete_then_truncated.finish_reason == AssistantOutput::FinishReason::Length &&
+        complete_then_truncated.tool_calls.empty());
+    try {
+        (void)parse_qwen3_native_tool_output(
+            R"(<tool_call>{bad}</tool_call>)", one, "malformed_at_limit", {}, true);
+        assert(false);
+    } catch (const ProtocolError & e) { assert(e.category == ProtocolError::Category::Internal); }
+    const ChatRequest forced_length_request = parse_chat_request(
+        prefix + tool + R"(],"tool_choice":{"type":"function","function":{"name":"add"}}})");
+    const auto forced_truncated = parse_qwen3_native_tool_output(
+        truncated_native_call, forced_length_request, "forced_truncated", {}, true);
+    assert(forced_truncated.finish_reason == AssistantOutput::FinishReason::Length &&
+        forced_truncated.tool_calls.empty());
     assert(parse_qwen3_native_tool_output("plain answer", one, "req2").content == "plain answer");
     AssistantOutput reasoned_call = parse_qwen3_native_tool_output(
         R"(<think>private reasoning</think>

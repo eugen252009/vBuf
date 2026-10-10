@@ -1,0 +1,16 @@
+{
+  "http_status": 500,
+  "elapsed_seconds": 565.455,
+  "response_bytes": 102,
+  "response_headers": {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Content-Length": "102",
+    "Connection": "close"
+  },
+  "response_body": "{\"error\":{\"message\":\"malformed Qwen tool output: unterminated tool_call block\",\"type\":\"server_error\"}}",
+  "server_exit_during_request": null,
+  "range_exit_during_request": null
+}

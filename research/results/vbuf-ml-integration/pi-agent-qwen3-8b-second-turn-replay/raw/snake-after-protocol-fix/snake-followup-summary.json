@@ -1,0 +1,19 @@
+{
+  "status": "PROTOCOL_SAFE_BUT_SNAKE_TASK_FAILED",
+  "http_posts": 2,
+  "second_completion_http_status": 200,
+  "second_completion_seconds": 424.935,
+  "second_completion_finish_reason": "length",
+  "second_completion_contains_tool_calls": false,
+  "prompt_token_count": 916,
+  "prompt_token_ids_sha256": "feaf88943eafee31328b6ed0c9a3fc7db5ceb82b393f8a6bde5d9d5637be2236",
+  "matches_original_prompt_token_ids_sha256": "feaf88943eafee31328b6ed0c9a3fc7db5ceb82b393f8a6bde5d9d5637be2236",
+  "generated_tokens": 6144,
+  "generated_token_ids_sha256": "a4d9e93c7cb6658c66a36fb79d0fa523329a6794e0daae05db3a90ee9e08a4ed",
+  "generated_sequence_identical_to_original_6144_replay": true,
+  "agent_turn_count": 2,
+  "agent_tool_call_count": 1,
+  "generated_source_file_present": false,
+  "agent_exit_code": 0,
+  "qualification": "FAIL: only the initial README read completed; no Snake source was generated."
+}

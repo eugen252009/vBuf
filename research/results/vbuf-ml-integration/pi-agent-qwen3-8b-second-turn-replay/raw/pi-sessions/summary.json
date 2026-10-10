@@ -1,0 +1,75 @@
+{
+  "schema": "qwen3-8b-multiturn-pi-sessions-v1",
+  "required_sessions": 3,
+  "minimum_tool_calls_per_session": 3,
+  "minimum_turns_per_session": 4,
+  "sessions": [
+    {
+      "run_id": "multiturn-vbuf-01",
+      "runner_exit_code": 0,
+      "agent_exit_code": 0,
+      "tool_call_count": 4,
+      "turn_count": 5,
+      "http_exchange_count": 5,
+      "cap_reason": null,
+      "generated_project_files": [
+        {
+          "path": "README.md",
+          "size": 120,
+          "sha256": "66720523b6903bbb3df08452d1fb562c9fe299b4231390186dc2ce333a37af76"
+        },
+        {
+          "path": "cycle-result.txt",
+          "size": 9,
+          "sha256": "4e9264d77d3feb7149552d79463a930d0329492d1ac07bf66b7ea3be68130f3d"
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "run_id": "multiturn-vbuf-02",
+      "runner_exit_code": 0,
+      "agent_exit_code": 0,
+      "tool_call_count": 4,
+      "turn_count": 5,
+      "http_exchange_count": 5,
+      "cap_reason": null,
+      "generated_project_files": [
+        {
+          "path": "README.md",
+          "size": 120,
+          "sha256": "66720523b6903bbb3df08452d1fb562c9fe299b4231390186dc2ce333a37af76"
+        },
+        {
+          "path": "cycle-result.txt",
+          "size": 9,
+          "sha256": "4e9264d77d3feb7149552d79463a930d0329492d1ac07bf66b7ea3be68130f3d"
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "run_id": "multiturn-vbuf-03",
+      "runner_exit_code": 0,
+      "agent_exit_code": 0,
+      "tool_call_count": 4,
+      "turn_count": 5,
+      "http_exchange_count": 5,
+      "cap_reason": null,
+      "generated_project_files": [
+        {
+          "path": "README.md",
+          "size": 120,
+          "sha256": "66720523b6903bbb3df08452d1fb562c9fe299b4231390186dc2ce333a37af76"
+        },
+        {
+          "path": "cycle-result.txt",
+          "size": 9,
+          "sha256": "4e9264d77d3feb7149552d79463a930d0329492d1ac07bf66b7ea3be68130f3d"
+        }
+      ],
+      "status": "PASS"
+    }
+  ],
+  "overall_status": "PASS"
+}

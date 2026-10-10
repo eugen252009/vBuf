@@ -1,0 +1,9 @@
+Complete this sequential tool-cycle check. Make exactly one tool call per assistant turn and wait for its result before the next step. Do not make calls in parallel.
+
+1. Use `read` on `README.md` and identify its verification code.
+2. After the read result, use `write` to create `cycle-result.txt` with exactly the README's verification code followed by `-42`; do not add a trailing newline.
+3. After the write result, use `bash` to run exactly: `test "$(cat cycle-result.txt)" = "ORCHID-42" && printf 'CYCLE3_OK\n'`
+4. After the bash result, use `read` on `cycle-result.txt`.
+5. Reply exactly `PASS ORCHID-42` only if the bash output and file contents both match; otherwise report the failure.
+
+Do not use any other tools or create any other files.

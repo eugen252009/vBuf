@@ -1,0 +1,15 @@
+{
+  "http_status": 200,
+  "elapsed_seconds": 5.814,
+  "response_bytes": 468,
+  "response_headers": {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "X-Accel-Buffering": "no",
+    "Transfer-Encoding": "chunked",
+    "Connection": "close"
+  },
+  "response_body": "data: {\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"model\":\"qwen3-8b\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"model\":\"qwen3-8b\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-vbuf-1\",\"object\":\"chat.completion.chunk\",\"model\":\"qwen3-8b\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"length\"}]}\n\ndata: [DONE]\n\n",
+  "server_exit_during_request": null,
+  "range_exit_during_request": null
+}

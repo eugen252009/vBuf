@@ -1,0 +1,20 @@
+{
+  "prompt_tokens": 916,
+  "context_capacity": 12288,
+  "available_completion_tokens": 11372,
+  "requested_max_tokens": 6144,
+  "generated_tokens": 6144,
+  "reached_output_limit": true,
+  "prompt_ids_equal_llama": true,
+  "llama_prompt_tokens": 916,
+  "first_prompt_token_mismatch": null,
+  "prompt_sha256": "39c32c329cd2683ed946e1903282ffe3afb5f54c4179de436cd15dcda018e99c",
+  "prompt_token_ids_sha256": "feaf88943eafee31328b6ed0c9a3fc7db5ceb82b393f8a6bde5d9d5637be2236",
+  "generated_token_ids_sha256": "a4d9e93c7cb6658c66a36fb79d0fa523329a6794e0daae05db3a90ee9e08a4ed",
+  "raw_generation_bytes": 12206,
+  "raw_generation_sha256": "94f95871b33442fd7be1c5797530d55d8606217419ca073439dd1091d6250852",
+  "open_tool_call_count": 1,
+  "close_tool_call_count": 0,
+  "api_http_status": 500,
+  "api_error": "{\"error\":{\"message\":\"malformed Qwen tool output: unterminated tool_call block\",\"type\":\"server_error\"}}"
+}

@@ -1,0 +1,2 @@
+0.00.325.717 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.00.372.835 W llama_context: n_ctx_seq (512) > n_ctx_train (0) -- possible training context overflow
