@@ -1,0 +1,33 @@
+{
+  "schema": "vbuf-pi-qwen3-8b-ab-volatile-snapshot-v1",
+  "purpose": "Preserve comparison-specific volatile workspaces, hidden Pi configuration, generated trial files, grading copies, CUDA compute caches, and the exact temporary vBuf runtime/build tree after all six trials completed.",
+  "created_after_commit": "4140289",
+  "preservation_method": "Copied to archives; original /var/tmp sources were left in place and untouched.",
+  "committed_workspace_archive": {
+    "path": "raw/volatile-host-workspaces.tar.gz",
+    "source": "/var/tmp/vbuf-pi-qwen3-ab-workspaces",
+    "sha256": "43ad7461497856b52865ef0ef45c81003d40a125518d175eb9da967a4bd0bcf4",
+    "compressed_bytes": 18387,
+    "archive_entries": 222,
+    "integrity": "gzip -t passed"
+  },
+  "full_local_runtime_snapshot": {
+    "path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-8b-pi-ab-volatile-20261009.tar.zst",
+    "sha256": "dd879e50ec9f5ae1d0196e421f660404f46f8621d2d36577d32356500be3f3a5",
+    "compressed_bytes": 114984664,
+    "uncompressed_tar_bytes": 448389120,
+    "contents": [
+      "/var/tmp/vbuf-pi-qwen3-ab-workspaces",
+      "/var/tmp/vbuf-pi-qwen3-ab-runtime",
+      "/var/tmp/vbuf-qwen3-8b-ab-build"
+    ],
+    "integrity": "zstd -t passed"
+  },
+  "not_duplicated": {
+    "model_artifacts": "Remain in the existing local qualification cache; their SHA-256 identities are recorded in the trial manifests and qualification report.",
+    "external_ggml_checkout": "Left untouched at its pinned commit with its pre-existing modification; not copied into this snapshot.",
+    "llama_cpp_checkout_and_build": "Remain in the existing project checkout/build; trial manifests record the commit and binary hashes.",
+    "captured_run_traces": "Already committed under raw/runs/, raw/pilots/, and raw/infra-probes/; sandbox /tmp namespaces are ephemeral by design."
+  },
+  "push_performed": false
+}
