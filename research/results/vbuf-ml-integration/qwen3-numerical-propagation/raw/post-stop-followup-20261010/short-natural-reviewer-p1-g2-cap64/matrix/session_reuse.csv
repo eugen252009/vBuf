@@ -1,0 +1,2 @@
+fixture_id,mode,cancelled_length,reused_length,cancelled_at_prompt_boundary,reentered_cleanly,session_reset_verified,tokens_equal_fresh,captures_equal_fresh,token_hash,capture_hash,status
+short-natural-reviewer-p1-g2-cap64,BOTH,1,3,yes,yes,yes,yes,yes,ac0762aa20ccc052,b3ecc273c7a58645,PASS

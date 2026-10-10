@@ -1,0 +1,6 @@
+# qwen3-native-av-post-stop-follow-up-v1
+# diagnostic-only follow-up; does not amend the original stopped 20-fixture matrix or its NOT_RUN_AFTER_STOP rows
+# selected exact row from qwen3-native-av-fixture-matrix-v1.tsv sha256=51ae8f65af3d7ee42ebe55150bf33532f251f7581f018f0e8eb899fe298ae465
+# candidate remains unvalidated; explicit test-only unvalidated trial; production selection disabled
+fixture_id|category|description|prompt_text|prompt_ids|generated_tokens|capacity|mode|input_mode|repeats|prior_result|common_replay|session_reuse
+short-natural-reviewer-p1-g2-cap64|natural-language-short|short first-token prefix from an independently tokenized natural-language prompt|The reviewer compares every generated token with the canonical path.|785|2|64|BOTH|FREE|2|UNQUALIFIED|no|yes

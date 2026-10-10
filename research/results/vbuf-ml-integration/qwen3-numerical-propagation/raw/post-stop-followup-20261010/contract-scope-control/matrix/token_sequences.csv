@@ -1,0 +1,5 @@
+fixture_id,repeat,run_kind,input_token_ids,canonical_generated_tokens,candidate_generated_tokens,canonical_token_hash,candidate_token_hash,trajectory_equal
+short-natural-reviewer-p1-g2-cap64,1,FREE_RUNNING,785,25;220,25;220,ac0762aa20ccc052,ac0762aa20ccc052,yes
+short-natural-reviewer-p1-g2-cap64,2,FREE_RUNNING,785,25;220,25;220,ac0762aa20ccc052,ac0762aa20ccc052,yes
+natural-repeat-p32-g1-cap512,1,FREE_RUNNING,785;93947;1273;33455;304;16878;17628;13;8886;29295;7424;279;1482;2309;11;87856;279;20579;6894;323;2750;11;323;74898;279;6788;3840;13;2308;16688;374;67595,504,504,914c4dfbfdd42e07,914c4dfbfdd42e07,yes
+natural-repeat-p32-g1-cap512,2,FREE_RUNNING,785;93947;1273;33455;304;16878;17628;13;8886;29295;7424;279;1482;2309;11;87856;279;20579;6894;323;2750;11;323;74898;279;6788;3840;13;2308;16688;374;67595,504,504,914c4dfbfdd42e07,914c4dfbfdd42e07,yes

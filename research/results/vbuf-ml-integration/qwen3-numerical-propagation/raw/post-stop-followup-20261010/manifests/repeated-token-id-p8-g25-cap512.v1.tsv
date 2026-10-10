@@ -1,0 +1,8 @@
+# qwen3-native-av-post-stop-follow-up-v1
+# separate in-scope diagnostic; does not amend the original stopped 20-fixture matrix or its NOT_RUN_AFTER_STOP rows
+# selected exact row from qwen3-native-av-fixture-matrix-v1.tsv sha256=51ae8f65af3d7ee42ebe55150bf33532f251f7581f018f0e8eb899fe298ae465
+# synthetic repeated valid token ID; not a natural-language prompt
+# capacity 512 is within the active Qwen3 final-output compatibility contract scope (minimum capacity 512)
+# candidate remains unvalidated; explicit test-only unvalidated trial; production selection disabled
+fixture_id|category|description|prompt_text|prompt_ids|generated_tokens|capacity|mode|input_mode|repeats|prior_result|common_replay|session_reuse
+repeated-token-id-p8-g25-cap512|synthetic-repeated-token-id|repeated valid token ID 785; synthetic input, not natural-language text|<synthetic repeated token ID 785; not natural language>|785,785,785,785,785,785,785,785|25|512|BOTH|FREE|2|UNQUALIFIED|no|no

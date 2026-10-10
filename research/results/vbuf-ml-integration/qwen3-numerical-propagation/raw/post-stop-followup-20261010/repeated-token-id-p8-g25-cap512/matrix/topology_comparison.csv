@@ -1,0 +1,1 @@
+fixture_id,repeat,token_hash,token_count,position,input_token,comparison,all_layer_captures_bitwise_equal,first_differing_layer,hidden_max_abs,hidden_relative_rms,hidden_cosine,logits_max_abs,logits_relative_rms,logits_cosine,top1_equal

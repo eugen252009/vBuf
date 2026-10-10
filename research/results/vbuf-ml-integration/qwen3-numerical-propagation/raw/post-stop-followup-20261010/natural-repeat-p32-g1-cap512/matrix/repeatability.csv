@@ -1,0 +1,2 @@
+fixture_id,run_kind,attempts,canonical_tokens_repeatable,candidate_tokens_repeatable,canonical_capture_repeatable,candidate_capture_repeatable,status
+natural-repeat-p32-g1-cap512,FREE_RUNNING,2,yes,yes,yes,yes,PASS

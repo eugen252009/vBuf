@@ -1,0 +1,19 @@
+# Qualification-only CUDA build used for the post-stop follow-up
+cmake -S integrations/ggml -B /tmp/vbuf-qwen-native-matrix-build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CUDA_ARCHITECTURES='75;86' \
+  -DVBUF_GGML_SOURCE_DIR=/home/eugen/.cache/vbuf-agent-qualification/ggml \
+  -DVBUF_ML_LIBRARY="$PWD/rust/target/release/libvbuf_ml.so" \
+  -DVBUF_ML_INCLUDE_DIR= \
+  -DVBUF_ENABLE_CUDA=ON \
+  -DVBUF_ENABLE_UNVALIDATED_QUALIFICATION_TRIALS=ON \
+  -DVBUF_ENABLE_CPU_REPACK=OFF \
+  -DVBUF_BUILD_PROBES=ON \
+  -DVBUF_BUILD_REAL_GATE2B=OFF \
+  -DVBUF_BUILD_MOE_GROUPING_MICROQUALIFICATION=OFF \
+  -DVBUF_BUILD_COMPAT_SERVER=OFF
+cmake --build /tmp/vbuf-qwen-native-matrix-build \
+  --target vbuf_qwen3_native_av_sequence_qualification -j8
+
+# Test-only unvalidated candidate trials are explicitly enabled for this diagnostic executable;
+# the run logs record production_selection=disabled and candidate=unvalidated_trial.

@@ -560,6 +560,7 @@ struct PairSummary {
     bool same_tokens = false;
     bool same_history = false;
     bool numeric_gate = false;
+    EvaluationStatus numeric_status = EvaluationStatus::NotTested;
     bool eligibility = false;
     bool canonical_reset = false;
     bool candidate_reset = false;
@@ -632,8 +633,21 @@ PairSummary compare_pair(std::ostream & positions_out, std::ostream & tokens_out
             candidate.execution.final_hidden, context);
         const auto logits_contract = evaluate_output("final_logits", canonical.execution.final_logits,
             candidate.execution.final_logits, context);
-        summary.numeric_gate = hidden_contract.status == EvaluationStatus::Pass &&
-            logits_contract.status == EvaluationStatus::Pass;
+        if (hidden_contract.status == EvaluationStatus::Fail || logits_contract.status == EvaluationStatus::Fail) {
+            summary.numeric_status = EvaluationStatus::Fail;
+        } else if (hidden_contract.status == EvaluationStatus::InvalidEvaluation ||
+            logits_contract.status == EvaluationStatus::InvalidEvaluation) {
+            summary.numeric_status = EvaluationStatus::InvalidEvaluation;
+        } else if (hidden_contract.status == EvaluationStatus::NotApplicable ||
+            logits_contract.status == EvaluationStatus::NotApplicable) {
+            summary.numeric_status = EvaluationStatus::NotApplicable;
+        } else if (hidden_contract.status == EvaluationStatus::NotTested ||
+            logits_contract.status == EvaluationStatus::NotTested) {
+            summary.numeric_status = EvaluationStatus::NotTested;
+        } else {
+            summary.numeric_status = EvaluationStatus::Pass;
+        }
+        summary.numeric_gate = summary.numeric_status == EvaluationStatus::Pass;
         std::printf("numerical_contract_live_result %s\n", evaluation_json(hidden_contract).c_str());
         std::printf("numerical_contract_live_result %s\n", evaluation_json(logits_contract).c_str());
     }
@@ -669,7 +683,8 @@ PairSummary compare_pair(std::ostream & positions_out, std::ostream & tokens_out
     const bool token_ok = !free_running || summary.same_tokens;
     const bool state_ok = canonical_state_ok && candidate_state_ok && summary.canonical_reset &&
         summary.candidate_reset && summary.eligibility;
-    if (fixture.prior_result == "FAIL" && state_ok && token_ok && summary.numeric_comparable && !summary.numeric_gate) {
+    if (fixture.prior_result == "FAIL" && state_ok && token_ok && summary.numeric_comparable &&
+        summary.numeric_status == EvaluationStatus::Fail) {
         summary.status = "KNOWN_NEGATIVE_REPRODUCED";
         summary.detail = "prior failure repeated with the unchanged final hidden/logit gate";
     } else if (fixture.prior_result == "FAIL" && state_ok && token_ok && summary.numeric_gate) {
@@ -684,6 +699,15 @@ PairSummary compare_pair(std::ostream & positions_out, std::ostream & tokens_out
     } else if (!summary.numeric_comparable) {
         summary.status = "NUMERIC_NOT_COMPARABLE";
         summary.detail = "same input history and final hidden/logits were not available on both paths";
+    } else if (summary.numeric_status == EvaluationStatus::NotApplicable) {
+        summary.status = "NUMERIC_NOT_APPLICABLE";
+        summary.detail = "active numerical contract is outside scope; measured metrics are diagnostic-only";
+    } else if (summary.numeric_status == EvaluationStatus::NotTested) {
+        summary.status = "NUMERIC_NOT_TESTED";
+        summary.detail = "no active numerical contract evaluated this comparison";
+    } else if (summary.numeric_status == EvaluationStatus::InvalidEvaluation) {
+        summary.status = "NUMERIC_EVALUATION_INVALID";
+        summary.detail = "numerical contract evaluation was invalid; inspect the live contract result";
     } else if (!summary.numeric_gate) {
         summary.status = "NUMERIC_GATE_FAIL";
         summary.detail = "existing final hidden/logit gate failed; no threshold relaxation";
@@ -713,7 +737,7 @@ void write_summary(std::ostream & out, const Fixture & fixture, const PairSummar
         s.numeric_comparable ? format_double(s.logits.max_abs) : "NA",
         s.numeric_comparable ? format_double(s.logits.relative_rms) : "NA",
         s.numeric_comparable ? format_double(s.logits.cosine) : "NA",
-        s.numeric_comparable ? (s.numeric_gate ? "PASS" : "FAIL") : "NA",
+        s.numeric_comparable ? evaluation_status_name(s.numeric_status) : "NA",
         s.eligibility ? "PASS" : "FAIL", hex64(s.canonical_token_hash), hex64(s.candidate_token_hash),
         hex64(s.canonical_capture_hash), hex64(s.candidate_capture_hash), s.input_tokens,
         s.canonical_tokens, s.candidate_tokens, s.detail});
@@ -953,6 +977,7 @@ int run_matrix(const std::string & semantic, const std::string & source,
     std::printf(" placement=multi:0x26,1x14; production_selection=disabled; candidate=unvalidated_trial\n");
 
     bool stop = false;
+    bool has_not_applicable_diagnostics = false;
     size_t stop_index = fixtures.size();
     for (size_t fixture_index = 0; fixture_index < fixtures.size(); ++fixture_index) {
         const Fixture & fixture = fixtures[fixture_index];
@@ -1105,6 +1130,10 @@ int run_matrix(const std::string & semantic, const std::string & source,
         if (!fixture_error && !summaries_repeatable(fixture, fixture_summaries)) unexpected_failure = true;
         for (const auto & result : fixture_summaries) {
             const bool passed = result.status == "PASS" || result.status == "PRIOR_NEGATIVE_NOT_REPRODUCED";
+            if (result.status == "NUMERIC_NOT_APPLICABLE") {
+                has_not_applicable_diagnostics = true;
+                continue;
+            }
             if (!passed && !run_fixture_is_expected_negative(fixture, result)) unexpected_failure = true;
         }
         if (!fixture_error && fixture_summaries.size() < fixture.repeats * (fixture.common_replay ? 2 : 1))
@@ -1134,9 +1163,10 @@ int run_matrix(const std::string & semantic, const std::string & source,
     topology_out.close();
     topology_layers_out.close();
     prefix_out.close();
+    const char * matrix_status = stop ? "STOPPED_ON_FAILURE" :
+        has_not_applicable_diagnostics ? "COMPLETED_WITH_NOT_APPLICABLE" : "COMPLETED";
     std::printf("matrix_result status=%s fixtures_run=%zu fixtures_total=%zu candidate_status=Candidate_NOT_Valid output=%s\n",
-        stop ? "STOPPED_ON_FAILURE" : "COMPLETED", stop ? stop_index + 1 : fixtures.size(),
-        fixtures.size(), output_dir.c_str());
+        matrix_status, stop ? stop_index + 1 : fixtures.size(), fixtures.size(), output_dir.c_str());
     return stop ? 2 : 0;
 }
 } // namespace

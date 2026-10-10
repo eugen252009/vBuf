@@ -1,0 +1,1 @@
+fixture_id,repeat,capacity,prefix_tokens,position,input_token,prefix_token_hash,comparison,step_geometry_equal,native_selection_equal,hidden_bitwise_equal,logits_bitwise_equal,hidden_relative_rms,hidden_cosine,logits_relative_rms,logits_cosine,top1_equal

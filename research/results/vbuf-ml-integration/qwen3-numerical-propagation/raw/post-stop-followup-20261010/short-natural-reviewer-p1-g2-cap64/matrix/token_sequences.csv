@@ -1,0 +1,3 @@
+fixture_id,repeat,run_kind,input_token_ids,canonical_generated_tokens,candidate_generated_tokens,canonical_token_hash,candidate_token_hash,trajectory_equal
+short-natural-reviewer-p1-g2-cap64,1,FREE_RUNNING,785,25;220,25;220,ac0762aa20ccc052,ac0762aa20ccc052,yes
+short-natural-reviewer-p1-g2-cap64,2,FREE_RUNNING,785,25;220,25;220,ac0762aa20ccc052,ac0762aa20ccc052,yes
