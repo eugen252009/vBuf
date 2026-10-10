@@ -1,0 +1,50 @@
+#!/bin/sh
+# Keep the generated research index in the same commit as staged paper changes.
+set -eu
+
+ROOT=$(git rev-parse --show-toplevel) || {
+    echo "pre-commit: cannot locate the Git repository root" >&2
+    exit 1
+}
+cd "$ROOT"
+
+# Use NUL-delimited Git paths so unusual filenames are handled safely. A staged
+# index-only edit must not trigger regeneration or stage any other work.
+set +e
+python3 - <<'PY'
+import subprocess
+import sys
+
+result = subprocess.run(
+    ["git", "diff", "--cached", "--name-only", "-z", "--", "research"],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+)
+if result.returncode:
+    sys.stderr.write(result.stderr.decode("utf-8", "replace"))
+    raise SystemExit(2)
+paths = [path for path in result.stdout.split(b"\0") if path]
+changed = any(
+    path.lower().endswith(b".md") and path != b"research/INDEX.md"
+    for path in paths
+)
+raise SystemExit(1 if changed else 0)
+PY
+CHECK_STATUS=$?
+set -e
+case "$CHECK_STATUS" in
+    0) exit 0 ;;
+    1) ;;
+    *) echo "pre-commit: cannot inspect staged research changes" >&2; exit "$CHECK_STATUS" ;;
+esac
+
+if ! python3 scripts/generate-research-index.py --write --staged; then
+    echo "pre-commit: research index generation failed; commit rejected" >&2
+    exit 1
+fi
+
+# This is the only path the hook is permitted to stage.
+if ! git add -- research/INDEX.md; then
+    echo "pre-commit: could not stage research/INDEX.md; commit rejected" >&2
+    exit 1
+fi

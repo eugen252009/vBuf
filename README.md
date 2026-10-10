@@ -157,6 +157,31 @@ Raw, failed, and historical evidence remains under [research/results/](research/
 The [pre-consolidation README](https://github.com/eugen252009/vBuf/blob/eb63641d723ad9a66299fd822e9325a4a0c5e3c8/README.md)
 also preserves the earlier extended tables and transport interpretation.
 
+## Research
+
+Development and qualification research is maintained in the [`research/`](research/)
+directory. The complete chronological list of research papers and reports is
+available in the [Research Index](research/INDEX.md). Dates use explicit ISO
+metadata or path dates where available, then historical Git first-addition dates;
+new documents without a reliable date appear under “Undated Documents.”
+
+The index is generated from the repository's Markdown research documents. Install
+the tracked pre-commit hook after cloning to update it automatically when a
+research paper is staged:
+
+```sh
+git config --local core.hooksPath .githooks
+```
+
+Validate the generated index at any time with:
+
+```sh
+python3 scripts/generate-research-index.py --check
+```
+
+Do not edit the index manually. Historical research documents and their Git
+commit references are preserved for reproducibility.
+
 ## Build And Test
 
 From the repository root:
