@@ -1,0 +1,129 @@
+{
+  "schema": "qwen3-fixed-prefix-logit-diagnosis-v1",
+  "captured_at_utc_date": "2026-10-10",
+  "repository": {
+    "path": "/home/eugen/projekte/vBuf",
+    "head": "a6f3f055196274a69e4bc89584278c11c4e2e923",
+    "production_source_modified": false,
+    "research_evidence_added": true,
+    "pushed": false
+  },
+  "identity": {
+    "gguf_path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-8b/Qwen3-8B-Q4_K_M.gguf",
+    "gguf_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+    "vbuf_path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-8b/Qwen3-8B-Q4_K_M.vbuf",
+    "vbuf_sha256": "cc85fa7afd90808484485de0e0a09e88ff5b98b58d1fb69c7083f64916417cb5",
+    "semantic_path": "/home/eugen/.cache/vbuf-agent-qualification/qwen3-8b/Qwen3-8B-Q4_K_M.semantic.vbuf",
+    "semantic_sha256": "99f2892dbe58d427605457729a6edcfa037d67f8ec1ff7f325953345b5d11212"
+  },
+  "model_visible_prefix": {
+    "rendered_prompt_path": "rendered-prompt.txt",
+    "rendered_prompt_bytes": 3998,
+    "rendered_prompt_sha256": "39c32c329cd2683ed946e1903282ffe3afb5f54c4179de436cd15dcda018e99c",
+    "prompt_token_ids_path": "prompt-token-ids.csv",
+    "prompt_token_count": 916,
+    "prompt_token_ids_sha256": "feaf88943eafee31328b6ed0c9a3fc7db5ceb82b393f8a6bde5d9d5637be2236",
+    "prompt_token_ids_file_sha256": "244713735facf1192daaf0ac8d0d784a6ab1cad6fca63e2ecac356e67ca991b1",
+    "full_vbuf_generation_token_count": 6144,
+    "full_vbuf_generation_ids_file_sha256": "055f13db78eceda9a71f728bae2056f704b4cbf500634182170ea610a5b51011",
+    "full_vbuf_generation_text_sha256": "94f95871b33442fd7be1c5797530d55d8606217419ca073439dd1091d6250852",
+    "1350_token_replay_ids_file_sha256": "e1d05f59ca3de937910d2570ec127c37b828e99aa1359b0571b8e94fe38f961e",
+    "63_token_replay_ids_file_sha256": "6d5833233a88a827f354d46669c6570330b7ceac5610a5dc090350f8b991f356"
+  },
+  "original_vbuf_generation": {
+    "context_capacity": 12288,
+    "prompt_tokens": 916,
+    "remaining_context_slots": 11372,
+    "max_new_tokens": 6144,
+    "sampling": "greedy argmax; no request-level sampler options",
+    "thinking": "off",
+    "model_layers": 36,
+    "prefill_chunk_tokens": 32,
+    "decode": "single-token incremental"
+  },
+  "diagnostic_vbuf_replays": [
+    {
+      "binary_sha256": "c7644a2532e488f3aaedc150eb357911c65b618fbf6be50935589e5b4fb5d26f",
+      "instrumented_archive_sha256": "0f0f257b9b8ce7e8e4984411e8c14e81b58d0a213afba162e5093a7adba1d90d",
+      "unmodified_archive_sha256": "343422158bb9f60def3dd3237ca1a4e0773c2efddff39e27ebb160303a0630df",
+      "max_new_tokens": 1350,
+      "run_count": 2,
+      "exact_saved_generation_prefix": true,
+      "exact_prefix_tokens": 1350,
+      "capture_target_indices": [0, 58, 59, 60, 61, 1287, 1288, 1318, 1348],
+      "capture_provenance": "incremental vectors came from a repeat of the 1350-token generation; fresh-prefix vectors came from separate one-token sessions in the initial identical generation replay",
+      "execution": "canonical vBuf runtime; every replay's generated token sequence matched the saved prefix"
+    },
+    {
+      "binary_sha256": "c7644a2532e488f3aaedc150eb357911c65b618fbf6be50935589e5b4fb5d26f",
+      "max_new_tokens": 63,
+      "exact_saved_generation_prefix": true,
+      "exact_prefix_tokens": 63,
+      "capture_target_indices": [0, 58, 59, 60, 61]
+    }
+  ],
+  "llama_cpp_reference": {
+    "source_path": "/home/eugen/projekte/llama.cpp",
+    "commit": "a97123e497968f3440264c0464a7adc7c999c027",
+    "git_worktree_clean": true,
+    "library_path": "/home/eugen/projekte/llama.cpp/build/bin/libllama.so",
+    "model_layers_offloaded": "all",
+    "gpu": "RTX 3060 only",
+    "context": 12288,
+    "batch": 512,
+    "ubatch": 128,
+    "flash_attention": "off",
+    "sampling_configuration_from_matched_server": {
+      "temperature": 0,
+      "top_k": 1,
+      "top_p": 1,
+      "repeat_penalty": 1,
+      "seed": 42,
+      "thinking": "off"
+    },
+    "fixed_prefix_evaluation": "raw logits; prompt in batches up to 512, then teacher-forced single-token decode; no sampler",
+    "top1_targets_tested": 1349,
+    "first_top1_mismatch_index": 60,
+    "mismatch_indices": [60, 623, 816, 1049],
+    "capture_target_indices": [0, 58, 59, 60, 61, 1287, 1288, 1318, 1348],
+    "repeatability": "late selected vectors at indices 0, 1287, 1288, 1318, and 1348 were bit-identical across two reference runs"
+  },
+  "temporary_diagnostic_programs": {
+    "vbuf_fixed_prefix_logits": {
+      "binary_sha256": "c7644a2532e488f3aaedc150eb357911c65b618fbf6be50935589e5b4fb5d26f",
+      "source_sha256": "f4a27dd2bacb78bd6118fe69cdea85981ea8a1447641cc02ca3cc541eb22a289"
+    },
+    "instrumented_qwen3_generation_source_sha256": "1e182dc22bbc15d812448f4a9ef2582c04b39b6bc48130123c517eeb1b650a57",
+    "llama_fixed_prefix_logits": {
+      "binary_sha256": "13e9eec396111206c26ca1e49252a1b0a936aaa8c95d051c95170b5eea696b9e",
+      "source_sha256": "d27ddd689bda4e6de19b595c07a5169d4f8d74b6ba5fd3de52964d4ccbc3a30c"
+    },
+    "llama_prefix_top1": {
+      "binary_sha256": "258cdd71399a905307c7cb2fa1543e3ea118e0dbd986b6c2741aa9975f20720f",
+      "source_sha256": "2399d4c5ff5e6f88c7e0f9c9e3d250e5997ed1a6b0ba289e85247d9a36349405"
+    }
+  },
+  "capture_format": {
+    "dtype": "little-endian float32",
+    "vocabulary": 151936,
+    "bytes_per_vector": 607744,
+    "target_indexing": "zero-based generated target; logits are captured before including that target token"
+  },
+  "environment": {
+    "cuda_visible_devices": "0",
+    "gpu0": "NVIDIA GeForce RTX 3060, 12 GiB; idle before runs",
+    "gpu1": "NVIDIA GeForce RTX 2080 SUPER; unrelated activity left untouched",
+    "range_source": "loopback-only, isolated port 18337, stopped after capture",
+    "port_8080": "pre-existing listener, not used or stopped",
+    "protected_stashes": [
+      "stash@{0}: android: unverified vbuf_parallel_executor CMake hunk",
+      "stash@{1}: pre-merge local Step-32 reconciliation draft"
+    ],
+    "external_ggml_preexisting_modification": {
+      "path": "/home/eugen/.cache/vbuf-agent-qualification/ggml/src/ggml-cuda/ggml-cuda.cu",
+      "status": "M src/ggml-cuda/ggml-cuda.cu; left untouched",
+      "observed_sha256": "f83aa82997808deb6cf790a6dff6da8dcaaf7b78f21a6154c8773b6c88864819"
+    }
+  },
+  "decision": "No specific defect was demonstrated. No production fix, threshold change, admission change, parser change, Native AV change, or final inference-path switch was made."
+}

@@ -1,0 +1,11 @@
+Repeatability comparison: independent llama fixed-prefix runs; identical SHA-256 means bit-identical F32 logit vectors.
+1ac290c7d1e0aa127724f3bb2d6b7cece1fab7b4dcca425a9c7a2e39a096c5e3  research/results/vbuf-ml-integration/pi-agent-qwen3-8b-second-turn-replay/raw/fixed-prefix-logit-diagnosis-20261010/llama/llama-target-0.f32
+1ac290c7d1e0aa127724f3bb2d6b7cece1fab7b4dcca425a9c7a2e39a096c5e3  /var/tmp/qwen3-8b-fixed-prefix-logits-20261011/llama-prefix-audit/llama-target-0.f32
+d503dd9142fc61aede1f743cb05cafeb24c0d81cc2652bdcf83290530f4d98ee  research/results/vbuf-ml-integration/pi-agent-qwen3-8b-second-turn-replay/raw/fixed-prefix-logit-diagnosis-20261010/llama/llama-target-1287.f32
+d503dd9142fc61aede1f743cb05cafeb24c0d81cc2652bdcf83290530f4d98ee  /var/tmp/qwen3-8b-fixed-prefix-logits-20261011/llama-prefix-audit/llama-target-1287.f32
+0bb1b9f3bfbd17b86c721d1ed81b08015e1019543e187e6a6ca444499379fd03  research/results/vbuf-ml-integration/pi-agent-qwen3-8b-second-turn-replay/raw/fixed-prefix-logit-diagnosis-20261010/llama/llama-target-1288.f32
+0bb1b9f3bfbd17b86c721d1ed81b08015e1019543e187e6a6ca444499379fd03  /var/tmp/qwen3-8b-fixed-prefix-logits-20261011/llama-prefix-audit/llama-target-1288.f32
+d05262efaf980d32363d7f4bdb25dd1f415f69faedebe50553047064521b50e9  research/results/vbuf-ml-integration/pi-agent-qwen3-8b-second-turn-replay/raw/fixed-prefix-logit-diagnosis-20261010/llama/llama-target-1318.f32
+d05262efaf980d32363d7f4bdb25dd1f415f69faedebe50553047064521b50e9  /var/tmp/qwen3-8b-fixed-prefix-logits-20261011/llama-prefix-audit/llama-target-1318.f32
+d6e846eed1f89416f0b07bdb253dc5b4d9ebf6fd80e677430f0c3648b8458456  research/results/vbuf-ml-integration/pi-agent-qwen3-8b-second-turn-replay/raw/fixed-prefix-logit-diagnosis-20261010/llama/llama-target-1348.f32
+d6e846eed1f89416f0b07bdb253dc5b4d9ebf6fd80e677430f0c3648b8458456  /var/tmp/qwen3-8b-fixed-prefix-logits-20261011/llama-prefix-audit/llama-target-1348.f32

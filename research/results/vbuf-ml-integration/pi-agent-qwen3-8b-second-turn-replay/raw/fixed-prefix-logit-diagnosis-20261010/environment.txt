@@ -1,0 +1,16 @@
+Capture date: 2026-10-10 UTC
+Repository: /home/eugen/projekte/vBuf, branch vbuf-ml, HEAD a6f3f055196274a69e4bc89584278c11c4e2e923
+Pinned reference: /home/eugen/projekte/llama.cpp, commit a97123e497968f3440264c0464a7adc7c999c027, clean worktree
+
+Inference visibility and isolation:
+- Both inference programs were run with CUDA_VISIBLE_DEVICES=0 and CUDA_DEVICE_ORDER=PCI_BUS_ID.
+- Logical CUDA device 0 was the NVIDIA GeForce RTX 3060 (12 GiB); it was idle before runs and returned to 12 MiB / 0% after a short post-run wait.
+- The RTX 2080 SUPER had unrelated activity throughout; it was never made visible to these processes or disturbed.
+- Port 8080 was already listening and was not used or stopped.
+- The vBuf range source bound to 127.0.0.1:18337 for each capture and was stopped afterward.
+
+Protected state:
+- stash@{0}: android: unverified vbuf_parallel_executor CMake hunk
+- stash@{1}: pre-merge local Step-32 reconciliation draft
+- /home/eugen/.cache/vbuf-agent-qualification/ggml had the pre-existing modification M src/ggml-cuda/ggml-cuda.cu; it was left untouched (observed SHA-256 f83aa82997808deb6cf790a6dff6da8dcaaf7b78f21a6154c8773b6c88864819).
+- No production execution source, threshold, parser, admission rule, numerical contract, or persistent format was changed. Nothing was pushed.

@@ -45,3 +45,7 @@ All Qwen3-8B runs used the previously gated artifacts: source GGUF SHA-256 `d98c
 - `raw/harness/`: reproducible session runner and the sandbox harness inputs. The shared harness implementation is reused from the earlier A/B qualification; the new runner overrides only the fixture/output/runtime paths.
 
 The 14B native-AV candidate remains `Candidate_NOT_Valid`; these agent-protocol results do not change or backfill its stopped numerical matrix.
+
+## Follow-up fixed-prefix diagnosis
+
+The subsequent token/logit investigation is documented in [generation-divergence-diagnosis-20261010.md](generation-divergence-diagnosis-20261010.md). It locates the period-3 suffix at generated token 1,288 and the first greedy fixed-prefix mismatch against pinned llama.cpp at token 60, a near-tie. The follow-up found no specific implementation defect and made no production runtime changes; Qwen3-8B remains experimental and unqualified.

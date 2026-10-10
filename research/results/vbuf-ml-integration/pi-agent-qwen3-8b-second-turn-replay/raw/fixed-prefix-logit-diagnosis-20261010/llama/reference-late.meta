@@ -1,0 +1,13 @@
+llama_commit=a97123e497968f3440264c0464a7adc7c999c027
+model=/home/eugen/.cache/vbuf-agent-qualification/qwen3-8b/Qwen3-8B-Q4_K_M.gguf
+model_layers=36
+vocabulary=151936
+prompt_tokens=916
+context=12288
+batch=512
+ubatch=128
+threads=8
+gpu_layers=all
+flash_attention=off
+kv_cache_default=llama.cpp
+positions=0,1287,1288,1318,1348

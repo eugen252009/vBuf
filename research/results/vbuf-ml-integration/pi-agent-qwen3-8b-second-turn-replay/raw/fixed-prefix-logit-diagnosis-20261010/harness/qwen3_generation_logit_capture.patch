@@ -1,0 +1,49 @@
+--- integrations/ggml/src/qwen3_generation.cpp
++++ /tmp/qwen3_generation_diag.cpp
+@@ -7,0 +8,3 @@
++#include <cstdio>
++#include <cstdlib>
++#include <fstream>
+@@ -29,0 +33,38 @@
++bool capture_requested(uint32_t generated_index) {
++    const char * requested = std::getenv("VBUF_LOGIT_CAPTURE_STEPS");
++    if (requested == nullptr) return false;
++    const std::string target = std::to_string(generated_index);
++    const char * cursor = requested;
++    while (*cursor != '\0') {
++        while (*cursor == ',' || *cursor == ' ' || *cursor == '\t') ++cursor;
++        const char * begin = cursor;
++        while (*cursor != '\0' && *cursor != ',') ++cursor;
++        if (std::string(begin, static_cast<size_t>(cursor - begin)) == target) return true;
++    }
++    return false;
++}
++
++void capture_generation_logits(uint32_t generated_index, uint32_t predicted,
++    const std::vector<float> & logits) {
++    if (!capture_requested(generated_index)) return;
++    const char * directory = std::getenv("VBUF_LOGIT_CAPTURE_DIR");
++    if (directory == nullptr) return;
++    const std::string path = std::string(directory) + "/vbuf-" + std::to_string(generated_index) + ".f32";
++    std::ofstream output(path, std::ios::binary);
++    if (!output) {
++        std::fprintf(stderr, "QWEN_LOGIT_CAPTURE_ERROR index=%u reason=open\n", generated_index);
++        return;
++    }
++    output.write(reinterpret_cast<const char *>(logits.data()),
++        static_cast<std::streamsize>(logits.size() * sizeof(float)));
++    std::vector<size_t> ranked(logits.size());
++    for (size_t i = 0; i < ranked.size(); ++i) ranked[i] = i;
++    const size_t top_count = std::min<size_t>(10, ranked.size());
++    std::partial_sort(ranked.begin(), ranked.begin() + top_count, ranked.end(),
++        [&](size_t a, size_t b) { return logits[a] == logits[b] ? a < b : logits[a] > logits[b]; });
++    std::fprintf(stderr, "QWEN_LOGIT_CAPTURE index=%u predicted=%u top10=", generated_index, predicted);
++    for (size_t i = 0; i < top_count; ++i)
++        std::fprintf(stderr, "%s%zu:%.9g", i == 0 ? "" : ",", ranked[i], logits[ranked[i]]);
++    std::fprintf(stderr, "\n");
++}
++
+@@ -458,0 +500 @@
++        capture_generation_logits(0, next_token, logits);
+@@ -476,0 +519 @@
++            capture_generation_logits(static_cast<uint32_t>(result.tokens.size()), next_token, logits);
